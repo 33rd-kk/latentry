@@ -1,0 +1,198 @@
+/**
+ * PNG text chunks (lib/gallery/png-meta.ts), saving with settings
+ * (lib/gallery/save.ts) and the gallery's view of a folder (lib/gallery/fs.ts),
+ * including the ways a name must not get out of its folder.
+ *
+ * Run with: npm test -- gallery
+ */
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile, utimes } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
+import { deflateSync } from 'node:zlib'
+import sharp from 'sharp'
+import { check, done, eq } from './assert'
+import {
+  formatA1111Parameters,
+  LATENTRY_KEY,
+  metaFromText,
+  parseA1111Parameters,
+  parseComfyPrompt,
+  PARAMETERS_KEY,
+  pngSize,
+  readChunks,
+  readPngText,
+  TAGS_KEY,
+  writePngText,
+  type LatentryRecord,
+} from '../lib/gallery/png-meta'
+import { isSafeName, listPage, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import type { GalleryDir } from '../lib/gallery/dirs'
+
+const RECORD: LatentryRecord = {
+  schema: 1,
+  backend: 'anima',
+  kind: 'diffusers',
+  profile: 'anima',
+  model: 'Anima-Base (v1.0)',
+  mode: 'img2img',
+  prompt: '@artist, 1girl, 桜, smile',
+  negative_prompt: 'lowres, bad hands',
+  seed: 1234,
+  width: 832,
+  height: 1216,
+  sampler: 'Euler',
+  scheduler: 'Karras',
+  steps: 30,
+  cfg: 4.5,
+  strength: 0.6,
+  created: '2026-10-03T00:00:00.000Z',
+}
+
+async function main() {
+  const png = await sharp({ create: { width: 16, height: 24, channels: 3, background: '#123456' } }).png().toBuffer()
+
+  // ── Writing and reading ──
+  const written = writePngText(png, {
+    [PARAMETERS_KEY]: formatA1111Parameters(RECORD),
+    [LATENTRY_KEY]: JSON.stringify(RECORD),
+  })
+  const chunks = readChunks(written).map((chunk) => chunk.type)
+  // Both carry "桜", which Latin-1 cannot: iTXt.
+  eq(chunks.slice(0, 3), ['IHDR', 'iTXt', 'iTXt'], 'text goes right after IHDR; non-Latin-1 text as iTXt')
+  eq(readChunks(writePngText(png, { [PARAMETERS_KEY]: 'a cat' }))[1].type, 'tEXt', 'Latin-1 text stays plain tEXt')
+  eq(chunks[chunks.length - 1], 'IEND', 'IEND stays last')
+  eq(pngSize(written), { width: 16, height: 24 }, 'the size is read from IHDR')
+  const decoded = await sharp(written).raw().toBuffer({ resolveWithObject: true })
+  eq([decoded.info.width, decoded.info.height], [16, 24], 'the result is still a valid PNG (CRCs right)')
+
+  const text = readPngText(written)
+  const meta = metaFromText(text)
+  eq(
+    [meta?.source, meta?.prompt, meta?.negativePrompt, meta?.seed, meta?.strength, meta?.backend, meta?.profile],
+    ['latentry', RECORD.prompt, RECORD.negative_prompt, 1234, 0.6, 'anima', 'anima'],
+    'our record round-trips, Unicode included'
+  )
+
+  const params = parseA1111Parameters(text[PARAMETERS_KEY])
+  eq(
+    [params.prompt, params.negativePrompt, params.steps, params.cfg, params.seed, params.width, params.height, params.sampler, params.scheduler, params.model],
+    [RECORD.prompt, RECORD.negative_prompt, 30, 4.5, 1234, 832, 1216, 'Euler', 'Karras', 'Anima-Base (v1.0)'],
+    'the A1111 infotext we write is what an A1111 reader sees'
+  )
+
+  // Replacing one keyword keeps the others, and a big record is compressed.
+  const retagged = writePngText(written, { [TAGS_KEY]: JSON.stringify([{ name: '1girl', category: 0, score: 0.99 }]) })
+  const again = metaFromText(readPngText(retagged))
+  eq([again?.prompt, again?.tags?.[0].name], [RECORD.prompt, '1girl'], 'tags join the record without disturbing it')
+  const retagged2 = writePngText(retagged, { [TAGS_KEY]: JSON.stringify([{ name: 'smile', category: 0, score: 0.5 }]) })
+  eq(readChunks(retagged2).filter((chunk) => chunk.type !== 'IDAT').length, readChunks(retagged).filter((chunk) => chunk.type !== 'IDAT').length, 'rewriting tags replaces the chunk rather than adding one')
+  const huge = writePngText(png, { [LATENTRY_KEY]: JSON.stringify({ ...RECORD, prompt: 'x, '.repeat(3000) }) })
+  check(readChunks(huge)[1].data[readChunks(huge)[1].data.indexOf(0) + 1] === 1, 'a long record is written compressed')
+  eq(metaFromText(readPngText(huge))?.prompt.length, 'x, '.repeat(3000).length, 'and reads back whole')
+
+  // ── Other tools' metadata ──
+  const a1111 = parseA1111Parameters(
+    'masterpiece, 1girl,\nlong hair\nNegative prompt: worst quality\nSteps: 28, Sampler: DPM++ 2M, Schedule type: Karras, CFG scale: 6, Seed: 42, Size: 1024x1024, Model: "waiNSFW, v14", Denoising strength: 0.5, Lora hashes: "a: 1, b: 2"'
+  )
+  eq(
+    [a1111.prompt, a1111.negativePrompt, a1111.steps, a1111.sampler, a1111.scheduler, a1111.cfg, a1111.seed, a1111.width, a1111.model, a1111.strength],
+    ['masterpiece, 1girl,\nlong hair', 'worst quality', 28, 'DPM++ 2M', 'Karras', 6, 42, 1024, 'waiNSFW, v14', 0.5],
+    'A1111 infotext: multi-line prompt, quoted values with commas'
+  )
+  eq(parseA1111Parameters('just a prompt').prompt, 'just a prompt', 'infotext without settings')
+
+  const comfy = parseComfyPrompt(
+    JSON.stringify({
+      '3': { class_type: 'KSampler', inputs: { seed: 7, steps: 25, cfg: 5.5, sampler_name: 'euler', scheduler: 'normal', denoise: 1, positive: ['6', 0], negative: ['7', 0], latent_image: ['5', 0], model: ['4', 0] } },
+      '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'noob.safetensors' } },
+      '5': { class_type: 'EmptyLatentImage', inputs: { width: 832, height: 1216, batch_size: 1 } },
+      '6': { class_type: 'CLIPTextEncode', inputs: { text: '1girl, smile', clip: ['4', 1] } },
+      '7': { class_type: 'CLIPTextEncode', inputs: { text: 'lowres', clip: ['4', 1] } },
+    })
+  )
+  eq(
+    [comfy?.prompt, comfy?.negativePrompt, comfy?.seed, comfy?.steps, comfy?.model, comfy?.width, comfy?.height, comfy?.strength],
+    ['1girl, smile', 'lowres', 7, 25, 'noob.safetensors', 832, 1216, undefined],
+    'ComfyUI graph: the sampler leads to the right prompts'
+  )
+  eq(parseComfyPrompt('{nope'), null, 'broken JSON')
+
+  // zTXt (deflated Latin-1) is read too.
+  const ztxt = Buffer.concat([Buffer.from('parameters\0\0', 'latin1'), deflateSync(Buffer.from('a cat\nSteps: 5, Seed: 1', 'latin1'))])
+  const withZtxt = writePngText(png, {})
+  const zChunks = readChunks(withZtxt)
+  const header = Buffer.alloc(8)
+  header.writeUInt32BE(ztxt.length, 0)
+  header.write('zTXt', 4, 'latin1')
+  const { crc32 } = await import('node:zlib')
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(crc32(Buffer.concat([header.subarray(4), ztxt])) >>> 0, 0)
+  const idhr = withZtxt.subarray(0, 8 + 12 + zChunks[0].data.length)
+  const zPng = Buffer.concat([idhr, header, ztxt, crc, withZtxt.subarray(idhr.length)])
+  eq(metaFromText(readPngText(zPng))?.seed, 1, 'zTXt is inflated')
+
+  // ── Names ──
+  for (const bad of ['../x.png', '..\\x.png', 'a/b.png', 'a\\b.png', '.hidden.png', 'x.txt', 'C:x.png'.replace('C:', 'C:\\'), '', 'x\0.png']) {
+    check(!isSafeName(bad), `refused name ${JSON.stringify(bad)}`)
+  }
+  check(isSafeName('20261003-120000_anima_1_0.png') && isSafeName('a b.JPG'), 'plain names pass')
+
+  // ── A folder ──
+  const root = await mkdtemp(path.join(tmpdir(), 'latentry-'))
+  const folder = path.join(root, 'out')
+  const outside = path.join(root, 'secret')
+  await mkdir(folder)
+  await mkdir(outside)
+  try {
+    const dir: GalleryDir = { index: 0, path: folder, label: 'out', writable: true }
+    await writeFile(path.join(folder, 'old.png'), written)
+    await writeFile(path.join(folder, 'new.png'), retagged)
+    await writeFile(path.join(folder, 'notes.txt'), 'not an image')
+    await writeFile(path.join(outside, 'private.png'), png)
+    const now = Date.now() / 1000
+    await utimes(path.join(folder, 'old.png'), now - 100, now - 100)
+    await utimes(path.join(folder, 'new.png'), now, now)
+
+    const info = await readPngInfo(path.join(folder, 'new.png'))
+    eq([info?.width, info?.height, Object.keys(info?.text ?? {}).sort()], [16, 24, [LATENTRY_KEY, PARAMETERS_KEY, TAGS_KEY].sort()], 'chunk headers are enough to read size and text')
+
+    const page = await listPage(dir, { limit: 1, filter: {} })
+    eq([page.items.map((item) => item.name), page.nextCursor !== null], [['new.png'], true], 'newest first, one per page')
+    const page2 = await listPage(dir, { limit: 10, cursor: page.nextCursor, filter: {} })
+    eq([page2.items.map((item) => item.name), page2.nextCursor], [['old.png'], null], 'the cursor continues; text files are not listed')
+    eq(page2.items[0].meta?.seed, 1234, 'items carry their settings')
+    const found = await listPage(dir, { limit: 10, filter: { q: 'SMILE 1girl', backend: 'anima' } })
+    eq(found.items.map((item) => item.name).sort(), ['new.png', 'old.png'], 'search matches prompt words in any case')
+    eq((await listPage(dir, { limit: 10, filter: { backend: 'sdxl' } })).items, [], 'the backend filter')
+
+    check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')
+    eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')
+    eq(await resolveInDir(dir, 'missing.png'), null, 'a missing file does not')
+
+    let linked = false
+    try {
+      await symlink(path.join(outside, 'private.png'), path.join(folder, 'link.png'))
+      linked = true
+    } catch {
+      // Creating symlinks needs a privilege on Windows; the case is skipped there.
+    }
+    if (linked) {
+      eq(await resolveInDir(dir, 'link.png'), null, 'a symlink leading out of the folder is refused')
+    } else {
+      console.log('  (symlink case skipped: no privilege to create one)')
+    }
+
+    // writeTags only for the save folder, and it really rewrites the file.
+    const { writeTags } = await import('../lib/gallery/save')
+    eq(await writeTags({ ...dir, writable: false }, 'old.png', []), false, 'a read-only folder is never written')
+    eq(await writeTags(dir, '../secret/private.png', []), false, 'nor a file outside it')
+    eq(await writeTags(dir, 'old.png', [{ name: 'cat_ears', category: 0, score: 0.7 }]), true, 'the save folder is')
+    eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+
+  done('gallery')
+}
+
+void main()
