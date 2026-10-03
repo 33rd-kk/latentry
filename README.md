@@ -6,8 +6,6 @@ once: an Anima server and an SDXL web UI side by side, each with its own
 settings. Plus a gallery that knows how every picture was made, and WD14
 tagging in both directions.
 
-[日本語](README.ja.md)
-
 ## What it does
 
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
@@ -26,8 +24,9 @@ tagging in both directions.
 - **Tags.** Extract WD14 tags from a source image and carry a character's
   look into the prompt by group (hair, eyes, outfit…). Tag gallery pictures
   and keep the tags in the file.
-- English and Japanese, light and dark, and a secret mode that keeps what you
-  type out of browser storage and blurs the gallery.
+- Light and dark, and a secret mode that keeps what you type out of browser
+  storage and blurs the gallery. The UI is in English and can be machine
+  translated into other languages (see [Translations](#translations)).
 
 ## Backends
 
@@ -86,6 +85,24 @@ use, `npm run build && npm start` is faster than the dev server.
   proxy in front of it, one that overwrites `X-Forwarded-For` (the per-IP
   limits trust that header).
 
+## Translations
+
+English (`locales/en.json`) is the only catalog in the repository and the
+source for every other one. To add a language, connect a machine translation
+service or an LLM as a provider in `scripts/translators/` (a few lines; see
+[its README](scripts/translators/README.md)) and run:
+
+```bash
+TRANSLATOR=<provider> npm run i18n:translate -- de    # writes locales/de.json
+npm run i18n:check                                     # missing / stale / broken keys
+```
+
+Placeholders such as `{count}` are protected from the translator, only new or
+changed English strings are sent on later runs, and a key missing from a
+catalog shows in English. Browsers whose language has a catalog get it
+automatically, and a language menu appears in the header once there is more
+than one.
+
 ## Development
 
 ```bash
@@ -103,6 +120,7 @@ Layout:
 - `lib/gallery/`: PNG metadata, saving, folder access
 - `app/api/gen/*`, `app/api/gallery/*`: the routes the page talks to
 - `components/generate/`, `components/gallery/`: the two pages
+- `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool
 
 ## License
 

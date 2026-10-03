@@ -8,8 +8,8 @@ import { checkApiRequest } from '@/lib/security/route-guard'
 const TOO_MANY_REQUESTS_HTML = `<!doctype html>
 <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>429</title></head>
 <body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.6">
-<h1 style="font-size:1.25rem">Too many requests / アクセスが多すぎます</h1>
-<p>Wait a few seconds, then reload.<br>数秒待ってから再読み込みしてください。</p>
+<h1 style="font-size:1.25rem">Too many requests</h1>
+<p>Wait a few seconds, then reload.</p>
 </body></html>`
 
 function budgetRejection(rejection: BudgetRejection): NextResponse {

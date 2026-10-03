@@ -3,17 +3,24 @@
  * and `<tag>…</tag>` markup, and the locale the non-React code (hooks'
  * toasts, lib/ error messages) reads when it has no hook to ask.
  *
+ * English (locales/en.json) is the source catalog. Every other catalog in
+ * locales/ is optional and may be partial: a key it lacks shows in English.
+ * See scripts/i18n-translate.mjs for generating one.
+ *
  * No React here, so the verify scripts can load it under ts-node.
  */
-import { en } from "./messages/en"
-import { ja } from "./messages/ja"
+import en from "../../locales/en.json"
+import { catalogs, SOURCE_LOCALE } from "../../locales"
 
-export const LOCALES = ["en", "ja"] as const
-export type Locale = (typeof LOCALES)[number]
+/** A catalog's id, as its file is named: "en", "de", "pt-BR"… */
+export type Locale = string
+
+/** Every locale that has a catalog, the source first. */
+export const LOCALES: readonly Locale[] = [SOURCE_LOCALE, ...Object.keys(catalogs).filter((code) => code !== SOURCE_LOCALE).sort()]
 
 export type Messages = typeof en
 
-/** Every dotted path to a string in the message tree, e.g. "header.more". */
+/** Every dotted path to a string in the message tree, e.g. "generate.cancel". */
 type Paths<T, Prefix extends string = ""> = {
   [K in keyof T & string]: T[K] extends string ? `${Prefix}${K}` : Paths<T[K], `${Prefix}${K}.`>
 }[keyof T & string]
@@ -21,20 +28,29 @@ export type MessageKey = Paths<Messages>
 
 export type MessageVars = Record<string, string | number>
 
-const DICTIONARIES: Record<Locale, Messages> = { en, ja }
-
 export const LOCALE_STORAGE_KEY = "locale"
 
 export function isLocale(value: unknown): value is Locale {
-  return typeof value === "string" && (LOCALES as readonly string[]).includes(value)
+  return typeof value === "string" && LOCALES.includes(value)
 }
 
-/** The locale a first visit gets: Japanese for a Japanese browser, English otherwise. */
-export function detectLocale(languages: readonly string[] | undefined): Locale {
-  return languages?.some((lang) => lang.toLowerCase().startsWith("ja")) ? "ja" : "en"
+/**
+ * The locale a first visit gets: the first browser language with a catalog,
+ * matched exactly ("pt-BR") or by its base language ("pt"), else English.
+ */
+export function detectLocale(languages: readonly string[] | undefined, available: readonly Locale[] = LOCALES): Locale {
+  const lower = available.map((code) => code.toLowerCase())
+  for (const language of languages ?? []) {
+    const wanted = language.toLowerCase()
+    const exact = lower.indexOf(wanted)
+    if (exact !== -1) return available[exact]
+    const base = lower.indexOf(wanted.split("-")[0])
+    if (base !== -1) return available[base]
+  }
+  return SOURCE_LOCALE
 }
 
-function lookup(messages: Messages, key: string): string | undefined {
+function lookup(messages: unknown, key: string): string | undefined {
   let node: unknown = messages
   for (const part of key.split(".")) {
     if (node === null || typeof node !== "object") return undefined
@@ -51,7 +67,7 @@ export function interpolate(message: string, vars?: MessageVars): string {
 
 export function translate(locale: Locale, key: MessageKey, vars?: MessageVars): string {
   // English is the fallback; the key itself shows only if both are missing.
-  const message = lookup(DICTIONARIES[locale], key) ?? lookup(en, key) ?? key
+  const message = lookup(catalogs[locale], key) ?? lookup(en, key) ?? key
   return interpolate(message, vars)
 }
 
