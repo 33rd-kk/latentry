@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.png">
+  <img alt="Latentry: a local web UI for the image models you already run" src="docs/assets/banner-light.png">
+</picture>
+
 # Latentry
 
 A local web UI for the image models you already run. One form for
