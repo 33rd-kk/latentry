@@ -1,0 +1,186 @@
+"use client"
+
+import { useState, type ReactNode } from "react"
+import { useRouter } from "next/navigation"
+import { ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
+import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
+import { pushHandoff } from "@/lib/storage"
+import { splitTags, toSpacedTags } from "@/lib/tags"
+import { tagForPrompt } from "@/lib/tag-groups"
+import type { ImageMeta, ImageTag } from "@/lib/gallery/png-meta"
+import { useT } from "@/lib/i18n"
+
+interface GalleryPanelProps {
+  picture: GalleryPicture
+  writable: boolean
+  /** Whether some backend can tag; without one the analyse button is hidden. */
+  canTag: boolean
+  secret: boolean
+  onSearch: (tag: string) => void
+  /** The picture's metadata after its tags were written back. */
+  onMetaChange: (picture: GalleryPicture, meta: ImageMeta) => void
+}
+
+function readAsDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result))
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
+}
+
+const WD14_CHARACTER = 4
+
+/**
+ * The viewer's side panel for one gallery picture: what it was made with, its
+ * tags, and the ways back into the form. The viewer sits above every toast,
+ * so outcomes are said here, in the panel.
+ */
+export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMetaChange }: GalleryPanelProps) {
+  const t = useT()
+  const router = useRouter()
+  const meta = picture.meta
+  const [tagging, setTagging] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+
+  const analyze = async () => {
+    setTagging(true)
+    setNote(null)
+    try {
+      const blob = await (await fetch(pictureUrl(picture))).blob()
+      const response = await fetch("/api/gen/tag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image_base64: await readAsDataUrl(blob) }),
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !Array.isArray(data?.tags)) {
+        throw new Error(data?.error ? t.server(data.error) : t("gallery.tagFailed", { status: response.status }))
+      }
+      const tags = data.tags as ImageTag[]
+      let saved = false
+      if (writable) {
+        const write = await fetch(`/api/gallery/${picture.dir}/${encodeURIComponent(picture.name)}/tags`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ tags }),
+        })
+        saved = write.ok
+      }
+      onMetaChange(picture, { ...(meta ?? { source: "unknown", prompt: "", negativePrompt: "" }), tags })
+      setNote(saved ? t("gallery.tagsSaved") : writable ? t("gallery.tagsNotSaved") : t("gallery.tagsReadOnly"))
+    } catch (error) {
+      setNote(error instanceof Error ? error.message : String(error))
+    } finally {
+      setTagging(false)
+    }
+  }
+
+  const sendSettings = () => {
+    if (!meta) return
+    pushHandoff({
+      type: "settings",
+      settings: {
+        backend: meta.backend,
+        profile: meta.profile,
+        prompt: meta.prompt,
+        negativePrompt: meta.negativePrompt,
+        seed: meta.seed,
+        width: meta.width ?? picture.width ?? undefined,
+        height: meta.height ?? picture.height ?? undefined,
+        steps: meta.steps,
+        cfg: meta.cfg,
+        sampler: meta.sampler,
+        scheduler: meta.scheduler,
+      },
+    })
+    router.push("/")
+  }
+
+  const sendSource = (as: "variation" | "pose") => {
+    pushHandoff({ type: "source", url: pictureUrl(picture), as })
+    router.push("/")
+  }
+
+  const sections: LightboxTagSection[] = []
+  if (meta && !secret) {
+    sections.push({ label: t("gallery.prompt"), tags: splitTags(toSpacedTags(meta.prompt)) })
+    sections.push({ label: t("gallery.negative"), tags: splitTags(toSpacedTags(meta.negativePrompt)) })
+  }
+  if (meta?.tags?.length) {
+    const named = meta.tags.filter((tag) => tag.category === WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
+    const general = meta.tags.filter((tag) => tag.category !== WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
+    if (named.length) sections.push({ label: t("gallery.wd14Character"), tags: named })
+    sections.push({ label: t("gallery.wd14"), tags: general })
+  }
+
+  const facts: [string, ReactNode][] = []
+  if (meta) {
+    if (meta.backend) facts.push([t("gallery.backend"), `${meta.backend}${meta.profile ? ` · ${meta.profile}` : ""}`])
+    if (meta.model) facts.push([t("gallery.model"), meta.model])
+    if (meta.mode) facts.push([t("gallery.mode"), meta.mode])
+    if (meta.seed !== undefined) facts.push([t("gallery.seed"), meta.seed])
+    const width = meta.width ?? picture.width
+    const height = meta.height ?? picture.height
+    if (width && height) facts.push([t("gallery.size"), `${width}×${height}`])
+    if (meta.steps !== undefined) facts.push([t("gallery.steps"), meta.steps])
+    if (meta.cfg !== undefined) facts.push([t("gallery.cfg"), meta.cfg])
+    if (meta.sampler) facts.push([t("gallery.sampler"), [meta.sampler, meta.scheduler].filter(Boolean).join(" / ")])
+    if (meta.strength !== undefined) facts.push([t("gallery.strength"), meta.strength])
+  }
+
+  const action = "flex items-center gap-1 rounded px-2 py-1 text-xs text-white/85 hover:bg-white/15 hover:text-white disabled:opacity-50"
+
+  return (
+    <div className="space-y-4 text-left">
+      <p className="truncate text-xs font-medium text-white/60" title={picture.name}>
+        {picture.name}
+      </p>
+
+      <div className="flex flex-wrap gap-1">
+        {meta && meta.prompt && (
+          <button type="button" className={action} onClick={sendSettings}>
+            <Wand2 className="h-3 w-3" />
+            {t("gallery.useSettings")}
+          </button>
+        )}
+        <button type="button" className={action} onClick={() => sendSource("variation")}>
+          <ImageUp className="h-3 w-3" />
+          {t("gallery.useAsSource")}
+        </button>
+        <button type="button" className={action} onClick={() => sendSource("pose")}>
+          <PersonStanding className="h-3 w-3" />
+          {t("gallery.useAsPose")}
+        </button>
+        {canTag && (
+          <button type="button" className={action} onClick={() => void analyze()} disabled={tagging}>
+            {tagging ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tags className="h-3 w-3" />}
+            {meta?.tags?.length ? t("gallery.reanalyze") : t("gallery.analyze")}
+          </button>
+        )}
+      </div>
+      {note && <p className="text-xs text-white/70">{note}</p>}
+
+      {facts.length > 0 && !secret && (
+        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
+          {facts.map(([label, value]) => (
+            <div key={label} className="contents">
+              <dt className="text-white/50">{label}</dt>
+              <dd className="truncate text-white/85">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      {!meta && <p className="text-xs text-white/50">{canTag ? t("gallery.noMetaTag") : t("gallery.noMeta")}</p>}
+      {secret && meta && <p className="text-xs text-white/50">{t("gallery.secretHidden")}</p>}
+
+      <LightboxTagPanel
+        sections={sections}
+        onSearch={onSearch}
+        onSendTag={(tag, target) => pushHandoff({ type: "tag", tag, target })}
+      />
+    </div>
+  )
+}

@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
+import { I18nProvider } from "@/lib/i18n"
 
 const fontSans = Geist({ variable: "--font-sans", subsets: ["latin"] })
 const fontMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
@@ -18,8 +19,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" suppressHydrationWarning className={`${fontSans.variable} ${fontMono.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          <TooltipProvider>{children}</TooltipProvider>
-          <Toaster />
+          <I18nProvider>
+            <TooltipProvider>{children}</TooltipProvider>
+            <Toaster />
+          </I18nProvider>
         </ThemeProvider>
       </body>
     </html>
