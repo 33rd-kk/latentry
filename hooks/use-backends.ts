@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import type { BackendStatus } from "@/lib/backends/types"
+import { setProfileOverrides } from "@/lib/profiles"
 
 const POLL_MS = 20 * 1000
 
@@ -27,6 +28,9 @@ export function useBackends(): BackendsState {
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (!data) return
+        // Before the backends: a form loads its profile defaults as soon as
+        // its backend appears, and must see the settings page's values.
+        setProfileOverrides(data.profiles)
         setBackends(Array.isArray(data.backends) ? data.backends : [])
         setTagger(typeof data.tagger === "string" ? data.tagger : null)
       })

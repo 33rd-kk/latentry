@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { EyeOff, Images, Languages, Moon, Sun, Wand2 } from "lucide-react"
+import { EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -51,6 +51,7 @@ export function AppHeader() {
   const nav = [
     { href: "/", label: t("app.navGenerate"), icon: Wand2 },
     { href: "/gallery", label: t("app.navGallery"), icon: Images },
+    { href: "/settings", label: t("app.navSettings"), icon: Settings },
   ]
 
   return (

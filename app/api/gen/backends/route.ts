@@ -1,7 +1,7 @@
-import { getBackends } from '@/lib/backends'
-import { adapterFor } from '@/lib/backends'
+import { adapterFor, getBackends } from '@/lib/backends'
 import { taggerPreference } from '@/lib/backends/config'
 import { backendStatus, json } from '@/lib/api'
+import { getSettings } from '@/lib/settings/store'
 
 export const runtime = 'nodejs'
 
@@ -16,5 +16,7 @@ export async function GET() {
     statuses.find((status) => status.id === preferred && status.capabilities.tag)?.id ??
     statuses.find((status) => status.alive && status.capabilities.tag)?.id ??
     null
-  return json({ backends: statuses, tagger })
+  // Profile defaults changed on the settings page ride along: the form needs
+  // them at the same moment it learns which backend it is filling in.
+  return json({ backends: statuses, tagger, profiles: getSettings().profiles ?? {} })
 }

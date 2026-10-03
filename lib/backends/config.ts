@@ -11,9 +11,15 @@
 // only part of an entry that ever leaves the server. A single
 // DIFFUSION_SERVER_URL (+ DIFFUSION_API_TOKEN) is still read when
 // GEN_BACKENDS is unset, as one diffusers backend with the generic profile.
+//
+// Backends saved from the settings page (latentry.settings.json) replace all
+// of this. A saved backend without a token still picks up GEN_TOKEN_<ID>, so
+// tokens can stay in the environment if preferred.
 
 import { BACKEND_KINDS, type BackendConfig, type BackendKind } from './types'
 import { isProfileId } from '@/lib/profiles'
+import type { Settings } from '@/lib/settings/schema'
+import { getSettings } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
 
@@ -94,8 +100,7 @@ export function parseBackends(env: Env): BackendConfigResult {
 
 let cached: { raw: string; result: BackendConfigResult } | null = null
 
-/** The configured backends, parsed once per distinct environment. */
-export function getBackends(env: Env = process.env): BackendConfig[] {
+function fromEnv(env: Env): BackendConfig[] {
   const raw = [env.GEN_BACKENDS, env.DIFFUSION_SERVER_URL, env.DIFFUSION_API_TOKEN].join('\u0000')
   if (cached?.raw !== raw) {
     const result = parseBackends(env)
@@ -105,12 +110,32 @@ export function getBackends(env: Env = process.env): BackendConfig[] {
   return cached.result.backends
 }
 
+/** Where the backends come from right now, for the settings page. */
+export function backendsSource(settings: Settings = getSettings()): 'settings' | 'env' {
+  return settings.backends ? 'settings' : 'env'
+}
+
+/** The configured backends: the settings file's, else the environment's. */
+export function getBackends(env: Env = process.env, settings: Settings = getSettings()): BackendConfig[] {
+  if (!settings.backends) return fromEnv(env)
+  return settings.backends.map(({ token, ...backend }) => {
+    const resolved = token ?? tokenFor(backend.id, env)
+    return { ...backend, ...(resolved ? { token: resolved } : {}) }
+  })
+}
+
 export function getBackendConfig(id: string, env: Env = process.env): BackendConfig | null {
   return getBackends(env).find((backend) => backend.id === id) ?? null
 }
 
-/** The backend /api/gen/tag sends pictures to: TAGGER_BACKEND, else the first that can tag. */
-export function taggerPreference(env: Env = process.env): string | null {
+/** The backend /api/gen/tag sends pictures to: the setting, else TAGGER_BACKEND, else the first that can tag. */
+export function taggerPreference(env: Env = process.env, settings: Settings = getSettings()): string | null {
+  if (settings.tagger !== undefined) return settings.tagger
   const preferred = env.TAGGER_BACKEND?.trim().toLowerCase()
   return preferred ? preferred : null
+}
+
+/** Whether GEN_TOKEN_<ID> is set, for the settings page (never the value). */
+export function hasEnvToken(id: string, env: Env = process.env): boolean {
+  return Boolean(tokenFor(id, env))
 }

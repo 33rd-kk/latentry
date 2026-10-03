@@ -11,7 +11,7 @@ import { access, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getTaggerAdapter } from '@/lib/backends'
 import { serverMessage } from '@/lib/i18n/core'
-import { getSaveDir, type GalleryDir } from './dirs'
+import { autoTagEnabled, getSaveDir, type GalleryDir } from './dirs'
 import { invalidateListing, resolveInDir } from './fs'
 import {
   formatA1111Parameters,
@@ -115,7 +115,7 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
     const name = await uniqueName(dir, fileNameFor(job.backend, image.seed, index, created))
     await writeAtomically(path.join(dir.path, name), png)
     invalidateListing(dir)
-    if (process.env.GALLERY_AUTO_TAG?.trim() === '1') void autoTag(dir, name, image.image_base64)
+    if (autoTagEnabled()) void autoTag(dir, name, image.image_base64)
     return name
   } catch (error) {
     console.error('Saving to the gallery failed:', error)
@@ -125,7 +125,7 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
 }
 
 /**
- * GALLERY_AUTO_TAG=1: tags each saved image as it arrives. Off by default, since
+ * GALLERY_AUTO_TAG=1 (or the setting): tags each saved image as it arrives. Off by default, since
  * it runs the tagger once per image on a backend that may be busy generating.
  */
 async function autoTag(dir: GalleryDir, name: string, imageBase64: string): Promise<void> {

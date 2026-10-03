@@ -81,7 +81,14 @@ GALLERY_SAVE_DIR=D:\pictures\latentry
 GALLERY_DIRS=D:\ComfyUI\output
 ```
 
-Every variable is described in [.env.example](.env.example). For everyday
+Every variable is described in [.env.example](.env.example).
+
+You can also configure everything from **Settings** in the app: backends
+(with a connection test), the save folder and other gallery folders, the
+WD14 tagger, and each model profile's default size, steps, CFG, negative
+prompt, quality tags and artist notation. Changes are saved to
+`latentry.settings.json` and apply immediately; anything not set there falls
+back to `.env.local`. For everyday
 use, `npm run build && npm start` is faster than the dev server.
 
 ## Things to know
@@ -94,6 +101,12 @@ use, `npm run build && npm start` is faster than the dev server.
   Latentry's copy is the one with the settings embedded. Turn the backend's
   saving off if you do not want both.
 - **One run per backend at a time.** Different backends run in parallel.
+- **Settings can only be changed on the machine running Latentry**
+  (`http://localhost`). Other devices see the app but not the settings page.
+  `SETTINGS_EDIT=lan` allows it from the network, `SETTINGS_EDIT=off` turns it
+  off. Since settings choose which folders are read and written, only open
+  this up on a network you trust: the localhost check relies on headers a
+  program (not a browser) could forge.
 - **It is meant for your own machine or LAN.** `/api` only answers for
   `localhost` and private-network addresses (add others with
   `ALLOWED_HOSTS`), refuses cross-site requests, and rate-limits per IP.
@@ -134,6 +147,7 @@ Layout:
 - `lib/profiles/`: model profiles and prompt composition
 - `lib/diffusion/job-store.ts`: one live run per backend
 - `lib/gallery/`: PNG metadata, saving, folder access
+- `lib/settings/`: the settings file, its validation, and who may edit it
 - `app/api/gen/*`, `app/api/gallery/*`: the routes the page talks to
 - `components/generate/`, `components/gallery/`: the two pages
 - `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool

@@ -150,12 +150,55 @@ export function isProfileId(value: unknown): value is ProfileId {
   return typeof value === 'string' && (PROFILE_IDS as readonly string[]).includes(value)
 }
 
-export function getProfile(id: string | null | undefined): Profile {
+/** The fields of a profile that can be changed from the settings page. */
+export interface ProfileChanges {
+  width?: number
+  height?: number
+  steps?: number
+  cfg?: number
+  negativePrompt?: string
+  qualityTags?: string
+  artistTemplate?: string | null
+}
+
+// Overrides from the settings page, laid over the built-in profiles. Held at
+// module level because this file runs on both sides: the page sets them from
+// /api/gen/backends, and nothing on the server depends on them.
+let overrides: Partial<Record<ProfileId, ProfileChanges>> = {}
+
+export function setProfileOverrides(next: Partial<Record<ProfileId, ProfileChanges>> | null | undefined): void {
+  overrides = next ?? {}
+}
+
+/** A built-in profile with `changes` applied. */
+export function applyProfileChanges(base: Profile, changes: ProfileChanges | undefined): Profile {
+  if (!changes) return base
+  return {
+    ...base,
+    defaults: {
+      width: changes.width ?? base.defaults.width,
+      height: changes.height ?? base.defaults.height,
+      steps: changes.steps ?? base.defaults.steps,
+      cfg: changes.cfg ?? base.defaults.cfg,
+      negativePrompt: changes.negativePrompt ?? base.defaults.negativePrompt,
+    },
+    qualityTags: changes.qualityTags ?? base.qualityTags,
+    artistTemplate: changes.artistTemplate !== undefined ? changes.artistTemplate : base.artistTemplate,
+  }
+}
+
+/** The profile as built in, without the settings page's changes. */
+export function getBuiltinProfile(id: string | null | undefined): Profile {
   return isProfileId(id) ? PROFILES[id] : PROFILES.generic
 }
 
+export function getProfile(id: string | null | undefined): Profile {
+  const base = getBuiltinProfile(id)
+  return applyProfileChanges(base, overrides[base.id])
+}
+
 export function listProfiles(): Profile[] {
-  return PROFILE_IDS.map((id) => PROFILES[id])
+  return PROFILE_IDS.map((id) => getProfile(id))
 }
 
 /**

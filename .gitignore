@@ -43,3 +43,7 @@ next-env.d.ts
 
 # local gallery output when GALLERY_SAVE_DIR points inside the repo
 /output/
+
+# settings saved from the settings page (holds backend tokens)
+latentry.settings.json
+latentry.settings.json.*.tmp

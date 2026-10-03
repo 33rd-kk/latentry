@@ -3,11 +3,15 @@
 //   GALLERY_SAVE_DIR=D:\pictures\latentry          written to: every finished image, WD14 tags
 //   GALLERY_DIRS=D:\comfy\output;E:\webui\outputs   read only: anything else worth browsing
 //
+// The settings page can set both (latentry.settings.json); what it sets
+// replaces the variable, what it leaves alone falls back to it.
+//
 // The browser only ever names a folder by its index in this list, never by a
-// path, so nothing it sends can point the server at another directory. The
-// save folder, when set, is always index 0.
+// path. The save folder, when set, is always index 0.
 
 import path from 'node:path'
+import type { Settings } from '@/lib/settings/schema'
+import { getSettings } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
 
@@ -28,8 +32,8 @@ function splitPaths(value: string | undefined): string[] {
     .filter(Boolean)
 }
 
-/** Pure, so the verify script can feed it any environment. */
-export function parseGalleryDirs(env: Env): GalleryDir[] {
+/** Pure, so the verify script can feed it any environment and settings. */
+export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }): GalleryDir[] {
   const dirs: GalleryDir[] = []
   const seen = new Set<string>()
   const add = (raw: string, writable: boolean) => {
@@ -40,16 +44,22 @@ export function parseGalleryDirs(env: Env): GalleryDir[] {
     seen.add(key)
     dirs.push({ index: dirs.length, path: resolved, label: path.basename(resolved) || resolved, writable })
   }
-  const save = env.GALLERY_SAVE_DIR?.trim()
+  const gallery = settings.gallery ?? {}
+  const save = gallery.saveDir !== undefined ? gallery.saveDir : env.GALLERY_SAVE_DIR?.trim()
   if (save) add(save, true)
-  for (const dir of splitPaths(env.GALLERY_DIRS)) add(dir, false)
+  for (const dir of gallery.dirs ?? splitPaths(env.GALLERY_DIRS)) add(dir, false)
   return dirs
 }
 
 export function getGalleryDirs(env: Env = process.env): GalleryDir[] {
-  return parseGalleryDirs(env)
+  return parseGalleryDirs(env, getSettings())
 }
 
 export function getSaveDir(env: Env = process.env): GalleryDir | null {
-  return parseGalleryDirs(env).find((dir) => dir.writable) ?? null
+  return getGalleryDirs(env).find((dir) => dir.writable) ?? null
+}
+
+/** GALLERY_AUTO_TAG, or what the settings page set. */
+export function autoTagEnabled(env: Env = process.env, settings: Settings = getSettings()): boolean {
+  return settings.gallery?.autoTag ?? env.GALLERY_AUTO_TAG?.trim() === '1'
 }
