@@ -33,6 +33,17 @@ tagging in both directions.
   storage and blurs the gallery. The UI is in English and can be machine
   translated into other languages (see [Translations](#translations)).
 
+### Screenshots
+
+![The generate page: backend and profile pickers, the prompt, and a finished two-image run](docs/assets/screenshot-generate.webp)
+
+![The gallery: every saved picture, newest first, with search and filters](docs/assets/screenshot-gallery.webp)
+
+![The viewer's side panel: the settings a picture was made with, its prompt as tags, and WD14 tags read from the image](docs/assets/screenshot-viewer.webp)
+
+<sub>The pictures were generated with Anima through Latentry, from original
+prompts (no named characters or artists).</sub>
+
 ## Backends
 
 | Kind | What | Notes |

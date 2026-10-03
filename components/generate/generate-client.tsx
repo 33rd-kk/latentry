@@ -145,7 +145,7 @@ interface JobProgress {
 
 export function GenerateClient() {
   const t = useT()
-  const { backends, tagger, loaded } = useBackends()
+  const { backends, tagger, loaded, refresh: refreshBackends } = useBackends()
 
   // ── Which backend, and its form ──────────────────────────────────────────
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -440,6 +440,8 @@ export function GenerateClient() {
           return
         }
         const wasRunning = statusRef.current === "running"
+        // The backend is free again; say so now rather than at the next poll.
+        refreshBackends()
         setJobError(error ?? null)
         setSaveWarning(saveError ?? null)
         setProgress((previous) => (previous ? { ...previous, currentStep: 0 } : previous))
@@ -452,7 +454,7 @@ export function GenerateClient() {
       // No onerror handler: EventSource reconnects by itself, and the reconnect
       // re-sends the snapshot.
     },
-    [applyStatus, closeSource, t]
+    [applyStatus, closeSource, refreshBackends, t]
   )
 
   /** Asks the backend's job store what it is doing and attaches if that is not already on screen. */
