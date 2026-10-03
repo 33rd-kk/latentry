@@ -7,26 +7,26 @@ import { useT } from "@/lib/i18n"
 
 export interface LightboxTagSection {
   label: string
-  /** In the form the card's prompt uses; copied and handed over as they are. */
+  /** As the prompt spells them; copied and handed over as they are. */
   tags: string[]
 }
 
 interface LightboxTagPanelProps {
-  /** Heading over the sections, e.g. which post this is. */
+  /** Heading over the sections, e.g. which picture this is. */
   title?: string
   sections: LightboxTagSection[]
-  /** Adds the tag to the gallery's current search. Absent, there is no button. */
+  /** Adds the tag to the gallery's search. Absent, there is no button. */
   onSearch?: (tag: string) => void
   /** Present when the generator is available. */
   onSendTag?: (tag: string, target: "positive" | "negative") => void
 }
 
-// Display only: unescape booru parens/brackets, as the card's tags do.
+// Display only: unescape Danbooru-style escaped parens/brackets.
 const displayTag = (tag: string) => tag.replace(/\\([()[\]])/g, "$1")
 
 /**
  * The full-screen viewer's side panel: one image's tags, each with the actions
- * its card offers. The viewer sits above every toast, so what an action did is
+ * the panel offers. The viewer sits above every toast, so what an action did is
  * said here instead.
  */
 export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: LightboxTagPanelProps) {

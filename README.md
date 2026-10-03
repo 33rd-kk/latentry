@@ -1,0 +1,109 @@
+# Latentry
+
+A local web UI for the image models you already run. One form for
+text-to-image, img2img, inpainting and pose, in front of several backends at
+once: an Anima server and an SDXL web UI side by side, each with its own
+settings. Plus a gallery that knows how every picture was made, and WD14
+tagging in both directions.
+
+[日本語](README.ja.md)
+
+## What it does
+
+- **Generate.** Text-to-image, img2img (variation, or a picture as a pose
+  reference), inpainting with a painted mask, and skeleton pose control where
+  the backend supports it. Runs live on the server, so a reload or a second
+  tab picks up a run in progress.
+- **Several backends, several model families.** Each backend keeps its own
+  form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
+  sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
+  it any time.
+- **Gallery.** Every finished image is saved with its settings embedded
+  (readable by A1111's PNG Info too). It also browses other folders
+  read-only, such as ComfyUI or web UI outputs, and reads their metadata.
+  Search, filter by backend or profile, and send settings, tags or the
+  picture itself back to the form.
+- **Tags.** Extract WD14 tags from a source image and carry a character's
+  look into the prompt by group (hair, eyes, outfit…). Tag gallery pictures
+  and keep the tags in the file.
+- English and Japanese, light and dark, and a secret mode that keeps what you
+  type out of browser storage and blurs the gallery.
+
+## Backends
+
+| Kind | What | Notes |
+|---|---|---|
+| `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), WD14, precise cancel |
+| `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint, WD14 with the tagger extension. No pose control. |
+
+Latentry does not ship a model server. Run the one you like, and list it.
+
+## Getting started
+
+Requires Node.js 22.12 or newer.
+
+```bash
+git clone <this repository> latentry
+cd latentry
+npm ci
+cp .env.example .env.local   # then edit it
+npm run dev                  # http://localhost:3000
+```
+
+A minimal `.env.local`:
+
+```bash
+GEN_BACKENDS=sdxl|a1111|http://localhost:7860|illustrious
+GALLERY_SAVE_DIR=./output
+```
+
+Two backends, one of them protected:
+
+```bash
+GEN_BACKENDS=anima|diffusers|http://localhost:7865|anima;sdxl|a1111|http://localhost:7860|illustrious
+GEN_TOKEN_SDXL=user:password
+GALLERY_SAVE_DIR=D:\pictures\latentry
+GALLERY_DIRS=D:\ComfyUI\output
+```
+
+Every variable is described in [.env.example](.env.example). For everyday
+use, `npm run build && npm start` is faster than the dev server.
+
+## Things to know
+
+- **The gallery reads folders on the machine running Latentry.** Backends can
+  live elsewhere on the network, but `GALLERY_SAVE_DIR` and `GALLERY_DIRS`
+  must be local (or a mounted share). Folders are set in `.env.local` only,
+  never from the browser.
+- **Images are saved twice** if your backend also saves its own copy.
+  Latentry's copy is the one with the settings embedded. Turn the backend's
+  saving off if you do not want both.
+- **One run per backend at a time.** Different backends run in parallel.
+- **It is meant for your own machine or LAN.** `/api` only answers for
+  `localhost` and private-network addresses (add others with
+  `ALLOWED_HOSTS`), refuses cross-site requests, and rate-limits per IP.
+  There is no login. To expose it further, put an authenticating reverse
+  proxy in front of it, one that overwrites `X-Forwarded-For` (the per-IP
+  limits trust that header).
+
+## Development
+
+```bash
+npm run typecheck
+npm run lint
+npm test          # verify scripts in __tests__/, no test framework needed
+npm test -- gallery   # just the ones whose name contains "gallery"
+```
+
+Layout:
+
+- `lib/backends/`: adapters (`diffusers.ts`, `a1111.ts`) behind one interface
+- `lib/profiles/`: model profiles and prompt composition
+- `lib/diffusion/job-store.ts`: one live run per backend
+- `lib/gallery/`: PNG metadata, saving, folder access
+- `app/api/gen/*`, `app/api/gallery/*`: the routes the page talks to
+- `components/generate/`, `components/gallery/`: the two pages
+
+## License
+
+[MIT](LICENSE)

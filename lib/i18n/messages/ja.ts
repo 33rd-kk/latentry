@@ -38,7 +38,7 @@ export const ja: Messages = {
     unreachable: "バックエンドに接続できませんでした。",
     cancelFailed: "キャンセルできませんでした",
     artist: "アーティスト",
-    artistPlaceholder: "アーティスト名（プロンプトに {example} の形で付きます）",
+    artistPlaceholder: "アーティスト名（プロンプトに「{example}」の形で付きます）",
     positivePrompt: "ポジティブプロンプト",
     positivePlaceholder: "生成したい画像を説明してください",
     negativePrompt: "ネガティブプロンプト",

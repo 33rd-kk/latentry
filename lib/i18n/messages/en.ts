@@ -39,7 +39,7 @@ export const en = {
     unreachable: "Could not reach the backend.",
     cancelFailed: "Cancel failed",
     artist: "Artist",
-    artistPlaceholder: "Artist name (added to the prompt as {example})",
+    artistPlaceholder: "Artist name (added to the prompt as “{example}”)",
     positivePrompt: "Positive prompt",
     positivePlaceholder: "Describe the image you want to generate",
     negativePrompt: "Negative prompt",
