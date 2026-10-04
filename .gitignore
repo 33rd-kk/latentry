@@ -54,3 +54,6 @@ latentry.settings.json.*.tmp
 /models/
 __pycache__/
 *.egg-info/
+
+# notes for the wiki / Pages, kept local
+/notes/
