@@ -90,7 +90,8 @@ export function profileFor(model: string | null, family: string | null): Profile
 function spawnEngine(engine: EngineProcess): void {
   const paths = enginePaths()
   const model = getSettings().engine?.model
-  const args = ['-m', 'latentry_engine', '--host', '127.0.0.1', '--port', String(engine.port), '--models-dir', modelsDir()]
+  // --parent-pid: the engine leaves by itself if Latentry is killed outright.
+  const args = ['-m', 'latentry_engine', '--host', '127.0.0.1', '--port', String(engine.port), '--models-dir', modelsDir(), '--parent-pid', String(process.pid)]
   if (model) args.push('--model', model)
 
   engine.state = 'starting'
