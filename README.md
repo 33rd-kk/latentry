@@ -50,10 +50,11 @@ prompts (no named characters or artists).</sub>
 
 | Kind | What | Notes |
 |---|---|---|
+| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint. Anima: img2img. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint. No pose control. |
 
-Latentry does not ship a model server. Run the one you like, and list it.
+Use the built-in engine, the servers you already run, or both.
 
 ## Getting started
 
@@ -62,12 +63,31 @@ Requires Node.js 22.12 or newer.
 ```bash
 git clone <this repository> latentry
 cd latentry
-npm ci
-cp .env.example .env.local   # then edit it
-npm run dev                  # http://localhost:3000
+./install.sh                                         # Linux, macOS
+powershell -ExecutionPolicy Bypass -File install.ps1 # Windows
 ```
 
-A minimal `.env.local`:
+The script installs and builds the web UI, starts it on
+http://localhost:3000 and opens **Setup**. There, in order:
+
+1. **Install the engine.** Latentry looks at your GPU and installs Python
+   3.12, the matching PyTorch build (CUDA 13.0 / 12.8 / 12.6 by driver, Apple
+   Metal, or CPU), stock diffusers and its engine, all under `.runtime/` in
+   the app folder. About 3–4 GB, a few minutes. Delete `.runtime/` to remove
+   it.
+2. **Download a model.** Each is fetched from its publisher on Hugging Face
+   after you accept its license, which the page shows first (some are
+   non-commercial). Or put your own SDXL `.safetensors` files in `models/`.
+3. **Download a tagger** for reading tags from pictures (WD14, Apache-2.0).
+
+Then **Generate**. The engine starts with Latentry from then on (turn that off
+on the Setup page or with `LATENTRY_ENGINE=off`); start Latentry with
+`npm start`.
+
+### Using servers you already run
+
+List them in `.env.local` (copied from [.env.example](.env.example)) or add
+them under **Settings**. A minimal `.env.local`:
 
 ```bash
 GEN_BACKENDS=sdxl|a1111|http://localhost:7860|illustrious
@@ -83,21 +103,15 @@ GALLERY_SAVE_DIR=D:\pictures\latentry
 GALLERY_DIRS=D:\ComfyUI\output
 ```
 
-Every variable is described in [.env.example](.env.example).
-
-For tagging, download `model.onnx` and `selected_tags.csv` from a
-[SmilingWolf WD tagger](https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3)
-(Apache-2.0; `wd-vit-tagger-v3` is a smaller choice) into a folder, and set
-`WD14_MODEL_DIR` (or the folder in Settings). The model is not included in
-this repository.
+Every variable is described in [.env.example](.env.example). For development,
+`npm ci && npm run dev` works as before.
 
 You can also configure everything from **Settings** in the app: backends
 (with a connection test), the save folder and other gallery folders, the
 WD14 tagger, and each model profile's default size, steps, CFG, negative
 prompt, quality tags and artist notation. Changes are saved to
 `latentry.settings.json` and apply immediately; anything not set there falls
-back to `.env.local`. For everyday
-use, `npm run build && npm start` is faster than the dev server.
+back to `.env.local`.
 
 ## Things to know
 
@@ -108,7 +122,10 @@ use, `npm run build && npm start` is faster than the dev server.
 - **Images are saved twice** if your backend also saves its own copy.
   Latentry's copy is the one with the settings embedded. Turn the backend's
   saving off if you do not want both.
-- **One run per backend at a time.** Different backends run in parallel.
+- **One run per backend at a time.** Different backends run in parallel; with
+  two GPUs, Latentry runs an engine on each.
+- **Models are never part of Latentry.** The Setup page downloads only what
+  you pick, after showing its license. NoobAI XL, for one, is non-commercial.
 - **Settings can only be changed on the machine running Latentry**
   (`http://localhost`). Other devices see the app but not the settings page.
   `SETTINGS_EDIT=lan` allows it from the network, `SETTINGS_EDIT=off` turns it

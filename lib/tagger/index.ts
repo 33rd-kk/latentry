@@ -7,7 +7,7 @@
 // Unset, the built-in model is used when its folder is configured, and the
 // first backend that can tag otherwise.
 
-import { adapterFor, getAdapter, getBackends } from '@/lib/backends'
+import { adapterFor, getAdapter, usableBackends } from '@/lib/backends'
 import { taggerPreference } from '@/lib/backends/config'
 import type { Outcome, WdTag } from '@/lib/backends/types'
 import { BUILTIN_TAGGER, type Settings } from '@/lib/settings/schema'
@@ -76,7 +76,7 @@ export async function getTagger(): Promise<Tagger | null> {
   }
   const builtin = builtinTagger()
   if (builtin) return builtin
-  for (const config of getBackends()) {
+  for (const config of usableBackends()) {
     const adapter = adapterFor(config)
     if (!adapter.tag) continue
     const status = await adapter.status()

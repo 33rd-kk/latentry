@@ -1,4 +1,4 @@
-import { adapterFor, getBackends } from '@/lib/backends'
+import { adapterFor, usableBackends } from '@/lib/backends'
 import { backendStatus, json } from '@/lib/api'
 import { getSettings } from '@/lib/settings/store'
 import { taggerIdFrom } from '@/lib/tagger'
@@ -10,7 +10,7 @@ export const runtime = 'nodejs'
  * for its status badges; no URL or token is in it, only the ids.
  */
 export async function GET() {
-  const statuses = await Promise.all(getBackends().map((config) => backendStatus(adapterFor(config))))
+  const statuses = await Promise.all(usableBackends().map((config) => backendStatus(adapterFor(config))))
   const tagger = taggerIdFrom(statuses)
   // Profile defaults changed on the settings page ride along: the form needs
   // them at the same moment it learns which backend it is filling in.

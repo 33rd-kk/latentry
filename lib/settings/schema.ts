@@ -42,6 +42,20 @@ export interface Wd14Settings {
   character?: number
 }
 
+/** Latentry's own generation engine (lib/engine). */
+export interface EngineSettings {
+  /** Start the engine with Latentry, once it is installed. Default true. */
+  autoStart?: boolean
+  /** Where models are kept; default <app>/models. */
+  modelsDir?: string | null
+  /** The first engine's port; one more per GPU. Default 7861. */
+  basePort?: number
+  /** Which GPUs (nvidia-smi indexes) get an engine; absent for all. */
+  gpus?: number[] | null
+  /** The model each engine loads when it starts (the last one loaded). */
+  model?: string | null
+}
+
 export interface Settings {
   version: typeof SETTINGS_VERSION
   backends?: StoredBackend[]
@@ -53,6 +67,7 @@ export interface Settings {
   wd14?: Wd14Settings
   gallery?: GallerySettings
   profiles?: Partial<Record<ProfileId, ProfileOverride>>
+  engine?: EngineSettings
 }
 
 export const EMPTY_SETTINGS: Settings = { version: SETTINGS_VERSION }
@@ -105,6 +120,7 @@ export interface SettingsInput {
   wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
   gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
+  engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown } | null
 }
 
 /**
@@ -245,6 +261,32 @@ export function validateSettings(
     next.profiles = profiles
   }
 
+  // Engine
+  if (input.engine === undefined) {
+    if (current.engine) next.engine = current.engine
+  } else if (input.engine !== null) {
+    const engine: EngineSettings = {}
+    const { autoStart, modelsDir, basePort, gpus, model } = input.engine
+    if (autoStart !== undefined) engine.autoStart = autoStart !== false
+    if (modelsDir === null || modelsDir === '') engine.modelsDir = null
+    else if (typeof modelsDir === 'string' && isAbsolute(modelsDir.trim())) engine.modelsDir = modelsDir.trim()
+    else if (modelsDir !== undefined) errors['engine.modelsDir'] = 'settings.errorAbsolute'
+    if (basePort !== undefined && basePort !== null && basePort !== '') {
+      const port = numberIn(basePort, 1024, 65000)
+      if (port === null || !Number.isInteger(port)) errors['engine.basePort'] = 'settings.errorPort'
+      else engine.basePort = port
+    }
+    if (gpus === null) engine.gpus = null
+    else if (gpus !== undefined) {
+      if (Array.isArray(gpus) && gpus.every((gpu) => Number.isInteger(gpu) && gpu >= 0 && gpu < 64)) engine.gpus = [...new Set(gpus as number[])]
+      else errors['engine.gpus'] = 'settings.errorList'
+    }
+    if (model === null || model === '') engine.model = null
+    else if (typeof model === 'string' && model.length <= 200 && !/[\\/]|\.\./.test(model)) engine.model = model
+    else if (model !== undefined) errors['engine.model'] = 'settings.errorText'
+    next.engine = engine
+  }
+
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, settings: next }
 }
 
@@ -267,7 +309,7 @@ export function parseStoredSettings(raw: unknown): Settings {
   // A hand-edited file with one bad field: keep the parts that are fine.
   const parts: SettingsInput = {}
   const record = raw as Record<string, unknown>
-  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles'] as const) {
+  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine'] as const) {
     if (record[part] === undefined) continue
     const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS)
     if (one.ok) Object.assign(parts, { [part]: record[part] })

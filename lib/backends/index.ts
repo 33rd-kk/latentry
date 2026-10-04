@@ -13,5 +13,5 @@ export function getAdapter(id: string): BackendAdapter | null {
   return config ? adapterFor(config) : null
 }
 
-export { getBackends } from './config'
+export { getBackends, usableBackends } from './config'
 export type * from './types'

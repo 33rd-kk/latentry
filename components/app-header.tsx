@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
+import { Cpu, EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -51,6 +51,7 @@ export function AppHeader() {
   const nav = [
     { href: "/", label: t("app.navGenerate"), icon: Wand2 },
     { href: "/gallery", label: t("app.navGallery"), icon: Images },
+    { href: "/setup", label: t("app.navSetup"), icon: Cpu },
     { href: "/settings", label: t("app.navSettings"), icon: Settings },
   ]
 
@@ -63,9 +64,10 @@ export function AppHeader() {
         <nav className="flex items-center gap-1">
           {nav.map(({ href, label, icon: Icon }) => (
             <Button key={href} variant={pathname === href ? "secondary" : "ghost"} size="sm" asChild>
-              <Link href={href}>
-                <Icon className="mr-1.5 h-4 w-4" />
-                {label}
+              <Link href={href} aria-label={label}>
+                <Icon className="h-4 w-4 sm:mr-1.5" />
+                {/* Icons only on a phone: four labels do not fit beside the controls. */}
+                <span className="hidden sm:inline">{label}</span>
               </Link>
             </Button>
           ))}

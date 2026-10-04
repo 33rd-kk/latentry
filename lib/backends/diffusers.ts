@@ -41,6 +41,8 @@ interface HealthBody {
   samplers?: unknown
   schedulers?: unknown
   tagger?: unknown
+  img2img?: unknown
+  inpaint?: unknown
 }
 
 function stringList(value: unknown): string[] | null {
@@ -86,8 +88,9 @@ export class DiffusersAdapter implements BackendAdapter {
       busy: health?.busy === true,
       model: label && layers ? `${label} · ${layers} layers` : label,
       capabilities: {
-        img2img: true,
-        inpaint: true,
+        // Absent means yes: servers written before these flags could do both.
+        img2img: health ? health.img2img !== false : false,
+        inpaint: health ? health.inpaint !== false : false,
         pose: health?.pose_control === true,
         // A server that says nothing about its tagger is assumed to have one;
         // /api/tag answers 503 when its model is missing, which is shown as such.

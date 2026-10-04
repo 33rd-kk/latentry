@@ -20,6 +20,7 @@ import { BACKEND_KINDS, type BackendConfig, type BackendKind } from './types'
 import { isProfileId } from '@/lib/profiles'
 import type { Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
+import { engineBackends } from '@/lib/engine/supervisor'
 
 type Env = Record<string, string | undefined>
 
@@ -124,8 +125,19 @@ export function getBackends(env: Env = process.env, settings: Settings = getSett
   })
 }
 
+/**
+ * Every backend the app can use: the configured ones, then Latentry's own
+ * running engines. A configured backend keeps its id if an engine would
+ * take the same one.
+ */
+export function usableBackends(env: Env = process.env): BackendConfig[] {
+  const configured = getBackends(env)
+  const ids = new Set(configured.map((backend) => backend.id))
+  return [...configured, ...engineBackends().filter((engine) => !ids.has(engine.id))]
+}
+
 export function getBackendConfig(id: string, env: Env = process.env): BackendConfig | null {
-  return getBackends(env).find((backend) => backend.id === id) ?? null
+  return usableBackends(env).find((backend) => backend.id === id) ?? null
 }
 
 /** The backend /api/gen/tag sends pictures to: the setting, else TAGGER_BACKEND, else the first that can tag. */

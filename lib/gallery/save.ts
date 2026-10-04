@@ -7,7 +7,7 @@
 // gallery reads them back, and "generate with these settings" restores them.
 
 import { randomBytes } from 'node:crypto'
-import { access, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getTagger } from '@/lib/tagger'
 import { serverMessage } from '@/lib/i18n/core'
@@ -67,6 +67,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
 async function writeAtomically(file: string, data: Buffer): Promise<void> {
   const temp = path.join(path.dirname(file), `.${path.basename(file)}.${randomBytes(4).toString('hex')}.tmp`)
   try {
+    // A fresh install's save folder (./output by default) does not exist yet.
+    await mkdir(path.dirname(file), { recursive: true })
     await writeFile(temp, data)
     await rename(temp, file)
   } catch (error) {
