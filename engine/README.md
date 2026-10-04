@@ -29,17 +29,36 @@ model is its file or folder name.
 
 ## The GPU plan
 
-Chosen once at start from the GPU's memory (see `latentry_engine/gpu.py`):
+Chosen once at start from the GPU memory that is **free** then (another
+program may hold part of the card), see `latentry_engine/gpu.py`:
 
-| VRAM | Weights | Offload | Batch |
+| Free VRAM | Weights | Offload | Batch |
 |---|---|---|---|
-| 12 GB and up | fp16 / bf16 | none | 3–8 (5 on 16 GB) |
-| 7–12 GB | fp16 / bf16 | model offload to RAM | 1–2 |
-| below 7 GB | fp16 / bf16 | sequential offload | 1 |
+| 11.5 GB and up | bf16 (fp16 before Ampere) | none | 2–8 |
+| 7–11.5 GB | bf16 / fp16 | model offload to RAM | 1 |
+| below 7 GB | bf16 / fp16 | sequential offload | 1 |
+
+The engine caps its own memory at that amount. On Windows the NVIDIA driver
+otherwise lets a process run past its VRAM into system RAM, which does not
+fail but is several times slower. With the cap, running out raises an error
+and the engine halves the batch and tries again. SDXL images in a batch are
+decoded one at a time, since decoding is the memory peak.
 
 Override with `LATENTRY_DEVICE` (`cuda`, `mps`, `cpu`), `LATENTRY_DTYPE`
 (`float16`, `bfloat16`, `float32`), `LATENTRY_OFFLOAD` (`none`, `model`,
-`sequential`) and `LATENTRY_MAX_BATCH`.
+`sequential`), `LATENTRY_MAX_BATCH` and `LATENTRY_VRAM_FRACTION` (0.1–1).
+
+### Measured
+
+RTX 5060 Ti 16 GB, PyTorch 2.14.1+cu130, diffusers 0.40:
+
+| Model | Job | Time |
+|---|---|---|
+| Illustrious XL 2.0 | 1024×1024, 28 steps | 12 s |
+| Illustrious XL 2.0 | 4 × 832×1216, 28 steps | 44 s |
+| Illustrious XL 2.0 | img2img 0.55 / inpaint 0.9, 832×1216 | 8 s / 12 s |
+| Anima Base 1.0 | 1024×1024, 30 steps | 40 s |
+| Anima Base 1.0 | img2img 0.5, 1024×1024 | 21 s |
 
 ## Running it by hand
 

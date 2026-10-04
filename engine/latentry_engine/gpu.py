@@ -8,6 +8,17 @@ environment variable for the cases a heuristic gets wrong.
     LATENTRY_DTYPE    bf16 | fp16 | fp32      (default: bf16 where supported)
     LATENTRY_OFFLOAD  none | model | sequential (default: by VRAM)
     LATENTRY_MAX_BATCH  images generated together (default: by VRAM)
+    LATENTRY_VRAM_FRACTION  share of the GPU's memory this process may take
+                            (default: what was free at start, less a margin)
+
+Memory is judged by what is *free* when the engine starts, not the card's
+size: another program (a second web UI, a game) may hold part of it.
+
+The allocator is capped at that amount. Without a cap, the Windows NVIDIA
+driver lets a process run past its VRAM into system RAM ("sysmem fallback")
+instead of failing: nothing breaks, but generation gets several times
+slower and the out-of-memory retry never triggers. Measured on a 16 GB
+card, SDXL at 832x1216 went from 8 s an image to 43 s in a batch of four.
 
 One engine process drives one GPU: Latentry starts one per GPU with
 CUDA_VISIBLE_DEVICES set, so inside the process the GPU is always cuda:0.
@@ -28,7 +39,8 @@ class GpuPlan:
     device: str
     dtype: torch.dtype
     name: str
-    vram_gib: float
+    vram_gib: float  # usable: free at start, within the cap
+    total_gib: float
     offload: str  # none | model | sequential
     max_batch: int
 
@@ -37,6 +49,7 @@ class GpuPlan:
             "device": self.device,
             "name": self.name,
             "vram_gib": round(self.vram_gib, 1),
+            "total_gib": round(self.total_gib, 1),
             "dtype": str(self.dtype).replace("torch.", ""),
             "offload": self.offload,
             "max_batch": self.max_batch,
@@ -71,13 +84,29 @@ def _pick_dtype(device: str) -> torch.dtype:
     return torch.float32
 
 
-def _vram(device: str) -> tuple[str, float]:
+MARGIN_GIB = 0.75  # left for the display, the driver and other programs' growth
+
+
+def _vram(device: str) -> tuple[str, float, float]:
+    """The GPU's name, the memory this process may use, and its total, in GiB."""
     if device == "cuda":
         props = torch.cuda.get_device_properties(0)
-        return props.name, props.total_memory / GIB
+        total = props.total_memory / GIB
+        wanted = os.environ.get("LATENTRY_VRAM_FRACTION", "").strip()
+        try:
+            fraction = float(wanted) if wanted else None
+        except ValueError:
+            fraction = None
+        if fraction is None or not 0.1 <= fraction <= 1:
+            free, _ = torch.cuda.mem_get_info(0)
+            fraction = max(0.1, min(0.95, (free / GIB - MARGIN_GIB) / total))
+        # Past this, allocation fails with an out-of-memory error the engine
+        # can act on, instead of spilling into system RAM.
+        torch.cuda.set_per_process_memory_fraction(fraction, 0)
+        return props.name, total * fraction, total
     if device == "mps":
-        return "Apple GPU", 0.0
-    return "CPU", 0.0
+        return "Apple GPU", 0.0, 0.0
+    return "CPU", 0.0, 0.0
 
 
 def _pick_offload(device: str, vram_gib: float) -> str:
@@ -107,10 +136,10 @@ def _pick_batch(device: str, vram_gib: float, offload: str) -> int:
 def plan() -> GpuPlan:
     device = _pick_device()
     dtype = _pick_dtype(device)
-    name, vram_gib = _vram(device)
+    name, vram_gib, total_gib = _vram(device)
     offload = _pick_offload(device, vram_gib)
     if device == "cuda":
         # Free speed on tensor cores, at a precision diffusion does not notice.
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
-    return GpuPlan(device, dtype, name, vram_gib, offload, _pick_batch(device, vram_gib, offload))
+    return GpuPlan(device, dtype, name, vram_gib, total_gib, offload, _pick_batch(device, vram_gib, offload))

@@ -168,6 +168,11 @@ class Engine:
             # SDXL's VAE overflows in fp16 (black images); the pipeline
             # upcasts it when this is set.
             pipe.vae.config.force_upcast = True
+        # Decode a batch one image at a time. Decoding is the memory peak
+        # (the VAE often runs in fp32), and doing it all at once is what makes
+        # a batch outgrow the GPU: with this, four images at 832x1216 peak
+        # where one does.
+        pipe.vae.enable_slicing()
         self._place(pipe)
         pipe.set_progress_bar_config(disable=True)
         return Loaded(info, FAMILY_SDXL, pipe, pipe.scheduler)
