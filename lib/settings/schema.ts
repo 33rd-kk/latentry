@@ -34,11 +34,23 @@ export interface GallerySettings {
   autoTag?: boolean
 }
 
+/** Latentry's own WD14 tagger (lib/tagger/wd14.ts). */
+export interface Wd14Settings {
+  /** Folder with model.onnx and selected_tags.csv; null turns it off. */
+  modelDir?: string | null
+  general?: number
+  character?: number
+}
+
 export interface Settings {
   version: typeof SETTINGS_VERSION
   backends?: StoredBackend[]
-  /** The backend that tags pictures; null means "the first that can". */
+  /**
+   * What tags pictures: BUILTIN_TAGGER, a backend id, or null for "the
+   * built-in one when it has a model, else the first backend that can".
+   */
   tagger?: string | null
+  wd14?: Wd14Settings
   gallery?: GallerySettings
   profiles?: Partial<Record<ProfileId, ProfileOverride>>
 }
@@ -46,6 +58,9 @@ export interface Settings {
 export const EMPTY_SETTINGS: Settings = { version: SETTINGS_VERSION }
 
 export const BACKEND_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,31}$/
+
+/** The tagger setting's value for Latentry's own WD14; reserved as a backend id. */
+export const BUILTIN_TAGGER = 'builtin'
 
 /** Field path -> message key, for showing next to the field that is wrong. */
 export type SettingsErrors = Record<string, string>
@@ -87,6 +102,7 @@ export interface BackendInput {
 export interface SettingsInput {
   backends?: BackendInput[] | null
   tagger?: unknown
+  wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
   gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
 }
@@ -118,6 +134,7 @@ export function validateSettings(
         const id = typeof raw?.id === 'string' ? raw.id.trim().toLowerCase() : ''
         const url = normalizeUrl(raw?.url)
         if (!BACKEND_ID_PATTERN.test(id)) errors[`${at}.id`] = 'settings.errorBackendId'
+        else if (id === BUILTIN_TAGGER) errors[`${at}.id`] = 'settings.errorBackendReserved'
         else if (seen.has(id)) errors[`${at}.id`] = 'settings.errorBackendDuplicate'
         if (!isKind(raw?.kind)) errors[`${at}.kind`] = 'settings.errorKind'
         if (!url) errors[`${at}.url`] = 'settings.errorUrl'
@@ -144,6 +161,24 @@ export function validateSettings(
     next.tagger = input.tagger
   } else {
     errors.tagger = 'settings.errorBackendId'
+  }
+
+  // Built-in WD14
+  if (input.wd14 === undefined) {
+    if (current.wd14) next.wd14 = current.wd14
+  } else if (input.wd14 !== null) {
+    const wd14: Wd14Settings = {}
+    const { modelDir, general, character } = input.wd14
+    if (modelDir === null || modelDir === '') wd14.modelDir = null
+    else if (typeof modelDir === 'string' && isAbsolute(modelDir.trim())) wd14.modelDir = modelDir.trim()
+    else if (modelDir !== undefined) errors['wd14.modelDir'] = 'settings.errorAbsolute'
+    for (const [field, value] of [['general', general], ['character', character]] as const) {
+      if (value === undefined || value === null || value === '') continue
+      const number = numberIn(value, 0.01, 1)
+      if (number === null) errors[`wd14.${field}`] = 'settings.errorThreshold'
+      else wd14[field] = number
+    }
+    next.wd14 = wd14
   }
 
   // Gallery
@@ -232,7 +267,7 @@ export function parseStoredSettings(raw: unknown): Settings {
   // A hand-edited file with one bad field: keep the parts that are fine.
   const parts: SettingsInput = {}
   const record = raw as Record<string, unknown>
-  for (const part of ['backends', 'tagger', 'gallery', 'profiles'] as const) {
+  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles'] as const) {
     if (record[part] === undefined) continue
     const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS)
     if (one.ok) Object.assign(parts, { [part]: record[part] })

@@ -239,8 +239,8 @@
     "testFail": "No answer at that address.",
     "remove": "Remove",
     "addBackend": "Add backend",
-    "tagger": "WD14 tagging uses",
-    "taggerAuto": "The first backend that can tag",
+    "tagger": "Tag with",
+    "taggerAuto": "Automatic: the built-in model if set, else a backend",
     "galleryTitle": "Gallery folders",
     "galleryHint": "Folders on this computer. The browser never sees these paths; it only names folders by number.",
     "saveDir": "Save folder",
@@ -289,6 +289,19 @@
       "notDirectory": "This is a file, not a folder.",
       "notWritable": "Latentry cannot write to this folder.",
       "created": "Created."
-    }
+    },
+    "taggerTitle": "WD14 tagging",
+    "taggerHint": "Tag extraction, gallery tags and bulk tagging. Latentry can run a WD14 model itself (on the CPU, no backend needed), or ask a backend that has a tagger.",
+    "taggerBuiltin": "Built-in WD14 model",
+    "taggerBackend": "Backend: {id}",
+    "wd14Dir": "WD14 model folder",
+    "wd14DirHint": "A folder with model.onnx and selected_tags.csv from a SmilingWolf WD tagger, e.g. wd-eva02-large-tagger-v3 (best) or wd-vit-tagger-v3 (smaller), on Hugging Face.",
+    "wd14DirOff": "Not set: the built-in tagger is off",
+    "wd14Found": "Model found.",
+    "wd14Missing": "No model.onnx and selected_tags.csv in this folder.",
+    "wd14General": "General threshold",
+    "wd14Character": "Character threshold",
+    "errorThreshold": "Between 0.01 and 1.",
+    "errorBackendReserved": "\"builtin\" is reserved for the built-in tagger."
   }
 }

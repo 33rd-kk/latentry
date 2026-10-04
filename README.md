@@ -27,8 +27,10 @@ tagging in both directions.
   Search, filter by backend or profile, and send settings, tags or the
   picture itself back to the form.
 - **Tags.** Extract WD14 tags from a source image and carry a character's
-  look into the prompt by group (hair, eyes, outfit…). Tag gallery pictures
-  and keep the tags in the file.
+  look into the prompt by group (hair, eyes, outfit…). Show tags under every
+  gallery card, tag one picture or a whole selection at once, and keep the
+  tags in the file. Tagging runs inside Latentry (on the CPU, with a WD14
+  model you download), or on a backend that has a tagger.
 - Light and dark, and a secret mode that keeps what you type out of browser
   storage and blurs the gallery. The UI is in English and can be machine
   translated into other languages (see [Translations](#translations)).
@@ -48,8 +50,8 @@ prompts (no named characters or artists).</sub>
 
 | Kind | What | Notes |
 |---|---|---|
-| `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), WD14, precise cancel |
-| `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint, WD14 with the tagger extension. No pose control. |
+| `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
+| `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint. No pose control. |
 
 Latentry does not ship a model server. Run the one you like, and list it.
 
@@ -82,6 +84,12 @@ GALLERY_DIRS=D:\ComfyUI\output
 ```
 
 Every variable is described in [.env.example](.env.example).
+
+For tagging, download `model.onnx` and `selected_tags.csv` from a
+[SmilingWolf WD tagger](https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3)
+(Apache-2.0; `wd-vit-tagger-v3` is a smaller choice) into a folder, and set
+`WD14_MODEL_DIR` (or the folder in Settings). The model is not included in
+this repository.
 
 You can also configure everything from **Settings** in the app: backends
 (with a connection test), the save folder and other gallery folders, the
@@ -148,6 +156,7 @@ Layout:
 - `lib/diffusion/job-store.ts`: one live run per backend
 - `lib/gallery/`: PNG metadata, saving, folder access
 - `lib/settings/`: the settings file, its validation, and who may edit it
+- `lib/tagger/`: the built-in WD14 tagger and the choice between it and a backend's
 - `app/api/gen/*`, `app/api/gallery/*`: the routes the page talks to
 - `components/generate/`, `components/gallery/`: the two pages
 - `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool

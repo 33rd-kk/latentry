@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils"
 import { useT, type MessageKey } from "@/lib/i18n"
 
 type Source = "settings" | "env"
-type Part = "backends" | "tagger" | "gallery" | "profiles"
+type Part = "backends" | "tagger" | "wd14" | "gallery" | "profiles"
 
 interface BackendDraft {
   /** Stable React key; the id itself is editable. */
@@ -38,6 +38,9 @@ type ProfileDraft = Record<"width" | "height" | "steps" | "cfg" | "negativePromp
 interface Draft {
   backends: BackendDraft[]
   tagger: string
+  wd14Dir: string
+  wd14General: string
+  wd14Character: string
   saveDir: string
   dirs: string[]
   autoTag: boolean
@@ -45,6 +48,7 @@ interface Draft {
 }
 
 const AUTO = "__auto__"
+const BUILTIN = "builtin"
 const PROFILE_FIELDS: (keyof ProfileDraft)[] = ["width", "height", "steps", "cfg", "negativePrompt", "qualityTags", "artistTemplate"]
 
 let nextKey = 0
@@ -73,6 +77,10 @@ function toDraft(view: SettingsView): Draft {
       tokenSource: backend.token,
     })),
     tagger: view.tagger ?? AUTO,
+    wd14Dir: view.wd14.modelDir ?? "",
+    // Thresholds show as typed only when they differ from the defaults.
+    wd14General: view.wd14.general === view.wd14.defaults.general ? "" : String(view.wd14.general),
+    wd14Character: view.wd14.character === view.wd14.defaults.character ? "" : String(view.wd14.character),
     saveDir: view.gallery.saveDir ?? "",
     dirs: view.gallery.dirs,
     autoTag: view.gallery.autoTag,
@@ -94,6 +102,13 @@ function toInput(draft: Draft, dirty: Set<Part>) {
     }))
   }
   if (dirty.has("tagger")) body.tagger = draft.tagger === AUTO ? null : draft.tagger
+  if (dirty.has("wd14")) {
+    body.wd14 = {
+      modelDir: draft.wd14Dir.trim() || null,
+      ...(draft.wd14General.trim() ? { general: Number(draft.wd14General) } : {}),
+      ...(draft.wd14Character.trim() ? { character: Number(draft.wd14Character) } : {}),
+    }
+  }
   if (dirty.has("gallery")) {
     body.gallery = { saveDir: draft.saveDir.trim() || null, dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean), autoTag: draft.autoTag }
   }
@@ -356,22 +371,64 @@ export function SettingsForm() {
             {t("settings.addBackend")}
           </Button>
         </div>
-        <div className="mt-4 max-w-sm space-y-1">
-          <Label>{t("settings.tagger")}</Label>
-          <Select value={draft.tagger} onValueChange={(tagger) => change("tagger", (current) => ({ ...current, tagger }))}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={AUTO}>{t("settings.taggerAuto")}</SelectItem>
-              {backendIds.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {id}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {error("tagger")}
+      </Section>
+
+      {/* ── WD14 tagging ── */}
+      <Section
+        title={t("settings.taggerTitle")}
+        description={t("settings.taggerHint")}
+        source={settingsView.sources.wd14 === "settings" || settingsView.sources.tagger === "settings" ? "settings" : "env"}
+        onUseEnv={() => void save({ wd14: null, tagger: null })}
+      >
+        <div className="space-y-4">
+          <div className="max-w-sm space-y-1">
+            <Label>{t("settings.tagger")}</Label>
+            <Select value={draft.tagger} onValueChange={(tagger) => change("tagger", (current) => ({ ...current, tagger }))}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={AUTO}>{t("settings.taggerAuto")}</SelectItem>
+                <SelectItem value={BUILTIN}>{t("settings.taggerBuiltin")}</SelectItem>
+                {backendIds.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {t("settings.taggerBackend", { id })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {error("tagger")}
+          </div>
+          <Field label={t("settings.wd14Dir")} hint={t("settings.wd14DirHint")}>
+            <Input
+              value={draft.wd14Dir}
+              onChange={(event) => change("wd14", (current) => ({ ...current, wd14Dir: event.target.value }))}
+              placeholder={t("settings.wd14DirOff")}
+              className="font-mono text-xs"
+            />
+            {error("wd14.modelDir")}
+            {!dirty.has("wd14") && settingsView.wd14.modelDir && (
+              <p className={cn("flex items-center gap-1 text-xs", settingsView.wd14.found ? "text-emerald-600" : "text-destructive")}>
+                {settingsView.wd14.found ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+                {t(settingsView.wd14.found ? "settings.wd14Found" : "settings.wd14Missing")}
+              </p>
+            )}
+          </Field>
+          <div className="grid max-w-sm grid-cols-2 gap-2">
+            {(["general", "character"] as const).map((field) => (
+              <Field key={field} label={t(field === "general" ? "settings.wd14General" : "settings.wd14Character")}>
+                <Input
+                  inputMode="decimal"
+                  value={field === "general" ? draft.wd14General : draft.wd14Character}
+                  placeholder={String(settingsView.wd14.defaults[field])}
+                  onChange={(event) =>
+                    change("wd14", (current) => ({ ...current, [field === "general" ? "wd14General" : "wd14Character"]: event.target.value }))
+                  }
+                />
+                {error(`wd14.${field}`)}
+              </Field>
+            ))}
+          </div>
         </div>
       </Section>
 

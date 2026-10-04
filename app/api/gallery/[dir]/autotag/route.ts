@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { jsonError, readJson } from '@/lib/api'
-import { getTaggerAdapter } from '@/lib/backends'
+import { getTagger } from '@/lib/tagger'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { isSafeName, resolveInDir } from '@/lib/gallery/fs'
 import { metaFromText, readPngText } from '@/lib/gallery/png-meta'
@@ -40,8 +40,8 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[di
   if (!names.length || names.length > MAX_NAMES) return jsonError(`names must list 1 to ${MAX_NAMES} pictures`, 400)
   const skipTagged = body?.skipTagged === true
 
-  const tagger = await getTaggerAdapter()
-  if (!tagger?.tag) return jsonError('No backend can tag pictures', 503)
+  const tagger = await getTagger()
+  if (!tagger) return jsonError('Nothing can tag pictures: set a WD14 model folder in Settings, or a backend with a tagger', 503)
 
   const release = tryAcquire('gallery:autotag')
   if (!release) return jsonError('Another batch is already being tagged', 409)
@@ -73,7 +73,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[di
               send({ name, status: 'skipped' })
               continue
             }
-            const result = await tagger.tag!(bytes.toString('base64'))
+            const result = await tagger.tag(bytes.toString('base64'))
             if (!result.ok) throw new Error(result.error)
             const saved = await writeTags(dir, name, result.value.tags)
             if (!saved) throw new Error('Only PNG files can hold tags')

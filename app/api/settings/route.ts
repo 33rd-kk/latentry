@@ -3,6 +3,7 @@ import { editRefusal } from '@/lib/settings/access'
 import { validateSettings, type SettingsErrors, type SettingsInput } from '@/lib/settings/schema'
 import { checkDir, getSettings, saveSettings } from '@/lib/settings/store'
 import { settingsView } from '@/lib/settings/view'
+import { hasModel } from '@/lib/tagger/wd14'
 
 export const runtime = 'nodejs'
 
@@ -43,6 +44,8 @@ export async function PUT(request: Request) {
     const result = await checkDir(dir)
     if (result !== 'ok') errors[`gallery.dirs.${index}`] = `settings.dir.${result}`
   }
+  const modelDir = checked.settings.wd14?.modelDir
+  if (modelDir && !hasModel(modelDir)) errors['wd14.modelDir'] = 'settings.wd14Missing'
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })
 
   try {

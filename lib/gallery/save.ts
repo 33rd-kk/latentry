@@ -9,7 +9,7 @@
 import { randomBytes } from 'node:crypto'
 import { access, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
-import { getTaggerAdapter } from '@/lib/backends'
+import { getTagger } from '@/lib/tagger'
 import { serverMessage } from '@/lib/i18n/core'
 import { autoTagEnabled, getSaveDir, type GalleryDir } from './dirs'
 import { invalidateListing, resolveInDir } from './fs'
@@ -130,8 +130,8 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
  */
 async function autoTag(dir: GalleryDir, name: string, imageBase64: string): Promise<void> {
   try {
-    const tagger = await getTaggerAdapter()
-    const result = await tagger?.tag?.(imageBase64)
+    const tagger = await getTagger()
+    const result = await tagger?.tag(imageBase64)
     if (result?.ok) await writeTags(dir, name, result.value.tags)
   } catch (error) {
     console.error('Auto-tagging failed:', error)

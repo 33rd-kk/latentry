@@ -5,6 +5,8 @@
 import { backendsSource, getBackends, hasEnvToken, taggerPreference } from '@/lib/backends/config'
 import { getGalleryDirs, autoTagEnabled } from '@/lib/gallery/dirs'
 import { getBuiltinProfile, PROFILE_IDS, type ProfileId } from '@/lib/profiles'
+import { wd14Config } from '@/lib/tagger'
+import { DEFAULT_THRESHOLDS, hasModel } from '@/lib/tagger/wd14'
 import type { BackendKind } from '@/lib/backends/types'
 import { getSettings, settingsPath } from './store'
 import type { ProfileOverride, Settings } from './schema'
@@ -16,9 +18,10 @@ export interface SettingsView {
   file: string
   backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null }[]
   tagger: string | null
+  wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
   gallery: { saveDir: string | null; dirs: string[]; autoTag: boolean }
   profiles: Partial<Record<ProfileId, ProfileOverride>>
-  sources: { backends: Source; tagger: Source; saveDir: Source; dirs: Source; autoTag: Source }
+  sources: { backends: Source; tagger: Source; wd14: Source; saveDir: Source; dirs: Source; autoTag: Source }
   builtinProfiles: {
     id: ProfileId
     label: string
@@ -47,6 +50,10 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       token: stored.get(id)?.token ? 'settings' : hasEnvToken(id) ? 'env' : null,
     })),
     tagger: taggerPreference(process.env, settings),
+    wd14: (() => {
+      const config = wd14Config(process.env, settings)
+      return { modelDir: config.modelDir, ...config.thresholds, found: hasModel(config.modelDir), defaults: DEFAULT_THRESHOLDS }
+    })(),
     gallery: {
       saveDir: dirs.find((dir) => dir.writable)?.path ?? null,
       dirs: dirs.filter((dir) => !dir.writable).map((dir) => dir.path),
@@ -56,6 +63,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
     sources: {
       backends: backendsSource(settings),
       tagger: settings.tagger !== undefined ? 'settings' : 'env',
+      wd14: settings.wd14 !== undefined ? 'settings' : 'env',
       saveDir: settings.gallery?.saveDir !== undefined ? 'settings' : 'env',
       dirs: settings.gallery?.dirs !== undefined ? 'settings' : 'env',
       autoTag: settings.gallery?.autoTag !== undefined ? 'settings' : 'env',
