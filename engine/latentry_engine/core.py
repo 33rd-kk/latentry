@@ -176,7 +176,13 @@ class Engine:
         from diffusers.modular_pipelines.modular_pipeline import ModularPipeline
 
         pipe = ModularPipeline.from_pretrained(str(info.path))
-        pipe.load_components(torch_dtype=self.plan.dtype)
+        # The index names each component's Hub repository; without this the
+        # weights would be fetched (or looked up in the HF cache) from there
+        # instead of read from this folder.
+        pipe.load_components(torch_dtype=self.plan.dtype, pretrained_model_name_or_path=str(info.path))
+        missing = [name for name in pipe._component_specs if getattr(pipe, name, None) is None]
+        if missing:
+            raise EngineError(f"{info.name} is missing {', '.join(missing)}; is the folder complete?")
         # Modular pipelines move as a whole; the offload hooks of the classic
         # pipelines do not apply, so only the all-on-GPU plan is offered.
         pipe.to(self.plan.device)

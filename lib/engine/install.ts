@@ -170,7 +170,8 @@ async function steps(torch: TorchChoice): Promise<InstallRecord> {
   job.step = 'torch'
   await run(
     uv,
-    ['pip', 'install', '--python', paths.python, 'torch', ...(torch.indexUrl ? ['--index-url', torch.indexUrl] : [])],
+    // torchvision too: Anima's transformer (Cosmos) needs it to resize its padding mask.
+    ['pip', 'install', '--python', paths.python, 'torch', 'torchvision', ...(torch.indexUrl ? ['--index-url', torch.indexUrl] : [])],
     uvEnv
   )
 

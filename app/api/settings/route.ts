@@ -44,6 +44,12 @@ export async function PUT(request: Request) {
     const result = await checkDir(dir)
     if (result !== 'ok') errors[`gallery.dirs.${index}`] = `settings.dir.${result}`
   }
+  const enginePart = (body as SettingsInput).engine
+  const modelsDir = checked.settings.engine?.modelsDir
+  if (enginePart && typeof enginePart === 'object' && 'modelsDir' in enginePart && modelsDir) {
+    const result = await checkDir(modelsDir)
+    if (result !== 'ok') errors['engine.modelsDir'] = `settings.dir.${result}`
+  }
   const modelDir = checked.settings.wd14?.modelDir
   if (modelDir && !hasModel(modelDir)) errors['wd14.modelDir'] = 'settings.wd14Missing'
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })

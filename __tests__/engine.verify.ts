@@ -61,4 +61,9 @@ eq(bad.ok ? null : Object.keys(bad.errors).sort(), ['engine.basePort', 'engine.g
 const kept = validateSettings({ gallery: { autoTag: true } }, { version: 1, engine: { model: 'a.safetensors' } })
 eq(kept.ok ? kept.settings.engine : null, { model: 'a.safetensors' }, 'saving another part keeps the engine settings')
 
+const merged = validateSettings({ engine: { autoStart: false } }, { version: 1, engine: { model: 'a.safetensors', modelsDir: 'D:/models' } })
+eq(merged.ok ? merged.settings.engine : null, { model: 'a.safetensors', modelsDir: 'D:/models', autoStart: false }, 'one engine field at a time keeps the others')
+const cleared = validateSettings({ engine: { modelsDir: null } }, { version: 1, engine: { model: 'a.safetensors', modelsDir: 'D:/models' } })
+eq(cleared.ok ? cleared.settings.engine : null, { model: 'a.safetensors', modelsDir: null }, 'null goes back to the default folder')
+
 done('engine')

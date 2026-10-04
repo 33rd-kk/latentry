@@ -55,6 +55,8 @@ export interface EngineStatus {
   torch: TorchChoice
   runtimeDir: string
   modelsDir: string
+  /** The folder set on the Setup page; null for the default (<app>/models). */
+  customModelsDir: string | null
   autoStart: boolean
   basePort: number
   installed: InstallRecord | null
@@ -150,6 +152,7 @@ export async function engineStatus(): Promise<EngineStatus> {
     torch: chooseTorch(gpuCache),
     runtimeDir: enginePaths().root,
     modelsDir: dir,
+    customModelsDir: settings.engine?.modelsDir ?? null,
     autoStart: settings.engine?.autoStart !== false,
     basePort: settings.engine?.basePort ?? DEFAULT_BASE_PORT,
     installed: await installRecord(),

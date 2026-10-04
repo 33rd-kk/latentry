@@ -370,6 +370,11 @@
     "taggerBody": "The WD14 tagger reads tags from pictures. It runs inside Latentry, so it needs no engine.",
     "inUse": "In use",
     "use": "Use this one",
-    "failed": "That did not work: {error}"
+    "failed": "That did not work: {error}",
+    "modelsFolder": "Models folder",
+    "modelsFolderHint": "Point it at models you already have, such as a web UI's models/Stable-diffusion folder. Single .safetensors files and diffusers folders directly inside it are listed. The engine restarts to pick it up.",
+    "modelsFolderDefault": "Use the default",
+    "save": "Save",
+    "saved": "Saved"
   }
 }

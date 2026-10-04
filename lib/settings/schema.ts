@@ -265,7 +265,9 @@ export function validateSettings(
   if (input.engine === undefined) {
     if (current.engine) next.engine = current.engine
   } else if (input.engine !== null) {
-    const engine: EngineSettings = {}
+    // Field by field: the Setup page saves one switch or folder at a time, and
+    // the rest (the model to load, say) must survive it.
+    const engine: EngineSettings = { ...current.engine }
     const { autoStart, modelsDir, basePort, gpus, model } = input.engine
     if (autoStart !== undefined) engine.autoStart = autoStart !== false
     if (modelsDir === null || modelsDir === '') engine.modelsDir = null
