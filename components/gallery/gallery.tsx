@@ -10,9 +10,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { useSecretMode } from "@/components/app-header"
 import { GalleryPanel } from "./gallery-panel"
+import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { pictureUrl, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { listProfiles } from "@/lib/profiles"
+import { exactTagQuery } from "@/lib/gallery/query"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 
@@ -29,6 +31,7 @@ export function Gallery() {
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [query, setQuery] = useState("")
+  const [searchFocused, setSearchFocused] = useState(false)
   const [q, setQ] = useState("")
   const [backend, setBackend] = useState(ALL)
   const [profile, setProfile] = useState(ALL)
@@ -103,8 +106,16 @@ export function Gallery() {
         )}
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={t("gallery.search")} className="pl-8" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+            placeholder={t("gallery.search")}
+            className="pl-8"
+          />
         </div>
+        <SearchHintToggle />
         <Select value={backend} onValueChange={setBackend}>
           <SelectTrigger className="w-36">
             <SelectValue />
@@ -135,6 +146,7 @@ export function Gallery() {
           <RefreshCw className={cn("h-4 w-4", page.loading && "animate-spin")} />
         </Button>
       </div>
+      <SearchHint visible={searchFocused || query.trim().length > 0} />
       {folder && !folder.writable && <p className="text-xs text-muted-foreground">{t("gallery.readOnlyHint")}</p>}
 
       <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
@@ -180,7 +192,8 @@ export function Gallery() {
               secret={secret}
               onSearch={(tag) => {
                 setViewing(null)
-                setQuery(tag)
+                // Quoted, so a tag of several words is searched as that one tag.
+                setQuery(exactTagQuery(tag))
               }}
               onMetaChange={page.patch}
             />

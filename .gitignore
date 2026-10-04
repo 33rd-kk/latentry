@@ -47,3 +47,4 @@ next-env.d.ts
 # settings saved from the settings page (holds backend tokens)
 latentry.settings.json
 latentry.settings.json.*.tmp
+/.next-*/

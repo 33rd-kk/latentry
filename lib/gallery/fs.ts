@@ -6,6 +6,7 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
 import type { GalleryDir } from './dirs'
+import { matchesQuery, parseQuery, searchableOf, type SearchTerm } from './query'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -194,25 +195,16 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
 }
 
 export interface ListFilter {
-  /** Matched against the prompt, the model and the file name, case-insensitively. */
+  /** The search box: comma-separated terms, quoted for an exact tag (see ./query.ts). */
   q?: string
   backend?: string
   profile?: string
 }
 
-function matches(item: GalleryItem, filter: ListFilter): boolean {
+function matches(item: GalleryItem, filter: ListFilter, terms: SearchTerm[]): boolean {
   if (filter.backend && item.meta?.backend !== filter.backend) return false
   if (filter.profile && item.meta?.profile !== filter.profile) return false
-  if (filter.q) {
-    const haystack = [item.name, item.meta?.prompt, item.meta?.model, ...(item.meta?.tags ?? []).map((tag) => tag.name)]
-      .filter(Boolean)
-      .join('\n')
-      .toLowerCase()
-    for (const word of filter.q.toLowerCase().split(/\s+/).filter(Boolean)) {
-      if (!haystack.includes(word)) return false
-    }
-  }
-  return true
+  return terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta), terms)
 }
 
 /** Cursor = the last item's "mtime:name", so new files arriving do not shift pages. */
@@ -237,7 +229,8 @@ export async function listPage(
   const start = options.cursor ? entries.findIndex((entry) => isAfterCursor(entry, options.cursor!)) : 0
   if (start === -1) return { items: [], nextCursor: null }
 
-  const filtering = Boolean(options.filter.q || options.filter.backend || options.filter.profile)
+  const terms = parseQuery(options.filter.q ?? '')
+  const filtering = Boolean(terms.length || options.filter.backend || options.filter.profile)
   const items: GalleryItem[] = []
   let index = start
   // Filtering reads metadata as it goes; a search through a huge folder stops
@@ -250,7 +243,7 @@ export async function listPage(
     for (let i = 0; i < infos.length; i += 1) {
       index += 1
       scanned += 1
-      if (!filtering || matches(infos[i], options.filter)) items.push(infos[i])
+      if (!filtering || matches(infos[i], options.filter, terms)) items.push(infos[i])
       if (items.length >= options.limit || scanned >= scanLimit) break
     }
   }

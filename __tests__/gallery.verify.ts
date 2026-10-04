@@ -161,8 +161,10 @@ async function main() {
     const page2 = await listPage(dir, { limit: 10, cursor: page.nextCursor, filter: {} })
     eq([page2.items.map((item) => item.name), page2.nextCursor], [['old.png'], null], 'the cursor continues; text files are not listed')
     eq(page2.items[0].meta?.seed, 1234, 'items carry their settings')
-    const found = await listPage(dir, { limit: 10, filter: { q: 'SMILE 1girl', backend: 'anima' } })
-    eq(found.items.map((item) => item.name).sort(), ['new.png', 'old.png'], 'search matches prompt words in any case')
+    const found = await listPage(dir, { limit: 10, filter: { q: 'SMILE, 1girl', backend: 'anima' } })
+    eq(found.items.map((item) => item.name).sort(), ['new.png', 'old.png'], 'search matches comma-separated terms in any case')
+    eq((await listPage(dir, { limit: 10, filter: { q: '"1girl"' } })).items.length, 2, 'an exact tag from the prompt')
+    eq((await listPage(dir, { limit: 10, filter: { q: '"smile 1girl"' } })).items, [], 'two tags in quotes are not one tag')
     eq((await listPage(dir, { limit: 10, filter: { backend: 'sdxl' } })).items, [], 'the backend filter')
 
     check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')

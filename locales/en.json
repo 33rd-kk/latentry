@@ -163,7 +163,13 @@
     "steps": "Steps",
     "cfg": "CFG",
     "sampler": "Sampler",
-    "strength": "Strength"
+    "strength": "Strength",
+    "searchHintTerms": "Commas separate terms; every term must match. A term can be several words.",
+    "searchHintExact": "Quotes match one tag exactly: not \"very long hair\". Tags sent from the viewer are quoted.",
+    "searchHintSpelling": "Underscores and spaces are the same, and case does not matter.",
+    "searchHintOther": "Unquoted terms also match the model and the file name.",
+    "searchHintHide": "Hide tips",
+    "searchHintShow": "Show search tips"
   },
   "lightbox": {
     "copiedWhat": "Copied {what}",

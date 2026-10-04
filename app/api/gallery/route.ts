@@ -38,6 +38,8 @@ export async function GET(request: NextRequest) {
     return json(page)
   } catch (error) {
     const code = error instanceof Error && 'code' in error ? (error as { code?: unknown }).code : null
+    // The save folder is made by the first save; until then it is just empty.
+    if (code === 'ENOENT' && dir.writable) return json({ items: [], nextCursor: null })
     if (code === 'ENOENT') return jsonError('The folder does not exist', 404)
     console.error('Gallery listing failed:', error)
     return jsonError('Could not read the folder', 500)
