@@ -48,3 +48,9 @@ next-env.d.ts
 latentry.settings.json
 latentry.settings.json.*.tmp
 /.next-*/
+
+# engine runtime (uv, Python, venv, logs) and downloaded models
+/.runtime/
+/models/
+__pycache__/
+*.egg-info/
