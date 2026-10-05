@@ -104,6 +104,10 @@ export interface PoseRequest {
   width?: number
   height?: number
   person?: number
+  /** Answer with each person's 3D points too (backends that can turn a pose). */
+  want_3d?: boolean
+  /** Draw the pose seen from here, in degrees (see lib/pose.ts for the limits). */
+  camera?: { yaw: number; pitch: number }
 }
 
 /** A backend's answer that is either a body to pass on or a refusal with its status. */

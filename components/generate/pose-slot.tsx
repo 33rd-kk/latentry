@@ -1,7 +1,8 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import { Images, Loader2, PersonStanding, RefreshCw, Users, X } from "lucide-react"
+import dynamic from "next/dynamic"
+import { Images, Loader2, PersonStanding, RefreshCw, Rotate3d, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
@@ -9,7 +10,11 @@ import { GalleryPicker } from "@/components/gallery/gallery-picker"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
+import type { PoseCamera } from "@/lib/pose"
 import { toSourceImage, type SourceImage } from "./source-image-slot"
+
+// WebGL exists only in the browser, and three.js is big: load it when the 3D view opens.
+const Pose3dView = dynamic(() => import("./pose-3d-view"), { ssr: false })
 
 /** The skeleton the run will follow, as the backend's /pose drew it. */
 export interface PoseSkeleton {
@@ -21,10 +26,15 @@ export interface PoseSkeleton {
 /** One person the server found, as fractions of the reference picture: [x0, y0, x1, y1]. */
 interface DetectedPerson {
   bbox: [number, number, number, number]
+  /** With want_3d: 133 points (x right, y down, z away) in units of the picture's width. */
+  points_3d?: number[][]
+  scores?: number[]
 }
 
 // The pose API's index for "every detected person" (see docs/backend-api.md).
 const ALL_PEOPLE = -1
+const FRONT: PoseCamera = { yaw: 0, pitch: 0 }
+const isFront = (camera: PoseCamera) => camera.yaw === 0 && camera.pitch === 0
 
 interface PoseSlotProps {
   /** The backend whose pose detector draws the skeleton. */
@@ -50,6 +60,10 @@ interface PoseSlotProps {
  * which is often not the one meant, so their boxes are drawn over the reference
  * and clicking one asks for that person's skeleton instead. The choice lives
  * only here: the run still just sends the drawn skeleton.
+ *
+ * A backend that can turn a pose (poseorbit, which answers with `limits`)
+ * also gets a 3D view: drag the camera around the figure, then have the
+ * backend draw the skeleton from that angle.
  */
 export function PoseSlot({ backend, value, onChange, strength, onStrengthChange, outputSize, source, disabled }: PoseSlotProps) {
   const t = useT()
@@ -63,11 +77,18 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
   const [reference, setReference] = useState<SourceImage | null>(null)
   const [people, setPeople] = useState<DetectedPerson[]>([])
   const [person, setPerson] = useState<number | null>(null)
+  // How far the backend lets the camera swing; null when it cannot turn a pose.
+  const [limits, setLimits] = useState<{ yaw: number; pitch: number } | null>(null)
+  const [show3d, setShow3d] = useState(false)
+  // The angle the current skeleton was drawn from, and where the 3D camera is now.
+  const [turn, setTurn] = useState<PoseCamera>(FRONT)
+  const [view, setView] = useState<PoseCamera>(FRONT)
 
   const detect = useCallback(
-    async (picture: SourceImage, which?: number | null) => {
+    async (picture: SourceImage, which?: number | null, options: { camera?: PoseCamera; want3d?: boolean } = {}) => {
       setLoading(true)
       setError(null)
+      const camera = options.camera ?? turn
       try {
         const response = await fetch(`/api/gen/${encodeURIComponent(backend)}/pose`, {
           method: "POST",
@@ -76,6 +97,8 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
             image_base64: picture.dataUrl,
             ...outputSize,
             ...(which != null ? { person: which } : {}),
+            ...((options.want3d ?? show3d) ? { want_3d: true } : {}),
+            ...(isFront(camera) ? {} : { camera }),
           }),
         })
         const data = await response.json().catch(() => null)
@@ -85,6 +108,10 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
         setReference(picture)
         setPeople(Array.isArray(data.people) ? data.people : [])
         setPerson(typeof data.person === "number" ? data.person : null)
+        setLimits(data.limits && typeof data.limits.yaw === "number" ? data.limits : null)
+        const drawnFrom: PoseCamera = data.camera && typeof data.camera.yaw === "number" ? data.camera : FRONT
+        setTurn(drawnFrom)
+        setView(drawnFrom)
         onChange({ dataUrl: `data:image/png;base64,${data.skeleton_base64}`, width: data.width, height: data.height })
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : t("generate.unreachable"))
@@ -92,7 +119,7 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
         setLoading(false)
       }
     },
-    [backend, onChange, outputSize, t]
+    [backend, onChange, outputSize, show3d, t, turn]
   )
 
   const loadPicture = useCallback(
@@ -104,7 +131,8 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
         setError(t("generate.sourceLoadFailed"))
         return
       }
-      await detect(decoded)
+      // A new picture starts from the front.
+      await detect(decoded, null, { camera: FRONT })
     },
     [detect, t]
   )
@@ -124,8 +152,23 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
     setReference(null)
     setPeople([])
     setPerson(null)
+    setTurn(FRONT)
+    setView(FRONT)
     setError(null)
   }, [onChange])
+
+  const toggle3d = useCallback(() => {
+    const opening = !show3d
+    setShow3d(opening)
+    // The 3D points come only when asked for; fetch them the first time.
+    if (opening && reference && !people.some((detected) => detected.points_3d)) {
+      void detect(reference, person, { want3d: true })
+    }
+  }, [detect, people, person, reference, show3d])
+
+  const people3d = people.every((detected) => detected.points_3d && detected.scores)
+    ? (people as Required<DetectedPerson>[])
+    : null
 
   // A skeleton drawn for another size still works (the backend letterboxes it),
   // but it no longer lines up edge to edge; say so rather than silently shift it.
@@ -176,6 +219,20 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{value.width} × {value.height}</span>
+              {limits && reference && (
+                <Button
+                  type="button"
+                  variant={show3d ? "secondary" : "ghost"}
+                  size="sm"
+                  className="ml-auto h-6 px-1.5 text-xs"
+                  aria-pressed={show3d}
+                  onClick={toggle3d}
+                  disabled={disabled}
+                >
+                  <Rotate3d className="mr-1 h-3 w-3" />
+                  {t("generate.pose3d")}
+                </Button>
+              )}
               <Button
                 type="button"
                 variant="ghost"
@@ -199,6 +256,9 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
                 disabled={disabled}
               />
               <p className="text-xs text-muted-foreground">{t("generate.poseSkeletonHint")}</p>
+              {!isFront(turn) && (
+                <p className="text-xs text-muted-foreground">{t("generate.pose3dTurned", { yaw: turn.yaw, pitch: turn.pitch })}</p>
+              )}
               {sizeChanged && (
                 <div className="flex flex-wrap items-center gap-1">
                   <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseSizeChanged")}</p>
@@ -244,6 +304,54 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PersonStanding className="h-4 w-4" />}
           {t("generate.poseDrop")}
         </button>
+      )}
+
+      {value && reference && limits && show3d && (
+        <div className="space-y-1.5">
+          {people3d ? (
+            <Pose3dView
+              people={people3d}
+              person={person ?? 0}
+              limits={limits}
+              camera={view}
+              onCameraChange={setView}
+            />
+          ) : (
+            <div className="flex aspect-square w-full max-w-72 items-center justify-center rounded-md border border-border/50 bg-black">
+              <Loader2 className="h-5 w-5 animate-spin text-white/70" />
+            </div>
+          )}
+          <div className="flex flex-wrap items-center gap-1">
+            <span className="mr-1 text-xs tabular-nums text-muted-foreground">
+              {t("generate.pose3dAngle", { yaw: view.yaw, pitch: view.pitch })}
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              className="h-6 px-1.5 text-xs"
+              onClick={() => void detect(reference, person, { camera: view })}
+              disabled={disabled || loading || !people3d || (view.yaw === turn.yaw && view.pitch === turn.pitch)}
+            >
+              {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Rotate3d className="mr-1 h-3 w-3" />}
+              {t("generate.pose3dUse")}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-6 px-1.5 text-xs"
+              onClick={() => {
+                setView(FRONT)
+                if (!isFront(turn)) void detect(reference, person, { camera: FRONT })
+              }}
+              disabled={disabled || loading || (isFront(view) && isFront(turn))}
+            >
+              {t("generate.pose3dFront")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("generate.pose3dHint")}</p>
+        </div>
       )}
 
       {choosing && (

@@ -127,12 +127,18 @@
     "poseFromGallery": "From gallery",
     "poseDrop": "Drop a picture to follow its pose (the pose is detected and drawn as a skeleton)",
     "poseStrength": "Pose strength: {value}",
-    "poseSkeletonHint": "1.0 is what the pose adapter was trained at; higher follows more closely but can cost quality. Busy or dynamic poses (running, jumping) are followed least reliably.",
+    "poseSkeletonHint": "1.0 is what the pose model was trained at; higher follows more closely but can cost quality. Busy or dynamic poses (running, jumping) are followed least reliably.",
     "poseSizeChanged": "The output size changed since this skeleton was drawn; it will be fitted inside. Detect again to line it up.",
     "posePeople": "Found {count} people. Pick whose pose to follow.",
     "posePerson": "Person {n}",
     "posePeopleAll": "Everyone",
-    "poseRedetect": "Detect again"
+    "poseRedetect": "Detect again",
+    "pose3d": "3D",
+    "pose3dHint": "Drag to swing the camera around the figure, up to 90° to either side and 45° up or down. Depth is guessed from one picture, so the further it turns, the more often an arm or leg lands in front when it was behind.",
+    "pose3dAngle": "Yaw {yaw}°, pitch {pitch}°",
+    "pose3dUse": "Use this angle",
+    "pose3dFront": "Front view",
+    "pose3dTurned": "Seen from yaw {yaw}°, pitch {pitch}°"
   },
   "gallery": {
     "notConfiguredTitle": "No gallery folder yet",
