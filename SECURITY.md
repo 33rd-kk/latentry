@@ -34,5 +34,8 @@ What is out of scope: anyone already on your LAN or machine, and exposing
 Latentry to the internet. To do that, put an authenticating reverse proxy in
 front that overwrites `X-Forwarded-For`.
 
-Dependencies are watched by Dependabot and audited weekly (`npm audit`,
-pip-audit); the code is scanned by CodeQL.
+Dependencies are watched by Dependabot and audited weekly (`npm audit` of
+what ships, pip-audit); the code is scanned by CodeQL. `npm ci` may still
+report advisories in development tools (the lint config and the shadcn CLI
+that the stylesheet imports from) that have no fixed release yet; none of
+them runs inside Latentry.

@@ -127,7 +127,7 @@ export async function engineStatus(): Promise<EngineStatus> {
           ...entry,
           modelId,
           installed: hasModel(target),
-          inUse: Boolean(wd14Dir && path.resolve(wd14Dir) === path.resolve(target)),
+          inUse: Boolean(wd14Dir && path.resolve(/*turbopackIgnore: true*/ wd14Dir) === path.resolve(/*turbopackIgnore: true*/ target)),
           dir: target,
           download: item ? { state: item.state, doneBytes: item.doneBytes, totalBytes: item.totalBytes, error: item.error } : null,
         }
