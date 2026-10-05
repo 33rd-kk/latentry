@@ -1,5 +1,7 @@
 # Keeps dependencies current: security fixes as they are published, other
-# bumps weekly, one grouped pull request per ecosystem.
+# bumps weekly. Minor and patch updates come grouped, one pull request per
+# ecosystem; each major update comes on its own, so one that breaks (say,
+# a TypeScript the lint config does not support yet) holds up nothing else.
 version: 2
 updates:
   - package-ecosystem: npm
@@ -9,6 +11,11 @@ updates:
     groups:
       npm:
         patterns: ["*"]
+        update-types: [minor, patch]
+    ignore:
+      # Node's types follow the Node.js Latentry supports (22), not the newest.
+      - dependency-name: "@types/node"
+        update-types: [version-update:semver-major]
   - package-ecosystem: pip
     directories: [/engine, /poseorbit]
     schedule:
@@ -16,6 +23,7 @@ updates:
     groups:
       python:
         patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
