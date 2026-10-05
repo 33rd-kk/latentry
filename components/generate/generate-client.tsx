@@ -161,9 +161,6 @@ export function GenerateClient() {
     setOwned((current) => (current ? { ...current, form: { ...current.form, ...patch } } : current))
   }, [])
 
-  // Settings that arrived from the gallery for a backend not yet loaded; they
-  // are laid over its form as soon as it is.
-  const pendingSettingsRef = useRef<HandoffSettings | null>(null)
   // Whether the loaded form came from storage, so the backend's default preset
   // does not overwrite the user's own last settings.
   const restoredRef = useRef(false)
@@ -183,13 +180,7 @@ export function GenerateClient() {
     if (!selectedId || !status || owned?.owner === selectedId) return
     const stored = readStoredForm(selectedId, status.profile)
     restoredRef.current = stored !== null
-    let next = stored ?? defaultForm(getProfile(status.profile))
-    const pending = pendingSettingsRef.current
-    if (pending) {
-      pendingSettingsRef.current = null
-      next = applySettings(next, pending)
-    }
-    setOwned({ owner: selectedId, form: next })
+    setOwned({ owner: selectedId, form: stored ?? defaultForm(getProfile(status.profile)) })
   }, [selectedId, status, owned?.owner])
   /* eslint-enable react-hooks/set-state-in-effect */
 
@@ -557,17 +548,12 @@ export function GenerateClient() {
             return { ...current, form: { ...current.form, [key]: appendTag(current.form[key], item.tag) } }
           })
         } else if (item.type === "settings") {
-          const target = item.settings.backend
-          if (target && target !== backendRef.current && backends.some((backend) => backend.id === target)) {
-            // Applied over that backend's form once it has loaded.
-            pendingSettingsRef.current = item.settings
-            selectBackend(target)
-          } else {
-            if (target && !backends.some((backend) => backend.id === target)) {
-              toast(t("generate.backendMissing", { backend: target }))
-            }
-            setOwned((current) => (current ? { ...current, form: applySettings(current.form, item.settings) } : current))
-          }
+          // Into the backend chosen here, not the one the picture came from:
+          // reusing a prompt on another backend is the point.
+          const sameBackend = item.settings.backend === backendRef.current
+          setOwned((current) =>
+            current ? { ...current, form: applySettings(current.form, item.settings, sameBackend) } : current
+          )
         } else if (item.type === "source") {
           fetchPicture(item.url)
             .then(toSourceImage)
@@ -579,7 +565,7 @@ export function GenerateClient() {
         }
       }
     },
-    [backends, changeSource, changeSourceMode, selectBackend, t]
+    [changeSource, changeSourceMode, t]
   )
 
   const ready = owned !== null && owned.owner === selectedId
@@ -1158,17 +1144,22 @@ function SeedInput({ value, onChange }: { value: number; onChange: (seed: number
   )
 }
 
-function applySettings(form: FormState, settings: HandoffSettings): FormState {
-  const profile = settings.profile && isProfileId(settings.profile) ? settings.profile : form.profile
-  return {
-    ...form,
-    profile,
+function applySettings(form: FormState, settings: HandoffSettings, sameBackend: boolean): FormState {
+  const words = {
     prompt: toSpacedTags(settings.prompt),
-    negativePrompt: settings.negativePrompt,
     // The prompt as saved already carries its artist and quality tags.
     artist: "",
     quality: false,
     ...(settings.seed !== undefined ? { seed: settings.seed } : {}),
+  }
+  // From another backend only the words and the seed carry over: its size,
+  // steps, CFG and sampler were tuned for a different model.
+  if (!sameBackend) return { ...form, ...words }
+  return {
+    ...form,
+    ...words,
+    ...(settings.profile && isProfileId(settings.profile) ? { profile: settings.profile } : {}),
+    negativePrompt: settings.negativePrompt,
     ...(settings.width ? { width: settings.width } : {}),
     ...(settings.height ? { height: settings.height } : {}),
     ...(settings.steps ? { steps: settings.steps } : {}),

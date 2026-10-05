@@ -22,7 +22,6 @@
     "stateBusy": "Busy",
     "stateOffline": "Offline",
     "backendOffline": "Backend “{backend}” is not answering. Check that it is running.",
-    "backendMissing": "These settings came from backend “{backend}”, which is not configured here; they were put into the current form.",
     "backendDefault": "Default",
     "model": "Model",
     "modelLoading": "loading…",
