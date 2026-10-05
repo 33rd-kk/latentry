@@ -43,6 +43,7 @@ class GpuPlan:
     total_gib: float
     offload: str  # none | model | sequential
     max_batch: int
+    max_pose_batch: int  # the same with SDXL's pose ControlNet (2.5 GB) also on the GPU
 
     def describe(self) -> dict:
         return {
@@ -53,6 +54,7 @@ class GpuPlan:
             "dtype": str(self.dtype).replace("torch.", ""),
             "offload": self.offload,
             "max_batch": self.max_batch,
+            "max_pose_batch": self.max_pose_batch,
         }
 
 
@@ -123,6 +125,9 @@ def _pick_offload(device: str, vram_gib: float) -> str:
     return "sequential"
 
 
+CONTROLNET_GIB = 2.5  # xinsir/controlnet-openpose-sdxl-1.0 in half precision
+
+
 def _pick_batch(device: str, vram_gib: float, offload: str) -> int:
     wanted = os.environ.get("LATENTRY_MAX_BATCH", "").strip()
     if wanted.isdigit() and int(wanted) > 0:
@@ -142,4 +147,13 @@ def plan() -> GpuPlan:
         # Free speed on tensor cores, at a precision diffusion does not notice.
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
-    return GpuPlan(device, dtype, name, vram_gib, total_gib, offload, _pick_batch(device, vram_gib, offload))
+    return GpuPlan(
+        device,
+        dtype,
+        name,
+        vram_gib,
+        total_gib,
+        offload,
+        _pick_batch(device, vram_gib, offload),
+        _pick_batch(device, vram_gib - CONTROLNET_GIB, offload),
+    )

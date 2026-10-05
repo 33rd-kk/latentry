@@ -17,6 +17,10 @@ dependencies = [
     "uvicorn>=0.30",
     "pillow>=10",
     "numpy>=1.26",
+    # Pose control: poseorbit (../poseorbit, installed alongside by Latentry)
+    # finds people and draws skeletons; peft loads Anima's pose LoRA.
+    "poseorbit",
+    "peft>=0.15",
 ]
 
 [build-system]

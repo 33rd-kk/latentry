@@ -92,7 +92,9 @@ steps.
 - **Inpaint**: `mask_base64` over the source. **The mask is read by its alpha
   channel**: painted (opaque) pixels are redrawn, transparent ones are kept.
 - **Pose**: `pose_image_base64` is a skeleton already drawn by `/api/pose`
-  (`pose_is_skeleton: true`).
+  (`pose_is_skeleton: true`), followed at `pose_strength` (0–2, 1.0 as
+  trained). The skeleton's drawing style is the backend's business: it is
+  drawn by the same backend that follows it.
 
 Refusals come back before any streaming, as JSON with a `detail` (or
 `error`) string:
@@ -159,6 +161,33 @@ The skeleton is drawn at `width × height`, the size of the run it is meant
 for. `people` lists everyone detected, with boxes as fractions of the
 picture. `person` picks one by index, or `-1` for everyone; absent means the
 most confident.
+
+#### Turning the pose (optional)
+
+A backend that can estimate depth (Latentry's engine, through
+[poseorbit](../poseorbit/README.md)) also takes:
+
+```json
+{ "want_3d": true, "camera": { "yaw": 40, "pitch": 10 } }
+```
+
+and answers with:
+
+```json
+{ "camera": { "yaw": 40, "pitch": 10 }, "limits": { "yaw": 90, "pitch": 45 },
+  "people": [ { "bbox": [...], "points_3d": [[x, y, z], ...], "scores": [...] } ] }
+```
+
+- `want_3d` adds each person's 133 COCO-WholeBody points as `[x, y, z]`
+  (x right, y down, z away from the viewer, all in units of the picture's
+  width) with their scores. Latentry's 3D view draws these.
+- `camera` draws the skeleton seen from there instead of the front: `yaw`
+  swings the camera to the viewer's right, `pitch` raises it, in degrees,
+  orbiting the middle of the drawn people's hips with an orthographic view.
+  Latentry clamps it to ±90° / ±45°.
+- `limits` in the answer is what tells Latentry the backend can turn a pose:
+  without it, the 3D view is not offered. A backend that ignores these fields
+  still works as before.
 
 ---
 

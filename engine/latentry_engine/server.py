@@ -5,6 +5,7 @@ management for Latentry's engine manager.
     GET  /api/presets             none: the engine has no speed presets
     POST /api/generate            Server-Sent Events: start / step / image / done / cancelled / error
     POST /api/cancel              { run_id }
+    POST /api/pose                people in a picture and the skeleton to follow (poseorbit)
     GET  /api/models              the models folder, and what is loaded
     POST /api/models/load         { id }   (returns at once; watch /api/health)
     POST /api/models/download     { repo_id, filename? }
@@ -24,10 +25,14 @@ from pathlib import Path
 from queue import Empty, Queue
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import __version__, models, samplers
+import poseorbit
+import poseorbit.api
+
+from . import __version__, models, pose_control, samplers
 from .core import Cancelled, Engine, EngineError, GenerateRequest, decode_image
 from .gpu import plan as gpu_plan
 
@@ -47,7 +52,11 @@ class GenerateBody(BaseModel):
     strength: float = Field(0.6, ge=0.01, le=1)
     mask_base64: str | None = None
     mask_blur: float = Field(4, ge=0, le=64)
+    # A picture whose pose to follow (detected here), or with pose_is_skeleton
+    # a skeleton already drawn by /api/pose.
     pose_image_base64: str | None = None
+    pose_is_skeleton: bool = False
+    pose_strength: float = Field(1.0, ge=0, le=2)
 
 
 class CancelBody(BaseModel):
@@ -66,7 +75,10 @@ class DownloadBody(BaseModel):
 def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
     app = FastAPI(title="Latentry engine", version=__version__)
     plan = gpu_plan()
-    engine = Engine(plan)
+    controls = pose_control.controls_dir(models_dir)
+    engine = Engine(plan, controls)
+    # CPU only; its models load on the first /api/pose.
+    detector = poseorbit.Detector(controls / "poseorbit")
     downloads = models.Downloads(models_dir)
     token = os.environ.get("LATENTRY_ENGINE_TOKEN") or None
 
@@ -138,10 +150,35 @@ def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
         run["cancel"].set()
         return {"status": "cancelling", "run_id": run["id"]}
 
+    @app.post("/api/pose")
+    async def pose(request: Request):
+        """The skeleton /api/generate would follow, for the UI's preview.
+
+        Outside the run lock: detection is on the CPU and does not touch the
+        model, so it works while a run is going. The skeleton is drawn in the
+        loaded model's style unless the request names one.
+        """
+        try:
+            body = await request.json()
+        except Exception as error:  # noqa: BLE001
+            raise HTTPException(400, "Invalid JSON body") from error
+        if not isinstance(body, dict):
+            raise HTTPException(400, "Invalid JSON body")
+        try:
+            return await run_in_threadpool(poseorbit.api.handle, detector, body, engine.pose_style())
+        except ValueError as error:  # BadRequest, NoPersonError
+            raise HTTPException(400, str(error)) from error
+
+    def pose_skeleton(body: GenerateBody, size: tuple[int, int]):
+        if not body.pose_image_base64:
+            return None
+        picture = decode_image(body.pose_image_base64)
+        if body.pose_is_skeleton:
+            return picture
+        return poseorbit.pose(detector, picture, size, style=engine.pose_style()).skeleton
+
     @app.post("/api/generate")
     def generate(body: GenerateBody):
-        if body.pose_image_base64:
-            raise HTTPException(400, "Pose control is not available on this engine")
         if engine.loaded is None:
             raise HTTPException(409, "No model is loaded" if engine.loading is None else "The model is still loading")
         if not run["lock"].acquire(blocking=False):
@@ -162,6 +199,8 @@ def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
                 strength=body.strength,
                 mask=decode_image(body.mask_base64) if body.mask_base64 and body.init_image_base64 else None,
                 mask_blur=body.mask_blur,
+                pose_skeleton=pose_skeleton(body, (body.width, body.height)),
+                pose_strength=body.pose_strength,
             )
         except Exception as error:
             run["lock"].release()

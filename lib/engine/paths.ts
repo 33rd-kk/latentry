@@ -27,6 +27,8 @@ export function enginePaths() {
     state: path.join(root, 'install.json'),
     logs: path.join(root, 'logs'),
     engineSource: path.resolve(/*turbopackIgnore: true*/ 'engine'),
+    // The engine's pose detection, a package of its own (see poseorbit/README.md).
+    poseSource: path.resolve(/*turbopackIgnore: true*/ 'poseorbit'),
   }
 }
 

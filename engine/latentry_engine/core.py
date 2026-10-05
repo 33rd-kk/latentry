@@ -4,11 +4,16 @@ One model at a time, kept on the GPU between runs (loading is the slow part).
 SDXL runs on the stock StableDiffusionXL pipelines; img2img and inpainting
 are derived from the same weights with from_pipe, so they cost no extra VRAM.
 Anima runs on its stock modular pipeline.
+
+Pose control (pose_control.py) follows a skeleton poseorbit drew: SDXL
+through an OpenPose ControlNet pipeline built from the same weights, Anima
+through a LoRA adapter put on for the run only.
 """
 
 from __future__ import annotations
 
 import base64
+import contextlib
 import io
 import threading
 import time
@@ -19,7 +24,9 @@ from typing import Callable
 import torch
 from PIL import Image, ImageFilter
 
-from . import samplers
+from poseorbit import letterbox
+
+from . import pose_control, samplers
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 from .prompts import encode_sdxl
@@ -51,6 +58,10 @@ class GenerateRequest:
     strength: float = 0.6
     mask: Image.Image | None = None
     mask_blur: float = 4
+    # Drawn by poseorbit in this model's style (Engine.pose_style), at any
+    # size: it is letterboxed onto the run's.
+    pose_skeleton: Image.Image | None = None
+    pose_strength: float = 1.0
 
 
 @dataclass
@@ -60,6 +71,9 @@ class Loaded:
     pipe: object
     base_scheduler: object
     variants: dict = field(default_factory=dict)
+    # Pose control, made on the first pose run: SDXL's ControlNet, Anima's adapter.
+    controlnet: object = None
+    pose_adapter: object = None
 
 
 def decode_image(data: str) -> Image.Image:
@@ -110,14 +124,17 @@ def img2img_steps(steps: int, strength: float) -> int:
 
 
 class Engine:
-    def __init__(self, plan: GpuPlan):
+    def __init__(self, plan: GpuPlan, controls_dir: Path):
         self.plan = plan
+        # Where pose control's weights are kept (<models>/controls).
+        self.controls_dir = controls_dir
         self.loaded: Loaded | None = None
         self.loading: str | None = None
         self.load_error: str | None = None
         self._load_lock = threading.Lock()
         # Starts at the plan's estimate; shrinks if the GPU says otherwise.
         self.batch_size = plan.max_batch
+        self.pose_batch_size = plan.max_pose_batch
 
     # ── Loading ─────────────────────────────────────────────────────────────
 
@@ -193,10 +210,25 @@ class Engine:
         pipe.to(self.plan.device)
         return Loaded(info, FAMILY_ANIMA, pipe, pipe.scheduler)
 
-    def _variant(self, kind: str):
-        """The txt2img pipeline, or img2img / inpaint built on its weights."""
+    def _variant(self, kind: str, pose: bool = False):
+        """The txt2img pipeline, or img2img / inpaint built on its weights;
+        with `pose`, their ControlNet twins."""
         assert self.loaded
         loaded = self.loaded
+        if pose:
+            key = f"{kind}+pose"
+            if key not in loaded.variants:
+                if loaded.controlnet is None:
+                    loaded.controlnet = pose_control.load_sdxl_controlnet(self.controls_dir, self.plan.dtype)
+                variant = pose_control.sdxl_pose_pipeline(kind, self._variant(kind), loaded.controlnet, self.plan.dtype)
+                if self.plan.offload == "none":
+                    loaded.controlnet.to(self.plan.device)
+                else:
+                    # The ControlNet joins the offload chain; the shared modules
+                    # keep working for the plain pipelines too.
+                    self._place(variant)
+                loaded.variants[key] = variant
+            return loaded.variants[key]
         if kind == "txt2img":
             return loaded.pipe
         if kind not in loaded.variants:
@@ -216,9 +248,20 @@ class Engine:
             "img2img": family in (FAMILY_SDXL, FAMILY_ANIMA),
             # Anima's stock pipeline has no inpainting.
             "inpaint": family == FAMILY_SDXL,
-            "pose_control": False,
+            "pose_control": self._pose_supported(),
             "tagger": False,
         }
+
+    def _pose_supported(self) -> bool:
+        if self.loaded is None:
+            return False
+        if self.loaded.family == FAMILY_ANIMA:
+            return pose_control.anima_supported(self.loaded.pipe)
+        return self.loaded.family == FAMILY_SDXL
+
+    def pose_style(self) -> str:
+        """How skeletons must be drawn for the loaded model to follow them."""
+        return "openpose" if self.loaded is not None and self.loaded.family == FAMILY_SDXL else "dwpose"
 
     # ── Generating ──────────────────────────────────────────────────────────
 
@@ -229,6 +272,8 @@ class Engine:
             raise EngineError("A prompt is required.")
         if request.mask is not None and not self.capabilities()["inpaint"]:
             raise EngineError("This model cannot inpaint.")
+        if request.pose_skeleton is not None and not self._pose_supported():
+            raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
         if self.loaded.family == FAMILY_SDXL:
             self._generate_sdxl(request, emit, cancel, run_id)
         else:
@@ -243,7 +288,8 @@ class Engine:
         loaded = self.loaded
         assert loaded
         kind = "inpaint" if request.mask is not None else "img2img" if request.init_image is not None else "txt2img"
-        pipe = self._variant(kind)
+        pose = request.pose_skeleton is not None
+        pipe = self._variant(kind, pose)
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
 
         source = flatten(request.init_image) if request.init_image is not None else None
@@ -252,6 +298,7 @@ class Engine:
             source = source.resize((width, height), Image.Resampling.LANCZOS)
         mask = mask_from_alpha(request.mask, (width, height)) if request.mask is not None else None
         steps = img2img_steps(request.num_inference_steps, request.strength) if source is not None else request.num_inference_steps
+        skeleton = letterbox(request.pose_skeleton, (width, height)) if pose else None
 
         # Large canvases decode tile by tile; small ones in one go (faster).
         if width * height > 1536 * 1536:
@@ -264,7 +311,7 @@ class Engine:
         seeds = self._seeds(request)
         generator_device = "cpu" if self.plan.offload != "none" else self.plan.device
         done = 0
-        batch_size = self.batch_size
+        batch_size = self.pose_batch_size if pose else self.batch_size
         while done < len(seeds):
             batch = seeds[done : done + batch_size]
             emit("start", {"index": done, "total": len(seeds), "steps": steps, "run_id": run_id})
@@ -289,6 +336,10 @@ class Engine:
                 arguments.update(image=source, strength=request.strength)
                 if mask is not None:
                     arguments.update(mask_image=pipe.mask_processor.blur(mask, blur_factor=request.mask_blur) if request.mask_blur else mask, width=width, height=height)
+            if skeleton is not None:
+                # txt2img takes the control picture as `image`; the others use that for the source.
+                arguments["image" if source is None else "control_image"] = skeleton
+                arguments["controlnet_conditioning_scale"] = request.pose_strength
             started = time.time()
             try:
                 images = pipe(**arguments).images
@@ -298,7 +349,11 @@ class Engine:
                 torch.cuda.empty_cache()
                 if len(batch) == 1:
                     raise
-                batch_size = self.batch_size = max(1, len(batch) // 2)
+                batch_size = max(1, len(batch) // 2)
+                if pose:
+                    self.pose_batch_size = batch_size
+                else:
+                    self.batch_size = batch_size
                 print(f"[engine] out of memory at batch {len(batch)}; now {batch_size}", flush=True)
                 continue
             if cancel.is_set():
@@ -346,6 +401,13 @@ class Engine:
             if state["forwards"] % per_step == 0:
                 emit("step", {"index": state["index"], "step": state["forwards"] // per_step})
 
+        scopes = contextlib.ExitStack()
+        if request.pose_skeleton is not None:
+            if loaded.pose_adapter is None:
+                loaded.pose_adapter = pose_control.AnimaPoseAdapter(pipe, self.controls_dir)
+            # Once around all the images: loading the LoRA is the slow part.
+            skeleton = letterbox(request.pose_skeleton, (width, height))
+            scopes.enter_context(loaded.pose_adapter.applied(skeleton, request.pose_strength))
         handle = pipe.transformer.register_forward_pre_hook(hook)
         try:
             seeds = self._seeds(request)
@@ -375,3 +437,4 @@ class Engine:
                 })
         finally:
             handle.remove()
+            scopes.close()

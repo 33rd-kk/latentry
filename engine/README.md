@@ -14,8 +14,8 @@ model you pick.
 
 | Family | Files | Modes |
 |---|---|---|
-| SDXL (SDXL, Illustrious, NoobAI, Animagine, Pony…) | a single `.safetensors` checkpoint, or a diffusers folder | txt2img, img2img, inpaint |
-| Anima | the diffusers folder (`circlestone-labs/Anima-Base-v1.0-Diffusers`), through diffusers' `ModularPipeline` | txt2img, img2img |
+| SDXL (SDXL, Illustrious, NoobAI, Animagine, Pony…) | a single `.safetensors` checkpoint, or a diffusers folder | txt2img, img2img, inpaint, pose |
+| Anima | the diffusers folder (`circlestone-labs/Anima-Base-v1.0-Diffusers`), through diffusers' `ModularPipeline` | txt2img, img2img, pose (28-layer v1.0 models) |
 
 Put models in `models/` (or the folder set on the Setup page). The id of a
 model is its file or folder name.
@@ -26,6 +26,23 @@ model is its file or folder name.
   the default, Karras or exponential schedule.
 - Several images run as one batch, sized to the GPU's memory; on running out
   of memory the batch is halved and retried.
+
+## Pose
+
+`POST /api/pose` finds the people in a picture, lets the client pick one or
+everyone, optionally turns the pose in 3D, and draws the skeleton. That part
+is [poseorbit](../poseorbit/README.md), a package of its own (CPU only).
+The engine then makes the run follow the skeleton
+(`latentry_engine/pose_control.py`):
+
+| Family | How | Skeleton |
+|---|---|---|
+| SDXL | [xinsir/controlnet-openpose-sdxl-1.0](https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0) through diffusers' ControlNet pipelines, made from the loaded weights (+2.5 GB VRAM) | OpenPose, body |
+| Anima | [Claquasse/Anima-Control-Pose](https://huggingface.co/Claquasse/Anima-Control-Pose): a LoRA and a control embedder, put on for the run and taken off after | DWPose, whole body |
+
+The weights download on first use into `models/controls/`. Anima-Control-Pose
+is under CircleStone Labs' **non-commercial** licence (as Anima itself is);
+the ControlNet and the detectors are Apache-2.0.
 
 ## The GPU plan
 
