@@ -168,13 +168,15 @@ A backend that can estimate depth (Latentry's engine, through
 [poseorbit](../poseorbit/README.md)) also takes:
 
 ```json
-{ "want_3d": true, "camera": { "yaw": 40, "pitch": 10 } }
+{ "want_3d": true,
+  "camera": { "yaw": 40, "pitch": 10, "framing": { "zoom": 3, "x": 0.5, "y": 0.2 } } }
 ```
 
 and answers with:
 
 ```json
-{ "camera": { "yaw": 40, "pitch": 10 }, "limits": { "yaw": 90, "pitch": 45 },
+{ "camera": { "yaw": 40, "pitch": 10, "framing": { "zoom": 3, "x": 0.5, "y": 0.2 } },
+  "limits": { "yaw": 90, "pitch": 45, "zoom": [0.5, 6] }, "joints_in_frame": 9,
   "people": [ { "bbox": [...], "points_3d": [[x, y, z], ...], "scores": [...] } ] }
 ```
 
@@ -185,8 +187,14 @@ and answers with:
   swings the camera to the viewer's right, `pitch` raises it, in degrees,
   orbiting the middle of the drawn people's hips with an orthographic view.
   Latentry clamps it to ±90° / ±45°.
+- `camera.framing` crops the drawn canvas like a photo: the canvas point
+  (`x`, `y`, fractions; 0.5, 0.5 is the middle) moves to the middle and
+  everything scales by `zoom` around it (×0.5–×6). A face close-up of a
+  full-body picture is about ×5 on the face. `joints_in_frame` says how many
+  of the drawn person's 17 body joints are left inside; Latentry warns when
+  a body-only OpenPose skeleton keeps fewer than 8.
 - `limits` in the answer is what tells Latentry the backend can turn a pose:
-  without it, the 3D view is not offered. A backend that ignores these fields
+  without it, the 3D view is not offered; without `limits.zoom`, it cannot zoom. A backend that ignores these fields
   still works as before.
 
 ---

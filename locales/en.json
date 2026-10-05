@@ -134,11 +134,12 @@
     "posePeopleAll": "Everyone",
     "poseRedetect": "Detect again",
     "pose3d": "3D",
-    "pose3dHint": "Drag to swing the camera around the figure, up to 90° to either side and 45° up or down. Depth is guessed from one picture, so the further it turns, the more often an arm or leg lands in front when it was behind.",
-    "pose3dAngle": "Yaw {yaw}°, pitch {pitch}°",
+    "pose3dHint": "Drag to swing the camera around the figure, up to 90° to either side and 45° up or down. Scroll or pinch to zoom, right-drag (or Shift-drag, or two fingers) to move the frame: the view shows exactly what the skeleton will cover. Depth is guessed from one picture, so the further it turns, the more often an arm or leg lands in front when it was behind.",
+    "pose3dAngle": "Yaw {yaw}°, pitch {pitch}°, zoom ×{zoom}",
     "pose3dUse": "Use this angle",
     "pose3dFront": "Front view",
-    "pose3dTurned": "Seen from yaw {yaw}°, pitch {pitch}°"
+    "pose3dTurned": "Seen from yaw {yaw}°, pitch {pitch}°, zoom ×{zoom}",
+    "pose3dFewJoints": "Only {count} of the 17 body joints are in the frame. This model follows the body only, so a close-up gives it little to follow."
   },
   "gallery": {
     "notConfiguredTitle": "No gallery folder yet",

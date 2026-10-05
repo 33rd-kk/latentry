@@ -1,16 +1,21 @@
-// A 3D view of detected poses whose camera can be dragged around the figure,
-// within limits. Plain three.js on a canvas: no React, no app code, so it can
-// be lifted out with poseorbit.
+// A 3D view of detected poses: drag to swing the camera around the figure,
+// wheel or pinch to zoom, right-drag (or shift-drag, or two fingers) to move
+// the frame. Plain three.js on a canvas: no React, no app code, so it can be
+// lifted out with poseorbit.
 //
 // Points come from poseorbit's /api/pose `want_3d`: x right, y down, z away
-// from the viewer, all in units of the picture's width. The camera here is
-// orthographic and orbits the same centre poseorbit turns around (the middle
-// of the shown people's hips), so what is seen is what the server will draw
-// for the same yaw and pitch.
+// from the viewer, all in units of the picture's width. The view reproduces
+// what the server will draw for the same camera, edge to edge: the camera is
+// orthographic and orbits the middle of the shown people's hips; the picture
+// is letterboxed onto the output canvas; then the framing (zoom around a
+// canvas point) crops it. The canvas element should have the output's aspect.
 
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+import { aimCamera, DEG, DISTANCE, frustumFor, toThree, type ViewerFrame, type ViewerFraming } from "./projection"
 import { COCO133_LINKS, FACE_POINTS, KEYPOINT_THRESHOLD } from "./skeleton"
+
+export type { ViewerFrame, ViewerFraming }
 
 export interface PosePerson3d {
   points_3d: number[][]
@@ -22,37 +27,41 @@ export interface ViewerCamera {
   yaw: number
   /** Degrees; + raises the camera. */
   pitch: number
+  framing: ViewerFraming
 }
 
 export interface PoseViewerOptions {
   people: PosePerson3d[]
   /** Which person is shown, or -1 for everyone. */
   person: number
-  /** How far the camera may swing, in degrees. */
-  limits: { yaw: number; pitch: number }
+  /** How far the camera may swing (degrees) and zoom. */
+  limits: { yaw: number; pitch: number; zoom: readonly [number, number] }
+  frame: ViewerFrame
   camera?: ViewerCamera
-  /** Called while the camera moves. */
+  /** Called while the camera or the framing moves. */
   onChange?: (camera: ViewerCamera) => void
 }
 
 export interface PoseViewer {
   setPeople(people: PosePerson3d[], person: number): void
+  setFrame(frame: ViewerFrame): void
   getCamera(): ViewerCamera
   setCamera(camera: ViewerCamera): void
   dispose(): void
 }
 
-const DEG = Math.PI / 180
-const DISTANCE = 4
+export const WHOLE: ViewerFraming = { zoom: 1, x: 0.5, y: 0.5 }
 
-/** The picture's (x, y down, z away) as three.js's (x, y up, z toward the viewer). */
-const toThree = (point: number[]) => new THREE.Vector3(point[0], -point[1], -point[2])
+const between = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
-function centreOf(people: PosePerson3d[]): THREE.Vector3 {
+/** The orbit centre, in picture units (y down): the middle of the shown people's hips. */
+function centreOf(people: PosePerson3d[]): { x: number; y: number } {
   const hips = people.flatMap((person) => [person.points_3d[11], person.points_3d[12]])
-  const x = hips.reduce((sum, point) => sum + point[0], 0) / hips.length
-  const y = hips.reduce((sum, point) => sum + point[1], 0) / hips.length
-  return toThree([x, y, 0])
+  if (!hips.length) return { x: 0.5, y: 0.5 }
+  return {
+    x: hips.reduce((sum, point) => sum + point[0], 0) / hips.length,
+    y: hips.reduce((sum, point) => sum + point[1], 0) / hips.length,
+  }
 }
 
 function buildFigure(people: PosePerson3d[]): THREE.Group {
@@ -104,7 +113,10 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
   scene.background = new THREE.Color(0x000000)
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100)
   const controls = new OrbitControls(camera, canvas)
+  // Rotation only: zoom and panning are the framing, handled below so the
+  // orbit centre stays where the server keeps it.
   controls.enablePan = false
+  controls.enableZoom = false
   controls.enableDamping = false
   // Yaw is OrbitControls' azimuth; pitch is 90 degrees minus its polar angle.
   controls.minAzimuthAngle = -options.limits.yaw * DEG
@@ -117,21 +129,18 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
   scene.add(floor)
 
   let figure: THREE.Group | null = null
-  let extent = 0.5
+  let frame = options.frame
+  let framing: ViewerFraming = options.camera?.framing ?? WHOLE
+  let centre = { x: 0.5, y: 0.5 }
 
   const render = () => renderer.render(scene, camera)
 
-  const fitView = () => {
-    const { clientWidth: width, clientHeight: height } = canvas
-    if (!width || !height) return
-    renderer.setSize(width, height, false)
-    const aspect = width / height
-    // Big enough for the figure seen from any allowed angle.
-    const half = extent * 0.6
-    camera.left = -half * Math.max(aspect, 1)
-    camera.right = half * Math.max(aspect, 1)
-    camera.top = half / Math.min(aspect, 1)
-    camera.bottom = -half / Math.min(aspect, 1)
+  /** The projection that shows exactly the framed part of the output canvas. */
+  const project = () => {
+    const { clientWidth, clientHeight } = canvas
+    if (!clientWidth || !clientHeight) return
+    renderer.setSize(clientWidth, clientHeight, false)
+    Object.assign(camera, frustumFor(frame, framing, centre))
     camera.updateProjectionMatrix()
     render()
   }
@@ -141,19 +150,33 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
     return {
       yaw: Math.round(Math.atan2(offset.x, offset.z) / DEG),
       pitch: Math.round(Math.atan2(offset.y, Math.hypot(offset.x, offset.z)) / DEG),
+      framing: {
+        zoom: Math.round(framing.zoom * 100) / 100,
+        x: Math.round(framing.x * 1000) / 1000,
+        y: Math.round(framing.y * 1000) / 1000,
+      },
     }
   }
+  const changed = () => options.onChange?.(read())
 
-  const place = ({ yaw, pitch }: ViewerCamera) => {
-    const y = Math.max(-options.limits.yaw, Math.min(options.limits.yaw, yaw)) * DEG
-    const p = Math.max(-options.limits.pitch, Math.min(options.limits.pitch, pitch)) * DEG
-    camera.position
-      .set(Math.sin(y) * Math.cos(p), Math.sin(p), Math.cos(y) * Math.cos(p))
-      .multiplyScalar(DISTANCE)
-      .add(controls.target)
-    camera.lookAt(controls.target)
+  const setFraming = (next: ViewerFraming) => {
+    framing = {
+      zoom: between(next.zoom, options.limits.zoom[0], options.limits.zoom[1]),
+      x: between(next.x, 0, 1),
+      y: between(next.y, 0, 1),
+    }
+    project()
+  }
+
+  const place = ({ yaw, pitch, framing: next }: ViewerCamera) => {
+    aimCamera(
+      camera,
+      controls.target,
+      between(yaw, -options.limits.yaw, options.limits.yaw),
+      between(pitch, -options.limits.pitch, options.limits.pitch)
+    )
     controls.update()
-    render()
+    setFraming(next)
   }
 
   const setPeople = (people: PosePerson3d[], person: number) => {
@@ -165,31 +188,111 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
     figure = buildFigure(shown)
     scene.add(figure)
     const keep = read()
-    controls.target.copy(shown.length ? centreOf(shown) : new THREE.Vector3())
+    centre = centreOf(shown)
+    controls.target.copy(toThree([centre.x, centre.y, 0]))
     const box = new THREE.Box3().setFromObject(figure)
-    extent = Math.max(0.2, box.getSize(new THREE.Vector3()).length())
     floor.position.set(controls.target.x, box.min.y, controls.target.z)
-    fitView()
     place(keep)
   }
 
+  // ── Framing by hand ─────────────────────────────────────────────────────
+
+  /** Zoom by `factor`, keeping the canvas point under (clientX, clientY) where it is. */
+  const zoomAt = (factor: number, clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect()
+    const u = (clientX - rect.left) / rect.width - 0.5
+    const v = (clientY - rect.top) / rect.height - 0.5
+    const zoom = between(framing.zoom * factor, options.limits.zoom[0], options.limits.zoom[1])
+    const pointX = framing.x + u / framing.zoom
+    const pointY = framing.y + v / framing.zoom
+    setFraming({ zoom, x: pointX - u / zoom, y: pointY - v / zoom })
+    changed()
+  }
+
+  /** Move the frame with a drag of (dx, dy) screen pixels: the picture follows the pointer. */
+  const panBy = (dx: number, dy: number) => {
+    const rect = canvas.getBoundingClientRect()
+    setFraming({ ...framing, x: framing.x - dx / rect.width / framing.zoom, y: framing.y - dy / rect.height / framing.zoom })
+    changed()
+  }
+
+  const onWheel = (event: WheelEvent) => {
+    event.preventDefault()
+    zoomAt(Math.exp(-event.deltaY * 0.0015), event.clientX, event.clientY)
+  }
+
+  // Pointers down on the canvas: one mouse pan (right or shift), or two touches.
+  const pointers = new Map<number, { x: number; y: number }>()
+  let mousePan: { x: number; y: number } | null = null
+  const pinchOf = () => {
+    const [a, b] = [...pointers.values()]
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2, distance: Math.hypot(a.x - b.x, a.y - b.y) }
+  }
+  let pinch: ReturnType<typeof pinchOf> | null = null
+
+  const onPointerDown = (event: PointerEvent) => {
+    if (event.pointerType === "mouse") {
+      if (event.button === 2 || (event.button === 0 && event.shiftKey)) mousePan = { x: event.clientX, y: event.clientY }
+      return
+    }
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    pinch = pointers.size === 2 ? pinchOf() : null
+  }
+  const onPointerMove = (event: PointerEvent) => {
+    if (mousePan) {
+      panBy(event.clientX - mousePan.x, event.clientY - mousePan.y)
+      mousePan = { x: event.clientX, y: event.clientY }
+      return
+    }
+    if (!pointers.has(event.pointerId)) return
+    pointers.set(event.pointerId, { x: event.clientX, y: event.clientY })
+    if (pointers.size !== 2 || !pinch) return
+    const now = pinchOf()
+    panBy(now.x - pinch.x, now.y - pinch.y)
+    if (pinch.distance > 0) zoomAt(now.distance / pinch.distance, now.x, now.y)
+    pinch = now
+  }
+  const onPointerUp = (event: PointerEvent) => {
+    mousePan = null
+    pointers.delete(event.pointerId)
+    pinch = pointers.size === 2 ? pinchOf() : null
+  }
+  const onContextMenu = (event: Event) => event.preventDefault()
+
+  canvas.addEventListener("wheel", onWheel, { passive: false })
+  canvas.addEventListener("pointerdown", onPointerDown)
+  window.addEventListener("pointermove", onPointerMove)
+  window.addEventListener("pointerup", onPointerUp)
+  window.addEventListener("pointercancel", onPointerUp)
+  canvas.addEventListener("contextmenu", onContextMenu)
+
   controls.addEventListener("change", () => {
     render()
-    options.onChange?.(read())
+    changed()
   })
-  const observer = new ResizeObserver(fitView)
+  const observer = new ResizeObserver(project)
   observer.observe(canvas)
 
   camera.position.set(0, 0, DISTANCE)
   setPeople(options.people, options.person)
-  place(options.camera ?? { yaw: 0, pitch: 0 })
+  place(options.camera ?? { yaw: 0, pitch: 0, framing: WHOLE })
 
   return {
     setPeople,
+    setFrame(next) {
+      frame = next
+      project()
+    },
     getCamera: read,
     setCamera: place,
     dispose() {
       observer.disconnect()
+      canvas.removeEventListener("wheel", onWheel)
+      canvas.removeEventListener("pointerdown", onPointerDown)
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+      window.removeEventListener("pointercancel", onPointerUp)
+      canvas.removeEventListener("contextmenu", onContextMenu)
       controls.dispose()
       if (figure) disposeGroup(figure)
       floor.geometry.dispose()

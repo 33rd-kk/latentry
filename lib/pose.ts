@@ -4,19 +4,47 @@
 
 import type { PoseRequest } from '@/lib/backends/types'
 
-/** How far the 3D camera may swing, in degrees. poseorbit holds to the same. */
-export const POSE_LIMITS = { yaw: 90, pitch: 45 } as const
+/** How far the 3D camera may swing (degrees) and zoom. poseorbit holds to the same. */
+export const POSE_LIMITS = { yaw: 90, pitch: 45, zoom: [0.5, 6] } as const
+
+/** Framing on the output canvas: the point (x, y) (fractions) goes to the middle, scaled by zoom. */
+export interface PoseFraming {
+  zoom: number
+  x: number
+  y: number
+}
 
 export interface PoseCamera {
   yaw: number
   pitch: number
+  framing?: PoseFraming
 }
 
-const clamp = (value: number, limit: number) => Math.min(limit, Math.max(-limit, value))
+export const WHOLE_FRAME: PoseFraming = { zoom: 1, x: 0.5, y: 0.5 }
+
+const between = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 const finite = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value)
 
+export function clampFraming(framing: PoseFraming): PoseFraming {
+  return {
+    zoom: between(framing.zoom, POSE_LIMITS.zoom[0], POSE_LIMITS.zoom[1]),
+    x: between(framing.x, 0, 1),
+    y: between(framing.y, 0, 1),
+  }
+}
+
 export function clampCamera(camera: PoseCamera): PoseCamera {
-  return { yaw: clamp(camera.yaw, POSE_LIMITS.yaw), pitch: clamp(camera.pitch, POSE_LIMITS.pitch) }
+  return {
+    yaw: between(camera.yaw, -POSE_LIMITS.yaw, POSE_LIMITS.yaw),
+    pitch: between(camera.pitch, -POSE_LIMITS.pitch, POSE_LIMITS.pitch),
+    ...(camera.framing ? { framing: clampFraming(camera.framing) } : {}),
+  }
+}
+
+/** Whether a camera is the plain front view of the whole picture. */
+export function isPlainView(camera: PoseCamera): boolean {
+  const framing = camera.framing ?? WHOLE_FRAME
+  return camera.yaw === 0 && camera.pitch === 0 && framing.zoom === 1 && framing.x === 0.5 && framing.y === 0.5
 }
 
 /** The request to send on, or the reason it is refused. */
@@ -34,7 +62,23 @@ export function toPoseRequest(body: Record<string, unknown> | null): PoseRequest
     if (typeof camera !== 'object' || !finite(camera.yaw ?? 0) || !finite(camera.pitch ?? 0)) {
       return 'camera must be { yaw, pitch } in degrees'
     }
-    request.camera = clampCamera({ yaw: (camera.yaw as number | undefined) ?? 0, pitch: (camera.pitch as number | undefined) ?? 0 })
+    let framing: PoseFraming | undefined
+    if (camera.framing !== undefined && camera.framing !== null) {
+      const given = camera.framing as Record<string, unknown>
+      if (typeof given !== 'object' || !finite(given.zoom ?? 1) || !finite(given.x ?? 0.5) || !finite(given.y ?? 0.5)) {
+        return 'camera.framing must be { zoom, x, y }'
+      }
+      framing = {
+        zoom: (given.zoom as number | undefined) ?? 1,
+        x: (given.x as number | undefined) ?? 0.5,
+        y: (given.y as number | undefined) ?? 0.5,
+      }
+    }
+    request.camera = clampCamera({
+      yaw: (camera.yaw as number | undefined) ?? 0,
+      pitch: (camera.pitch as number | undefined) ?? 0,
+      ...(framing ? { framing } : {}),
+    })
   }
   return request
 }
