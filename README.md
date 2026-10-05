@@ -69,8 +69,8 @@ cd latentry
 powershell -ExecutionPolicy Bypass -File install.ps1 # Windows
 ```
 
-The script installs and builds the web UI, starts it on
-http://localhost:3000 and opens **Setup**. There, in order:
+The script installs and builds the web UI and starts it. When it says
+Ready, open **http://localhost:3000/setup** in your browser. There, in order:
 
 1. **Install the engine.** Latentry looks at your GPU and installs Python
    3.12, the matching PyTorch build (CUDA 13.0 / 12.8 / 12.6 by driver, Apple

@@ -1,5 +1,6 @@
-# Latentry on Windows: installs the web UI, then opens its setup page, which
-# installs the generation engine for your GPU and downloads a model.
+# Latentry on Windows: installs and starts the web UI. Its setup page
+# (http://localhost:3000/setup) then installs the generation engine for your
+# GPU and downloads a model.
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #
@@ -34,23 +35,10 @@ Write-Host '== Building' -ForegroundColor Cyan
 npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Write-Host "== Starting on http://localhost:$port (setup opens in your browser)" -ForegroundColor Cyan
-# The server runs in this console (Ctrl+C stops it); this script waits for it
-# to answer, opens the setup page, then waits for the server to end. (A
-# background job cannot reliably open a browser, so it is done from here.)
-# npm.cmd, not npm: PowerShell may resolve "npm" to npm.ps1, which
-# Start-Process would open in an editor.
-$npm = Join-Path (Split-Path $node.Source) 'npm.cmd'
-if (-not (Test-Path $npm)) { $npm = 'npm.cmd' }
+Write-Host '== Starting' -ForegroundColor Cyan
+Write-Host ''
+Write-Host "   When it says Ready, open http://localhost:$port/setup in your browser." -ForegroundColor Green
+Write-Host '   (Ctrl+C stops Latentry; start it again later with: npm start)'
+Write-Host ''
 $env:LATENTRY_NO_LOGO = '1'  # shown above already
-$server = Start-Process -FilePath $npm -ArgumentList @('start', '--', '-p', $port) -NoNewWindow -PassThru
-$url = "http://localhost:$port/setup"
-for ($i = 0; $i -lt 90 -and -not $server.HasExited; $i++) {
-  try {
-    Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 2 | Out-Null
-    Start-Process $url
-    break
-  } catch { Start-Sleep -Seconds 1 }
-}
-$server.WaitForExit()
-exit $server.ExitCode
+npm start -- -p $port

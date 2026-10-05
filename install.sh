@@ -1,6 +1,7 @@
 #!/usr/bin/env sh
-# Latentry on Linux and macOS: installs the web UI, then opens its setup page,
-# which installs the generation engine for your GPU and downloads a model.
+# Latentry on Linux and macOS: installs and starts the web UI. Its setup page
+# (http://localhost:3000/setup) then installs the generation engine for your
+# GPU and downloads a model.
 #
 #   ./install.sh
 #
@@ -30,15 +31,9 @@ npm ci
 echo "== Building"
 npm run build
 
-echo "== Starting on http://localhost:$PORT (setup opens in your browser)"
-(
-  url="http://localhost:$PORT/setup"
-  for _ in $(seq 1 60); do
-    if curl -fsS -o /dev/null "$url" 2>/dev/null; then
-      if command -v xdg-open >/dev/null 2>&1; then xdg-open "$url"; elif command -v open >/dev/null 2>&1; then open "$url"; fi
-      exit 0
-    fi
-    sleep 1
-  done
-) &
+echo "== Starting"
+echo
+echo "   When it says Ready, open http://localhost:$PORT/setup in your browser."
+echo "   (Ctrl+C stops Latentry; start it again later with: npm start)"
+echo
 LATENTRY_NO_LOGO=1 exec npm start -- -p "$PORT"
