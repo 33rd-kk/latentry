@@ -22,6 +22,7 @@ import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
 import { useBackends } from "@/hooks/use-backends"
+import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { composePrompt, fitToImage, getProfile, isProfileId, type Profile, type ProfileId } from "@/lib/profiles"
@@ -221,6 +222,28 @@ export function GenerateClient() {
     },
     [update]
   )
+
+  // ── The engine's model, when the backend is Latentry's own engine ────────
+  const engineModels = useEngineModels()
+  const { load: loadEngineModel } = engineModels
+  const isEngine = Boolean(selectedId && engineModels.engines.includes(selectedId))
+  const chooseModel = useCallback(
+    async (model: EngineModelOption) => {
+      const error = await loadEngineModel(model.id)
+      if (error) {
+        toast.error(t("generate.modelLoadFailed", { error }))
+        return
+      }
+      // The form follows the model's family, as it would on a fresh start.
+      if (model.profile !== form?.profile) changeProfile(model.profile)
+    },
+    [loadEngineModel, form?.profile, changeProfile, t]
+  )
+  // The status line names the model; once a load ends it should name the new one.
+  const engineLoading = Boolean(engineModels.loading)
+  useEffect(() => {
+    if (!engineLoading) refreshBackends()
+  }, [engineLoading, refreshBackends])
 
   const resetForm = useCallback(() => {
     if (!owned) return
@@ -705,6 +728,17 @@ export function GenerateClient() {
               profile={form.profile}
               onProfileChange={changeProfile}
               disabled={isGenerating}
+              engineModels={
+                isEngine && engineModels.models
+                  ? {
+                      models: engineModels.models,
+                      current: engineModels.current,
+                      loading: engineModels.loading,
+                      loadError: engineModels.loadError,
+                      onLoad: (model) => void chooseModel(model),
+                    }
+                  : undefined
+              }
             />
           </CardHeader>
           <CardContent className="space-y-4">
@@ -954,7 +988,7 @@ export function GenerateClient() {
             </div>
 
             <div className="flex gap-2">
-              <Button onClick={handleGenerate} disabled={isGenerating || !status.alive} className="flex-1">
+              <Button onClick={handleGenerate} disabled={isGenerating || !status.alive || (isEngine && engineLoading)} className="flex-1">
                 {isGenerating ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

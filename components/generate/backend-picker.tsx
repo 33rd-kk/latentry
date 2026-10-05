@@ -1,12 +1,14 @@
 "use client"
 
-import { Server, SlidersHorizontal } from "lucide-react"
+import Link from "next/link"
+import { Box, Loader2, Server, SlidersHorizontal } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { listProfiles, type ProfileId } from "@/lib/profiles"
 import type { BackendStatus } from "@/lib/backends/types"
+import type { EngineModelOption } from "@/hooks/use-engine-models"
 import { useT } from "@/lib/i18n"
 
 interface BackendPickerProps {
@@ -16,6 +18,17 @@ interface BackendPickerProps {
   profile: ProfileId
   onProfileChange: (profile: ProfileId) => void
   disabled?: boolean
+  /**
+   * When the selected backend is Latentry's own engine: the models in its
+   * models folder, so the one it draws with can be changed here.
+   */
+  engineModels?: {
+    models: EngineModelOption[]
+    current: string | null
+    loading: string | null
+    loadError: string | null
+    onLoad: (model: EngineModelOption) => void
+  }
 }
 
 function StatusDot({ backend }: { backend: BackendStatus }) {
@@ -36,7 +49,7 @@ function StatusDot({ backend }: { backend: BackendStatus }) {
  * but a web UI with an Illustrious checkpoint loaded today and a Pony one
  * tomorrow is the same backend.
  */
-export function BackendPicker({ backends, selected, onSelect, profile, onProfileChange, disabled }: BackendPickerProps) {
+export function BackendPicker({ backends, selected, onSelect, profile, onProfileChange, disabled, engineModels }: BackendPickerProps) {
   const t = useT()
   const stateLabel = !selected.alive ? t("generate.stateOffline") : selected.busy ? t("generate.stateBusy") : t("generate.stateReady")
 
@@ -90,12 +103,67 @@ export function BackendPicker({ backends, selected, onSelect, profile, onProfile
           <StatusDot backend={selected} />
           {stateLabel}
         </Badge>
-        {selected.model && (
+        {selected.model && !engineModels && (
           <span className="truncate" title={selected.model}>
             {t("generate.model")} <code className="font-mono">{selected.model}</code>
           </span>
         )}
       </div>
+      {engineModels && <EngineModelSelect {...engineModels} disabled={disabled} />}
+    </div>
+  )
+}
+
+function EngineModelSelect({
+  models,
+  current,
+  loading,
+  loadError,
+  onLoad,
+  disabled,
+}: NonNullable<BackendPickerProps["engineModels"]> & { disabled?: boolean }) {
+  const t = useT()
+  const value = loading ?? current ?? ""
+
+  return (
+    <div className="space-y-1">
+      <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Box className="h-3 w-3" />
+        {t("generate.model")}
+        {loading && (
+          <span className="ml-1 flex items-center gap-1">
+            <Loader2 className="h-3 w-3 animate-spin" />
+            {t("generate.modelLoading")}
+          </span>
+        )}
+      </Label>
+      <Select
+        value={value}
+        onValueChange={(id) => {
+          const model = models.find((option) => option.id === id)
+          if (model && id !== current) onLoad(model)
+        }}
+        disabled={disabled || Boolean(loading) || models.length === 0}
+      >
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder={models.length === 0 ? t("generate.modelNone") : t("generate.modelPick")} />
+        </SelectTrigger>
+        <SelectContent>
+          {models.map((model) => (
+            <SelectItem key={model.id} value={model.id}>
+              <span className="truncate">{model.name}</span>
+              <span className="text-xs text-muted-foreground">{model.family.toUpperCase()}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {loadError && <p className="text-xs text-destructive">{t("generate.modelLoadFailed", { error: loadError })}</p>}
+      <p className="text-xs text-muted-foreground">
+        {t("generate.modelMore")}{" "}
+        <Link href="/setup" className="underline underline-offset-2">
+          {t("app.navSetup")}
+        </Link>
+      </p>
     </div>
   )
 }
