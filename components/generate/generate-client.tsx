@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
-import { ArrowLeftRight, Download, FolderCheck, ImageUp, Loader2, RotateCcw, Wand2 } from "lucide-react"
+import { ArrowLeftRight, Dices, Download, FolderCheck, ImageUp, Loader2, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
@@ -846,7 +846,25 @@ export function GenerateClient() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="seed">{t("generate.seed")}</Label>
-                <Input id="seed" type="number" value={form.seed} onChange={(event) => update({ seed: Number(event.target.value) })} />
+                <div className="flex gap-2">
+                  <SeedInput value={form.seed} onChange={(seed) => update({ seed })} />
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => update({ seed: -1 })}
+                        disabled={form.seed === -1}
+                        aria-label={t("generate.randomSeed")}
+                        className="shrink-0"
+                      >
+                        <Dices className="h-4 w-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{t("generate.randomSeed")}</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
               <div className="space-y-1.5">
                 {/* With a source, only the tail of the schedule runs; the label says
@@ -1076,6 +1094,36 @@ export function GenerateClient() {
 }
 
 /** A gallery picture's settings over a form: what it says replaces, what it does not say stays. */
+/**
+ * Keeps the typed text apart from the number: "" and "-" are steps on the way
+ * to "-1", and turning them into 0 on every keystroke made -1 unreachable.
+ */
+function SeedInput({ value, onChange }: { value: number; onChange: (seed: number) => void }) {
+  const [text, setText] = useState(String(value))
+
+  // A preset or handoff can change the seed from outside; show it unless the
+  // text already means the same number.
+  useEffect(() => {
+    setText((current) => (Number(current) === value && current.trim() !== "" ? current : String(value)))
+  }, [value])
+
+  return (
+    <Input
+      id="seed"
+      type="text"
+      inputMode="numeric"
+      value={text}
+      onChange={(event) => {
+        const next = event.target.value
+        if (!/^-?\d*$/.test(next)) return
+        setText(next)
+        if (/^-?\d+$/.test(next)) onChange(Number(next))
+      }}
+      onBlur={() => setText(String(value))}
+    />
+  )
+}
+
 function applySettings(form: FormState, settings: HandoffSettings): FormState {
   const profile = settings.profile && isProfileId(settings.profile) ? settings.profile : form.profile
   return {

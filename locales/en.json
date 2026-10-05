@@ -49,6 +49,7 @@
     "swapDimensions": "Swap width and height",
     "sizeMultiple": "This profile wants sizes in multiples of {multiple}; the backend may round.",
     "seed": "Seed (-1: random)",
+    "randomSeed": "Random seed (-1)",
     "steps": "Steps: {value}",
     "stepsI2i": "Steps: {value} (img2img runs {actual})",
     "imageCount": "Image count: {value}",
