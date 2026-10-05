@@ -20,6 +20,8 @@ gallery folders and drive the GPU.
 
 What it does guard against:
 
+- **The network**: it listens on 127.0.0.1 unless `LATENTRY_HOST` opens it
+  to the LAN.
 - **Other websites** (CSRF): `/api` only answers same-origin requests.
 - **DNS rebinding**: `/api` only answers for `localhost`, private-network
   addresses and hosts listed in `ALLOWED_HOSTS`.

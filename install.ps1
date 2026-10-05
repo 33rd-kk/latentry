@@ -5,6 +5,8 @@
 #
 # Needs Node.js 22.12 or newer (https://nodejs.org, or: winget install OpenJS.NodeJS.LTS).
 # Afterwards, start Latentry again with: npm start
+# It listens on this computer only; set LATENTRY_HOST=0.0.0.0 in .env.local
+# to use it from other devices on your network.
 
 $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
@@ -31,10 +33,21 @@ npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host "== Starting on http://localhost:$port (setup opens in your browser)" -ForegroundColor Cyan
-Start-Job -ScriptBlock {
-  param($url)
-  for ($i = 0; $i -lt 60; $i++) {
-    try { Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 2 | Out-Null; Start-Process $url; return } catch { Start-Sleep -Seconds 1 }
-  }
-} -ArgumentList "http://localhost:$port/setup" | Out-Null
-npm start -- -p $port
+# The server runs in this console (Ctrl+C stops it); this script waits for it
+# to answer, opens the setup page, then waits for the server to end. (A
+# background job cannot reliably open a browser, so it is done from here.)
+# npm.cmd, not npm: PowerShell may resolve "npm" to npm.ps1, which
+# Start-Process would open in an editor.
+$npm = Join-Path (Split-Path $node.Source) 'npm.cmd'
+if (-not (Test-Path $npm)) { $npm = 'npm.cmd' }
+$server = Start-Process -FilePath $npm -ArgumentList @('start', '--', '-p', $port) -NoNewWindow -PassThru
+$url = "http://localhost:$port/setup"
+for ($i = 0; $i -lt 90 -and -not $server.HasExited; $i++) {
+  try {
+    Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 2 | Out-Null
+    Start-Process $url
+    break
+  } catch { Start-Sleep -Seconds 1 }
+}
+$server.WaitForExit()
+exit $server.ExitCode

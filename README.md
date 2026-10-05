@@ -86,6 +86,11 @@ Then **Generate**. The engine starts with Latentry from then on (turn that off
 on the Setup page or with `LATENTRY_ENGINE=off`); start Latentry with
 `npm start`.
 
+Latentry listens on this computer only. To use it from a phone or another
+computer, add `LATENTRY_HOST=0.0.0.0` to `.env.local`, restart it, and open
+`http://<this computer's address>:3000` there; on Windows, allow Node.js
+through the firewall on private networks when asked.
+
 ### Using servers you already run
 
 List them in `.env.local` (copied from [.env.example](.env.example)) or add
@@ -134,7 +139,8 @@ back to `.env.local`.
   off. Since settings choose which folders are read and written, only open
   this up on a network you trust: the localhost check relies on headers a
   program (not a browser) could forge.
-- **It is meant for your own machine or LAN.** `/api` only answers for
+- **It is meant for your own machine or LAN.** It listens on 127.0.0.1
+  unless `LATENTRY_HOST` says otherwise. `/api` only answers for
   `localhost` and private-network addresses (add others with
   `ALLOWED_HOSTS`), refuses cross-site requests, and rate-limits per IP.
   There is no login. To expose it further, put an authenticating reverse

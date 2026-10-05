@@ -6,6 +6,8 @@
 #
 # Needs Node.js 22.12 or newer (https://nodejs.org). Afterwards, start
 # Latentry again with: npm start
+# It listens on this computer only; set LATENTRY_HOST=0.0.0.0 in .env.local
+# to use it from other devices on your network.
 set -e
 cd "$(dirname "$0")"
 PORT="${PORT:-3000}"
