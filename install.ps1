@@ -23,6 +23,8 @@ if ($version -lt [version]'22.12.0') {
   exit 1
 }
 
+node scripts/logo.mjs
+
 Write-Host '== Installing the web UI' -ForegroundColor Cyan
 npm ci
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -40,6 +42,7 @@ Write-Host "== Starting on http://localhost:$port (setup opens in your browser)"
 # Start-Process would open in an editor.
 $npm = Join-Path (Split-Path $node.Source) 'npm.cmd'
 if (-not (Test-Path $npm)) { $npm = 'npm.cmd' }
+$env:LATENTRY_NO_LOGO = '1'  # shown above already
 $server = Start-Process -FilePath $npm -ArgumentList @('start', '--', '-p', $port) -NoNewWindow -PassThru
 $url = "http://localhost:$port/setup"
 for ($i = 0; $i -lt 90 -and -not $server.HasExited; $i++) {

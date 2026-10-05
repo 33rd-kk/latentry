@@ -21,6 +21,8 @@ if ! node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.
   exit 1
 fi
 
+node scripts/logo.mjs
+
 echo "== Installing the web UI"
 npm ci
 [ -f .env.local ] || cp .env.example .env.local
@@ -39,4 +41,4 @@ echo "== Starting on http://localhost:$PORT (setup opens in your browser)"
     sleep 1
   done
 ) &
-exec npm start -- -p "$PORT"
+LATENTRY_NO_LOGO=1 exec npm start -- -p "$PORT"

@@ -40,6 +40,8 @@ if (!rest.some((arg) => arg === '-H' || arg === '--hostname' || arg.startsWith('
   args.push('-H', configuredHost() ?? '127.0.0.1')
 }
 
+if (mode === 'start' && !process.env.LATENTRY_NO_LOGO) await import('./logo.mjs')
+
 const next = createRequire(import.meta.url).resolve('next/dist/bin/next')
 const child = spawn(process.execPath, [next, ...args], { stdio: 'inherit' })
 // Ctrl+C reaches Next.js directly (same console); passing it on as well
