@@ -1114,19 +1114,21 @@ export function GenerateClient() {
   )
 }
 
-/** A gallery picture's settings over a form: what it says replaces, what it does not say stays. */
 /**
  * Keeps the typed text apart from the number: "" and "-" are steps on the way
  * to "-1", and turning them into 0 on every keystroke made -1 unreachable.
  */
 function SeedInput({ value, onChange }: { value: number; onChange: (seed: number) => void }) {
   const [text, setText] = useState(String(value))
+  const [shown, setShown] = useState(value)
 
   // A preset or handoff can change the seed from outside; show it unless the
-  // text already means the same number.
-  useEffect(() => {
-    setText((current) => (Number(current) === value && current.trim() !== "" ? current : String(value)))
-  }, [value])
+  // text already means the same number. Adjusted while rendering, as React
+  // recommends for state that follows a prop, rather than in an effect.
+  if (shown !== value) {
+    setShown(value)
+    if (!(Number(text) === value && text.trim() !== "")) setText(String(value))
+  }
 
   return (
     <Input
@@ -1145,6 +1147,7 @@ function SeedInput({ value, onChange }: { value: number; onChange: (seed: number
   )
 }
 
+/** A gallery picture's settings over a form: what it says replaces, what it does not say stays. */
 function applySettings(form: FormState, settings: HandoffSettings, sameBackend: boolean): FormState {
   const words = {
     prompt: toSpacedTags(settings.prompt),
