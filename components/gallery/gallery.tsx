@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
 import { CheckSquare, FolderOpen, Loader2, Lock, RefreshCw, Search, Tags, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,7 @@ import { useLocalFlag } from "@/hooks/use-local-flag"
 import type { ImageTag } from "@/lib/gallery/png-meta"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
+import { dealColumns, heightPerWidth } from "@/lib/gallery/columns"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 
@@ -55,6 +56,18 @@ export function Gallery() {
 
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
+  const columnCount = useColumnCount()
+  // Dealt in order to the shortest column (lib/gallery/columns.ts), so a new
+  // page only adds to the bottoms. Tags under the cards add roughly a third
+  // of a column's width.
+  const columns = useMemo(
+    () =>
+      dealColumns(
+        page.pictures.map((picture) => heightPerWidth(picture.width, picture.height) + (showTags ? 0.3 : 0.02)),
+        columnCount
+      ),
+    [page.pictures, columnCount, showTags]
+  )
   const [skipTagged, setSkipTagged] = useLocalFlag("latentry:bulk-skip-tagged", true)
 
   // Selection for bulk tagging, by file name within the folder on screen.
@@ -296,19 +309,26 @@ export function Gallery() {
       )}
       {folder && !folder.writable && <p className="text-xs text-muted-foreground">{t("gallery.readOnlyHint")}</p>}
 
-      <div className="columns-2 gap-3 sm:columns-3 lg:columns-4 xl:columns-5">
-        {page.pictures.map((picture, index) => (
-          <GalleryCard
-            key={`${picture.dir}/${picture.name}`}
-            picture={picture}
-            secret={secret}
-            showTags={showTags}
-            selecting={selecting}
-            selected={selected.has(picture.name)}
-            onOpen={() => setViewing(index)}
-            onToggleSelect={() => toggleSelected(picture.name)}
-            onSearchTag={(tag) => setQuery(exactTagQuery(tag))}
-          />
+      <div className="flex items-start gap-3">
+        {columns.map((indices, column) => (
+          <div key={column} className="min-w-0 flex-1">
+            {indices.map((index) => {
+              const picture = page.pictures[index]
+              return (
+                <GalleryCard
+                  key={`${picture.dir}/${picture.name}`}
+                  picture={picture}
+                  secret={secret}
+                  showTags={showTags}
+                  selecting={selecting}
+                  selected={selected.has(picture.name)}
+                  onOpen={() => setViewing(index)}
+                  onToggleSelect={() => toggleSelected(picture.name)}
+                  onSearchTag={(tag) => setQuery(exactTagQuery(tag))}
+                />
+              )
+            })}
+          </div>
         ))}
       </div>
       <div ref={sentinel} className="h-8" />
@@ -359,4 +379,26 @@ export function Gallery() {
       />
     </div>
   )
+}
+
+// The gallery's column count by window width: 2, then 3 / 4 / 5 from
+// Tailwind's sm / lg / xl.
+const COLUMN_BREAKPOINTS: [string, number][] = [
+  ["(min-width: 1280px)", 5],
+  ["(min-width: 1024px)", 4],
+  ["(min-width: 640px)", 3],
+]
+
+function subscribeToColumns(onChange: () => void) {
+  const queries = COLUMN_BREAKPOINTS.map(([query]) => window.matchMedia(query))
+  queries.forEach((query) => query.addEventListener("change", onChange))
+  return () => queries.forEach((query) => query.removeEventListener("change", onChange))
+}
+
+function currentColumns() {
+  return COLUMN_BREAKPOINTS.find(([query]) => window.matchMedia(query).matches)?.[1] ?? 2
+}
+
+function useColumnCount() {
+  return useSyncExternalStore(subscribeToColumns, currentColumns, () => 2)
 }

@@ -27,6 +27,7 @@ import {
 } from '../lib/gallery/png-meta'
 import { isSafeName, listPage, readPngInfo, resolveInDir } from '../lib/gallery/fs'
 import type { GalleryDir } from '../lib/gallery/dirs'
+import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
 
 const RECORD: LatentryRecord = {
   schema: 1,
@@ -192,6 +193,21 @@ async function main() {
     eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+
+  // Masonry columns: each picture to the shortest column, in order.
+  eq(heightPerWidth(832, 1216), 1216 / 832, 'height per width')
+  eq(heightPerWidth(null, 500), 1, 'unknown sizes count as square')
+  eq(dealColumns([1, 1, 1, 1, 1], 3), [[0, 3], [1, 4], [2]], 'equal heights go round left to right')
+  eq(dealColumns([2, 1, 1, 1], 2), [[0, 3], [1, 2]], 'a tall picture takes two short ones to even out')
+  eq(dealColumns([1, 1], 0), [[0, 1]], 'at least one column')
+  {
+    // Loading more must not move what is on screen: the first page's deal is
+    // a prefix of the deal with the next page added.
+    const heights = Array.from({ length: 60 }, (_, i) => [1.46, 0.69, 1, 1.78, 0.56][i % 5] + 0.3)
+    const first = dealColumns(heights.slice(0, 24), 5)
+    const both = dealColumns(heights, 5)
+    check(first.every((column, i) => column.every((index, at) => both[i][at] === index)), 'a new page only adds to the bottoms')
   }
 
   done('gallery')
