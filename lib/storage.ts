@@ -109,6 +109,8 @@ export interface HandoffSettings {
 
 export type HandoffItem =
   | { type: 'tag'; tag: string; target: 'positive' | 'negative' }
+  /** A whole section at once; one item, so a long list cannot overflow the queue. */
+  | { type: 'tags'; tags: string[]; target: 'positive' | 'negative' }
   | { type: 'settings'; settings: HandoffSettings }
   | { type: 'source'; url: string; as: 'variation' | 'pose' }
 

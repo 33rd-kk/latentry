@@ -10,7 +10,7 @@ import { check, done, eq } from './assert'
 import { parseBackends } from '../lib/backends/config'
 import { parseGalleryDirs } from '../lib/gallery/dirs'
 import { composePrompt, fitToImage, getProfile, listProfiles } from '../lib/profiles'
-import { appendTag, prependTags, splitTags, toSpacedTags } from '../lib/tags'
+import { appendTag, appendTags, prependTags, splitTags, toSpacedTags } from '../lib/tags'
 
 // ── GEN_BACKENDS ──
 const mixed = parseBackends({
@@ -86,6 +86,9 @@ eq(toSpacedTags('snake_case_word and _leading'), 'snake case word and _leading',
 eq(splitTags(' a, ,b ,'), ['a', 'b'], 'split and trim')
 eq(appendTag('a, B', 'b'), 'a, B', 'append skips a tag already there')
 eq(appendTag('', 'x'), 'x', 'append to empty')
+eq(appendTags('a, B', ['b', 'c', 'C', ' d ', '']), 'a, B, c, d', 'bulk append skips tags already there and repeats among the new')
+eq(appendTags('a', ['A']), 'a', 'bulk append of only known tags leaves the prompt')
+eq(appendTags('', ['x', 'y']), 'x, y', 'bulk append to empty')
 eq(prependTags('scene, a', ['a', 'char']), 'char, scene, a', 'prepend skips what is there')
 
 done('config-profiles')

@@ -36,7 +36,7 @@ import {
   type HandoffSettings,
 } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
-import { appendTag, prependTags, toSpacedTags } from "@/lib/tags"
+import { appendTags, prependTags, toSpacedTags } from "@/lib/tags"
 import type { BackendStatus, Preset } from "@/lib/backends/types"
 import { useT } from "@/lib/i18n"
 
@@ -541,11 +541,12 @@ export function GenerateClient() {
   const applyHandoff = useCallback(
     (items: HandoffItem[]) => {
       for (const item of items) {
-        if (item.type === "tag") {
+        if (item.type === "tag" || item.type === "tags") {
+          const tags = item.type === "tag" ? [item.tag] : item.tags
           setOwned((current) => {
             if (!current) return current
             const key = item.target === "positive" ? "prompt" : "negativePrompt"
-            return { ...current, form: { ...current.form, [key]: appendTag(current.form[key], item.tag) } }
+            return { ...current, form: { ...current.form, [key]: appendTags(current.form[key], tags) } }
           })
         } else if (item.type === "settings") {
           // Into the backend chosen here, not the one the picture came from:

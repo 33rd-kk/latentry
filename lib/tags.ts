@@ -37,12 +37,25 @@ export function splitTags(prompt: string): string[] {
 
 /** Appends a tag to a prompt, skipping it if already present. */
 export function appendTag(existing: string, tag: string): string {
-  const trimmedTag = tag.trim()
-  if (!trimmedTag) return existing
-  const existingTags = splitTags(existing).map((t) => t.toLowerCase())
-  if (existingTags.includes(trimmedTag.toLowerCase())) return existing
-  const trimmedExisting = existing.trim()
-  return trimmedExisting ? `${trimmedExisting}, ${trimmedTag}` : trimmedTag
+  return appendTags(existing, [tag])
+}
+
+/**
+ * Appends tags to a prompt, skipping any it already has and any repeated
+ * among the new ones, so a whole section can be sent over a prompt in progress.
+ */
+export function appendTags(existing: string, tags: string[]): string {
+  const present = new Set(splitTags(existing).map((t) => t.toLowerCase()))
+  const fresh: string[] = []
+  for (const tag of tags) {
+    const trimmed = tag.trim()
+    if (!trimmed || present.has(trimmed.toLowerCase())) continue
+    present.add(trimmed.toLowerCase())
+    fresh.push(trimmed)
+  }
+  if (!fresh.length) return existing
+  const rest = existing.trim()
+  return rest ? `${rest}, ${fresh.join(', ')}` : fresh.join(', ')
 }
 
 /**

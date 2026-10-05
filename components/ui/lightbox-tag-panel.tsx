@@ -9,6 +9,8 @@ export interface LightboxTagSection {
   label: string
   /** As the prompt spells them; copied and handed over as they are. */
   tags: string[]
+  /** Which prompt the whole section is sent to; absent, it is not sent as one. */
+  target?: "positive" | "negative"
 }
 
 interface LightboxTagPanelProps {
@@ -19,6 +21,8 @@ interface LightboxTagPanelProps {
   onSearch?: (tag: string) => void
   /** Present when the generator is available. */
   onSendTag?: (tag: string, target: "positive" | "negative") => void
+  /** Sends a section's tags at once to its target; the form skips ones it has. */
+  onSendTags?: (tags: string[], target: "positive" | "negative") => void
 }
 
 // Display only: unescape Danbooru-style escaped parens/brackets.
@@ -29,7 +33,7 @@ const displayTag = (tag: string) => tag.replace(/\\([()[\]])/g, "$1")
  * the panel offers. The viewer sits above every toast, so what an action did is
  * said here instead.
  */
-export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: LightboxTagPanelProps) {
+export function LightboxTagPanel({ title, sections, onSearch, onSendTag, onSendTags }: LightboxTagPanelProps) {
   const t = useT()
   const [selection, setSelection] = useState<{ identity: string; key: string } | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
@@ -85,14 +89,37 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: Light
         <section key={section.label} className="space-y-1.5">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-[11px] font-semibold uppercase tracking-wide text-white/55">{section.label}</h3>
-            <button
-              type="button"
-              className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-white/55 hover:bg-white/10 hover:text-white"
-              onClick={() => void copy(section.tags.join(", "), section.label)}
-            >
-              <Copy className="h-3 w-3" />
-              {t("lightbox.copyAll")}
-            </button>
+            <div className="flex items-center gap-0.5">
+              {onSendTags && section.target && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-white/55 hover:bg-white/10 hover:text-white"
+                  title={
+                    section.target === "positive" ? t("lightbox.sendAllPositiveHint") : t("lightbox.sendAllNegativeHint")
+                  }
+                  onClick={() => {
+                    onSendTags(section.tags, section.target!)
+                    say(
+                      t(section.target === "positive" ? "lightbox.sentAllPositive" : "lightbox.sentAllNegative", {
+                        what: section.label,
+                      })
+                    )
+                  }}
+                >
+                  <Wand2 className="h-3 w-3" />
+                  {section.target === "positive" ? t("lightbox.sendAllPositive") : t("lightbox.sendAllNegative")}
+                </button>
+              )}
+              <button
+                type="button"
+                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-white/55 hover:bg-white/10 hover:text-white"
+                title={t("lightbox.copyAllHint")}
+                onClick={() => void copy(section.tags.join(", "), section.label)}
+              >
+                <Copy className="h-3 w-3" />
+                {t("lightbox.copyAll")}
+              </button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-1">
             {section.tags.map((tag) => {
@@ -113,11 +140,19 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: Light
                   </button>
                   {active && (
                     <div className="flex w-full flex-wrap gap-1 rounded-md bg-white/5 p-1">
-                      <PanelAction icon={<Copy className="h-3 w-3" />} onClick={() => void copy(tag, displayTag(tag))}>
+                      <PanelAction
+                        icon={<Copy className="h-3 w-3" />}
+                        title={t("lightbox.copyHint")}
+                        onClick={() => void copy(tag, displayTag(tag))}
+                      >
                         {t("lightbox.copy")}
                       </PanelAction>
                       {onSearch && (
-                        <PanelAction icon={<Search className="h-3 w-3" />} onClick={() => onSearch(tag)}>
+                        <PanelAction
+                          icon={<Search className="h-3 w-3" />}
+                          title={t("lightbox.addToSearchHint")}
+                          onClick={() => onSearch(tag)}
+                        >
                           {t("lightbox.addToSearch")}
                         </PanelAction>
                       )}
@@ -125,6 +160,7 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: Light
                         <>
                           <PanelAction
                             icon={<Wand2 className="h-3 w-3" />}
+                            title={t("lightbox.toPositiveHint")}
                             onClick={() => {
                               onSendTag(tag, "positive")
                               say(t("lightbox.addedPositive", { tag: displayTag(tag) }))
@@ -134,6 +170,7 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: Light
                           </PanelAction>
                           <PanelAction
                             icon={<Wand2 className="h-3 w-3" />}
+                            title={t("lightbox.toNegativeHint")}
                             onClick={() => {
                               onSendTag(tag, "negative")
                               say(t("lightbox.addedNegative", { tag: displayTag(tag) }))
@@ -155,10 +192,21 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag }: Light
   )
 }
 
-function PanelAction({ icon, onClick, children }: { icon: ReactNode; onClick: () => void; children: ReactNode }) {
+function PanelAction({
+  icon,
+  title,
+  onClick,
+  children,
+}: {
+  icon: ReactNode
+  title?: string
+  onClick: () => void
+  children: ReactNode
+}) {
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       className="flex items-center gap-1 rounded px-2 py-1 text-xs text-white/85 hover:bg-white/15 hover:text-white"
     >

@@ -106,14 +106,18 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
 
   const sections: LightboxTagSection[] = []
   if (meta && !secret) {
-    sections.push({ label: t("gallery.prompt"), tags: splitTags(toSpacedTags(meta.prompt)) })
-    sections.push({ label: t("gallery.negative"), tags: splitTags(toSpacedTags(meta.negativePrompt)) })
+    sections.push({ label: t("gallery.prompt"), tags: splitTags(toSpacedTags(meta.prompt)), target: "positive" })
+    sections.push({
+      label: t("gallery.negative"),
+      tags: splitTags(toSpacedTags(meta.negativePrompt)),
+      target: "negative",
+    })
   }
   if (meta?.tags?.length) {
     const named = meta.tags.filter((tag) => tag.category === WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
     const general = meta.tags.filter((tag) => tag.category !== WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
-    if (named.length) sections.push({ label: t("gallery.wd14Character"), tags: named })
-    sections.push({ label: t("gallery.wd14"), tags: general })
+    if (named.length) sections.push({ label: t("gallery.wd14Character"), tags: named, target: "positive" })
+    sections.push({ label: t("gallery.wd14"), tags: general, target: "positive" })
   }
 
   const facts: [string, ReactNode][] = []
@@ -141,21 +145,27 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
 
       <div className="flex flex-wrap gap-1">
         {meta && meta.prompt && (
-          <button type="button" className={action} onClick={sendSettings}>
+          <button type="button" className={action} onClick={sendSettings} title={t("gallery.useSettingsHint")}>
             <Wand2 className="h-3 w-3" />
             {t("gallery.useSettings")}
           </button>
         )}
-        <button type="button" className={action} onClick={() => sendSource("variation")}>
+        <button type="button" className={action} onClick={() => sendSource("variation")} title={t("gallery.useAsSourceHint")}>
           <ImageUp className="h-3 w-3" />
           {t("gallery.useAsSource")}
         </button>
-        <button type="button" className={action} onClick={() => sendSource("pose")}>
+        <button type="button" className={action} onClick={() => sendSource("pose")} title={t("gallery.useAsPoseHint")}>
           <PersonStanding className="h-3 w-3" />
           {t("gallery.useAsPose")}
         </button>
         {canTag && (
-          <button type="button" className={action} onClick={() => void analyze()} disabled={tagging}>
+          <button
+            type="button"
+            className={action}
+            onClick={() => void analyze()}
+            disabled={tagging}
+            title={t("gallery.analyzeHint")}
+          >
             {tagging ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tags className="h-3 w-3" />}
             {meta?.tags?.length ? t("gallery.reanalyze") : t("gallery.analyze")}
           </button>
@@ -180,6 +190,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
         sections={sections}
         onSearch={onSearch}
         onSendTag={(tag, target) => pushHandoff({ type: "tag", tag, target })}
+        onSendTags={(tags, target) => pushHandoff({ type: "tags", tags, target })}
       />
     </div>
   )
