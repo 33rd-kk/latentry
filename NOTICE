@@ -5,8 +5,8 @@ Latentry is licensed under the MIT License (see LICENSE).
 
 It includes or is derived from the following third-party work:
 
-- poseorbit (poseorbit/, https://github.com/33rd-kk/poseorbit), Apache
-  License 2.0, with its own LICENSE and NOTICE in that folder.
+- The engine depends on poseorbit (https://github.com/33rd-kk/poseorbit, on
+  PyPI), Apache License 2.0, installed with the engine, not included here.
 
 - The UI components in components/ui are based on shadcn/ui
   (https://ui.shadcn.com, https://github.com/shadcn-ui/ui), MIT License,

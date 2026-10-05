@@ -38,8 +38,6 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      # poseorbit's own tests (geometry and API, no models), and the engine
-      # at least compiling: running it needs a GPU and a model.
-      - run: pip install -e "poseorbit[test,server]"
-      - run: pytest -q poseorbit/tests
+      # The engine at least compiling: running it needs a GPU and a model.
+      # (poseorbit, which it depends on, is tested in its own repository.)
       - run: python -m compileall -q engine/latentry_engine

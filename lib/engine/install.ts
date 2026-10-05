@@ -176,8 +176,7 @@ async function steps(torch: TorchChoice): Promise<InstallRecord> {
   )
 
   job.step = 'engine'
-  // In one command, so the engine's "poseorbit" dependency resolves to the local package.
-  await run(uv, ['pip', 'install', '--python', paths.python, '-e', paths.poseSource, '-e', paths.engineSource], uvEnv)
+  await run(uv, ['pip', 'install', '--python', paths.python, '-e', paths.engineSource], uvEnv)
 
   job.step = 'check'
   const output = await run(paths.python, [

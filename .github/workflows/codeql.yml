@@ -1,5 +1,5 @@
 # Static analysis of Latentry's own code: the web UI and API routes
-# (TypeScript) and the engine and poseorbit (Python). Code scanning is free
+# (TypeScript) and the engine (Python). Code scanning is free
 # for public repositories; while this one is private the job is skipped.
 name: CodeQL
 

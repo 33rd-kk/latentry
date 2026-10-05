@@ -186,13 +186,13 @@ Layout:
 - `components/generate/`, `components/gallery/`: the two pages
 - `components/pose3d/`: the 3D pose viewer (three.js only)
 - `engine/`: the bundled generation server
-- `poseorbit/`: a copy of [poseorbit](https://github.com/33rd-kk/poseorbit),
-  which finds people, turns their pose in 3D and draws skeletons. Change it
-  there first, then copy it here; the engine installs this copy.
+- The engine's pose detection is [poseorbit](https://github.com/33rd-kk/poseorbit)
+  (on PyPI), which finds people, turns their pose in 3D and draws skeletons.
 - `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool
 
 ## License
 
-[MIT](LICENSE). The bundled [poseorbit/](poseorbit/) is Apache-2.0 (its own
-LICENSE and NOTICE). Models downloaded at run time keep their licences; the
+[MIT](LICENSE); see [NOTICE](NOTICE) for the third-party work it builds on.
+The engine's [poseorbit](https://github.com/33rd-kk/poseorbit) is
+Apache-2.0. Models downloaded at run time keep their licences; the
 Anima pose adapter in particular is non-commercial (see [engine/](engine/README.md)).

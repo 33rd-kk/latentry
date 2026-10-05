@@ -8,9 +8,9 @@ on:
     - cron: "23 3 * * 1" # Mondays 03:23 UTC
   push:
     branches: [main]
-    paths: [package.json, package-lock.json, engine/pyproject.toml, poseorbit/pyproject.toml, .github/workflows/audit.yml]
+    paths: [package.json, package-lock.json, engine/pyproject.toml, .github/workflows/audit.yml]
   pull_request:
-    paths: [package.json, package-lock.json, engine/pyproject.toml, poseorbit/pyproject.toml, .github/workflows/audit.yml]
+    paths: [package.json, package-lock.json, engine/pyproject.toml, .github/workflows/audit.yml]
   workflow_dispatch:
 
 permissions:
@@ -43,7 +43,7 @@ jobs:
           /tmp/audit/bin/pip install --upgrade pip
           # accelerate and peft need torch; the CPU build keeps the job small.
           /tmp/audit/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
-          /tmp/audit/bin/pip install -e ./poseorbit -e ./engine
+          /tmp/audit/bin/pip install -e ./engine
           pip install pip-audit
-      # Latentry's own packages (editable, not on PyPI) are skipped; any finding fails the job.
+      # The engine itself (editable) is skipped, poseorbit from PyPI is checked; any finding fails the job.
       - run: pip-audit --path /tmp/audit/lib/python3.12/site-packages --skip-editable --desc on

@@ -31,7 +31,8 @@ model is its file or folder name.
 
 `POST /api/pose` finds the people in a picture, lets the client pick one or
 everyone, optionally turns the pose in 3D, and draws the skeleton. That part
-is [poseorbit](../poseorbit/README.md), a package of its own (CPU only).
+is [poseorbit](https://github.com/33rd-kk/poseorbit), a package of its own
+on PyPI (CPU only).
 The engine then makes the run follow the skeleton
 (`latentry_engine/pose_control.py`):
 

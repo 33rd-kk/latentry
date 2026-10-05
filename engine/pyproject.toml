@@ -17,9 +17,10 @@ dependencies = [
     "uvicorn>=0.30",
     "pillow>=10",
     "numpy>=1.26",
-    # Pose control: poseorbit (../poseorbit, installed alongside by Latentry)
-    # finds people and draws skeletons; peft loads Anima's pose LoRA.
-    "poseorbit",
+    # Pose control: poseorbit (PyPI; https://github.com/33rd-kk/poseorbit)
+    # finds people and draws skeletons; below 0.2 while its API may still
+    # change between minor versions. peft loads Anima's pose LoRA.
+    "poseorbit>=0.1.1,<0.2",
     "peft>=0.15",
     # torch comes from PyTorch's index, which carries an old setuptools
     # (78.1, with known path-traversal advisories); this pulls a fixed one

@@ -165,7 +165,7 @@ most confident.
 #### Turning the pose (optional)
 
 A backend that can estimate depth (Latentry's engine, through
-[poseorbit](../poseorbit/README.md)) also takes:
+[poseorbit](https://github.com/33rd-kk/poseorbit)) also takes:
 
 ```json
 { "want_3d": true,
