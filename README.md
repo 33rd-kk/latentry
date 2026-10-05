@@ -39,7 +39,7 @@ tagging in both directions.
 
 ### Screenshots
 
-![The generate page: backend and profile pickers, the prompt, and a finished two-image run](docs/assets/screenshot-generate.webp)
+![The generate page: the engine with Illustrious XL, the prompt, a reference's pose turned 30 degrees in the 3D view, and the two pictures generated from it](docs/assets/screenshot-generate.webp)
 
 ![The gallery: every saved picture, newest first, with search and filters](docs/assets/screenshot-gallery.webp)
 
