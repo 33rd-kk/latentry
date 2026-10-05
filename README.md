@@ -15,8 +15,10 @@ tagging in both directions.
 
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
   reference), inpainting with a painted mask, and skeleton pose control where
-  the backend supports it. Runs live on the server, so a reload or a second
-  tab picks up a run in progress.
+  the backend supports it: pick whose pose in a group picture, and turn it in
+  3D before generating (with [poseorbit](https://github.com/33rd-kk/poseorbit)).
+  Runs live on the server, so a reload or a second tab picks up a run in
+  progress.
 - **Several backends, several model families.** Each backend keeps its own
   form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
   sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
@@ -50,7 +52,7 @@ prompts (no named characters or artists).</sub>
 
 | Kind | What | Notes |
 |---|---|---|
-| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint. Anima: img2img. |
+| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). 3D pose turning. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint. No pose control. |
 
@@ -176,8 +178,15 @@ Layout:
 - `lib/tagger/`: the built-in WD14 tagger and the choice between it and a backend's
 - `app/api/gen/*`, `app/api/gallery/*`: the routes the page talks to
 - `components/generate/`, `components/gallery/`: the two pages
+- `components/pose3d/`: the 3D pose viewer (three.js only)
+- `engine/`: the bundled generation server
+- `poseorbit/`: a copy of [poseorbit](https://github.com/33rd-kk/poseorbit),
+  which finds people, turns their pose in 3D and draws skeletons. Change it
+  there first, then copy it here; the engine installs this copy.
 - `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). The bundled [poseorbit/](poseorbit/) is Apache-2.0 (its own
+LICENSE and NOTICE). Models downloaded at run time keep their licences; the
+Anima pose adapter in particular is non-commercial (see [engine/](engine/README.md)).
