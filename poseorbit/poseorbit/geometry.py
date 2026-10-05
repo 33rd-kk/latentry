@@ -10,6 +10,12 @@ A browser viewer that wants to match this puts the camera, around the same
 centre and in a y-up, z-toward-viewer frame (three.js's), at
 (sin yaw cos pitch, sin pitch, cos yaw cos pitch) and reads the angles back the
 same way: yaw = atan2(x, z), pitch = atan2(y, hypot(x, z)).
+
+Framing comes last, on the output canvas, like cropping a photo: the point
+(x, y) of the canvas (as fractions; 0.5, 0.5 is the middle) moves to the
+middle and everything is scaled by `zoom` around it. Zooming into a face is
+moving the centre to the face and zooming in; zoom below 1 pulls back and
+leaves black around the figure. It never moves the point the camera orbits.
 """
 
 from __future__ import annotations
@@ -24,6 +30,28 @@ import numpy as np
 # wrong more often than not. Clients should hold their controls to these.
 MAX_YAW = 90.0
 MAX_PITCH = 45.0
+# Framing: from half size (room around the figure) to about a face close-up
+# of a full-body picture. Past that only a few points are left to follow.
+MIN_ZOOM = 0.5
+MAX_ZOOM = 6.0
+
+
+@dataclass(frozen=True)
+class Framing:
+    zoom: float = 1.0
+    x: float = 0.5  # the canvas point put in the middle, as fractions of its width
+    y: float = 0.5  # and height
+
+    def clamped(self) -> "Framing":
+        return Framing(
+            zoom=float(np.clip(self.zoom, MIN_ZOOM, MAX_ZOOM)),
+            x=float(np.clip(self.x, 0.0, 1.0)),
+            y=float(np.clip(self.y, 0.0, 1.0)),
+        )
+
+    @property
+    def is_whole(self) -> bool:
+        return self == Framing()
 
 
 @dataclass(frozen=True)
@@ -67,6 +95,13 @@ def scene_centre(points: np.ndarray) -> np.ndarray:
     """
     hips = points[:, [11, 12]].reshape(-1, 3).mean(axis=0)
     return np.array([hips[0], hips[1], 0.0])
+
+
+def frame(keypoints: np.ndarray, size: tuple[int, int], framing: Framing) -> np.ndarray:
+    """(..., 2) canvas points after `framing` on a `size` canvas."""
+    canvas = np.array(size, float)
+    centre = np.array([framing.x, framing.y]) * canvas
+    return (keypoints - centre) * framing.zoom + canvas / 2
 
 
 def fit(keypoints: np.ndarray, source: tuple[int, int], size: tuple[int, int]) -> np.ndarray:

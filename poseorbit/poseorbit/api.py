@@ -6,13 +6,16 @@ Request:
     { "image_base64": "...", "width": 832, "height": 1216,
       "person": 0,                          # optional; -1 = everyone, absent = most confident
       "want_3d": true,                      # optional; answer with each person's 3D points
-      "camera": { "yaw": 30, "pitch": 10 }, # optional; degrees, see geometry.py
+      "camera": { "yaw": 30, "pitch": 10,   # optional; degrees, see geometry.py
+                  "framing": { "zoom": 3, "x": 0.5, "y": 0.2 } },  # optional; the canvas point to centre, and zoom
       "style": "openpose" }                 # optional; "dwpose" (default) or "openpose"
 
 Answer:
     { "skeleton_base64": "...png...", "width": 832, "height": 1216, "person": 0,
-      "camera": { "yaw": 30, "pitch": 10 }, "style": "openpose",
-      "limits": { "yaw": 90, "pitch": 45 },
+      "camera": { "yaw": 30, "pitch": 10, "framing": { "zoom": 3, "x": 0.5, "y": 0.2 } },
+      "style": "openpose",
+      "limits": { "yaw": 90, "pitch": 45, "zoom": [0.5, 6] },
+      "joints_in_frame": 9,                 # body joints (of 17) seen inside the canvas, best drawn person
       "people": [ { "bbox": [x0, y0, x1, y1],                # fractions of the picture
                     "points_3d": [[x, y, z], ...],          # with want_3d: 133 points, fractions of the picture's width
                     "scores": [...] } ] }                   # with want_3d: 133 scores
@@ -27,7 +30,7 @@ from typing import Any
 
 from PIL import Image
 
-from . import ALL_PEOPLE, MAX_PITCH, MAX_YAW, STYLES, Camera, Detector, pose
+from . import ALL_PEOPLE, MAX_PITCH, MAX_YAW, MAX_ZOOM, MIN_ZOOM, STYLES, Camera, Detector, Framing, pose
 from .draw import Style
 
 
@@ -58,14 +61,24 @@ def _number(value: Any, name: str) -> float:
     return float(value)
 
 
-def parse_camera(value: Any) -> Camera | None:
+def parse_camera(value: Any) -> tuple[Camera | None, Framing | None]:
     if value is None:
-        return None
+        return None, None
     if not isinstance(value, dict):
-        raise BadRequest("camera must be an object { yaw, pitch }")
-    return Camera(
+        raise BadRequest("camera must be an object { yaw, pitch, framing }")
+    camera = Camera(
         yaw=_number(value.get("yaw", 0), "camera.yaw"),
         pitch=_number(value.get("pitch", 0), "camera.pitch"),
+    ).clamped()
+    framing = value.get("framing")
+    if framing is None:
+        return camera, None
+    if not isinstance(framing, dict):
+        raise BadRequest("camera.framing must be an object { zoom, x, y }")
+    return camera, Framing(
+        zoom=_number(framing.get("zoom", 1), "camera.framing.zoom"),
+        x=_number(framing.get("x", 0.5), "camera.framing.x"),
+        y=_number(framing.get("y", 0.5), "camera.framing.y"),
     ).clamped()
 
 
@@ -87,7 +100,8 @@ def handle(detector: Detector, body: dict[str, Any], default_style: Style = "dwp
         raise BadRequest(f"style must be one of {', '.join(STYLES)}")
     want_3d = body.get("want_3d") is True
 
-    result = pose(detector, image, (width, height), person, parse_camera(body.get("camera")), style, depth=want_3d)
+    camera, framing = parse_camera(body.get("camera"))
+    result = pose(detector, image, (width, height), person, camera, style, depth=want_3d, framing=framing)
     people = []
     for found in result.people:
         x0, y0, x1, y1 = found.bbox
@@ -106,8 +120,13 @@ def handle(detector: Detector, body: dict[str, Any], default_style: Style = "dwp
         "width": width,
         "height": height,
         "person": result.person,
-        "camera": {"yaw": result.camera.yaw, "pitch": result.camera.pitch},
+        "camera": {
+            "yaw": result.camera.yaw,
+            "pitch": result.camera.pitch,
+            "framing": {"zoom": result.framing.zoom, "x": result.framing.x, "y": result.framing.y},
+        },
         "style": style,
-        "limits": {"yaw": MAX_YAW, "pitch": MAX_PITCH},
+        "limits": {"yaw": MAX_YAW, "pitch": MAX_PITCH, "zoom": [MIN_ZOOM, MAX_ZOOM]},
+        "joints_in_frame": result.joints_in_frame,
         "people": people,
     }

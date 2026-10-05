@@ -14,7 +14,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from . import MAX_PITCH, MAX_YAW, STYLES, Detector, NoPersonError, __version__
+from . import MAX_PITCH, MAX_YAW, MAX_ZOOM, MIN_ZOOM, STYLES, Detector, NoPersonError, __version__
 from .api import BadRequest, handle
 
 
@@ -35,7 +35,7 @@ def create_app(weights_dir: Path | None = None):
 
     @app.get("/api/health")
     def health():
-        return {"status": "ok", "version": __version__, "styles": list(STYLES), "limits": {"yaw": MAX_YAW, "pitch": MAX_PITCH}}
+        return {"status": "ok", "version": __version__, "styles": list(STYLES), "limits": {"yaw": MAX_YAW, "pitch": MAX_PITCH, "zoom": [MIN_ZOOM, MAX_ZOOM]}}
 
     @app.post("/api/pose")
     async def pose(request: Request):

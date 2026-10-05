@@ -1,5 +1,6 @@
 """python -m poseorbit serve [--host 127.0.0.1] [--port 7870] [--weights-dir DIR]
-python -m poseorbit draw PICTURE OUT.png [--size 832x1216] [--person N] [--yaw D] [--pitch D] [--style S]"""
+python -m poseorbit draw PICTURE OUT.png [--size 832x1216] [--person N] [--yaw D] [--pitch D]
+                         [--zoom Z --centre X,Y] [--style S]"""
 
 from __future__ import annotations
 
@@ -23,6 +24,8 @@ def main() -> None:
     draw.add_argument("--person", type=int, default=None, help="index, or -1 for everyone")
     draw.add_argument("--yaw", type=float, default=0.0)
     draw.add_argument("--pitch", type=float, default=0.0)
+    draw.add_argument("--zoom", type=float, default=1.0)
+    draw.add_argument("--centre", default="0.5,0.5", help="the canvas point to centre, as fractions X,Y")
     draw.add_argument("--style", default="dwpose", choices=["dwpose", "openpose"])
     draw.add_argument("--weights-dir", type=Path, default=None)
 
@@ -37,13 +40,20 @@ def main() -> None:
 
     from PIL import Image
 
-    from . import Camera, Detector, pose
+    from . import Camera, Detector, Framing, pose
 
     picture = Image.open(args.picture)
     size = tuple(int(part) for part in args.size.lower().split("x")) if args.size else picture.size
-    result = pose(Detector(args.weights_dir), picture, size, args.person, Camera(args.yaw, args.pitch), args.style)
+    x, y = (float(part) for part in args.centre.split(","))
+    result = pose(
+        Detector(args.weights_dir), picture, size, args.person, Camera(args.yaw, args.pitch), args.style,
+        framing=Framing(args.zoom, x, y),
+    )
     result.skeleton.save(args.out)
-    print(f"{len(result.people)} found; drew person {result.person} at yaw {result.camera.yaw}, pitch {result.camera.pitch}")
+    print(
+        f"{len(result.people)} found; drew person {result.person} at yaw {result.camera.yaw}, pitch {result.camera.pitch}, "
+        f"zoom {result.framing.zoom}; {result.joints_in_frame} body joints in frame"
+    )
 
 
 if __name__ == "__main__":

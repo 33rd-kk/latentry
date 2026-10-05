@@ -3,7 +3,7 @@ import pytest
 
 from poseorbit import ALL_PEOPLE, Camera, Person
 from poseorbit.detect import depth_in_pixels
-from poseorbit.geometry import MAX_PITCH, MAX_YAW, fit, scene_centre, view
+from poseorbit.geometry import MAX_PITCH, MAX_YAW, MAX_ZOOM, MIN_ZOOM, Framing, fit, frame, scene_centre, view
 from poseorbit import chosen
 
 
@@ -80,3 +80,27 @@ def test_choosing_people():
     assert chosen(people, ALL_PEOPLE) == (ALL_PEOPLE, people)
     with pytest.raises(ValueError):
         chosen(people, 2)
+
+
+def test_whole_framing_changes_nothing():
+    points = np.array([[10.0, 20.0], [300.0, 400.0]])
+    assert np.allclose(frame(points, (832, 1216), Framing()), points)
+
+
+def test_framing_centres_and_zooms():
+    # Zoom 4 on the canvas point (0.5, 0.25): that point moves to the middle,
+    # and a point 10 px right of it lands 40 px right of the middle.
+    size = (800, 1200)
+    seen = frame(np.array([[400.0, 300.0], [410.0, 300.0]]), size, Framing(zoom=4, x=0.5, y=0.25))
+    assert np.allclose(seen, [[400, 600], [440, 600]])
+
+
+def test_pulling_back_shrinks_around_the_middle():
+    seen = frame(np.array([[0.0, 0.0]]), (800, 1200), Framing(zoom=0.5))
+    assert np.allclose(seen, [[200, 300]])
+
+
+def test_framing_is_clamped():
+    framing = Framing(zoom=100, x=-1, y=2).clamped()
+    assert (framing.zoom, framing.x, framing.y) == (MAX_ZOOM, 0.0, 1.0)
+    assert Framing(zoom=0.01).clamped().zoom == MIN_ZOOM
