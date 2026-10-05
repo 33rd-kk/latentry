@@ -1,7 +1,8 @@
 // The gallery's view of its folders: listing, safe name resolution, and
 // reading each picture's size and settings without loading it whole.
 
-import { open, readdir, realpath, stat } from 'node:fs/promises'
+import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
+import type { BigIntStats } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
@@ -49,6 +50,37 @@ export async function resolveInDir(dir: GalleryDir, name: string): Promise<strin
     const info = await stat(realFile)
     return info.isFile() ? realFile : null
   } catch {
+    return null
+  }
+}
+
+/**
+ * A picture in `dir`, opened: the handle, its real path and its stats.
+ *
+ * Checking a path and then reading it by name leaves a gap in which the file
+ * can be swapped for a symlink leading out of the folder. So the file is
+ * opened first, and the open file must then be the very file the folder holds
+ * under that name (same device and file id as the real path, still inside the
+ * folder). Read through the handle only, and close it.
+ */
+export async function openInDir(
+  dir: GalleryDir,
+  name: string
+): Promise<{ handle: FileHandle; file: string; info: BigIntStats } | null> {
+  const file = await resolveInDir(dir, name)
+  if (!file) return null
+  let handle: FileHandle | null = null
+  try {
+    handle = await open(file, 'r')
+    const [info, again] = await Promise.all([handle.stat({ bigint: true }), resolveInDir(dir, name)])
+    const there = again ? await stat(again, { bigint: true }) : null
+    if (!there || !info.isFile() || info.dev !== there.dev || info.ino !== there.ino) {
+      await handle.close()
+      return null
+    }
+    return { handle, file, info }
+  } catch {
+    await handle?.close().catch(() => {})
     return null
   }
 }

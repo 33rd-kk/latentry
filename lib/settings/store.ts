@@ -8,7 +8,7 @@
 
 import { randomBytes } from 'node:crypto'
 import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
-import { constants, readFileSync, statSync } from 'node:fs'
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { EMPTY_SETTINGS, parseStoredSettings, type Settings } from './schema'
 
@@ -28,22 +28,29 @@ const globalForSettings = globalThis as typeof globalThis & {
  */
 export function getSettings(): Settings {
   const file = settingsPath()
-  let mtime: number
+  // One open file for both the mtime and the content, so a save in between
+  // cannot pair new content with the old mtime (or the reverse).
+  let fd: number
   try {
-    mtime = statSync(/*turbopackIgnore: true*/ file).mtimeMs
+    fd = openSync(/*turbopackIgnore: true*/ file, 'r')
   } catch {
     return EMPTY_SETTINGS
   }
-  const cached = globalForSettings.__latentrySettings
-  if (cached && cached.file === file && cached.mtime === mtime) return cached.settings
-  let settings = EMPTY_SETTINGS
   try {
-    settings = parseStoredSettings(JSON.parse(readFileSync(/*turbopackIgnore: true*/ file, 'utf8')))
-  } catch (error) {
-    console.error(`[settings] could not read ${file}:`, error)
+    const mtime = fstatSync(fd).mtimeMs
+    const cached = globalForSettings.__latentrySettings
+    if (cached && cached.file === file && cached.mtime === mtime) return cached.settings
+    let settings = EMPTY_SETTINGS
+    try {
+      settings = parseStoredSettings(JSON.parse(readFileSync(fd, 'utf8')))
+    } catch (error) {
+      console.error(`[settings] could not read ${file}:`, error)
+    }
+    globalForSettings.__latentrySettings = { file, mtime, settings }
+    return settings
+  } finally {
+    closeSync(fd)
   }
-  globalForSettings.__latentrySettings = { file, mtime, settings }
-  return settings
 }
 
 export async function saveSettings(settings: Settings): Promise<void> {

@@ -25,7 +25,7 @@ import {
   writePngText,
   type LatentryRecord,
 } from '../lib/gallery/png-meta'
-import { isSafeName, listPage, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import { isSafeName, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
 
@@ -172,6 +172,20 @@ async function main() {
     eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')
     eq(await resolveInDir(dir, 'missing.png'), null, 'a missing file does not')
 
+    // openInDir: the open file is the one checked, read through its handle.
+    {
+      const opened = await openInDir(dir, 'new.png')
+      check(opened !== null, 'a file in the folder opens')
+      if (opened) {
+        const bytes = await opened.handle.readFile()
+        eq(bytes.equals(await readFile(path.join(folder, 'new.png'))), true, 'and reads as the file')
+        eq(Number(opened.info.size), bytes.length, 'with its own stats')
+        await opened.handle.close()
+      }
+      eq(await openInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not open')
+      eq(await openInDir(dir, 'missing.png'), null, 'nor a missing file')
+    }
+
     let linked = false
     try {
       await symlink(path.join(outside, 'private.png'), path.join(folder, 'link.png'))
@@ -181,6 +195,7 @@ async function main() {
     }
     if (linked) {
       eq(await resolveInDir(dir, 'link.png'), null, 'a symlink leading out of the folder is refused')
+      eq(await openInDir(dir, 'link.png'), null, 'and does not open')
     } else {
       console.log('  (symlink case skipped: no privilege to create one)')
     }

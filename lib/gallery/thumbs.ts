@@ -10,9 +10,12 @@ const CACHE_MAX = 1500
 const globalForThumbs = globalThis as typeof globalThis & { __galleryThumbs?: Map<string, Buffer> }
 const cache = (globalForThumbs.__galleryThumbs ??= new Map())
 
-/** `key` must change whenever the file does (its mtime and size are enough). */
-export async function thumbnail(file: string, key: string): Promise<Buffer> {
-  const cacheKey = `${file}|${key}`
+/**
+ * The thumbnail of a picture, `read` only on a cache miss. `key` names the
+ * file and must change whenever it does (its path, mtime and size are enough).
+ */
+export async function thumbnail(key: string, read: () => Promise<Buffer>): Promise<Buffer> {
+  const cacheKey = key
   const hit = cache.get(cacheKey)
   if (hit) {
     // Re-insert, so Map order doubles as least-recently-used.
@@ -20,7 +23,7 @@ export async function thumbnail(file: string, key: string): Promise<Buffer> {
     cache.set(cacheKey, hit)
     return hit
   }
-  const webp = await sharp(file)
+  const webp = await sharp(await read())
     .rotate()
     .resize(THUMB_EDGE, THUMB_EDGE, { fit: 'inside', withoutEnlargement: true })
     .webp({ quality: 80 })
