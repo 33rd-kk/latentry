@@ -1,0 +1,28 @@
+poseorbit
+Copyright 2026 33rd-kk
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It includes or is derived from the following third-party work:
+
+- rtmlib (https://github.com/Tau-J/rtmlib), Apache License 2.0.
+  poseorbit calls rtmlib to run the detectors and to draw "dwpose" skeletons,
+  and uses its COCO-to-OpenPose keypoint conversion.
+
+- The "openpose" drawing in poseorbit/draw.py (_draw_openpose_body) follows
+  the draw_bodypose function published on the model card of
+  xinsir/controlnet-openpose-sdxl-1.0
+  (https://huggingface.co/xinsir/controlnet-openpose-sdxl-1.0), Apache License
+  2.0, itself a modification of controlnet_aux's OpenPose drawing
+  (https://github.com/huggingface/controlnet_aux), Apache License 2.0.
+  The 18-point limb order and colours are OpenPose's conventions as used there.
+
+Model files (downloaded at run time, not distributed with poseorbit):
+
+- YOLOX-m (HumanArt) person detector and RTMW-DW-x-l whole-body pose model,
+  OpenMMLab (https://github.com/open-mmlab/mmpose), Apache License 2.0,
+  fetched from rtmlib's mirror https://huggingface.co/Tau-J/RTMPose.
+- RTMW3D-x, OpenMMLab, Apache License 2.0, fetched from
+  https://huggingface.co/Soykaf/RTMW3D-x.
+  Paper: Jiang et al., "RTMW: Real-Time Multi-Person 2D and 3D Whole-body
+  Pose Estimation", arXiv:2407.08634.
