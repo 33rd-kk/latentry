@@ -6,8 +6,10 @@
 //   node scripts/logo.mjs
 //
 // Each character cell shows two pixels ("▀", foreground on top, background
-// below), in 24-bit colour. Without colour (NO_COLOR, a pipe, an old console)
-// it prints one plain line; in a narrow terminal it leaves the tiles out.
+// below), in 24-bit colour, or the nearest of 256 where that is all the
+// terminal has (macOS Terminal, TERM=xterm-256color without COLORTERM).
+// Without colour (NO_COLOR, a pipe, an old console) it prints one plain line;
+// in a narrow terminal it leaves the tiles out.
 
 // The name in a pixel font: 8 rows, cap height 0-5, x-height 2-5,
 // descender 6-7; strokes two pixels wide.
@@ -57,8 +59,21 @@ function tile(t, [from, to], random) {
   )
 }
 
-const fg = ([r, g, b]) => `\x1b[38;2;${r};${g};${b}m`
-const bg = ([r, g, b]) => `\x1b[48;2;${r};${g};${b}m`
+const out = process.stdout
+const trueColour = Boolean(out.hasColors?.(2 ** 24)) || process.platform === 'win32'
+
+/** The nearest of xterm's 256 colours: the 6x6x6 cube or the grey ramp. */
+function xterm256([r, g, b]) {
+  const level = (v) => (v < 48 ? 0 : v < 115 ? 1 : Math.min(5, Math.floor((v - 35) / 40)))
+  const cube = [r, g, b].map(level)
+  const cubeRgb = cube.map((l) => (l === 0 ? 0 : 55 + l * 40))
+  const grey = Math.max(0, Math.min(23, Math.round(((r + g + b) / 3 - 8) / 10)))
+  const greyRgb = 8 + grey * 10
+  const distance = (c) => (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2
+  return distance(cubeRgb) <= distance([greyRgb, greyRgb, greyRgb]) ? 16 + 36 * cube[0] + 6 * cube[1] + cube[2] : 232 + grey
+}
+const fg = (c) => (trueColour ? `\x1b[38;2;${c[0]};${c[1]};${c[2]}m` : `\x1b[38;5;${xterm256(c)}m`)
+const bg = (c) => (trueColour ? `\x1b[48;2;${c[0]};${c[1]};${c[2]}m` : `\x1b[48;5;${xterm256(c)}m`)
 const RESET = '\x1b[0m'
 
 /** Pixel rows (colour or null) as terminal lines, two pixel rows per line. */
@@ -86,8 +101,8 @@ function logo(columns) {
   const text = [
     ...name,
     '',
-    `\x1b[38;2;163;163;163m${TAGLINE}${RESET}`,
-    `\x1b[38;2;115;115;115m${FEATURES}${RESET}`,
+    `${fg([163, 163, 163])}${TAGLINE}${RESET}`,
+    `${fg([115, 115, 115])}${FEATURES}${RESET}`,
   ]
   const textWidth = Math.max(width, TAGLINE.length, FEATURES.length)
   const tilesWidth = STEPS * TILE_W + (STEPS - 1)
@@ -109,8 +124,7 @@ function logo(columns) {
   })
 }
 
-const out = process.stdout
-const colour = out.isTTY && !process.env.NO_COLOR && (out.hasColors?.(2 ** 24) || process.platform === 'win32')
+const colour = out.isTTY && !process.env.NO_COLOR && (trueColour || Boolean(out.hasColors?.(256)))
 if (colour) {
   out.write(`\n${logo(out.columns || 80).join('\n')}\n\n`)
 } else {
