@@ -21,6 +21,10 @@ dependencies = [
     # finds people and draws skeletons; peft loads Anima's pose LoRA.
     "poseorbit",
     "peft>=0.15",
+    # torch comes from PyTorch's index, which carries an old setuptools
+    # (78.1, with known path-traversal advisories); this pulls a fixed one
+    # from PyPI when the engine itself is installed.
+    "setuptools>=83",
 ]
 
 [build-system]

@@ -1,0 +1,49 @@
+# Known vulnerabilities in what Latentry installs: the web UI's npm packages
+# and the engine's Python packages (torch aside: it comes from PyTorch's own
+# index, matched to the GPU, at install time). Weekly, and when they change.
+name: Dependency audit
+
+on:
+  schedule:
+    - cron: "23 3 * * 1" # Mondays 03:23 UTC
+  push:
+    branches: [main]
+    paths: [package.json, package-lock.json, engine/pyproject.toml, poseorbit/pyproject.toml, .github/workflows/audit.yml]
+  pull_request:
+    paths: [package.json, package-lock.json, engine/pyproject.toml, poseorbit/pyproject.toml, .github/workflows/audit.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  npm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      # What ships to users: runtime dependencies, moderate and above.
+      - run: npm audit --omit=dev --audit-level=moderate
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m venv /tmp/audit
+          /tmp/audit/bin/pip install --upgrade pip
+          # accelerate and peft need torch; the CPU build keeps the job small.
+          /tmp/audit/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+          /tmp/audit/bin/pip install -e ./poseorbit -e ./engine
+          pip install pip-audit
+      # Latentry's own packages (editable, not on PyPI) are skipped; any finding fails the job.
+      - run: pip-audit --path /tmp/audit/lib/python3.12/site-packages --skip-editable --desc on

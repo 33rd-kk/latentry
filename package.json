@@ -1,5 +1,5 @@
 {
-  "name": "latentry2",
+  "name": "latentry",
   "version": "0.2.0",
   "private": true,
   "scripts": {
@@ -46,6 +46,14 @@
   },
   "description": "A local web UI for diffusion backends: text-to-image, img2img, inpaint, pose, a gallery and WD14 tagging. Works with Anima, SDXL and friends side by side.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/33rd-kk/latentry.git"
+  },
+  "homepage": "https://github.com/33rd-kk/latentry#readme",
+  "bugs": {
+    "url": "https://github.com/33rd-kk/latentry/issues"
+  },
   "engines": {
     "node": ">=22.12.0"
   }

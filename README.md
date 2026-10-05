@@ -63,7 +63,7 @@ Use the built-in engine, the servers you already run, or both.
 Requires Node.js 22.12 or newer.
 
 ```bash
-git clone <this repository> latentry
+git clone https://github.com/33rd-kk/latentry.git
 cd latentry
 ./install.sh                                         # Linux, macOS
 powershell -ExecutionPolicy Bypass -File install.ps1 # Windows

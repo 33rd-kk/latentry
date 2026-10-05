@@ -1,0 +1,23 @@
+Latentry
+Copyright 2026 33rd-kk
+
+Latentry is licensed under the MIT License (see LICENSE).
+
+It includes or is derived from the following third-party work:
+
+- poseorbit (poseorbit/, https://github.com/33rd-kk/poseorbit), Apache
+  License 2.0, with its own LICENSE and NOTICE in that folder.
+
+- The UI components in components/ui are based on shadcn/ui
+  (https://ui.shadcn.com, https://github.com/shadcn-ui/ui), MIT License,
+  Copyright (c) 2023 shadcn, adapted for this project.
+
+- The engine's pose control (engine/latentry_engine/pose_control.py)
+  re-implements the method of Anima-Control-Pose
+  (https://huggingface.co/Claquasse/Anima-Control-Pose) on diffusers. Its
+  weights are under CircleStone Labs' non-commercial licence and are
+  downloaded at run time, never distributed with Latentry.
+
+Models are never part of Latentry. Everything the Setup page or the engine
+downloads (checkpoints, ControlNets, adapters, taggers, detectors) keeps its
+publisher's licence, which the Setup page shows before downloading.

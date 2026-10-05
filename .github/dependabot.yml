@@ -1,0 +1,25 @@
+# Keeps dependencies current: security fixes as they are published, other
+# bumps weekly, one grouped pull request per ecosystem.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
+  - package-ecosystem: pip
+    directories: [/engine, /poseorbit]
+    schedule:
+      interval: weekly
+    groups:
+      python:
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
