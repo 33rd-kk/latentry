@@ -1,0 +1,5 @@
+# The documentation site (mkdocs.yml). Pinned so a build is reproducible;
+# Dependabot keeps them current.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+pymdown-extensions==12.1

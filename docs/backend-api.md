@@ -199,6 +199,8 @@ and answers with:
 
 ---
 
+<a id="automatic1111--forge"></a>
+
 ## AUTOMATIC1111 / Forge
 
 Start the web UI with `--api` (and `--api-auth user:password` if you set

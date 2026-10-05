@@ -5,6 +5,8 @@
 
 # Latentry
 
+**Manual: https://33rd-kk.github.io/latentry/**
+
 A local web UI for the image models you already run. One form for
 text-to-image, img2img, inpainting and pose, in front of several backends at
 once: an Anima server and an SDXL web UI side by side, each with its own

@@ -24,6 +24,14 @@ updates:
       python:
         patterns: ["*"]
         update-types: [minor, patch]
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs:
+        patterns: ["*"]
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
