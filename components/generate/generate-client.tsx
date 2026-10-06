@@ -612,7 +612,7 @@ export function GenerateClient() {
       completed: 0,
       total: form.imageCount,
       currentStep: 0,
-      stepsPerImage: useSource ? img2imgSteps(form.steps, strength) : form.steps,
+      stepsPerImage: useSource ? img2imgSteps(form.steps, strength, profile.id) : form.steps,
     })
     applyStatus("running")
 
@@ -892,7 +892,7 @@ export function GenerateClient() {
                     so, or it would disagree with the progress bar's count. */}
                 <Label>
                   {sourceImage && capabilities?.img2img
-                    ? t("generate.stepsI2i", { value: form.steps, actual: img2imgSteps(form.steps, strength) })
+                    ? t("generate.stepsI2i", { value: form.steps, actual: img2imgSteps(form.steps, strength, profile.id) })
                     : t("generate.steps", { value: form.steps })}
                 </Label>
                 <Slider

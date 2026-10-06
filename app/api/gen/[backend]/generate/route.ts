@@ -45,8 +45,9 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     // start, so there is nothing to reattach to.
     if (!started.ok) return jsonError(started.error, started.status)
 
+    const profile = typeof body.profile === 'string' ? body.profile : adapter.config.profile
     const steps = generate.init_image_base64
-      ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6)
+      ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, profile)
       : generate.num_inference_steps
     const job = startJob({
       backend: id,
@@ -57,7 +58,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
         // source was used (strength is set exactly when one was), and the
         // base64 would sit in memory for as long as the job does.
         request: { ...generate, init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
-        profile: typeof body.profile === 'string' ? body.profile : adapter.config.profile,
+        profile,
         kind: adapter.config.kind,
         model: status?.model ?? null,
         mode: modeOf(generate),
