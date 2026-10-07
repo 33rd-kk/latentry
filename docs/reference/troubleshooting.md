@@ -2,7 +2,7 @@
 
 ## Install and start
 
-**"Node.js is not installed" / "is too old".** Install Node.js 22.12 or newer
+**"Node.js is not installed" / "is too old".** Install Node.js 22.19 or newer
 from [nodejs.org](https://nodejs.org), open a new terminal, and run the
 install script again.
 

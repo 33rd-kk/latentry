@@ -2,7 +2,7 @@
 
 ## What you need
 
-- **Node.js 22.12 or newer** ([nodejs.org](https://nodejs.org); on Windows
+- **Node.js 22.19 or newer** ([nodejs.org](https://nodejs.org); on Windows
   also `winget install OpenJS.NodeJS.LTS`).
 - For the built-in engine: an **NVIDIA GPU** is best (Apple silicon and the
   CPU work too, slowly), and about 4 GB of disk for the engine plus 5–7 GB

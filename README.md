@@ -63,7 +63,7 @@ Use the built-in engine, the servers you already run, or both.
 
 ## Getting started
 
-Requires Node.js 22.12 or newer.
+Requires Node.js 22.19 or newer.
 
 ```bash
 git clone https://github.com/33rd-kk/latentry.git
