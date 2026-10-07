@@ -15,9 +15,9 @@ import type { BackendEvent, GenerateRequest } from '@/lib/backends/types'
  *
  * One run per backend: a backend does one run at a time, and two backends
  * (say an Anima server and a Forge web UI on another GPU) can run side by side.
- * Only each backend's latest run is kept, images and all. This lives in the
- * memory of a single `next start` / `next dev` process, which is what a local
- * install is.
+ * Only each backend's latest run is kept, images and all, and only until no
+ * page may read it any more (keptFor). This lives in the memory of a single
+ * `next start` / `next dev` process, which is what a local install is.
  */
 
 export type JobStatus = 'running' | 'done' | 'cancelled' | 'error'
@@ -118,7 +118,7 @@ export function getJob(backend: string, id: string): Job | null {
 /** True while a stream that knows this run's id may still watch it. */
 export function isWatchable(job: Job, now = Date.now()): boolean {
   if (job.status === 'running') return true
-  return now - (job.endedAt ?? job.startedAt) < (job.secret ? SECRET_GRACE_MS : RESUME_WINDOW_MS)
+  return now - (job.endedAt ?? job.startedAt) < keptFor(job)
 }
 
 /** True while the page should still put this run back on screen after a reload. Never for a secret run. */
@@ -208,7 +208,16 @@ function finish(job: Job, status: Exclude<JobStatus, 'running'>, error?: string)
   job.endedAt = Date.now()
   job.currentStep = 0
   notify(job)
-  if (job.secret) setTimeout(() => forget(job), SECRET_GRACE_MS).unref?.()
+  setTimeout(() => forget(job), keptFor(job)).unref?.()
+}
+
+/**
+ * How long a run stays in memory after it ends. Past that no page may read it
+ * (isWatchable), so its images and prompt are dropped instead of waiting for
+ * the backend's next run to replace them.
+ */
+export function keptFor(job: Job): number {
+  return job.secret ? SECRET_GRACE_MS : RESUME_WINDOW_MS
 }
 
 /** Drops a run from memory: its images, its prompt, and the record itself. */

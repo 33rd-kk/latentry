@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSecretMode } from "@/components/app-header"
+import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { pictureUrl, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useT } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
@@ -75,6 +76,7 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
               <div className="relative min-w-40 flex-1">
                 <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
+                  {...PRIVATE_TEXT}
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder={t("gallery.search")}

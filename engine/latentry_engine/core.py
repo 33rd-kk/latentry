@@ -183,7 +183,11 @@ class Engine:
 
         dtype = self.plan.dtype
         if info.path.is_file():
-            pipe = StableDiffusionXLPipeline.from_single_file(str(info.path), torch_dtype=dtype)
+            # A single file carries the weights but not the pipeline's configs
+            # (scheduler, tokenizers), which diffusers takes from the Hub. From
+            # its cache once they are there, so a load does not ask the Hub
+            # again every time; diffusers still downloads them on the first.
+            pipe = StableDiffusionXLPipeline.from_single_file(str(info.path), torch_dtype=dtype, local_files_only=True)
         else:
             pipe = StableDiffusionXLPipeline.from_pretrained(str(info.path), torch_dtype=dtype)
         if dtype == torch.float16:

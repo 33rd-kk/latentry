@@ -26,7 +26,7 @@ import { useBackends } from "@/hooks/use-backends"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
-import { isSecretMode } from "@/lib/secret-mode"
+import { isSecretMode, PRIVATE_TEXT } from "@/lib/secret-mode"
 import { composePrompt, fitToImage, formatForProfile, getProfile, isProfileId, type Profile, type ProfileId } from "@/lib/profiles"
 import {
   drainHandoff,
@@ -811,6 +811,7 @@ export function GenerateClient() {
                 <Label htmlFor="artist">{t("generate.artist")}</Label>
                 <Input
                   id="artist"
+                  {...PRIVATE_TEXT}
                   placeholder={t("generate.artistPlaceholder", { example: profile.artistTemplate.replace("{artist}", "name") })}
                   value={form.artist}
                   onChange={(event) => update({ artist: event.target.value })}
@@ -838,6 +839,7 @@ export function GenerateClient() {
               </div>
               <Textarea
                 id="prompt"
+                {...PRIVATE_TEXT}
                 rows={6}
                 placeholder={t("generate.positivePlaceholder")}
                 value={form.prompt}
@@ -851,6 +853,7 @@ export function GenerateClient() {
               <Label htmlFor="negative-prompt">{t("generate.negativePrompt")}</Label>
               <Textarea
                 id="negative-prompt"
+                {...PRIVATE_TEXT}
                 rows={3}
                 value={form.negativePrompt}
                 onChange={(event) => update({ negativePrompt: event.target.value })}

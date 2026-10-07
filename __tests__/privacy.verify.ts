@@ -10,7 +10,7 @@
  */
 import { check, done, eq } from './assert'
 import { drainHandoff, preferences, pushHandoff, STORAGE_KEYS } from '../lib/storage'
-import { applyEvent, forget, getCurrentJob, getJob, isResumable, isWatchable, RESUME_WINDOW_MS, SECRET_GRACE_MS, startJob, toSnapshot, type JobContext } from '../lib/diffusion/job-store'
+import { applyEvent, forget, getCurrentJob, getJob, isResumable, isWatchable, keptFor, RESUME_WINDOW_MS, SECRET_GRACE_MS, startJob, toSnapshot, type JobContext } from '../lib/diffusion/job-store'
 
 // ── A browser, as far as lib/storage.ts needs one ──
 const store = new Map<string, string>()
@@ -106,6 +106,7 @@ check(!('images' in toSnapshot(open)), '/job answers without the images')
 check(isResumable(open), 'an ordinary run is offered to a page that loads, within the hour')
 const late = (open.endedAt ?? 0) + RESUME_WINDOW_MS + 1
 check(!isResumable(open, late) && !isWatchable(open, late), 'F4: past the hour neither /job nor /job/stream serves it')
+check(keptFor(open) === RESUME_WINDOW_MS, 'and an ordinary run is dropped from memory then')
 
 // A secret run: the starting page only, and gone a minute after it ends.
 const secret = startJob({ backend: 'audit', total: 1, steps: 1, context, secret: true })
@@ -115,6 +116,7 @@ applyEvent(secret, image)
 applyEvent(secret, { type: 'done' } as Event)
 check(isWatchable(secret) && !isResumable(secret), 'just after it ends, only its stream may still read it')
 check(!isWatchable(secret, (secret.endedAt ?? 0) + SECRET_GRACE_MS + 1), 'not after the grace period')
+check(keptFor(secret) === SECRET_GRACE_MS, 'a secret run is dropped from memory after the grace period')
 forget(secret)
 check(getCurrentJob('audit') === null && getJob('audit', secret.id) === null, 'F4: forgotten, the server no longer has it')
 check(secret.images.length === 0 && !JSON.stringify(secret.context).includes(HIDDEN), 'neither its images nor its prompt')

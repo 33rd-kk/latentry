@@ -37,6 +37,8 @@ reloaded). Deleting a character deletes it for good, in either mode.
   prompt, settings and tags. **Show for this picture** reveals them while
   that picture stays on screen. Moving to another picture hides them again,
   and so does coming back to it.
+- **Compare** blurs both pictures and hides their differing settings and
+  tags. **Show** reveals them until the comparison is closed.
 - **Analyze with WD14** still works and saves the tags into the file. The
   panel says how many tags it found instead of listing them.
 
@@ -72,6 +74,11 @@ These are by design:
   other server does with prompts and pictures is up to that server.
 - The page you are on shows what you are doing: the form, the results, and
   any picture you open full size.
+- **Download** in the viewer saves the picture as any download does: it is
+  in the downloads folder and the browser's download list.
+- Turning secret mode off does not throw away what is on the form: from the
+  next change, the form is remembered again, words typed in secret mode
+  included. Clear the prompt first if they should not be kept.
 
 To keep a picture out of the gallery, move or delete its file from the
 gallery folder.

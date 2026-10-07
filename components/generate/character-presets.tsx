@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSecretMode } from "@/components/app-header"
+import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { preferences, STORAGE_KEYS, STORAGE_EVENT_NAME, type CharacterPreset } from "@/lib/storage"
 import { useT } from "@/lib/i18n"
 
@@ -136,12 +137,14 @@ export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, 
       {saving && (
         <div className="space-y-2 rounded-md border p-2">
           <Input
+            {...PRIVATE_TEXT}
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder={t("generate.characterName")}
             className="h-8 text-xs"
           />
           <Textarea
+            {...PRIVATE_TEXT}
             rows={3}
             value={tags}
             onChange={(event) => setTags(event.target.value)}

@@ -13,9 +13,17 @@ against what you expect.
 - **Downloads you start**: installing and building Latentry (npm packages,
   and the UI's font, which the build fetches once and then serves itself),
   and, from the Setup page, the engine (uv, Python, PyTorch, diffusers), the
-  models you pick and the WD14 tagger.
+  models you pick and the WD14 tagger. Two more come from the engine
+  itself, once each: the pose models, on the first run with a pose, and,
+  on the first load of an SDXL model kept as a single file, the pipeline's
+  small config files (scheduler, tokenizer) from Hugging Face. Later loads
+  read them from the cache.
 - **Nothing else.** No telemetry, no update checks, no analytics. The
   anonymous usage reports of Next.js and Hugging Face are turned off.
+
+Prompt fields and the gallery's search have the browser's spell check and
+autofill turned off: some browsers check spelling by sending the text to an
+online service.
 
 The browser only talks to Latentry itself. Latentry listens on 127.0.0.1
 unless you set `LATENTRY_HOST`; see
@@ -28,8 +36,9 @@ unless you set `LATENTRY_HOST`; see
 | The gallery's save folder | Every finished picture, with its prompt and settings inside the file; WD14 tags, when you tag a picture there | When you delete the files |
 | `.env.local`, `latentry.settings.json` | Backends, folders and options, and backend tokens (in the settings file when typed on Settings) | When you change or delete them |
 | `.runtime/`, `models/` | The engine, the models and the tagger you downloaded | When you delete them, or uninstall |
+| Hugging Face's cache (`~/.cache/huggingface`, or `HF_HOME`) | The config files of a single-file SDXL model (no weights, no prompts) | When you delete it |
 | This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, and display preferences such as tags under cards | Kept between visits. Clear the site's data to remove it |
-| Latentry's memory | Runs in progress, thumbnails, and the gallery's index of a folder (date made, size, model, LoRAs, a hash of each prompt, the seed) | When Latentry stops |
+| Latentry's memory | Runs in progress; each backend's last run, pictures and prompt, for an hour after it ends (a minute for a secret run); thumbnails, and the gallery's index of a folder (date made, size, model, LoRAs, a hash of each prompt, the seed) | The last run after that time; the rest when Latentry stops |
 
 Not kept anywhere: the gallery's search, order and filters (they last only
 as long as the page), and pictures from other folders, which are only read.
