@@ -44,7 +44,9 @@ Tagging needs a tagger; see [Settings](settings.md).
 Click a picture to open it. Arrows or the keyboard move between pictures; the
 magnifier zooms; the download button saves it. The side panel shows the
 backend, model, mode, seed, size, steps, CFG, sampler and strength it was made
-with, its prompt and negative prompt as tags, and its WD14 tags.
+with, its prompt and negative prompt as tags, and its WD14 tags. In
+[secret mode](secret-mode.md) thumbnails are blurred and the panel hides all
+of that until you choose **Show for this picture**.
 
 From the panel:
 
