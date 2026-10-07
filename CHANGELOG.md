@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Gallery**: **Show in folder** and **Open in default app** in the viewer
+  open a picture in this computer's file manager (selected) or its picture
+  app. They appear only when the browser runs on the same computer, and
+  never act on a file outside the gallery folders. The gallery still has no
+  delete, move or rename, by design.
 - **Gallery**: search and filter by LoRA (`lora:detail`, and a LoRA menu
   under Filters), and leave pictures out with a leading `-` (`-smile`,
   `-"long hair"`, `-model:pony`). The viewer lists a picture's LoRAs.

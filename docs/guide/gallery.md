@@ -115,6 +115,11 @@ From the panel:
   [skeleton pose](pose.md), not its hair or outfit.
 - **Analyze with WD14**: read its tags now (saved into the file in a writable
   folder).
+- **Show in folder** and **Open in default app**: show the picture in this
+  computer's file manager (selected, on Windows and macOS), or in the app it
+  uses for pictures. Only when the browser runs on the computer Latentry
+  runs on; other devices do not see these buttons. Latentry itself never
+  deletes, moves or renames a picture. Do that in the file manager.
 - Each tag: copy it, search for it, or add it to the positive or negative
   prompt. Each section: **Copy all**, **All to positive**, **All to
   negative** (tags already in the prompt are skipped).

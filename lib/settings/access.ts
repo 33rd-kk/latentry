@@ -38,12 +38,22 @@ function hostnameOf(host: string): string {
   return colon === -1 ? h : h.slice(0, colon)
 }
 
+/**
+ * Whether the request comes from this machine: the Host it asked for, the
+ * client address it was forwarded for, and the address the connection
+ * really came from are all loopback. Also used for what only makes sense on
+ * this machine, like opening a picture in its file manager.
+ */
+export function isFromThisMachine(headers: Headers): boolean {
+  const host = hostnameOf(headers.get('host') ?? '')
+  const peer = peerAddress(headers)
+  return isLoopback(host) && isLoopback(clientIp(headers)) && (peer === undefined || isLoopback(peer))
+}
+
 /** Why this request may not change settings, or null when it may. */
 export function editRefusal(headers: Headers, env: Env = process.env): 'off' | 'notLocal' | null {
   const mode = editMode(env)
   if (mode === 'off') return 'off'
   if (mode === 'lan') return null
-  const host = hostnameOf(headers.get('host') ?? '')
-  const peer = peerAddress(headers)
-  return isLoopback(host) && isLoopback(clientIp(headers)) && (peer === undefined || isLoopback(peer)) ? null : 'notLocal'
+  return isFromThisMachine(headers) ? null : 'notLocal'
 }

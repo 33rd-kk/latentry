@@ -37,7 +37,7 @@ import { useT } from "@/lib/i18n"
 export function Gallery() {
   const t = useT()
   const secret = useSecretMode()
-  const folders = useGalleryFolders()
+  const { folders, canOpen } = useGalleryFolders()
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [searchText, setSearchText] = useState("")
@@ -385,6 +385,7 @@ export function Gallery() {
               picture={viewed}
               writable={folder?.writable ?? false}
               canTag={tagger !== null}
+              canOpen={canOpen}
               secret={secret}
               onSearch={(tag) => {
                 setViewing(null)

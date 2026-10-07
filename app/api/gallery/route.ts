@@ -3,13 +3,15 @@ import { jsonError, json } from '@/lib/api'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { listFacets, listPage } from '@/lib/gallery/fs'
 import { fromParams } from '@/lib/gallery/filter'
+import { isFromThisMachine } from '@/lib/settings/access'
 
 export const runtime = 'nodejs'
 
 const MAX_LIMIT = 200
 
 /**
- * Without `dir`: the folders (by index and name, never their paths).
+ * Without `dir`: the folders (by index and name, never their paths), and
+ * whether pictures can be shown in this machine's file manager from here.
  * With `dir`: one page of that folder, in the order and with the filters
  * asked for (see lib/gallery/filter.ts), newest first by default.
  *
@@ -27,7 +29,7 @@ export async function GET(request: NextRequest) {
   const params = request.nextUrl.searchParams
   const dirParam = params.get('dir')
   if (dirParam === null) {
-    return json({ dirs: dirs.map(({ index, label, writable }) => ({ index, label, writable })) })
+    return json({ dirs: dirs.map(({ index, label, writable }) => ({ index, label, writable })), canOpen: isFromThisMachine(request.headers) })
   }
 
   const dir = /^\d+$/.test(dirParam) ? dirs[Number(dirParam)] : undefined

@@ -27,24 +27,27 @@ export function pictureUrl(picture: { dir: number; name: string }, thumb = false
   return thumb ? `${base}?thumb=1` : base
 }
 
-/** The gallery's folders; null until known. */
-export function useGalleryFolders(): GalleryFolder[] | null {
-  const [folders, setFolders] = useState<GalleryFolder[] | null>(null)
+/**
+ * The gallery's folders, null until known, and whether pictures can be shown
+ * in the file manager from this browser (only on the machine itself).
+ */
+export function useGalleryFolders(): { folders: GalleryFolder[] | null; canOpen: boolean } {
+  const [state, setState] = useState<{ folders: GalleryFolder[] | null; canOpen: boolean }>({ folders: null, canOpen: false })
   useEffect(() => {
     let active = true
     fetch("/api/gallery", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { dirs: [] }))
       .then((data) => {
-        if (active) setFolders(Array.isArray(data?.dirs) ? data.dirs : [])
+        if (active) setState({ folders: Array.isArray(data?.dirs) ? data.dirs : [], canOpen: data?.canOpen === true })
       })
       .catch(() => {
-        if (active) setFolders([])
+        if (active) setState({ folders: [], canOpen: false })
       })
     return () => {
       active = false
     }
   }, [])
-  return folders
+  return state
 }
 
 const PAGE_SIZE = 60
