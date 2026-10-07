@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   activeFilterCount,
   FORMATS,
+  GROUPS,
   ORIENTATIONS,
   RESOLUTIONS,
   SINCE,
@@ -166,6 +167,14 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
               onChange={(profile) => onChange({ profile })}
             />
           </Field>
+          <Field label={t("gallery.filter.group")} hint={t("gallery.filter.groupHint")}>
+            <OptionSelect
+              value={query.group}
+              all={t("gallery.filter.noGroup")}
+              options={GROUPS.map((group) => ({ value: group, label: t(`gallery.filter.group-${group}`) }))}
+              onChange={(group) => onChange({ group, stack: undefined })}
+            />
+          </Field>
           <label className="flex items-center gap-2 self-end text-sm">
             <Switch checked={query.untagged ?? false} onCheckedChange={(checked) => onChange({ untagged: checked || undefined })} />
             {t("gallery.filter.untagged")}
@@ -210,6 +219,8 @@ export function FilterChips({
     add("profile", `${t("gallery.filter.profileLabel")}: ${label}`, { profile: undefined })
   }
   if (query.untagged) add("untagged", t("gallery.filter.untaggedChip"), { untagged: undefined })
+  if (query.group) add("group", t(`gallery.filter.group-${query.group}`), { group: undefined, stack: undefined })
+  if (query.group && query.stack) add("stack", t("gallery.filter.inStack"), { stack: undefined })
 
   if (chips.length === 0) return null
   return (

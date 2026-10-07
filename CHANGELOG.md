@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Gallery**: **Stack** pictures that share a prompt or a seed into one
+  card, and open a stack to see them. **Compare** two selected pictures with
+  a slider (or side by side), their differing settings and the prompt tags
+  only one has.
 - **Gallery**: **Show in folder** and **Open in default app** in the viewer
   open a picture in this computer's file manager (selected) or its picture
   app. They appear only when the browser runs on the same computer, and

@@ -79,6 +79,22 @@ toolbar, with × to remove it (or **Clear all**):
 Filters, order and search work together. The order and filters last until
 you leave or reload the page; they are not remembered in the browser.
 
+## Stacks and comparing
+
+**Stack** (under Filters) puts pictures that share a prompt, or a seed, into
+one card: the first of them in the current order, with how many there are.
+Only pictures that match the search and filters count. Click a stack to see
+its pictures, and remove the **One stack** chip to go back. Stacking reads
+the folder first, the way the orders by date made do; what it keeps in
+memory is a hash of each prompt, not the prompt.
+
+To compare two pictures, choose **Select**, pick two, and **Compare**. Two
+pictures of the same shape (an upscale, say) lie on top of each other with
+a slider between them. Others sit side by side. Below are the settings that
+differ, highlighted, and the prompt tags only one of them has. In secret
+mode the pictures are blurred and the rest hidden until **Show for this
+comparison**.
+
 ## Tags
 
 - **Tags** shows each picture's tags under its card: its prompt, or the WD14

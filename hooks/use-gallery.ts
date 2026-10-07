@@ -20,6 +20,8 @@ export interface GalleryPicture {
   width: number | null
   height: number | null
   meta: ImageMeta | null
+  /** When stacking: the stack this picture stands for (see lib/gallery/fs.ts). */
+  stack?: { key: string; count: number }
 }
 
 export function pictureUrl(picture: { dir: number; name: string }, thumb = false): string {

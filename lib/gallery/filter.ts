@@ -16,12 +16,15 @@ export const FORMATS = ['png', 'webp', 'jpg'] as const
 export const ORIENTATIONS = ['portrait', 'landscape', 'square'] as const
 export const RESOLUTIONS = ['small', 'standard', 'large'] as const
 export const SOURCES = ['latentry', 'a1111', 'comfyui', 'none'] as const
+export const GROUPS = ['prompt', 'seed'] as const
 
 export type Since = (typeof SINCE)[number]
 export type Format = (typeof FORMATS)[number]
 export type Orientation = (typeof ORIENTATIONS)[number]
 export type Resolution = (typeof RESOLUTIONS)[number]
 export type Source = (typeof SOURCES)[number]
+/** What pictures can be stacked by: the same prompt, or the same seed. */
+export type StackGroup = (typeof GROUPS)[number]
 
 export interface GalleryQuery {
   /** The search box: comma-separated terms, quoted for an exact tag (see ./query.ts). */
@@ -42,6 +45,10 @@ export interface GalleryQuery {
   source?: Source
   /** Only pictures without WD14 tags. */
   untagged?: boolean
+  /** Stack pictures that share a prompt or a seed into one card. */
+  group?: StackGroup
+  /** With `group`: show the pictures of this one stack (its key). */
+  stack?: string
 }
 
 const SINCE_MS: Record<Since, number> = {
@@ -67,6 +74,11 @@ const MAX_QUERY = 2000
 
 function oneOf<T extends string>(allowed: readonly T[], value: string | null): T | undefined {
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined
+}
+
+/** A stack key: a prompt's SHA-1, or a seed. */
+function stackKey(value: string | null): string | undefined {
+  return value && /^(?:[0-9a-f]{40}|-?\d{1,20})$/.test(value) ? value : undefined
 }
 
 function text(value: string | null, max = MAX_TEXT): string | undefined {
@@ -97,12 +109,15 @@ export function toParams(query: GalleryQuery): URLSearchParams {
   set('lora', text(query.lora ?? null))
   set('source', query.source)
   if (query.untagged) set('untagged', '1')
+  set('group', query.group)
+  if (query.group) set('stack', stackKey(query.stack ?? null))
   return params
 }
 
 /** The query from URL parameters. Unknown values are dropped, not guessed at. */
 export function fromParams(params: URLSearchParams): GalleryQuery {
   const sort = params.get('sort')
+  const group = oneOf(GROUPS, params.get('group'))
   const formats = FORMATS.filter((format) => (params.get('formats') ?? '').split(',').includes(format))
   return {
     q: text(params.get('q'), MAX_QUERY),
@@ -117,6 +132,8 @@ export function fromParams(params: URLSearchParams): GalleryQuery {
     lora: text(params.get('lora')),
     source: oneOf(SOURCES, params.get('source')),
     untagged: params.get('untagged') === '1' || undefined,
+    group,
+    stack: group ? stackKey(params.get('stack')) : undefined,
   }
 }
 
@@ -134,6 +151,8 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.lora,
     query.source,
     query.untagged,
+    query.group,
+    query.stack,
   ].filter(Boolean).length
 }
 

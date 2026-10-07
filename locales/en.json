@@ -224,8 +224,25 @@
       "untaggedChip": "No WD14 tags",
       "remove": "Remove filter: {name}",
       "clearAll": "Clear all",
-      "secretHidden": "Hidden in secret mode"
+      "secretHidden": "Hidden in secret mode",
+      "group": "Stack",
+      "groupHint": "Puts pictures that share a prompt or a seed into one card. Reads the whole folder first.",
+      "noGroup": "Don't stack",
+      "group-prompt": "Same prompt",
+      "group-seed": "Same seed",
+      "inStack": "One stack"
     },
+    "compare": {
+      "button": "Compare",
+      "buttonHint": "Select two pictures to compare them.",
+      "title": "Compare two pictures",
+      "onlyA": "Only in A's prompt ({count})",
+      "onlyB": "Only in B's prompt ({count})",
+      "shared": "{count} prompt tags in both.",
+      "secretHidden": "Pictures, settings and tags hidden in secret mode.",
+      "secretReveal": "Show for this comparison"
+    },
+    "stackHint": "{count} pictures. Click to see them all.",
     "refresh": "Refresh",
     "loading": "Loading…",
     "empty": "No pictures here yet.",

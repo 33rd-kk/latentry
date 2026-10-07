@@ -258,6 +258,24 @@ async function main() {
     await settleIndex(sortDir)
     eq((await names({ sort: 'pixels-desc' }))[0], 'big.png', 'and then takes its place')
 
+    // ── Stacks: p2 and p10 share a prompt and a seed; the others have neither ──
+    const stacked = async (filter: Parameters<typeof listPage>[1]['filter'], limit = 10) =>
+      (await listPage(sortDir, { limit, filter })).items.map((item) => `${item.name}${item.stack ? ` ×${item.stack.count}` : ''}`)
+    eq(await stacked({ group: 'prompt' }), ['big.png', 'wide.webp', 'p2.png ×2'], 'a stack shows its first picture in the order, with the count')
+    eq(await stacked({ group: 'seed', sort: 'oldest' }), ['p10.png ×2', 'wide.webp', 'big.png'], 'by seed, in another order')
+    const stackKey = (await listPage(sortDir, { limit: 10, filter: { group: 'prompt' } })).items.find((item) => item.stack)!.stack!.key
+    check(/^[0-9a-f]{40}$/.test(stackKey), 'a prompt stack is keyed by a hash, not the prompt')
+    eq(await stacked({ group: 'prompt', stack: stackKey }), ['p2.png', 'p10.png'], 'inside a stack: its pictures')
+    eq(await stacked({ group: 'prompt', untagged: true }), ['big.png', 'wide.webp', 'p10.png'], 'counted over matching pictures only (a stack of one is no stack)')
+    const pagedStacks: string[] = []
+    let stackCursor: string | null = null
+    do {
+      const next: Awaited<ReturnType<typeof listPage>> = await listPage(sortDir, { limit: 1, cursor: stackCursor, filter: { group: 'prompt' } })
+      pagedStacks.push(...next.items.map((item) => item.name))
+      stackCursor = next.nextCursor
+    } while (stackCursor && pagedStacks.length < 10)
+    eq(pagedStacks, ['big.png', 'wide.webp', 'p2.png'], 'paging through stacks')
+
     check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')
     eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')
     eq(await resolveInDir(dir, 'missing.png'), null, 'a missing file does not')

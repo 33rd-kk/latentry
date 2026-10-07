@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
-import { CheckSquare, FolderOpen, Loader2, Lock, RefreshCw, Search, Tags, X } from "lucide-react"
+import { CheckSquare, Columns2, FolderOpen, Loader2, Lock, RefreshCw, Search, Tags, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,6 +14,7 @@ import { useSecretMode } from "@/components/app-header"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
 import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-filters"
+import { CompareDialog } from "./compare-dialog"
 import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { useBulkTag } from "@/hooks/use-bulk-tag"
@@ -47,6 +48,7 @@ export function Gallery() {
   // was looked for is kept in the browser or the address bar.
   const [filters, setFilters] = useState<Omit<GalleryQuery, "q">>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [comparing, setComparing] = useState<[GalleryPicture, GalleryPicture] | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
   const sentinel = useRef<HTMLDivElement>(null)
 
@@ -275,6 +277,20 @@ export function Gallery() {
             <Button type="button" variant="ghost" size="sm" disabled={bulk.running || selected.size === 0} onClick={() => setSelected(new Set())}>
               {t("gallery.selectNone")}
             </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={selected.size !== 2}
+              title={t("gallery.compare.buttonHint")}
+              onClick={() => {
+                const two = page.pictures.filter((picture) => selected.has(picture.name))
+                if (two.length === 2) setComparing([two[0], two[1]])
+              }}
+            >
+              <Columns2 className="mr-1 h-4 w-4" />
+              {t("gallery.compare.button")}
+            </Button>
             <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={skipTagged} onCheckedChange={setSkipTagged} disabled={bulk.running} />
               {t("gallery.skipTagged")}
@@ -343,6 +359,7 @@ export function Gallery() {
                   selected={selected.has(picture.name)}
                   onOpen={() => setViewing(index)}
                   onToggleSelect={() => toggleSelected(picture.name)}
+                  onOpenStack={picture.stack ? () => changeFilters({ stack: picture.stack!.key }) : undefined}
                   onSearchTag={(tag) => setSearchText(exactTagQuery(tag))}
                 />
               )
@@ -372,6 +389,7 @@ export function Gallery() {
       )}
       {page.error && <p className="text-sm text-destructive">{page.error}</p>}
 
+      <CompareDialog pair={comparing} onClose={() => setComparing(null)} secret={secret} />
       <ImageLightbox
         items={items}
         index={viewing}
