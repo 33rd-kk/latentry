@@ -26,21 +26,21 @@ Object.defineProperty(globalThis, 'window', { value: new EventTarget(), configur
 /** Every place the marker text survives in storage. */
 const holding = (marker: string) => [...store].filter(([, value]) => value.includes(marker)).map(([key]) => key)
 
-const SECRET = 'zzaudit-secret-prompt'
+const HIDDEN = 'zzaudit-hidden-prompt'
 const BEFORE = 'zzaudit-typed-before-secret'
 
 // ── C1: typing while secret mode is on ──
 store.clear()
 preferences.setSecretMode(true)
 check(preferences.getSecretMode(), 'secret mode reads back as on')
-preferences.setForm('anima', { prompt: SECRET, negativePrompt: SECRET })
-preferences.setSharedPrompt({ prompt: SECRET, artist: SECRET })
-preferences.addCharacterPreset({ name: SECRET, tags: SECRET, artist: '', negativePrompt: '', seed: 1 })
-eq(holding(SECRET), [], 'C1: the form, the shared prompt and characters are not stored in secret mode')
+preferences.setForm('anima', { prompt: HIDDEN, negativePrompt: HIDDEN })
+preferences.setSharedPrompt({ prompt: HIDDEN, artist: HIDDEN })
+preferences.addCharacterPreset({ name: HIDDEN, tags: HIDDEN, artist: '', negativePrompt: '', seed: 1 })
+eq(holding(HIDDEN), [], 'C1: the form, the shared prompt and characters are not stored in secret mode')
 
-pushHandoff({ type: 'settings', settings: { prompt: SECRET, negativePrompt: SECRET } })
-pushHandoff({ type: 'tags', tags: [SECRET], target: 'positive' })
-eq(holding(SECRET), [], 'F6: the gallery → generate handoff stays out of localStorage in secret mode')
+pushHandoff({ type: 'settings', settings: { prompt: HIDDEN, negativePrompt: HIDDEN } })
+pushHandoff({ type: 'tags', tags: [HIDDEN], target: 'positive' })
+eq(holding(HIDDEN), [], 'F6: the gallery → generate handoff stays out of localStorage in secret mode')
 eq(drainHandoff().length, 2, 'and still reaches the form in this tab')
 eq(drainHandoff().length, 0, 'once')
 
@@ -58,16 +58,16 @@ eq(holding(BEFORE).sort(), [STORAGE_KEYS.FORM_PREFIX + 'anima', STORAGE_KEYS.SHA
 // F7, decided: drafts from before secret mode are not secret-mode data, and
 // deleting them on the toggle would lose work. Nothing typed during it is added.
 preferences.setSecretMode(true)
-preferences.setForm('anima', { prompt: SECRET })
+preferences.setForm('anima', { prompt: HIDDEN })
 preferences.setSecretMode(false)
 eq(holding(BEFORE).length, 2, 'drafts from before secret mode are kept')
-eq(holding(SECRET), [], 'nothing from during it is')
+eq(holding(HIDDEN), [], 'nothing from during it is')
 preferences.setSecretMode(false)
 eq(store.get(STORAGE_KEYS.SECRET_MODE), 'false', 'the flag itself is a plain stored preference')
 
 // ── F4: the server's record of a run ──
 const context: JobContext = {
-  request: { prompt: SECRET, negativePrompt: '', width: 64, height: 64, steps: 1, seed: 1, count: 1 } as unknown as JobContext['request'],
+  request: { prompt: HIDDEN, negativePrompt: '', width: 64, height: 64, steps: 1, seed: 1, count: 1 } as unknown as JobContext['request'],
   profile: 'generic',
   kind: 'diffusers',
   model: null,
@@ -80,7 +80,7 @@ const image: Event = { type: 'image', index: 0, total: 1, seed: 1, imageBase64: 
 const open = startJob({ backend: 'audit', total: 1, steps: 1, context })
 applyEvent(open, image)
 applyEvent(open, { type: 'done' } as Event)
-check(!JSON.stringify(toSnapshot(open)).includes(SECRET), 'a snapshot never carries the prompt')
+check(!JSON.stringify(toSnapshot(open)).includes(HIDDEN), 'a snapshot never carries the prompt')
 check(!('images' in toSnapshot(open)), '/job answers without the images')
 check(isResumable(open), 'an ordinary run is offered to a page that loads, within the hour')
 const late = (open.endedAt ?? 0) + RESUME_WINDOW_MS + 1
@@ -96,6 +96,6 @@ check(isWatchable(secret) && !isResumable(secret), 'just after it ends, only its
 check(!isWatchable(secret, (secret.endedAt ?? 0) + SECRET_GRACE_MS + 1), 'not after the grace period')
 forget(secret)
 check(getCurrentJob('audit') === null && getJob('audit', secret.id) === null, 'F4: forgotten, the server no longer has it')
-check(secret.images.length === 0 && !JSON.stringify(secret.context).includes(SECRET), 'neither its images nor its prompt')
+check(secret.images.length === 0 && !JSON.stringify(secret.context).includes(HIDDEN), 'neither its images nor its prompt')
 
 done('privacy')
