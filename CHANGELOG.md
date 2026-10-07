@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Gallery**: pictures can be ordered oldest first, by name, by file size,
+  by when they were made or by pixel count, and filtered by shape, file
+  type, age, resolution, model, where the settings came from, and whether
+  they have WD14 tags. The search box also takes settings as `key:value`
+  (`model:noobai`, `steps:>=30`, `w:1024`). The order and filters are not
+  kept in the browser; what the gallery reads to sort a folder stays in
+  memory.
 - **Secret mode**: a character saved while it is on is kept in that tab,
   marked *temporary*, and dropped when secret mode is turned off. Before, it
   showed in the list without being saved and vanished on the next reload.

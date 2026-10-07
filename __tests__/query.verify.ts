@@ -39,4 +39,33 @@ check(!find('"school uniform", pony'), 'every term must match')
 check(!find('"lowres"'), 'the negative prompt is not searched')
 check(find('sdxl'), 'the file name is searched')
 
+// ── key:value settings ──
+eq(parseQuery('model: NoobAI_XL'), [{ text: 'model: noobai xl', exact: false, field: { key: 'model', contains: 'noobai xl' } }], 'a setting term, normalised like text')
+eq(parseQuery('steps:>=30, w:1024'), [
+  { text: 'steps:>=30', exact: false, field: { key: 'steps', op: '>=', value: 30 } },
+  { text: 'w:1024', exact: false, field: { key: 'w', op: '=', value: 1024 } },
+], 'numbers, with = by default')
+eq(parseQuery('score:9, steps:many, (smile:1.1), model:'), [
+  { text: 'score:9', exact: false },
+  { text: 'steps:many', exact: false },
+  { text: '(smile:1.1)', exact: false },
+  { text: 'model:', exact: false },
+], 'unknown keys, words for numbers, weights and empty values stay text')
+eq(parseQuery('"model:x"'), [{ text: 'model:x', exact: true }], 'quoted, it is a tag')
+
+const set = searchableOf('a.png', { ...meta, sampler: 'DPM++ 2M', seed: 42, steps: 30, cfg: 4.5, width: 832, height: 1216 }, { width: 1664, height: 2432 })
+const findSet = (query: string) => matchesQuery(set, parseQuery(query))
+check(findSet('model:noobai'), 'model contains')
+check(findSet('model:NOOBAI-XL'), 'model, any case')
+check(!findSet('model:pony'), 'another model does not match')
+check(findSet('sampler:dpm++'), 'sampler contains')
+check(findSet('seed:42') && !findSet('seed:4'), 'seed equals')
+check(findSet('steps:>=30') && findSet('steps:<=30') && !findSet('steps:>30') && !findSet('steps:<30'), 'comparisons')
+check(findSet('cfg:4.5') && findSet('cfg:>4'), 'decimals')
+check(findSet('w:1664') && !findSet('w:832'), 'the real size wins over the settings')
+check(matchesQuery(searchableOf('a.png', { ...meta, width: 832 }), parseQuery('w:832')), "the settings' size stands in")
+check(!findSet('h:>3000'), 'height')
+check(!matchesQuery(searchableOf('a.png', null), parseQuery('steps:>0')), 'a picture without the setting does not match')
+check(findSet('model:noobai, "very long hair", steps:30'), 'settings, tags and text together')
+
 done('query')

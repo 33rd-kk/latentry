@@ -7,7 +7,10 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
 import type { GalleryDir } from './dirs'
-import { matchesQuery, parseQuery, searchableOf, type SearchTerm } from './query'
+import { matchesQuery, parseQuery, searchableOf } from './query'
+import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
+import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
+import { indexStatus, modelsOf, withIndexValues } from './folder-index'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -128,7 +131,7 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
     )
     for (const entry of slice) if (entry) entries.push(entry)
   }
-  entries.sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name))
+  entries.sort(compareEntries('newest'))
   listings.set(dir.path, { dirMtime: dirStat.mtimeMs, at: Date.now(), entries })
   return entries
 }
@@ -226,43 +229,57 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
   return { ...entry, dir: dir.index, width, height, meta }
 }
 
-export interface ListFilter {
-  /** The search box: comma-separated terms, quoted for an exact tag (see ./query.ts). */
-  q?: string
-  backend?: string
-  profile?: string
+// Each listing sorted in the other orders, made when first asked for. Keyed
+// by the listing itself, so a new listing starts without them.
+const sortedListings = new WeakMap<GalleryEntry[], Map<SortKey, GalleryEntry[]>>()
+
+/** The listing in `sort`'s order. A meta order needs the folder's index ready first. */
+function sortedEntries(dir: GalleryDir, entries: GalleryEntry[], sort: SortKey): GalleryEntry[] {
+  // listEntries already sorts newest first.
+  if (sort === 'newest') return entries
+  let orders = sortedListings.get(entries)
+  if (!orders) sortedListings.set(entries, (orders = new Map()))
+  let sorted = orders.get(sort)
+  if (!sorted) {
+    const source = isMetaSort(sort) ? withIndexValues(dir, entries) : [...entries]
+    orders.set(sort, (sorted = source.sort(compareEntries(sort))))
+  }
+  return sorted
 }
 
-function matches(item: GalleryItem, filter: ListFilter, terms: SearchTerm[]): boolean {
-  if (filter.backend && item.meta?.backend !== filter.backend) return false
-  if (filter.profile && item.meta?.profile !== filter.profile) return false
-  return terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta), terms)
+/** While a meta order waits for the folder's index: how far it has got, or that the folder is too large. */
+export type IndexProgress = { done: number; total: number } | { tooLarge: true; total: number }
+
+export interface GalleryPage {
+  items: GalleryItem[]
+  nextCursor: string | null
+  /** Set instead of items while the folder is being read for a meta order; ask again. */
+  indexing?: IndexProgress
 }
 
-/** Cursor = the last item's "mtime:name", so new files arriving do not shift pages. */
-export function encodeCursor(entry: GalleryEntry): string {
-  return `${entry.mtime}:${entry.name}`
-}
-
-function isAfterCursor(entry: GalleryEntry, cursor: string): boolean {
-  const colon = cursor.indexOf(':')
-  const mtime = Number(cursor.slice(0, colon))
-  const name = cursor.slice(colon + 1)
-  if (!Number.isFinite(mtime)) return true
-  return entry.mtime < mtime || (entry.mtime === mtime && entry.name.localeCompare(name) > 0)
-}
-
-/** One page of a folder, newest first, after `cursor`, matching `filter`. */
+/** One page of a folder in the query's order, after `cursor`, matching the query. */
 export async function listPage(
   dir: GalleryDir,
-  options: { cursor?: string | null; limit: number; filter: ListFilter }
-): Promise<{ items: GalleryItem[]; nextCursor: string | null }> {
-  const entries = await listEntries(dir)
-  const start = options.cursor ? entries.findIndex((entry) => isAfterCursor(entry, options.cursor!)) : 0
+  options: { cursor?: string | null; limit: number; filter: GalleryQuery }
+): Promise<GalleryPage> {
+  const { filter } = options
+  const sort = filter.sort ?? DEFAULT_SORT
+  const now = Date.now()
+  // Age and file type need no file opened, so they narrow the list first.
+  const listing = await listEntries(dir)
+  if (isMetaSort(sort)) {
+    const status = indexStatus(dir, listing)
+    if (status.state === 'too-large') return { items: [], nextCursor: null, indexing: { tooLarge: true, total: status.total } }
+    if (status.state === 'indexing') return { items: [], nextCursor: null, indexing: { done: status.done, total: status.total } }
+  }
+  const entries = sortedEntries(dir, listing, sort).filter((entry) => matchesCheap(entry, filter, now))
+  const start = startIndex(entries, options.cursor, sort)
   if (start === -1) return { items: [], nextCursor: null }
 
-  const terms = parseQuery(options.filter.q ?? '')
-  const filtering = Boolean(terms.length || options.filter.backend || options.filter.profile)
+  const terms = parseQuery(filter.q ?? '')
+  const filtering = terms.length > 0 || needsMeta(filter)
+  const matches = (item: GalleryItem) =>
+    matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta, item), terms))
   const items: GalleryItem[] = []
   let index = start
   // Filtering reads metadata as it goes; a search through a huge folder stops
@@ -271,14 +288,24 @@ export async function listPage(
   let scanned = 0
   while (index < entries.length && items.length < options.limit && scanned < scanLimit) {
     const batch = entries.slice(index, index + 32)
-    const infos = await Promise.all(batch.map((entry) => itemInfo(dir, entry)))
+    // Only the listing's own fields: a meta order's values stay out of the reply.
+    const infos = await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
     for (let i = 0; i < infos.length; i += 1) {
       index += 1
       scanned += 1
-      if (!filtering || matches(infos[i], options.filter, terms)) items.push(infos[i])
+      if (!filtering || matches(infos[i])) items.push(infos[i])
       if (items.length >= options.limit || scanned >= scanLimit) break
     }
   }
   const last = entries[index - 1]
-  return { items, nextCursor: index < entries.length && last ? encodeCursor(last) : null }
+  return { items, nextCursor: index < entries.length && last ? encodeCursor(last, sort) : null }
+}
+
+/** Every model named in the folder, for the model filter; or the progress while the folder is read. */
+export async function listModels(dir: GalleryDir): Promise<{ models: string[] } | { models: null; indexing: IndexProgress }> {
+  const listing = await listEntries(dir)
+  const status = indexStatus(dir, listing)
+  if (status.state === 'too-large') return { models: null, indexing: { tooLarge: true, total: status.total } }
+  if (status.state === 'indexing') return { models: null, indexing: { done: status.done, total: status.total } }
+  return { models: modelsOf(dir, listing) }
 }

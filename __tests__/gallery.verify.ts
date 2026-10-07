@@ -25,7 +25,8 @@ import {
   writePngText,
   type LatentryRecord,
 } from '../lib/gallery/png-meta'
-import { isSafeName, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import { invalidateListing, isSafeName, listModels, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import { settleIndex } from '../lib/gallery/folder-index'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
 
@@ -168,6 +169,77 @@ async function main() {
     eq((await listPage(dir, { limit: 10, filter: { q: '"smile 1girl"' } })).items, [], 'two tags in quotes are not one tag')
     eq((await listPage(dir, { limit: 10, filter: { backend: 'sdxl' } })).items, [], 'the backend filter')
 
+    // ── Orders and filters, in a folder of their own ──
+    const sorting = path.join(root, 'sorting')
+    await mkdir(sorting)
+    const sortDir: GalleryDir = { index: 1, path: sorting, label: 'sorting', writable: false }
+    const wide = await sharp({ create: { width: 32, height: 16, channels: 3, background: '#654321' } }).webp().toBuffer()
+    await writeFile(path.join(sorting, 'p10.png'), written) // portrait, no WD14 tags
+    await writeFile(path.join(sorting, 'p2.png'), retagged) // portrait, tagged
+    await writeFile(path.join(sorting, 'wide.webp'), wide) // landscape, no settings
+    await utimes(path.join(sorting, 'p10.png'), now - 3 * 24 * 60 * 60, now - 3 * 24 * 60 * 60)
+    await utimes(path.join(sorting, 'p2.png'), now - 200, now - 200)
+    await utimes(path.join(sorting, 'wide.webp'), now - 100, now - 100)
+    const names = async (filter: Parameters<typeof listPage>[1]['filter']) =>
+      (await listPage(sortDir, { limit: 10, filter })).items.map((item) => item.name)
+
+    eq(await names({}), ['wide.webp', 'p2.png', 'p10.png'], 'newest first by default')
+    eq(await names({ sort: 'oldest' }), ['p10.png', 'p2.png', 'wide.webp'], 'oldest first')
+    eq(await names({ sort: 'name-asc' }), ['p2.png', 'p10.png', 'wide.webp'], 'name A–Z, numbers as numbers')
+    const bySize = [
+      ['p10.png', written.length],
+      ['p2.png', retagged.length],
+      ['wide.webp', wide.length],
+    ] as const
+    eq(await names({ sort: 'size-desc' }), [...bySize].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name), 'largest file first')
+
+    const paged: string[] = []
+    let cursor: string | null = null
+    do {
+      const next: Awaited<ReturnType<typeof listPage>> = await listPage(sortDir, { limit: 1, cursor, filter: { sort: 'name-desc' } })
+      paged.push(...next.items.map((item) => item.name))
+      cursor = next.nextCursor
+    } while (cursor && paged.length < 10)
+    eq(paged, ['wide.webp', 'p10.png', 'p2.png'], 'paging in another order visits every picture once')
+
+    eq(await names({ orientation: 'landscape' }), ['wide.webp'], 'the shape filter')
+    eq(await names({ orientation: 'portrait', sort: 'name-asc' }), ['p2.png', 'p10.png'], 'shape and order together')
+    eq(await names({ formats: ['webp'] }), ['wide.webp'], 'the file type filter')
+    eq(await names({ untagged: true }), ['wide.webp', 'p10.png'], 'the untagged filter')
+    eq(await names({ since: 'day' }), ['wide.webp', 'p2.png'], 'the age filter')
+    eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
+    eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
+    eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
+    eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
+
+    // ── Orders that need the folder read first ──
+    const first = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
+    check(Boolean(first.indexing && 'done' in first.indexing && first.indexing.total === 3) && first.items.length === 0, 'a meta order first reports that the folder is being read')
+    await settleIndex(sortDir)
+    eq(await names({ sort: 'pixels-desc' }), ['wide.webp', 'p2.png', 'p10.png'], 'most pixels first, once read')
+    eq(await names({ sort: 'pixels-asc' }), ['p2.png', 'p10.png', 'wide.webp'], 'fewest pixels first')
+    const madeFirst = Date.now() > Date.parse(RECORD.created) ? ['p2.png', 'p10.png', 'wide.webp'] : ['wide.webp', 'p2.png', 'p10.png']
+    eq(await names({ sort: 'created-asc' }), madeFirst, "made, oldest first: the settings' time, else the file's")
+    eq(await names({ sort: 'pixels-desc', orientation: 'portrait' }), ['p2.png', 'p10.png'], 'a meta order and a filter together')
+    const pagedMeta: string[] = []
+    let metaCursor: string | null = null
+    do {
+      const next: Awaited<ReturnType<typeof listPage>> = await listPage(sortDir, { limit: 1, cursor: metaCursor, filter: { sort: 'pixels-asc' } })
+      pagedMeta.push(...next.items.map((item) => item.name))
+      metaCursor = next.nextCursor
+    } while (metaCursor && pagedMeta.length < 10)
+    eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
+    check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
+    eq(await listModels(sortDir), { models: [RECORD.model!] }, 'every model in the folder')
+
+    const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
+    await writeFile(path.join(sorting, 'big.png'), big)
+    invalidateListing(sortDir)
+    const again = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
+    eq(again.indexing, { done: 3, total: 4 }, 'a new file is read on its own; the others are already known')
+    await settleIndex(sortDir)
+    eq((await names({ sort: 'pixels-desc' }))[0], 'big.png', 'and then takes its place')
+
     check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')
     eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')
     eq(await resolveInDir(dir, 'missing.png'), null, 'a missing file does not')
@@ -207,6 +279,8 @@ async function main() {
     eq(await writeTags(dir, 'old.png', [{ name: 'cat_ears', category: 0, score: 0.7 }]), true, 'the save folder is')
     eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
   } finally {
+    // libvips keeps files it read open in its cache; Windows will not delete them while it does.
+    sharp.cache(false)
     await rm(root, { recursive: true, force: true })
   }
 

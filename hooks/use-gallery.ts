@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ImageMeta } from "@/lib/gallery/png-meta"
+import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
+import type { IndexProgress } from "@/lib/gallery/fs"
 
 export interface GalleryFolder {
   index: number
@@ -17,12 +19,6 @@ export interface GalleryPicture {
   width: number | null
   height: number | null
   meta: ImageMeta | null
-}
-
-export interface GalleryFilter {
-  q?: string
-  backend?: string
-  profile?: string
 }
 
 export function pictureUrl(picture: { dir: number; name: string }, thumb = false): string {
@@ -51,12 +47,20 @@ export function useGalleryFolders(): GalleryFolder[] | null {
 }
 
 const PAGE_SIZE = 60
+// How soon to ask again while the server reads a folder for a meta order.
+const INDEX_POLL_MS = 500
+
+function isIndexProgress(value: unknown): value is IndexProgress {
+  return typeof value === "object" && value !== null && typeof (value as { total?: unknown }).total === "number"
+}
 
 export interface GalleryPage {
   pictures: GalleryPicture[]
   loading: boolean
   error: string | null
   hasMore: boolean
+  /** While the server reads the whole folder for this order: how far it has got. */
+  indexing: IndexProgress | null
   loadMore: () => Promise<void>
   reload: () => void
   /** Replaces one picture's metadata in place, after its tags were written. */
@@ -64,22 +68,28 @@ export interface GalleryPage {
 }
 
 /**
- * One folder of the gallery, a page at a time. Changing the folder or the
- * filter starts over; `loadMore` is safe to call repeatedly (it ignores calls
+ * One folder of the gallery, a page at a time. Changing the folder, the order
+ * or a filter starts over; `loadMore` is safe to call repeatedly (it ignores calls
  * while a page is on its way).
  */
-export function useGalleryPage(dir: number | null, filter: GalleryFilter): GalleryPage {
+export function useGalleryPage(dir: number | null, query: GalleryQuery): GalleryPage {
   const [pictures, setPictures] = useState<GalleryPicture[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [generation, setGeneration] = useState(0)
+  const [indexing, setIndexing] = useState<IndexProgress | null>(null)
+  // Bumped to ask for the first page again while the folder is being read.
+  const [poll, setPoll] = useState(0)
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlight = useRef(false)
-  // Which folder + filter the current list belongs to, so a slow page for the
+  // The query as it is sent; equal queries give equal strings.
+  const queryString = toParams(query).toString()
+  // Which folder + query the current list belongs to, so a slow page for the
   // previous one cannot land in the new one.
   const keyRef = useRef("")
-  const key = `${dir}|${filter.q ?? ""}|${filter.backend ?? ""}|${filter.profile ?? ""}|${generation}`
+  const key = `${dir}|${queryString}|${generation}|${poll}`
 
   const fetchPage = useCallback(
     async (from: string | null, forKey: string) => {
@@ -87,15 +97,17 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
       inFlight.current = true
       setLoading(true)
       try {
-        const params = new URLSearchParams({ dir: String(dir), limit: String(PAGE_SIZE) })
+        const params = new URLSearchParams(queryString)
+        params.set("dir", String(dir))
+        params.set("limit", String(PAGE_SIZE))
         if (from) params.set("cursor", from)
-        if (filter.q) params.set("q", filter.q)
-        if (filter.backend) params.set("backend", filter.backend)
-        if (filter.profile) params.set("profile", filter.profile)
         const response = await fetch(`/api/gallery?${params}`, { cache: "no-store" })
         const data = await response.json().catch(() => null)
         if (keyRef.current !== forKey) return
         if (!response.ok) throw new Error(typeof data?.error === "string" ? data.error : String(response.status))
+        const progress = isIndexProgress(data?.indexing) ? data.indexing : null
+        setIndexing(progress)
+        if (progress && !("tooLarge" in progress)) pollTimer.current = setTimeout(() => setPoll((value) => value + 1), INDEX_POLL_MS)
         const items: GalleryPicture[] = Array.isArray(data?.items) ? data.items : []
         setPictures((previous) => (from ? [...previous, ...items] : items))
         setCursor(typeof data?.nextCursor === "string" ? data.nextCursor : null)
@@ -108,19 +120,23 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
         inFlight.current = false
       }
     },
-    [dir, filter.q, filter.backend, filter.profile]
+    [dir, queryString]
   )
 
   /* eslint-disable react-hooks/set-state-in-effect -- a new folder or filter is a new
      query against the server; clearing the old list is part of starting it. */
   useEffect(() => {
     keyRef.current = key
+    if (pollTimer.current) clearTimeout(pollTimer.current)
     setPictures([])
     setCursor(null)
     setHasMore(false)
     void fetchPage(null, key)
   }, [key, fetchPage])
   /* eslint-enable react-hooks/set-state-in-effect */
+  useEffect(() => () => {
+    if (pollTimer.current) clearTimeout(pollTimer.current)
+  }, [])
 
   const loadMore = useCallback(async () => {
     if (inFlight.current || !cursor) return
@@ -135,7 +151,41 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
     )
   }, [])
 
-  return { pictures, loading, error, hasMore, loadMore, reload, patch }
+  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch }
+}
+
+/**
+ * Every model named in a folder, for the model filter: null until the server
+ * has read the folder, with `progress` meanwhile. Asks only while `enabled`
+ * (the filter panel is open, and never in secret mode).
+ */
+export function useFolderModels(dir: number | null, enabled: boolean): { models: string[] | null; progress: IndexProgress | null } {
+  const [state, setState] = useState<{ for: string; models: string[] | null; progress: IndexProgress | null }>({ for: "", models: null, progress: null })
+  const key = `${dir}`
+  useEffect(() => {
+    if (!enabled || dir === null) return
+    let active = true
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const ask = async () => {
+      try {
+        const response = await fetch(`/api/gallery?dir=${dir}&models=1`, { cache: "no-store" })
+        const data = await response.json().catch(() => null)
+        if (!active || !response.ok) return
+        const progress = isIndexProgress(data?.indexing) ? data.indexing : null
+        const models = Array.isArray(data?.models) ? data.models.filter((model: unknown): model is string => typeof model === "string") : null
+        setState({ for: key, models, progress })
+        if (progress && !("tooLarge" in progress)) timer = setTimeout(() => void ask(), INDEX_POLL_MS)
+      } catch {
+        // The list of models seen so far stays in use.
+      }
+    }
+    void ask()
+    return () => {
+      active = false
+      if (timer) clearTimeout(timer)
+    }
+  }, [dir, enabled, key])
+  return state.for === key ? { models: state.models, progress: state.progress } : { models: null, progress: null }
 }
 
 /** Fetches a gallery picture as a Blob, for the slots that take a source image. */

@@ -8,29 +8,30 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { useSecretMode } from "@/components/app-header"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
+import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-filters"
 import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { useBulkTag } from "@/hooks/use-bulk-tag"
-import { pictureUrl, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, useFolderModels, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import type { ImageTag } from "@/lib/gallery/png-meta"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
+import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
+import { DEFAULT_SORT } from "@/lib/gallery/sort"
 import { dealColumns, heightPerWidth } from "@/lib/gallery/columns"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 
-const ALL = "__all__"
-
 /**
- * The pictures in the configured folders, newest first: the save folder
- * (written with every setting) and any read-only folders of other tools.
+ * The pictures in the configured folders, newest first unless another order
+ * is chosen: the save folder (written with every setting) and any read-only
+ * folders of other tools.
  */
 export function Gallery() {
   const t = useT()
@@ -38,21 +39,33 @@ export function Gallery() {
   const folders = useGalleryFolders()
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
-  const [query, setQuery] = useState("")
+  const [searchText, setSearchText] = useState("")
   const [searchFocused, setSearchFocused] = useState(false)
   const [q, setQ] = useState("")
-  const [backend, setBackend] = useState(ALL)
-  const [profile, setProfile] = useState(ALL)
+  // The order and filters live only as long as the page: nothing about what
+  // was looked for is kept in the browser or the address bar.
+  const [filters, setFilters] = useState<Omit<GalleryQuery, "q">>({})
+  const [filtersOpen, setFiltersOpen] = useState(false)
   const [viewing, setViewing] = useState<number | null>(null)
   const sentinel = useRef<HTMLDivElement>(null)
 
   const activeDir = dir ?? folders?.[0]?.index ?? null
   const folder = folders?.find((candidate) => candidate.index === activeDir) ?? null
-  const filter = useMemo(
-    () => ({ q, backend: backend === ALL ? undefined : backend, profile: profile === ALL ? undefined : profile }),
-    [q, backend, profile]
-  )
-  const page = useGalleryPage(activeDir, filter)
+  const query = useMemo<GalleryQuery>(() => ({ ...filters, q }), [filters, q])
+  const changeFilters = useCallback((patch: Partial<GalleryQuery>) => setFilters((current) => ({ ...current, ...patch })), [])
+  const page = useGalleryPage(activeDir, query)
+  const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
+
+  // The models met so far in this folder, for the model filter until the
+  // server has the whole folder's list. Kept while filters change, so
+  // choosing a model does not shrink the list to it.
+  const pageModels = useMemo(() => modelsIn(page.pictures), [page.pictures])
+  const [seenModels, setSeenModels] = useState<{ dir: number | null; models: string[] }>({ dir: activeDir, models: [] })
+  const models = seenModels.dir === activeDir ? mergeModels(seenModels.models, pageModels) : pageModels
+  if (seenModels.dir !== activeDir || models.length !== seenModels.models.length) setSeenModels({ dir: activeDir, models })
+  // The whole folder's models, asked for only while the panel is open, and
+  // never in secret mode (the panel shows no model names then).
+  const folderModels = useFolderModels(activeDir, filtersOpen && !secret)
 
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
@@ -73,7 +86,7 @@ export function Gallery() {
   // Selection for bulk tagging, by file name within the folder on screen.
   const [selecting, setSelecting] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(() => new Set())
-  const selectionKey = `${activeDir}|${q}|${backend}|${profile}`
+  const selectionKey = `${activeDir}|${toParams(query)}`
   const [selectionFor, setSelectionFor] = useState(selectionKey)
   if (selectionFor !== selectionKey) {
     // Another folder or another search: the old selection names other pictures.
@@ -114,9 +127,9 @@ export function Gallery() {
 
   // The search applies after typing pauses, not on every keystroke.
   useEffect(() => {
-    const timer = setTimeout(() => setQ(query.trim()), 300)
+    const timer = setTimeout(() => setQ(searchText.trim()), 300)
     return () => clearTimeout(timer)
-  }, [query])
+  }, [searchText])
 
   // The next page loads as the end of the grid scrolls into view.
   useEffect(() => {
@@ -173,8 +186,8 @@ export function Gallery() {
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
             placeholder={t("gallery.search")}
@@ -182,32 +195,8 @@ export function Gallery() {
           />
         </div>
         <SearchHintToggle />
-        <Select value={backend} onValueChange={setBackend}>
-          <SelectTrigger className="w-36">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("gallery.allBackends")}</SelectItem>
-            {backends.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.id}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={profile} onValueChange={setProfile}>
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={ALL}>{t("gallery.allProfiles")}</SelectItem>
-            {listProfiles().map((option) => (
-              <SelectItem key={option.id} value={option.id}>
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SortSelect value={filters.sort ?? DEFAULT_SORT} onChange={(sort) => changeFilters({ sort })} />
+        <FilterToggle open={filtersOpen} query={query} onToggle={() => setFiltersOpen(!filtersOpen)} />
         <Button variant="ghost" size="icon" onClick={page.reload} aria-label={t("gallery.refresh")} title={t("gallery.refresh")}>
           <RefreshCw className={cn("h-4 w-4", page.loading && "animate-spin")} />
         </Button>
@@ -229,7 +218,27 @@ export function Gallery() {
           {t("gallery.select")}
         </Button>
       </div>
-      <SearchHint visible={searchFocused || query.trim().length > 0} />
+      <SearchHint visible={searchFocused || searchText.trim().length > 0} />
+      <FilterPanel
+        open={filtersOpen}
+        query={query}
+        onChange={changeFilters}
+        backends={backends.map((option) => option.id)}
+        profiles={profiles}
+        models={folderModels.models ?? models}
+        modelsProgress={folderModels.progress}
+        secret={secret}
+      />
+      <FilterChips query={query} onChange={changeFilters} profiles={profiles} secret={secret} />
+      {page.indexing &&
+        ("tooLarge" in page.indexing ? (
+          <p className="text-sm text-muted-foreground">{t("gallery.sort.tooLarge", { total: page.indexing.total })}</p>
+        ) : (
+          <div className="mx-auto max-w-md space-y-1 py-8 text-center text-sm text-muted-foreground">
+            <p>{t("gallery.sort.indexing", { done: page.indexing.done, total: page.indexing.total })}</p>
+            <Progress value={(page.indexing.done / Math.max(1, page.indexing.total)) * 100} />
+          </div>
+        ))}
 
       {(selecting || bulk.progress) && (
         <div className="space-y-2 rounded-md border bg-muted/30 p-3">
@@ -324,7 +333,7 @@ export function Gallery() {
                   selected={selected.has(picture.name)}
                   onOpen={() => setViewing(index)}
                   onToggleSelect={() => toggleSelected(picture.name)}
-                  onSearchTag={(tag) => setQuery(exactTagQuery(tag))}
+                  onSearchTag={(tag) => setSearchText(exactTagQuery(tag))}
                 />
               )
             })}
@@ -339,7 +348,7 @@ export function Gallery() {
           {t("gallery.loading")}
         </p>
       )}
-      {!page.loading && page.pictures.length === 0 && !page.error && (
+      {!page.loading && page.pictures.length === 0 && !page.error && !page.indexing && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           {page.hasMore ? t("gallery.keepSearching") : t("gallery.empty")}
         </p>
@@ -370,7 +379,7 @@ export function Gallery() {
               onSearch={(tag) => {
                 setViewing(null)
                 // Quoted, so a tag of several words is searched as that one tag.
-                setQuery(exactTagQuery(tag))
+                setSearchText(exactTagQuery(tag))
               }}
               onMetaChange={page.patch}
             />
@@ -379,6 +388,19 @@ export function Gallery() {
       />
     </div>
   )
+}
+
+/** The models named in these pictures, sorted. */
+function modelsIn(pictures: GalleryPicture[]): string[] {
+  const models = new Set<string>()
+  for (const picture of pictures) if (picture.meta?.model) models.add(picture.meta.model)
+  return [...models].sort((a, b) => a.localeCompare(b))
+}
+
+/** Both lists in one, sorted; `known` itself when `found` adds nothing. */
+function mergeModels(known: string[], found: string[]): string[] {
+  const added = found.filter((model) => !known.includes(model))
+  return added.length ? [...known, ...added].sort((a, b) => a.localeCompare(b)) : known
 }
 
 // The gallery's column count by window width: 2, then 3 / 4 / 5 from
