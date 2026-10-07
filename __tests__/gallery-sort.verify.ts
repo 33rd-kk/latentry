@@ -88,6 +88,7 @@ const full: GalleryQuery = {
   orientation: 'portrait',
   resolution: 'standard',
   model: 'Anima-Base (v1.0)',
+  lora: 'detail tweaker',
   source: 'latentry',
   untagged: true,
 }
@@ -103,7 +104,7 @@ eq(fromParams(new URLSearchParams({ model: 'x'.repeat(500) })).model?.length, 20
 
 // ── Counting and needing metadata ──
 eq(activeFilterCount({ q: 'smile', sort: 'oldest' }), 0, 'the search and the order are not filters')
-eq(activeFilterCount(full), 9, 'every filter counts once')
+eq(activeFilterCount(full), 10, 'every filter counts once')
 eq(activeFilterCount({ formats: ['png', 'webp', 'jpg'] }), 0, 'every file type is no filter')
 eq([needsMeta({ since: 'day', formats: ['png'] }), needsMeta({ orientation: 'square' })], [false, true], 'age and type need no file opened')
 
@@ -131,5 +132,9 @@ check(!matchesMeta(picture, { untagged: true }), 'a tagged picture is not untagg
 check(matchesMeta({ ...picture, meta: { ...picture.meta, tags: [] } }, { untagged: true }), 'an empty tag list is untagged')
 check(!matchesMeta({ width: null, height: null, meta: null }, { orientation: 'square' }), 'an unknown size matches no shape')
 check(matchesMeta({ width: null, height: null, meta: null }, { source: 'none', untagged: true }), 'a picture with nothing is "no settings" and untagged')
+
+check(matchesMeta({ ...picture, meta: { ...picture.meta, loras: ['Detail Tweaker'] } }, { lora: 'detail tweaker' }), 'the LoRA filter, any case')
+check(!matchesMeta({ ...picture, meta: { ...picture.meta, loras: ['Detail Tweaker XL'] } }, { lora: 'detail tweaker' }), 'the LoRA filter names one LoRA exactly')
+check(!matchesMeta(picture, { lora: 'detail tweaker' }), 'a picture without LoRAs')
 
 done('gallery-sort')

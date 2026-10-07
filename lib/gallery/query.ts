@@ -3,10 +3,11 @@
 //   long hair, smile        two terms; each must appear (spaces inside a term are kept)
 //   "long hair"             a tag, matched exactly: not "very long hair"
 //   "long hair", outdoors   both kinds together
-//   model:noobai            a setting: model or sampler name contains the text
+//   model:noobai            a setting: model, sampler or LoRA name contains the text
 //   steps:>=30, w:1024      a number: = (the default), >, >=, <, <=
+//   -smile, -"long hair"    leave out pictures that match (any kind of term)
 //
-// Settings you can name: model, sampler, seed, steps, cfg, w (width), h
+// Settings you can name: model, sampler, lora, seed, steps, cfg, w (width), h
 // (height). A term with any other key, or a number key without a number, is
 // searched as plain text, so "score:9" still finds a prompt that says it.
 //
@@ -18,7 +19,7 @@
 
 import type { ImageMeta } from '../image-meta'
 
-export const TEXT_FIELDS = ['model', 'sampler'] as const
+export const TEXT_FIELDS = ['model', 'sampler', 'lora'] as const
 export const NUMBER_FIELDS = ['seed', 'steps', 'cfg', 'w', 'h'] as const
 type TextField = (typeof TEXT_FIELDS)[number]
 type NumberField = (typeof NUMBER_FIELDS)[number]
@@ -34,6 +35,8 @@ export interface SearchTerm {
   exact: boolean
   /** `key:value`: matched against that setting instead of the text. */
   field?: FieldTerm
+  /** Written with a leading `-`: the picture must not match. */
+  negate?: true
 }
 
 /** Lowercase, underscores to spaces, runs of whitespace to one space. */
@@ -83,20 +86,34 @@ export function parseQuery(query: string): SearchTerm[] {
   let current = ''
   let quoted = false
   let wasQuoted = false
+  let negate = false
   const flush = () => {
-    const text = wasQuoted ? normalizeTag(current) : normalizeText(current)
-    const field = wasQuoted ? null : fieldOf(current)
-    if (field) terms.push({ text, exact: false, field })
-    else if (text) terms.push({ text, exact: wasQuoted })
+    let raw = current
+    if (!wasQuoted) {
+      const trimmed = raw.trimStart()
+      // A lone "-" is nothing to search for.
+      if (trimmed.trim() === '-') raw = ''
+      else if (trimmed.startsWith('-')) {
+        negate = true
+        raw = trimmed.slice(1)
+      }
+    }
+    const text = wasQuoted ? normalizeTag(raw) : normalizeText(raw)
+    const field = wasQuoted ? null : fieldOf(raw)
+    const not = negate ? { negate: true as const } : {}
+    if (field) terms.push({ text, exact: false, field, ...not })
+    else if (text) terms.push({ text, exact: wasQuoted, ...not })
     current = ''
     wasQuoted = false
+    negate = false
   }
   for (const char of query) {
     if (char === '"') {
       quoted = !quoted
       if (quoted) {
         // Text before an opening quote in the same term is dropped with it:
-        // a quoted term is the whole term.
+        // a quoted term is the whole term. Only a "-" there counts: -"tag".
+        negate = current.trim() === '-'
         current = ''
         wasQuoted = true
       }
@@ -119,7 +136,7 @@ export interface Searchable {
   /** Every tag: the prompt's tokens and the WD14 tags. */
   tags: Set<string>
   /** The settings a `key:value` term can name; text ones normalised. */
-  fields: Partial<Record<TextField, string> & Record<NumberField, number>>
+  fields: Partial<{ model: string; sampler: string; lora: string[] } & Record<NumberField, number>>
 }
 
 /**
@@ -127,14 +144,21 @@ export interface Searchable {
  * stands in otherwise (an upscaled picture's differ).
  */
 export function searchableOf(name: string, meta: ImageMeta | null, size?: { width: number | null; height: number | null }): Searchable {
-  const promptTags = (meta?.prompt ?? '').split(',').map(normalizeTag).filter(Boolean)
+  // LoRA calls (<lora:name:0.8>) are not tags; their names are searched below.
+  const promptTags = (meta?.prompt ?? '')
+    .split(',')
+    .filter((token) => !token.trim().startsWith('<'))
+    .map(normalizeTag)
+    .filter(Boolean)
   const wdTags = (meta?.tags ?? []).map((tag) => normalizeTag(tag.name)).filter(Boolean)
+  const loras = (meta?.loras ?? []).map(normalizeText).filter(Boolean)
   return {
-    text: [normalizeText(name), normalizeText(meta?.prompt ?? ''), normalizeText(meta?.model ?? ''), ...wdTags].join('\n'),
+    text: [normalizeText(name), normalizeText(meta?.prompt ?? ''), normalizeText(meta?.model ?? ''), ...loras, ...wdTags].join('\n'),
     tags: new Set([...promptTags, ...wdTags]),
     fields: {
       model: meta?.model ? normalizeText(meta.model) : undefined,
       sampler: meta?.sampler ? normalizeText(meta.sampler) : undefined,
+      lora: loras.length ? loras : undefined,
       seed: meta?.seed,
       steps: meta?.steps,
       cfg: meta?.cfg,
@@ -145,7 +169,11 @@ export function searchableOf(name: string, meta: ImageMeta | null, size?: { widt
 }
 
 function matchesField(searchable: Searchable, field: FieldTerm): boolean {
-  if ('contains' in field) return searchable.fields[field.key]?.includes(field.contains) ?? false
+  if ('contains' in field) {
+    const value = searchable.fields[field.key]
+    if (Array.isArray(value)) return value.some((name) => name.includes(field.contains))
+    return value?.includes(field.contains) ?? false
+  }
   const actual = searchable.fields[field.key]
   if (actual === undefined) return false
   switch (field.op) {
@@ -163,9 +191,14 @@ function matchesField(searchable: Searchable, field: FieldTerm): boolean {
 }
 
 export function matchesQuery(searchable: Searchable, terms: SearchTerm[]): boolean {
-  return terms.every((term) =>
-    term.field ? matchesField(searchable, term.field) : term.exact ? searchable.tags.has(term.text) : searchable.text.includes(term.text)
-  )
+  return terms.every((term) => {
+    const found = term.field
+      ? matchesField(searchable, term.field)
+      : term.exact
+        ? searchable.tags.has(term.text)
+        : searchable.text.includes(term.text)
+    return term.negate ? !found : found
+  })
 }
 
 /** The search-box text that finds exactly this tag. */

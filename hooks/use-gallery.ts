@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import type { ImageMeta } from "@/lib/image-meta"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import type { IndexProgress } from "@/lib/gallery/fs"
+import type { Facets } from "@/lib/gallery/folder-index"
 
 export interface GalleryFolder {
   index: number
@@ -154,13 +155,17 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
   return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch }
 }
 
+function names(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string") : []
+}
+
 /**
- * Every model named in a folder, for the model filter: null until the server
- * has read the folder, with `progress` meanwhile. Asks only while `enabled`
- * (the filter panel is open, and never in secret mode).
+ * Every model and LoRA named in a folder, for the filters: null until the
+ * server has read the folder, with `progress` meanwhile. Asks only while
+ * `enabled` (the filter panel is open, and never in secret mode).
  */
-export function useFolderModels(dir: number | null, enabled: boolean): { models: string[] | null; progress: IndexProgress | null } {
-  const [state, setState] = useState<{ for: string; models: string[] | null; progress: IndexProgress | null }>({ for: "", models: null, progress: null })
+export function useFolderFacets(dir: number | null, enabled: boolean): { facets: Facets | null; progress: IndexProgress | null } {
+  const [state, setState] = useState<{ for: string; facets: Facets | null; progress: IndexProgress | null }>({ for: "", facets: null, progress: null })
   const key = `${dir}`
   useEffect(() => {
     if (!enabled || dir === null) return
@@ -168,15 +173,15 @@ export function useFolderModels(dir: number | null, enabled: boolean): { models:
     let timer: ReturnType<typeof setTimeout> | null = null
     const ask = async () => {
       try {
-        const response = await fetch(`/api/gallery?dir=${dir}&models=1`, { cache: "no-store" })
+        const response = await fetch(`/api/gallery?dir=${dir}&facets=1`, { cache: "no-store" })
         const data = await response.json().catch(() => null)
         if (!active || !response.ok) return
         const progress = isIndexProgress(data?.indexing) ? data.indexing : null
-        const models = Array.isArray(data?.models) ? data.models.filter((model: unknown): model is string => typeof model === "string") : null
-        setState({ for: key, models, progress })
+        const facets = data?.facets ? { models: names(data.facets.models), loras: names(data.facets.loras) } : null
+        setState({ for: key, facets, progress })
         if (progress && !("tooLarge" in progress)) timer = setTimeout(() => void ask(), INDEX_POLL_MS)
       } catch {
-        // The list of models seen so far stays in use.
+        // The names seen so far stay in use.
       }
     }
     void ask()
@@ -185,7 +190,7 @@ export function useFolderModels(dir: number | null, enabled: boolean): { models:
       if (timer) clearTimeout(timer)
     }
   }, [dir, enabled, key])
-  return state.for === key ? { models: state.models, progress: state.progress } : { models: null, progress: null }
+  return state.for === key ? { facets: state.facets, progress: state.progress } : { facets: null, progress: null }
 }
 
 /** Fetches a gallery picture as a Blob, for the slots that take a source image. */

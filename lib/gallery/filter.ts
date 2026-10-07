@@ -36,6 +36,8 @@ export interface GalleryQuery {
   orientation?: Orientation
   resolution?: Resolution
   model?: string
+  /** A LoRA the picture used, by name. */
+  lora?: string
   /** Which tool wrote the settings; "none" for a picture without any. */
   source?: Source
   /** Only pictures without WD14 tags. */
@@ -92,6 +94,7 @@ export function toParams(query: GalleryQuery): URLSearchParams {
   set('orientation', query.orientation)
   set('resolution', query.resolution)
   set('model', text(query.model ?? null))
+  set('lora', text(query.lora ?? null))
   set('source', query.source)
   if (query.untagged) set('untagged', '1')
   return params
@@ -111,6 +114,7 @@ export function fromParams(params: URLSearchParams): GalleryQuery {
     orientation: oneOf(ORIENTATIONS, params.get('orientation')),
     resolution: oneOf(RESOLUTIONS, params.get('resolution')),
     model: text(params.get('model')),
+    lora: text(params.get('lora')),
     source: oneOf(SOURCES, params.get('source')),
     untagged: params.get('untagged') === '1' || undefined,
   }
@@ -127,6 +131,7 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.orientation,
     query.resolution,
     query.model,
+    query.lora,
     query.source,
     query.untagged,
   ].filter(Boolean).length
@@ -135,7 +140,7 @@ export function activeFilterCount(query: GalleryQuery): number {
 /** Whether a picture's settings or size are needed to apply the query. */
 export function needsMeta(query: GalleryQuery): boolean {
   return Boolean(
-    query.backend || query.profile || query.orientation || query.resolution || query.model || query.source || query.untagged
+    query.backend || query.profile || query.orientation || query.resolution || query.model || query.lora || query.source || query.untagged
   )
 }
 
@@ -189,6 +194,7 @@ export function matchesMeta(
   if (query.orientation && orientationOf(item.width, item.height) !== query.orientation) return false
   if (query.resolution && resolutionOf(item.width, item.height) !== query.resolution) return false
   if (query.model && meta?.model !== query.model) return false
+  if (query.lora && !meta?.loras?.some((lora) => lora.toLowerCase() === query.lora!.toLowerCase())) return false
   if (query.source && sourceOf(meta) !== query.source) return false
   if (query.untagged && meta?.tags?.length) return false
   return true

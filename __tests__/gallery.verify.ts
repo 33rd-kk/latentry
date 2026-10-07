@@ -26,7 +26,7 @@ import {
   writePngText,
   type LatentryRecord,
 } from '../lib/image-meta'
-import { invalidateListing, isSafeName, listModels, listPage, openInDir, resolveInDir } from '../lib/gallery/fs'
+import { invalidateListing, isSafeName, listFacets, listPage, openInDir, resolveInDir } from '../lib/gallery/fs'
 import { settleIndex } from '../lib/gallery/folder-index'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
@@ -210,6 +210,23 @@ async function main() {
     eq(await names({ since: 'day' }), ['wide.webp', 'p2.png'], 'the age filter')
     eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
+
+    // ── LoRAs, from a picture A1111 wrote ──
+    const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', writable: false }
+    await mkdir(loraDir.path)
+    await writeFile(
+      path.join(loraDir.path, 'with.png'),
+      writePngText(png, { [PARAMETERS_KEY]: '1girl, <lora:sub/Detail.safetensors:0.6>\nSteps: 20, Seed: 1, Lora hashes: "flat: 12ab"' })
+    )
+    await writeFile(path.join(loraDir.path, 'without.png'), written)
+    const inLoras = async (filter: Parameters<typeof listPage>[1]['filter']) =>
+      (await listPage(loraDir, { limit: 10, filter: { sort: 'name-asc', ...filter } })).items.map((item) => item.name)
+    eq(await inLoras({ lora: 'detail' }), ['with.png'], 'the LoRA filter')
+    eq(await inLoras({ q: 'lora:flat' }), ['with.png'], 'lora: in the search box, from Lora hashes')
+    eq(await inLoras({ q: '-lora:detail' }), ['without.png'], 'leaving out a LoRA')
+    listFacets(loraDir)
+    await settleIndex(loraDir)
+    eq(await listFacets(loraDir), { facets: { models: [RECORD.model!], loras: ['Detail', 'flat'] } }, "the folder's LoRAs for the filter")
     eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
     eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
 
@@ -231,7 +248,7 @@ async function main() {
     } while (metaCursor && pagedMeta.length < 10)
     eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
     check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
-    eq(await listModels(sortDir), { models: [RECORD.model!] }, 'every model in the folder')
+    eq(await listFacets(sortDir), { facets: { models: [RECORD.model!], loras: [] } }, 'every model and LoRA in the folder')
 
     const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
     await writeFile(path.join(sorting, 'big.png'), big)

@@ -75,6 +75,7 @@ export function SearchHint({ visible }: { visible: boolean }) {
         {example("long_hair", t("gallery.searchHintSpelling"))}
         {example("noobai", t("gallery.searchHintOther"))}
         {example("model:noobai, steps:>=30", t("gallery.searchHintFields"))}
+        {example("-smile", t("gallery.searchHintExclude"))}
       </ul>
       <Button
         type="button"

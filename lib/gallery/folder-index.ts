@@ -1,5 +1,5 @@
 // What the gallery knows about every picture in a folder at once: when it was
-// made, its pixel count, and the model named in its settings.
+// made, its pixel count, and the model and LoRAs named in its settings.
 // The orders by date made and by size, and the full list of models for the
 // filter, need this for the whole folder before the first page.
 //
@@ -23,6 +23,7 @@ interface IndexRecord {
   created: number
   pixels: number
   model?: string
+  loras?: string[]
 }
 
 interface FolderIndex {
@@ -68,6 +69,7 @@ async function build(dir: GalleryDir, index: FolderIndex, entries: GalleryEntry[
         created: Number.isFinite(created) ? created : info.mtime,
         pixels: info.width && info.height ? info.width * info.height : 0,
         model: info.meta?.model,
+        loras: info.meta?.loras,
       })
     }
     index.done += slice.length
@@ -110,13 +112,22 @@ export function withIndexValues(dir: GalleryDir, entries: GalleryEntry[]): (Gall
   })
 }
 
-/** The models named across the folder, sorted. Call once ready. */
-export function modelsOf(dir: GalleryDir, entries: GalleryEntry[]): string[] {
+/** The names a filter can offer for a folder. */
+export interface Facets {
+  models: string[]
+  loras: string[]
+}
+
+/** The models and LoRAs named across the folder, each sorted. Call once ready. */
+export function facetsOf(dir: GalleryDir, entries: GalleryEntry[]): Facets {
   const index = indexFor(dir)
   const models = new Set<string>()
+  const loras = new Set<string>()
   for (const entry of entries) {
-    const model = index.records.get(entry.name)?.model
-    if (model) models.add(model)
+    const record = index.records.get(entry.name)
+    if (record?.model) models.add(record.model)
+    for (const lora of record?.loras ?? []) loras.add(lora)
   }
-  return [...models].sort((a, b) => a.localeCompare(b))
+  const sorted = (names: Set<string>) => [...names].sort((a, b) => a.localeCompare(b))
+  return { models: sorted(models), loras: sorted(loras) }
 }

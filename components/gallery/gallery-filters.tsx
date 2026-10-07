@@ -18,6 +18,7 @@ import {
 } from "@/lib/gallery/filter"
 import { SORT_KEYS, type SortKey } from "@/lib/gallery/sort"
 import type { IndexProgress } from "@/lib/gallery/fs"
+import type { Facets } from "@/lib/gallery/folder-index"
 import { useT } from "@/lib/i18n"
 
 const ALL = "__all__"
@@ -62,22 +63,40 @@ interface FilterPanelProps {
   onChange: (patch: Partial<GalleryQuery>) => void
   backends: string[]
   profiles: { id: string; label: string }[]
-  /** The folder's models: all of them once read, else those seen so far. */
-  models: string[]
-  /** While the folder is read for its models. */
-  modelsProgress: IndexProgress | null
+  /** The folder's models and LoRAs: all of them once read, else those seen so far. */
+  facets: Facets
+  /** While the folder is read for them. */
+  facetsProgress: IndexProgress | null
   secret: boolean
 }
 
 /** Every filter but the search box, under the toolbar. */
-export function FilterPanel({ open, query, onChange, backends, profiles, models, modelsProgress, secret }: FilterPanelProps) {
+export function FilterPanel({ open, query, onChange, backends, profiles, facets, facetsProgress, secret }: FilterPanelProps) {
   const t = useT()
   const toggleFormat = (format: Format) => {
     const current = query.formats ?? []
     onChange({ formats: current.includes(format) ? current.filter((item) => item !== format) : [...current, format] })
   }
-  // The chosen model stays listed even when no loaded picture has it.
-  const modelOptions = query.model && !models.includes(query.model) ? [query.model, ...models] : models
+  // A name filter (model, LoRA): a select of the names known so far, the
+  // chosen one kept even when no loaded picture has it. In secret mode no
+  // names go on the page, not even blurred.
+  const nameField = (key: "model" | "lora", label: string, all: string, names: string[], note?: string) => {
+    const chosen = query[key]
+    const options = chosen && !names.includes(chosen) ? [chosen, ...names] : names
+    return (
+      <Field label={label} hint={secret ? undefined : t("gallery.filter.namesHint")} note={secret ? undefined : note}>
+        {secret ? (
+          <p className="flex h-8 items-center text-sm text-muted-foreground">{t("gallery.filter.secretHidden")}</p>
+        ) : (
+          <OptionSelect value={chosen} all={all} options={options.map((name) => ({ value: name, label: name }))} onChange={(name) => onChange({ [key]: name })} />
+        )}
+      </Field>
+    )
+  }
+  const reading =
+    facetsProgress && !("tooLarge" in facetsProgress)
+      ? t("gallery.filter.namesReading", { done: facetsProgress.done, total: facetsProgress.total })
+      : undefined
 
   return (
     <Collapsible open={open}>
@@ -121,27 +140,8 @@ export function FilterPanel({ open, query, onChange, backends, profiles, models,
               onChange={(resolution) => onChange({ resolution })}
             />
           </Field>
-          <Field
-            label={t("gallery.filter.model")}
-            hint={secret ? undefined : t("gallery.filter.modelHint")}
-            note={
-              !secret && modelsProgress && !("tooLarge" in modelsProgress)
-                ? t("gallery.filter.modelsReading", { done: modelsProgress.done, total: modelsProgress.total })
-                : undefined
-            }
-          >
-            {secret ? (
-              // No model names on the page in secret mode, not even blurred.
-              <p className="flex h-8 items-center text-sm text-muted-foreground">{t("gallery.filter.secretHidden")}</p>
-            ) : (
-              <OptionSelect
-                value={query.model}
-                all={t("gallery.filter.allModels")}
-                options={modelOptions.map((model) => ({ value: model, label: model }))}
-                onChange={(model) => onChange({ model })}
-              />
-            )}
-          </Field>
+          {nameField("model", t("gallery.filter.model"), t("gallery.filter.allModels"), facets.models, reading)}
+          {nameField("lora", t("gallery.filter.lora"), t("gallery.filter.allLoras"), facets.loras)}
           <Field label={t("gallery.filter.source")}>
             <OptionSelect
               value={query.source}
@@ -199,6 +199,9 @@ export function FilterChips({
   if (query.resolution) add("resolution", t(`gallery.filter.${query.resolution}`), { resolution: undefined })
   if (query.model) {
     add("model", `${t("gallery.filter.model")}: ${secret ? t("gallery.filter.secretHidden") : query.model}`, { model: undefined })
+  }
+  if (query.lora) {
+    add("lora", `${t("gallery.filter.lora")}: ${secret ? t("gallery.filter.secretHidden") : query.lora}`, { lora: undefined })
   }
   if (query.source) add("source", `${t("gallery.filter.source")}: ${t(`gallery.filter.${query.source}`)}`, { source: undefined })
   if (query.backend) add("backend", `${t("gallery.backend")}: ${query.backend}`, { backend: undefined })

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Gallery**: search and filter by LoRA (`lora:detail`, and a LoRA menu
+  under Filters), and leave pictures out with a leading `-` (`-smile`,
+  `-"long hair"`, `-model:pony`). The viewer lists a picture's LoRAs.
 - **Gallery** reads settings from JPEG and WebP too (A1111 / Forge's EXIF,
   ComfyUI's WebP), and the LoRAs a picture used. Before, only PNGs had
   settings. It reads only the headers, and from EXIF only the fields that

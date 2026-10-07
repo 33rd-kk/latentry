@@ -17,13 +17,14 @@ import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-fi
 import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { useBulkTag } from "@/hooks/use-bulk-tag"
-import { pictureUrl, useFolderModels, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import type { ImageTag } from "@/lib/image-meta"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import { DEFAULT_SORT } from "@/lib/gallery/sort"
+import type { Facets } from "@/lib/gallery/folder-index"
 import { dealColumns, heightPerWidth } from "@/lib/gallery/columns"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -56,16 +57,25 @@ export function Gallery() {
   const page = useGalleryPage(activeDir, query)
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
-  // The models met so far in this folder, for the model filter until the
-  // server has the whole folder's list. Kept while filters change, so
-  // choosing a model does not shrink the list to it.
-  const pageModels = useMemo(() => modelsIn(page.pictures), [page.pictures])
-  const [seenModels, setSeenModels] = useState<{ dir: number | null; models: string[] }>({ dir: activeDir, models: [] })
-  const models = seenModels.dir === activeDir ? mergeModels(seenModels.models, pageModels) : pageModels
-  if (seenModels.dir !== activeDir || models.length !== seenModels.models.length) setSeenModels({ dir: activeDir, models })
-  // The whole folder's models, asked for only while the panel is open, and
-  // never in secret mode (the panel shows no model names then).
-  const folderModels = useFolderModels(activeDir, filtersOpen && !secret)
+  // The models and LoRAs met so far in this folder, for the filters until
+  // the server has the whole folder's lists. Kept while filters change, so
+  // choosing one does not shrink the list to it.
+  const pageFacets = useMemo(() => facetsIn(page.pictures), [page.pictures])
+  const [seen, setSeen] = useState<{ dir: number | null; facets: Facets }>({ dir: activeDir, facets: { models: [], loras: [] } })
+  const seenFacets =
+    seen.dir === activeDir
+      ? { models: mergeNames(seen.facets.models, pageFacets.models), loras: mergeNames(seen.facets.loras, pageFacets.loras) }
+      : pageFacets
+  if (
+    seen.dir !== activeDir ||
+    seenFacets.models.length !== seen.facets.models.length ||
+    seenFacets.loras.length !== seen.facets.loras.length
+  ) {
+    setSeen({ dir: activeDir, facets: seenFacets })
+  }
+  // The whole folder's names, asked for only while the panel is open, and
+  // never in secret mode (the panel shows no names then).
+  const folderFacets = useFolderFacets(activeDir, filtersOpen && !secret)
 
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
@@ -225,8 +235,8 @@ export function Gallery() {
         onChange={changeFilters}
         backends={backends.map((option) => option.id)}
         profiles={profiles}
-        models={folderModels.models ?? models}
-        modelsProgress={folderModels.progress}
+        facets={folderFacets.facets ?? seenFacets}
+        facetsProgress={folderFacets.progress}
         secret={secret}
       />
       <FilterChips query={query} onChange={changeFilters} profiles={profiles} secret={secret} />
@@ -390,16 +400,21 @@ export function Gallery() {
   )
 }
 
-/** The models named in these pictures, sorted. */
-function modelsIn(pictures: GalleryPicture[]): string[] {
+/** The models and LoRAs named in these pictures, each sorted. */
+function facetsIn(pictures: GalleryPicture[]): Facets {
   const models = new Set<string>()
-  for (const picture of pictures) if (picture.meta?.model) models.add(picture.meta.model)
-  return [...models].sort((a, b) => a.localeCompare(b))
+  const loras = new Set<string>()
+  for (const picture of pictures) {
+    if (picture.meta?.model) models.add(picture.meta.model)
+    for (const lora of picture.meta?.loras ?? []) loras.add(lora)
+  }
+  const sorted = (names: Set<string>) => [...names].sort((a, b) => a.localeCompare(b))
+  return { models: sorted(models), loras: sorted(loras) }
 }
 
 /** Both lists in one, sorted; `known` itself when `found` adds nothing. */
-function mergeModels(known: string[], found: string[]): string[] {
-  const added = found.filter((model) => !known.includes(model))
+function mergeNames(known: string[], found: string[]): string[] {
+  const added = found.filter((name) => !known.includes(name))
   return added.length ? [...known, ...added].sort((a, b) => a.localeCompare(b)) : known
 }
 

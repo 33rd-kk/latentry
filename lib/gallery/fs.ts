@@ -9,7 +9,7 @@ import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
 import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
 import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
-import { indexStatus, modelsOf, withIndexValues } from './folder-index'
+import { facetsOf, indexStatus, withIndexValues, type Facets } from './folder-index'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -246,11 +246,11 @@ export async function listPage(
   return { items, nextCursor: index < entries.length && last ? encodeCursor(last, sort) : null }
 }
 
-/** Every model named in the folder, for the model filter; or the progress while the folder is read. */
-export async function listModels(dir: GalleryDir): Promise<{ models: string[] } | { models: null; indexing: IndexProgress }> {
+/** Every model and LoRA named in the folder, for the filters; or the progress while the folder is read. */
+export async function listFacets(dir: GalleryDir): Promise<{ facets: Facets } | { facets: null; indexing: IndexProgress }> {
   const listing = await listEntries(dir)
   const status = indexStatus(dir, listing)
-  if (status.state === 'too-large') return { models: null, indexing: { tooLarge: true, total: status.total } }
-  if (status.state === 'indexing') return { models: null, indexing: { done: status.done, total: status.total } }
-  return { models: modelsOf(dir, listing) }
+  if (status.state === 'too-large') return { facets: null, indexing: { tooLarge: true, total: status.total } }
+  if (status.state === 'indexing') return { facets: null, indexing: { done: status.done, total: status.total } }
+  return { facets: facetsOf(dir, listing) }
 }

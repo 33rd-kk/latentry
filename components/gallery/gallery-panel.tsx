@@ -138,6 +138,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
   if (meta) {
     if (meta.backend) facts.push([t("gallery.backend"), `${meta.backend}${meta.profile ? ` · ${meta.profile}` : ""}`])
     if (meta.model) facts.push([t("gallery.model"), meta.model])
+    if (meta.loras?.length) facts.push([t("gallery.loras"), meta.loras.join(", ")])
     if (meta.mode) facts.push([t("gallery.mode"), meta.mode])
     if (meta.seed !== undefined) facts.push([t("gallery.seed"), meta.seed])
     const width = meta.width ?? picture.width
