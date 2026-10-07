@@ -3,11 +3,15 @@
 # GPU and downloads a model.
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
+#   powershell -ExecutionPolicy Bypass -File install.ps1 -NoEngine
+#     (only use servers you already run: A1111, Forge, ...)
 #
 # Needs Node.js 22.19 or newer (https://nodejs.org, or: winget install OpenJS.NodeJS.LTS).
 # Afterwards, start Latentry again with: npm start
 # It listens on this computer only; set LATENTRY_HOST=0.0.0.0 in .env.local
 # to use it from other devices on your network.
+
+param([switch]$NoEngine)
 
 $ErrorActionPreference = 'Stop'
 Set-Location -Path $PSScriptRoot
@@ -29,7 +33,10 @@ node scripts/logo.mjs
 Write-Host '== Installing the web UI' -ForegroundColor Cyan
 npm ci
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-if (-not (Test-Path .env.local)) { Copy-Item .env.example .env.local }
+if (-not (Test-Path .env.local)) {
+  Copy-Item .env.example .env.local
+  if ($NoEngine) { Add-Content .env.local "`n# Set by install.ps1 -NoEngine`nLATENTRY_ENGINE=off" }
+}
 
 Write-Host '== Building' -ForegroundColor Cyan
 npm run build
@@ -37,7 +44,12 @@ if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host '== Starting' -ForegroundColor Cyan
 Write-Host ''
-Write-Host "   When it says Ready, open http://localhost:$port/setup in your browser." -ForegroundColor Green
+if ($NoEngine) {
+  Write-Host "   When it says Ready, open http://localhost:$port/settings in your browser" -ForegroundColor Green
+  Write-Host '   and add your server under Backends.' -ForegroundColor Green
+} else {
+  Write-Host "   When it says Ready, open http://localhost:$port/setup in your browser." -ForegroundColor Green
+}
 Write-Host '   (Ctrl+C stops Latentry; start it again later with: npm start)'
 Write-Host ''
 $env:LATENTRY_NO_LOGO = '1'  # shown above already

@@ -79,7 +79,7 @@ export default function Pose3dView({ people, person, limits, frame, camera, onCa
         aspectRatio: `${frame.output.width} / ${frame.output.height}`,
         width: `min(100%, 18rem, calc(24rem * ${frame.output.width} / ${frame.output.height}))`,
       }}
-      className="block cursor-grab touch-none rounded-md border border-border/50 bg-black active:cursor-grabbing"
+      className="block cursor-grab touch-none rounded-md border border-border/50 bg-black active:cursor-grabbing dark:border-white/20"
     />
   )
 }

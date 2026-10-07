@@ -10,7 +10,13 @@
   just leaving it out. The same goes for a pose without the 3D view, and for
   a skeleton dropped after switching to a backend without pose. Servers can
   give their own reason in a new optional `/api/health` field, `unavailable`.
+- `install.sh --no-engine` (`install.ps1 -NoEngine`) is for servers you
+  already run: it turns off the built-in engine in a new `.env.local` and
+  points you to Settings instead of the Setup page.
 - Latentry now needs **Node.js 22.19 or newer** (was 22.12), for undici 8.
+- **Dark mode**: the 3D pose view and the skeleton preview have a visible
+  edge, dialogs dim the page behind them, and sliders show their whole track.
+  The 3D view's floor grid is a little brighter in both themes.
 
 ## 0.3.0 (2026-10-07)
 

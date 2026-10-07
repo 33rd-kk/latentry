@@ -350,7 +350,7 @@ export function SettingsForm() {
                   </Button>
                 </div>
                 {test && test.state !== "testing" && (
-                  <p className={cn("flex items-center gap-1 text-xs", test.state === "ok" ? "text-emerald-600" : "text-destructive")}>
+                  <p className={cn("flex items-center gap-1 text-xs", test.state === "ok" ? "text-emerald-600 dark:text-emerald-500" : "text-destructive")}>
                     {test.state === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                     {test.state === "ok" ? t("settings.testOk", { model: test.model ?? "?" }) : t("settings.testFail")}
                   </p>
@@ -414,7 +414,7 @@ export function SettingsForm() {
             />
             {error("wd14.modelDir")}
             {!dirty.has("wd14") && settingsView.wd14.modelDir && (
-              <p className={cn("flex items-center gap-1 text-xs", settingsView.wd14.found ? "text-emerald-600" : "text-destructive")}>
+              <p className={cn("flex items-center gap-1 text-xs", settingsView.wd14.found ? "text-emerald-600 dark:text-emerald-500" : "text-destructive")}>
                 {settingsView.wd14.found ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
                 {t(settingsView.wd14.found ? "settings.wd14Found" : "settings.wd14Missing")}
               </p>

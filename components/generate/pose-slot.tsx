@@ -243,7 +243,7 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
           <img
             src={value.dataUrl}
             alt={t("generate.poseSkeleton")}
-            className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-black object-contain"
+            className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-black object-contain dark:border-white/20"
           />
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -359,7 +359,7 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
           ) : (
             <div
               style={{ aspectRatio: `${outputSize.width} / ${outputSize.height}` }}
-              className="flex w-full max-w-48 items-center justify-center rounded-md border border-border/50 bg-black"
+              className="flex w-full max-w-48 items-center justify-center rounded-md border border-border/50 bg-black dark:border-white/20"
             >
               <Loader2 className="h-5 w-5 animate-spin text-white/70" />
             </div>
