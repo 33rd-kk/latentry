@@ -30,11 +30,42 @@ function isProse(body: string): boolean {
   return /[.!?;]/.test(body) || body.split(/[ \t]+/).length >= 5
 }
 
-/** `keep` as a test: comma-separated patterns, `*` for any run of characters. */
+/**
+ * Whether `text` matches `pattern`, where `*` is any run of characters. Two
+ * pointers rather than a regex: the patterns come from settings and the tags
+ * from prompts, and `.*` repeated backtracks for minutes on a long tag. This
+ * never costs more than the two lengths multiplied.
+ */
+export function wildcardMatch(pattern: string, text: string): boolean {
+  let p = 0
+  let t = 0
+  let star = -1
+  let resume = 0
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === '*') {
+      star = p++
+      resume = t
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p += 1
+      t += 1
+    } else if (star !== -1) {
+      p = star + 1
+      t = ++resume
+    } else {
+      return false
+    }
+  }
+  while (pattern[p] === '*') p += 1
+  return p === pattern.length
+}
+
+/** `keep` as a test: comma-separated patterns, `*` for any run of characters, any case. */
 function keepTest(keep: string): (tag: string) => boolean {
-  const escape = (part: string) => part.replace(/[.*+?^$()|[\]{}\\]/g, '\\$&')
-  const patterns = splitTags(keep).map((pattern) => new RegExp('^' + pattern.split('*').map(escape).join('.*') + '$', 'i'))
-  return (tag) => patterns.some((pattern) => pattern.test(tag))
+  const patterns = splitTags(keep).map((pattern) => pattern.toLowerCase())
+  return (tag) => {
+    const lower = tag.toLowerCase()
+    return patterns.some((pattern) => wildcardMatch(pattern, lower))
+  }
 }
 
 function formatToken(token: string, style: Exclude<TagStyle, 'asis'>, kept: (tag: string) => boolean): string {

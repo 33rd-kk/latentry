@@ -14,6 +14,15 @@
   `score_9` into `score 9`.
 - `long_hair` and `long hair` now count as the same tag when tags are added
   to a prompt.
+- **Settings**: a backend token is only sent to the server it was set up
+  for (same scheme, host and port). **Test** no longer lends a saved token to
+  another address; changing a backend's address asks for its token again (or
+  for it to be removed); and `GEN_TOKEN_<ID>` only applies while
+  `GEN_BACKENDS` lists that id at the same address, so a backend added only on
+  the Settings page needs its token typed there.
+- **Settings**: the wildcards in a profile's never-respelled tags are matched
+  without a regular expression, so a pattern with many `*` can no longer
+  freeze the generate page on a long tag.
 
 ## 0.2.0 (2026-10-06)
 

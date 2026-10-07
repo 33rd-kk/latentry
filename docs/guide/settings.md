@@ -21,7 +21,10 @@ The servers that generate images. Each has:
 - **Profile**: the model profile its form starts from.
 - **Token**: a Bearer token for `diffusers`, `user:password` for `a1111`
   started with `--api-auth`. Saved tokens are never shown again; type to
-  replace one.
+  replace one. A token is only sent to the server it was saved for: changing
+  the URL to another host, port or scheme asks for the token again. A
+  `GEN_TOKEN_<ID>` from `.env.local` likewise applies only while
+  `GEN_BACKENDS` lists that id at the same address.
 
 **Test** checks the address and shows the loaded model. Latentry's own engine
 is not listed here; it comes from [Setup](engine.md).

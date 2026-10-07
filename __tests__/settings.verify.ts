@@ -9,7 +9,7 @@ import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
-import { getBackends, taggerPreference } from '../lib/backends/config'
+import { getBackends, hasEnvToken, taggerPreference } from '../lib/backends/config'
 import { autoTagEnabled, parseGalleryDirs } from '../lib/gallery/dirs'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
@@ -83,6 +83,14 @@ async function main() {
     ['old', null, 'new'],
     'token: keep / clear / replace'
   )
+  // A saved token stays with its server: a new address needs it typed again.
+  const moved = (url: string, token?: string) =>
+    validateSettings({ backends: [{ id: 'a', kind: 'a1111', url, profile: 'sdxl', ...(token === undefined ? {} : { token }) }] }, current)
+  const movedAway = moved('http://evil.example/')
+  check(!movedAway.ok && movedAway.errors['backends.0.token'] === 'settings.errorTokenMoved', 'a new host without the token is refused')
+  check(!moved('http://x:8080/').ok && !moved('https://x/').ok, 'so is a new port or scheme')
+  check(moved('http://x/sdapi').ok && (moved('http://x/sdapi') as { ok: true; settings: Settings }).settings.backends?.[0].token === 'old', 'a new path on the same server keeps it')
+  eq([moved('http://evil.example/', ''), moved('http://evil.example/', 'typed')].map((result) => (result.ok ? result.settings.backends?.[0].token ?? null : 'error')), [null, 'typed'], 'moving works with the token removed or typed again')
   // Parts not sent are kept; null hands them back to .env.local.
   const partial = validateSettings({ tagger: null }, { ...current, gallery: { saveDir: ABS } })
   check(partial.ok && partial.settings.backends?.length === 1 && partial.settings.gallery?.saveDir === ABS && partial.settings.tagger === null, 'parts not sent are kept')
@@ -100,7 +108,11 @@ async function main() {
   const env = { GEN_BACKENDS: 'envone|diffusers|http://localhost:1|generic', GEN_TOKEN_A: 'from-env', TAGGER_BACKEND: 'envone', GALLERY_SAVE_DIR: ABS + '-env', GALLERY_DIRS: ABS + '-x', GALLERY_AUTO_TAG: '1' }
   eq(getBackends(env, EMPTY_SETTINGS).map((backend) => backend.id), ['envone'], 'no settings: the environment')
   const fromFile = getBackends(env, { version: 1, backends: [{ id: 'a', kind: 'a1111', url: 'http://x/', profile: 'sdxl' }] })
-  eq(fromFile.map((backend) => [backend.id, backend.token]), [['a', 'from-env']], 'saved backends replace GEN_BACKENDS; GEN_TOKEN_<ID> still applies')
+  eq(fromFile.map((backend) => [backend.id, backend.token ?? null]), [['a', null]], 'saved backends replace GEN_BACKENDS; GEN_TOKEN_<ID> without an address there is not sent')
+  const envBound = { GEN_BACKENDS: 'a|a1111|http://x:7860|sdxl', GEN_TOKEN_A: 'from-env' }
+  const saved = (url: string) => getBackends(envBound, { version: 1, backends: [{ id: 'a', kind: 'a1111', url, profile: 'sdxl' }] })[0].token ?? null
+  eq([saved('http://x:7860/'), saved('http://x:7860/sdapi'), saved('http://evil.example:7860/'), saved('http://x:7861/')], ['from-env', 'from-env', null, null], 'GEN_TOKEN_<ID> only goes to the address GEN_BACKENDS gives that id')
+  check(hasEnvToken('a', 'http://x:7860/', envBound) && !hasEnvToken('a', 'http://evil.example/', envBound), 'the settings page says so too')
   eq(getBackends(env, current)[0].token, 'old', 'a saved token wins over the environment')
   eq([taggerPreference(env, EMPTY_SETTINGS), taggerPreference(env, { version: 1, tagger: null })], ['envone', null], 'tagger: setting over TAGGER_BACKEND')
   const dirs = parseGalleryDirs(env, { version: 1, gallery: { saveDir: null } })

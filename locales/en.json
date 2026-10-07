@@ -320,6 +320,7 @@
     "errorUrl": "An http:// or https:// address.",
     "errorProfile": "Choose a profile.",
     "errorToken": "Not a valid token.",
+    "errorTokenMoved": "The address changed: type the token again, or remove it. A saved token is only sent to the server it was saved for.",
     "errorAbsolute": "A full path, e.g. D:\\pictures\\latentry or /home/me/pictures.",
     "errorSize": "256 to 4096, a multiple of 8.",
     "errorSteps": "A whole number from 1 to 200.",
