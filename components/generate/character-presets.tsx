@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useSecretMode } from "@/components/app-header"
 import { preferences, STORAGE_KEYS, STORAGE_EVENT_NAME, type CharacterPreset } from "@/lib/storage"
 import { useT } from "@/lib/i18n"
 
@@ -26,6 +27,7 @@ interface CharacterPresetsProps {
  */
 export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, onApply, disabled }: CharacterPresetsProps) {
   const t = useT()
+  const secret = useSecretMode()
   const [presets, setPresets] = useState<CharacterPreset[]>([])
   const [selectedId, setSelectedId] = useState<string>("")
   const [saving, setSaving] = useState(false)
@@ -33,15 +35,17 @@ export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, 
   const [tags, setTags] = useState("")
 
   // Read after mount (not in useState) so the server render matches; kept in
-  // step with other tabs through the same storage events the rest of the app uses.
+  // step with other tabs through the same storage events the rest of the app
+  // uses. Secret mode turning off, here or in another tab, drops the temporary ones.
   useEffect(() => {
     const load = () => setPresets(preferences.getCharacterPresets())
     load()
+    const watched: string[] = [STORAGE_KEYS.CHARACTER_PRESETS, STORAGE_KEYS.SECRET_MODE]
     const onCustom = (event: Event) => {
-      if ((event as CustomEvent).detail?.key === STORAGE_KEYS.CHARACTER_PRESETS) load()
+      if (watched.includes((event as CustomEvent).detail?.key)) load()
     }
     const onNative = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEYS.CHARACTER_PRESETS) load()
+      if (event.key && watched.includes(event.key)) load()
     }
     window.addEventListener(STORAGE_EVENT_NAME, onCustom)
     window.addEventListener("storage", onNative)
@@ -82,7 +86,10 @@ export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, 
           </SelectTrigger>
           <SelectContent>
             {presets.map((preset) => (
-              <SelectItem key={preset.id} value={preset.id}>{preset.name}</SelectItem>
+              <SelectItem key={preset.id} value={preset.id}>
+                {preset.name}
+                {preset.temporary && <span className="ml-1.5 text-[10px] text-muted-foreground">{t("generate.characterTemporary")}</span>}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -142,6 +149,7 @@ export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, 
             className="text-xs"
           />
           <p className="text-xs text-muted-foreground">{t("generate.characterSaveHint")}</p>
+          {secret && <p className="text-xs font-medium text-foreground">{t("generate.characterSaveSecret")}</p>}
           <div className="flex justify-end gap-2">
             <Button type="button" size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setSaving(false)}>
               {t("generate.cancel")}

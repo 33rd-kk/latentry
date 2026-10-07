@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Secret mode**: a character saved while it is on is kept in that tab,
+  marked *temporary*, and dropped when secret mode is turned off. Before, it
+  showed in the list without being saved and vanished on the next reload.
 - Latentry now needs **Node.js 22.19 or newer** (was 22.12), for undici 8.
 
 ## 0.3.0 (2026-10-07)

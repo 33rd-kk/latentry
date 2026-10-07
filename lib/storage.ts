@@ -1,7 +1,8 @@
 // What the browser remembers between visits, all in localStorage.
 //
 // Free text the user typed (the generate form, saved characters) is not
-// written while secret mode is on; see lib/secret-mode.ts. Every write is
+// written while secret mode is on; see lib/secret-mode.ts. A character saved
+// then lives in this tab's memory, marked temporary, until secret mode ends. Every write is
 // announced on STORAGE_EVENT_NAME so other components in the same tab can
 // follow it — the native `storage` event only reaches *other* tabs.
 
@@ -73,6 +74,21 @@ export interface CharacterPreset {
   negativePrompt: string
   seed: number
   timestamp: number
+  /** Saved in secret mode: in this tab's memory only, gone when secret mode ends. */
+  temporary?: boolean
+}
+
+let memoryCharacters: CharacterPreset[] = []
+
+/** Characters saved in secret mode; dropped once it is off, whichever tab turned it off. */
+function temporaryCharacters(): CharacterPreset[] {
+  if (!isSecretMode()) memoryCharacters = []
+  return memoryCharacters
+}
+
+function announceCharacters(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new CustomEvent(STORAGE_EVENT_NAME, { detail: { key: STORAGE_KEYS.CHARACTER_PRESETS, value: null } }))
 }
 
 function newId(): string {
@@ -98,20 +114,37 @@ export const preferences = {
   getSelectedBackend: (): string | null => read(STORAGE_KEYS.SELECTED_BACKEND, null),
   setSelectedBackend: (id: string) => write(STORAGE_KEYS.SELECTED_BACKEND, id),
 
-  getCharacterPresets: (): CharacterPreset[] => read(STORAGE_KEYS.CHARACTER_PRESETS, []),
-  addCharacterPreset: (preset: Omit<CharacterPreset, 'id' | 'timestamp'>): CharacterPreset[] => {
-    const next = [{ ...preset, id: newId(), timestamp: Date.now() }, ...preferences.getCharacterPresets()]
-    writeInput(STORAGE_KEYS.CHARACTER_PRESETS, next)
-    return next
+  /** Temporary ones (secret mode) first, then the saved ones; newest first in each. */
+  getCharacterPresets: (): CharacterPreset[] => [...temporaryCharacters(), ...read<CharacterPreset[]>(STORAGE_KEYS.CHARACTER_PRESETS, [])],
+  addCharacterPreset: (preset: Omit<CharacterPreset, 'id' | 'timestamp' | 'temporary'>): CharacterPreset[] => {
+    const created = { ...preset, id: newId(), timestamp: Date.now() }
+    if (isSecretMode()) {
+      memoryCharacters = [{ ...created, temporary: true }, ...memoryCharacters]
+      announceCharacters()
+    } else {
+      write(STORAGE_KEYS.CHARACTER_PRESETS, [created, ...read<CharacterPreset[]>(STORAGE_KEYS.CHARACTER_PRESETS, [])])
+    }
+    return preferences.getCharacterPresets()
   },
+  /** Deleting is deliberate, so a saved character is deleted for good, secret mode or not. */
   removeCharacterPreset: (id: string): CharacterPreset[] => {
-    const next = preferences.getCharacterPresets().filter((preset) => preset.id !== id)
-    write(STORAGE_KEYS.CHARACTER_PRESETS, next)
-    return next
+    if (memoryCharacters.some((preset) => preset.id === id)) {
+      memoryCharacters = memoryCharacters.filter((preset) => preset.id !== id)
+      announceCharacters()
+    } else {
+      write(STORAGE_KEYS.CHARACTER_PRESETS, read<CharacterPreset[]>(STORAGE_KEYS.CHARACTER_PRESETS, []).filter((preset) => preset.id !== id))
+    }
+    return preferences.getCharacterPresets()
   },
 
   getSecretMode: (): boolean => isSecretMode(),
-  setSecretMode: (on: boolean) => write(STORAGE_KEYS.SECRET_MODE, on),
+  setSecretMode: (on: boolean) => {
+    write(STORAGE_KEYS.SECRET_MODE, on)
+    if (!on && memoryCharacters.length) {
+      memoryCharacters = []
+      announceCharacters()
+    }
+  },
 }
 
 // ── Gallery → generate handoff ──────────────────────────────────────────────

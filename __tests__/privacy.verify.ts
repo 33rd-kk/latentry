@@ -65,6 +65,27 @@ eq(holding(HIDDEN), [], 'nothing from during it is')
 preferences.setSecretMode(false)
 eq(store.get(STORAGE_KEYS.SECRET_MODE), 'false', 'the flag itself is a plain stored preference')
 
+// ── Characters in secret mode: temporary, gone when it ends ──
+store.clear()
+preferences.setSecretMode(false)
+const kept = preferences.addCharacterPreset({ name: 'kept', tags: 'a', artist: '', negativePrompt: '', seed: 1 })[0]
+preferences.setSecretMode(true)
+eq(preferences.getCharacterPresets().map((c) => c.name), ['kept'], 'characters saved before secret mode can be used in it')
+const temp = preferences.addCharacterPreset({ name: HIDDEN, tags: HIDDEN, artist: '', negativePrompt: '', seed: 2 })[0]
+eq([temp.name, temp.temporary], [HIDDEN, true], 'one saved in secret mode is listed first, marked temporary')
+eq(preferences.getCharacterPresets().map((c) => c.name), [HIDDEN, 'kept'], 'next to the saved ones')
+eq(holding(HIDDEN), [], 'and is not written to storage')
+preferences.removeCharacterPreset(kept.id)
+eq(preferences.getCharacterPresets().map((c) => c.name), [HIDDEN], 'deleting a saved one in secret mode deletes it')
+eq(store.get(STORAGE_KEYS.CHARACTER_PRESETS), '[]', 'for good')
+preferences.setSecretMode(false)
+eq(preferences.getCharacterPresets(), [], 'turning secret mode off drops the temporary ones')
+preferences.setSecretMode(true)
+preferences.addCharacterPreset({ name: HIDDEN, tags: HIDDEN, artist: '', negativePrompt: '', seed: 3 })
+store.set(STORAGE_KEYS.SECRET_MODE, 'false') // turned off in another tab
+eq(preferences.getCharacterPresets(), [], 'also when another tab turns it off')
+preferences.setSecretMode(false)
+
 // ── F4: the server's record of a run ──
 const context: JobContext = {
   request: { prompt: HIDDEN, negativePrompt: '', width: 64, height: 64, steps: 1, seed: 1, count: 1 } as unknown as JobContext['request'],

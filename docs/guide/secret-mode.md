@@ -18,10 +18,16 @@ browser, or another device, has its own setting.
 
 ## What it does
 
-**Nothing you type is kept in the browser.** The generate form, the prompt
-shared across backends and saved characters are not written to the
-browser's storage while secret mode is on. They stay on screen until you
-leave the page. What you typed *before* turning it on is kept as it was.
+**Nothing you type is kept in the browser.** The generate form and the
+prompt shared across backends are not written to the browser's storage
+while secret mode is on. They stay on screen until you leave the page. What
+you typed *before* turning it on is kept as it was.
+
+**Characters saved in secret mode are temporary.** Characters saved before
+can be applied as usual. A character saved while secret mode is on is
+marked *temporary* in the list: it stays in this tab, across pages, and
+disappears when secret mode is turned off (or the tab is closed or
+reloaded). Deleting a character deletes it for good, in either mode.
 
 **The gallery hides what is in it.**
 
