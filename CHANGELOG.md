@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Secret mode** is easy to see: while it is on, the header shows a dark
+- **Secret mode** is easy to see: while it is on, the header shows a filled
   **Secret** pill instead of a faint eye. In the gallery panel, analysing a
   picture says how many tags were found while they are hidden, **Show for
   this picture** reveals its prompt, settings and tags, and the tag list no

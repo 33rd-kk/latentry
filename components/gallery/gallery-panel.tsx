@@ -44,11 +44,17 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
   const meta = picture.meta
   const [tagging, setTagging] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  // Secret mode hides what describes the picture; "Show" lifts that for the
-  // one picture on screen, and moving to another hides again.
+  // Secret mode hides what describes the picture; "Show" lifts that for this
+  // visit to the picture only. Moving to any other picture, coming back
+  // included, hides it again: the reveal is forgotten on every change.
   const key = `${picture.dir}/${picture.name}`
-  const [revealedFor, setRevealedFor] = useState<string | null>(null)
-  const hidden = secret && revealedFor !== key
+  const [shownKey, setShownKey] = useState(key)
+  const [revealed, setRevealed] = useState(false)
+  if (shownKey !== key) {
+    setShownKey(key)
+    setRevealed(false)
+  }
+  const hidden = secret && !revealed
 
   const analyze = async () => {
     setTagging(true)
@@ -195,7 +201,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
       {hidden && meta && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
           <span>{t("gallery.secretHidden")}</span>
-          <button type="button" className={action} onClick={() => setRevealedFor(key)}>
+          <button type="button" className={action} onClick={() => setRevealed(true)}>
             <Eye className="h-3 w-3" />
             {t("gallery.secretReveal")}
           </button>

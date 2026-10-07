@@ -10,7 +10,7 @@ shared. It is a setting of one browser, not a lock: read
 ## Turning it on and off
 
 Click the eye at the top right. While secret mode is on, the button is a
-dark **Secret** pill with a crossed-out eye, on every page; off, it is a
+filled **Secret** pill with a crossed-out eye, on every page; off, it is a
 plain eye. Click it again to turn it off.
 
 The setting is remembered by this browser, so a reload keeps it. Another
@@ -28,8 +28,9 @@ leave the page. What you typed *before* turning it on is kept as it was.
 - Thumbnails in the gallery and in the gallery picker (when choosing a
   source picture) are blurred, and their captions and tags are hidden.
 - Opening a picture shows it full size, but the side panel hides its
-  prompt, settings and tags. **Show for this picture** reveals them for the
-  picture on screen; the next picture is hidden again.
+  prompt, settings and tags. **Show for this picture** reveals them while
+  that picture stays on screen. Moving to another picture hides them again,
+  and so does coming back to it.
 - **Analyze with WD14** still works and saves the tags into the file. The
   panel says how many tags it found instead of listing them.
 
