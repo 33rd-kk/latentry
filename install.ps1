@@ -4,7 +4,7 @@
 #
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #
-# Needs Node.js 22.12 or newer (https://nodejs.org, or: winget install OpenJS.NodeJS.LTS).
+# Needs Node.js 22.19 or newer (https://nodejs.org, or: winget install OpenJS.NodeJS.LTS).
 # Afterwards, start Latentry again with: npm start
 # It listens on this computer only; set LATENTRY_HOST=0.0.0.0 in .env.local
 # to use it from other devices on your network.
@@ -19,8 +19,8 @@ if (-not $node) {
   exit 1
 }
 $version = [version]((node --version).TrimStart('v'))
-if ($version -lt [version]'22.12.0') {
-  Write-Host "Node.js $version is too old; Latentry needs 22.12 or newer." -ForegroundColor Red
+if ($version -lt [version]'22.19.0') {
+  Write-Host "Node.js $version is too old; Latentry needs 22.19 or newer." -ForegroundColor Red
   exit 1
 }
 

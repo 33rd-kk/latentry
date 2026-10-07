@@ -5,7 +5,7 @@
 #
 #   ./install.sh
 #
-# Needs Node.js 22.12 or newer (https://nodejs.org). Afterwards, start
+# Needs Node.js 22.19 or newer (https://nodejs.org). Afterwards, start
 # Latentry again with: npm start
 # It listens on this computer only; set LATENTRY_HOST=0.0.0.0 in .env.local
 # to use it from other devices on your network.
@@ -14,11 +14,11 @@ cd "$(dirname "$0")"
 PORT="${PORT:-3000}"
 
 if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js is not installed. Install 22.12 or newer from https://nodejs.org, then run this again." >&2
+  echo "Node.js is not installed. Install 22.19 or newer from https://nodejs.org, then run this again." >&2
   exit 1
 fi
-if ! node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)'; then
-  echo "Node.js $(node --version) is too old; Latentry needs 22.12 or newer." >&2
+if ! node -e 'const [a,b]=process.versions.node.split(".").map(Number); process.exit(a>22||(a===22&&b>=19)?0:1)'; then
+  echo "Node.js $(node --version) is too old; Latentry needs 22.19 or newer." >&2
   exit 1
 fi
 

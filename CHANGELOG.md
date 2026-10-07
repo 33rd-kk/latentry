@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Latentry now needs **Node.js 22.19 or newer** (was 22.12), for undici 8.
+
 ## 0.3.0 (2026-10-07)
 
 **Upgrading from 0.2.0**: a backend token is now only sent to the server it
