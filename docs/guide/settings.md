@@ -53,4 +53,13 @@ name, for example `by {artist}`; `-` hides the artist field). Empty boxes use
 the built-in value shown in grey. Changes apply to new forms, a profile switch
 and a form reset.
 
+**Tag spelling** and **Never respell** take effect on the next generation:
+
+- **Tag spelling** is how the family writes the words in a tag: underscores
+  (`long_hair`; built in for SDXL, Illustrious / NoobAI and Pony), spaces
+  (`long hair`; Anima) or as typed (generic).
+- **Never respell** lists the tags that are always left exactly as written,
+  comma-separated. `*` matches anything, so `score_*` (the built-in value)
+  covers `score_9` and `score_8_up`. `-` keeps nothing.
+
 **Save** keeps the changes; **Discard** drops them.

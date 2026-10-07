@@ -9,8 +9,8 @@ import path from 'node:path'
 import { check, done, eq } from './assert'
 import { parseBackends } from '../lib/backends/config'
 import { parseGalleryDirs } from '../lib/gallery/dirs'
-import { composePrompt, fitToImage, getProfile, listProfiles } from '../lib/profiles'
-import { appendTag, appendTags, prependTags, splitTags, toSpacedTags } from '../lib/tags'
+import { composePrompt, fitToImage, formatForProfile, getProfile, listProfiles } from '../lib/profiles'
+import { appendTag, appendTags, formatTags, prependTags, splitTags, tagKey, toSpacedTags } from '../lib/tags'
 
 // ── GEN_BACKENDS ──
 const mixed = parseBackends({
@@ -67,10 +67,17 @@ const anima = getProfile('anima')
 const illustrious = getProfile('illustrious')
 const pony = getProfile('pony')
 eq(composePrompt('1girl, solo', { profile: anima, artist: '@@ name ' }), '@name, 1girl, solo', 'Anima writes the artist as @name')
-eq(composePrompt('1girl', { profile: illustrious, artist: 'name', quality: true }), 'masterpiece, best quality, amazing quality, very aesthetic, name, 1girl', 'quality tags lead, then the artist')
+eq(composePrompt('1girl', { profile: illustrious, artist: 'name', quality: true }), 'masterpiece, best_quality, amazing_quality, very_aesthetic, name, 1girl', 'quality tags lead, then the artist')
 eq(composePrompt('masterpiece, 1girl', { profile: illustrious, quality: true }).split('masterpiece').length - 1, 1, 'a quality tag already present is not repeated')
 eq(composePrompt('1girl', { profile: pony, artist: 'ignored' }), '1girl', 'Pony has no artist notation')
 eq(composePrompt('  ', { profile: anima }), '', 'an empty prompt stays empty')
+const sdxl = getProfile('sdxl')
+eq(composePrompt('long hair, blue_eyes', { profile: sdxl, artist: 'some one' }), 'by some one, long_hair, blue_eyes', 'SDXL spells tags with underscores; the artist is left as written')
+eq(composePrompt('long_hair, score_9', { profile: anima }), 'long hair, score_9', 'Anima spells tags with spaces and keeps score tags')
+eq(composePrompt('long hair', { profile: pony, quality: true }), 'score_9, score_8_up, score_7_up, long_hair', 'Pony keeps its score tags')
+eq(composePrompt('best_quality, 1girl', { profile: illustrious, quality: true }).split('best').length - 1, 1, 'a quality tag in the other spelling is not repeated')
+eq(composePrompt('long_hair', { profile: getProfile('generic') }), 'long_hair', 'Generic sends the prompt as typed')
+eq(formatForProfile('worst quality', sdxl), 'worst_quality', 'the negative prompt goes through the same rule')
 
 const portrait = { width: 600, height: 900 }
 const fitted16 = fitToImage(portrait, 1216, 832, 16)
@@ -83,6 +90,21 @@ check(Math.abs(fitted8.width * fitted8.height - 1216 * 832) / (1216 * 832) < 0.0
 // ── Prompt strings ──
 eq(toSpacedTags('long_hair, >_<, ^_^, school_uniform, a_b c'), 'long hair, >_<, ^_^, school uniform, a b c', 'underscores to spaces, face tags kept')
 eq(toSpacedTags('snake_case_word and _leading'), 'snake case word and _leading', 'only between word characters')
+eq(toSpacedTags('hatsune_miku_(cosplay)'), 'hatsune miku (cosplay)', 'a qualifier is a word break too')
+eq(formatTags('long hair,  blue eyes , 1girl', 'underscore'), 'long_hair,  blue_eyes , 1girl', 'spaces to underscores, spacing around tags kept')
+eq(formatTags('long_hair, blue eyes', 'space'), 'long hair, blue eyes', 'underscores to spaces')
+eq(formatTags('score_9, score_8_up, Score 7', 'space', 'score_*'), 'score_9, score_8_up, Score 7', 'kept tags are left in space style')
+eq(formatTags('score_9, score 7', 'underscore', 'score_*'), 'score_9, score_7', 'underscore style needs no keeping')
+eq(formatTags('^_^, >_<', 'space'), '^_^, >_<', 'face tags kept')
+eq(formatTags('(long hair:1.2), [[blue eyes]]', 'underscore'), '(long_hair:1.2), [[blue_eyes]]', 'only the tag inside weighting')
+eq(formatTags('<lora:my lora:0.8>, a b BREAK c d', 'underscore'), '<lora:my lora:0.8>, a b BREAK c d', 'LoRA calls and BREAK kept')
+eq(formatTags('a girl standing in the rain, sunset. warm light', 'underscore'), 'a girl standing in the rain, sunset. warm light', 'prose is not joined up')
+eq(formatTags('long\thair,\tsmile', 'space'), 'long hair, smile', 'tabs are spaces')
+eq(formatTags('long\thair', 'underscore'), 'long_hair', 'tabs are word breaks')
+eq(formatTags('my_tag, other_tag', 'space', 'my_*'), 'my_tag, other tag', 'a custom keep list with a wildcard')
+eq(formatTags('long_hair\tx', 'asis'), 'long_hair\tx', 'as typed leaves everything')
+eq(tagKey(' Long_Hair '), tagKey('long hair'), 'one tag in two spellings')
+eq(appendTags('long_hair', ['long hair', 'smile']), 'long_hair, smile', 'append treats spellings as one tag')
 eq(splitTags(' a, ,b ,'), ['a', 'b'], 'split and trim')
 eq(appendTag('a, B', 'b'), 'a, B', 'append skips a tag already there')
 eq(appendTag('', 'x'), 'x', 'append to empty')

@@ -291,8 +291,18 @@
       "cfg": "CFG",
       "negativePrompt": "Negative prompt",
       "qualityTags": "Quality tags",
-      "artistTemplate": "Artist notation"
+      "artistTemplate": "Artist notation",
+      "tagStyle": "Tag spelling",
+      "keepTags": "Never respell"
     },
+    "tagStyleHint": "How tags are written when they reach this profile and when they are sent: long_hair or long hair.",
+    "tagStyleBuiltin": "Built-in ({style})",
+    "tagStyles": {
+      "underscore": "Underscores (long_hair)",
+      "space": "Spaces (long hair)",
+      "asis": "As typed"
+    },
+    "keepTagsHint": "Tags kept exactly as written, comma-separated; * matches anything, e.g. score_*. \"-\" for none.",
     "artistTemplateHint": "{artist} stands for the name, e.g. \"by {artist}\". \"-\" hides the artist field.",
     "none": "(none)",
     "unsaved": "Unsaved changes",
@@ -315,6 +325,7 @@
     "errorText": "Too long.",
     "errorPort": "A port from 1024 to 65000.",
     "errorArtistTemplate": "Must contain {artist}, or be \"-\".",
+    "errorTagStyle": "Must be underscores, spaces or as typed.",
     "dir": {
       "missing": "This folder does not exist.",
       "notDirectory": "This is a file, not a folder.",

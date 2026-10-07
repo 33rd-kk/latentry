@@ -28,7 +28,7 @@ async function main() {
       ],
       tagger: 'anima',
       gallery: { saveDir: ABS, dirs: [ABS + '2', '  '], autoTag: true },
-      profiles: { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', artistTemplate: '-'.replace('-', '') }, nope: { width: 1 } },
+      profiles: { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', artistTemplate: '-'.replace('-', ''), tagStyle: 'space', keepTags: '' }, nope: { width: 1 } },
     },
     EMPTY_SETTINGS
   )
@@ -36,7 +36,7 @@ async function main() {
   if (ok.ok) {
     eq(ok.settings.backends?.map((backend) => [backend.id, backend.token ?? null]), [['anima', 'secret'], ['sdxl', null]], 'ids are lowercased; tokens kept when given')
     eq(ok.settings.gallery, { saveDir: ABS, dirs: [ABS + '2'], autoTag: true }, 'empty folder rows are dropped')
-    eq(ok.settings.profiles, { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', artistTemplate: null } }, 'unknown profiles are ignored; "" hides the artist field')
+    eq(ok.settings.profiles, { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', keepTags: '', artistTemplate: null, tagStyle: 'space' } }, 'unknown profiles are ignored; "" hides the artist field; tag spelling kept')
   }
 
   const bad = validateSettings(
@@ -47,7 +47,7 @@ async function main() {
         { id: 'a', kind: 'a1111', url: 'http://y', profile: 'sdxl' },
       ],
       gallery: { saveDir: 'relative/path', dirs: ['also/relative'] },
-      profiles: { anima: { width: 1001, steps: 0.5, cfg: 99, artistTemplate: 'no placeholder' } },
+      profiles: { anima: { width: 1001, steps: 0.5, cfg: 99, artistTemplate: 'no placeholder', tagStyle: 'dashes' } },
     },
     EMPTY_SETTINGS
   )
@@ -66,6 +66,7 @@ async function main() {
         'profiles.anima.artistTemplate',
         'profiles.anima.cfg',
         'profiles.anima.steps',
+        'profiles.anima.tagStyle',
         'profiles.anima.width',
       ],
       'every bad field is named'

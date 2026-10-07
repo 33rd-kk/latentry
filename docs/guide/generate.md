@@ -23,6 +23,12 @@ form, so switching backends and back keeps what you typed.
 - **Positive prompt** and **Negative prompt**.
 - **Quality tags**: when on, the profile's quality tags (shown under the
   prompt) are put in front when generating.
+- **Tag spelling**: write tags either way, `long_hair` or `long hair`. When
+  you generate, both prompts are sent in the spelling the profile's model
+  family was trained on. A prompt or tags sent from the gallery arrive in that
+  spelling too. Score tags, face tags such as `^_^`, LoRA calls, `BREAK` and
+  sentences are left as written. Change this per profile on
+  [Settings](settings.md).
 - **Saved characters**: save the tags that make a character, together with
   the artist, negative prompt and seed, and apply them to any form later.
 

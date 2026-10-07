@@ -9,6 +9,7 @@
 
 import { BACKEND_KINDS, type BackendKind } from '@/lib/backends/types'
 import { isProfileId, PROFILE_IDS, type ProfileChanges, type ProfileId } from '@/lib/profiles'
+import { isTagStyle } from '@/lib/tags'
 
 export const SETTINGS_VERSION = 1
 
@@ -24,7 +25,7 @@ export interface StoredBackend {
 /** The fields of a profile the settings page can change (see lib/profiles). */
 export type ProfileOverride = ProfileChanges
 
-export const PROFILE_OVERRIDE_FIELDS = ['width', 'height', 'steps', 'cfg', 'negativePrompt', 'qualityTags', 'artistTemplate'] as const
+export const PROFILE_OVERRIDE_FIELDS = ['width', 'height', 'steps', 'cfg', 'negativePrompt', 'qualityTags', 'artistTemplate', 'tagStyle', 'keepTags'] as const
 
 export interface GallerySettings {
   /** Where finished images are saved; null turns saving off. */
@@ -245,7 +246,7 @@ export function validateSettings(
         if (value === null) errors[`${at}.cfg`] = 'settings.errorCfg'
         else override.cfg = value
       }
-      for (const field of ['negativePrompt', 'qualityTags'] as const) {
+      for (const field of ['negativePrompt', 'qualityTags', 'keepTags'] as const) {
         if (raw[field] === undefined || raw[field] === null) continue
         if (typeof raw[field] !== 'string' || (raw[field] as string).length > 2000) errors[`${at}.${field}`] = 'settings.errorText'
         else override[field] = raw[field] as string
@@ -255,6 +256,10 @@ export function validateSettings(
         else if (typeof raw.artistTemplate === 'string' && raw.artistTemplate.includes('{artist}') && raw.artistTemplate.length <= 100) {
           override.artistTemplate = raw.artistTemplate
         } else errors[`${at}.artistTemplate`] = 'settings.errorArtistTemplate'
+      }
+      if (raw.tagStyle !== undefined && raw.tagStyle !== null) {
+        if (isTagStyle(raw.tagStyle)) override.tagStyle = raw.tagStyle
+        else errors[`${at}.tagStyle`] = 'settings.errorTagStyle'
       }
       if (Object.keys(override).length) profiles[id] = override
     }

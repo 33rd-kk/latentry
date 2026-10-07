@@ -25,7 +25,7 @@ import { useBackends } from "@/hooks/use-backends"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
-import { composePrompt, fitToImage, getProfile, isProfileId, type Profile, type ProfileId } from "@/lib/profiles"
+import { composePrompt, fitToImage, formatForProfile, getProfile, isProfileId, type Profile, type ProfileId } from "@/lib/profiles"
 import {
   drainHandoff,
   preferences,
@@ -36,7 +36,7 @@ import {
   type HandoffSettings,
 } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
-import { appendTags, prependTags, toSpacedTags } from "@/lib/tags"
+import { appendTags, prependTags } from "@/lib/tags"
 import type { BackendStatus, Preset } from "@/lib/backends/types"
 import { useT } from "@/lib/i18n"
 
@@ -546,7 +546,9 @@ export function GenerateClient() {
           setOwned((current) => {
             if (!current) return current
             const key = item.target === "positive" ? "prompt" : "negativePrompt"
-            return { ...current, form: { ...current.form, [key]: appendTags(current.form[key], tags) } }
+            // In the spelling of the model they are going to.
+            const spelled = tags.map((tag) => formatForProfile(tag, getProfile(current.form.profile)))
+            return { ...current, form: { ...current.form, [key]: appendTags(current.form[key], spelled) } }
           })
         } else if (item.type === "settings") {
           // Into the backend chosen here, not the one the picture came from:
@@ -622,7 +624,7 @@ export function GenerateClient() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: composePrompt(form.prompt, { profile, artist: form.artist, quality: form.quality }),
-          negative_prompt: form.negativePrompt,
+          negative_prompt: formatForProfile(form.negativePrompt, profile),
           width: form.width,
           height: form.height,
           seed: form.seed,
@@ -1149,8 +1151,11 @@ function SeedInput({ value, onChange }: { value: number; onChange: (seed: number
 
 /** A gallery picture's settings over a form: what it says replaces, what it does not say stays. */
 function applySettings(form: FormState, settings: HandoffSettings, sameBackend: boolean): FormState {
+  // The words are respelled for the model they are going to: the profile the
+  // picture brings along when it comes with its settings, the form's otherwise.
+  const profile = getProfile(sameBackend && isProfileId(settings.profile) ? settings.profile : form.profile)
   const words = {
-    prompt: toSpacedTags(settings.prompt),
+    prompt: formatForProfile(settings.prompt, profile),
     // The prompt as saved already carries its artist and quality tags.
     artist: "",
     quality: false,
@@ -1163,7 +1168,7 @@ function applySettings(form: FormState, settings: HandoffSettings, sameBackend: 
     ...form,
     ...words,
     ...(settings.profile && isProfileId(settings.profile) ? { profile: settings.profile } : {}),
-    negativePrompt: settings.negativePrompt,
+    negativePrompt: formatForProfile(settings.negativePrompt, profile),
     ...(settings.width ? { width: settings.width } : {}),
     ...(settings.height ? { height: settings.height } : {}),
     ...(settings.steps ? { steps: settings.steps } : {}),

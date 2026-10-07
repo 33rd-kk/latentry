@@ -8,6 +8,7 @@ import { getBuiltinProfile, PROFILE_IDS, type ProfileId } from '@/lib/profiles'
 import { wd14Config } from '@/lib/tagger'
 import { DEFAULT_THRESHOLDS, hasModel } from '@/lib/tagger/wd14'
 import type { BackendKind } from '@/lib/backends/types'
+import type { TagStyle } from '@/lib/tags'
 import { getSettings, settingsPath } from './store'
 import type { ProfileOverride, Settings } from './schema'
 
@@ -33,6 +34,8 @@ export interface SettingsView {
     negativePrompt: string
     qualityTags: string
     artistTemplate: string | null
+    tagStyle: TagStyle
+    keepTags: string
   }[]
 }
 
@@ -77,6 +80,8 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
         ...profile.defaults,
         qualityTags: profile.qualityTags,
         artistTemplate: profile.artistTemplate,
+        tagStyle: profile.tagStyle,
+        keepTags: profile.keepTags,
       }
     }),
   }
