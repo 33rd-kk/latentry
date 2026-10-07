@@ -49,7 +49,9 @@ See [Setup and the engine](guide/engine.md) for what each part shows.
 
 Prefer servers you already run? Add them on the [Settings](guide/settings.md)
 page instead, or list them in `.env.local`
-(see [Backends](reference/backends.md)).
+(see [Backends](reference/backends.md)). To use only those, install with
+`./install.sh --no-engine` (Windows: `install.ps1 -NoEngine`): the engine
+does not start with Latentry, and the script points you to Settings.
 
 ## Generate the first picture
 

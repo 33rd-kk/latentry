@@ -96,6 +96,10 @@ through the firewall on private networks when asked.
 
 ### Using servers you already run
 
+To use only those, install with `./install.sh --no-engine` (Windows:
+`install.ps1 -NoEngine`): Latentry then skips the engine and points you to
+**Settings** instead of the Setup page.
+
 List them in `.env.local` (copied from [.env.example](.env.example)) or add
 them under **Settings**. A minimal `.env.local`:
 
