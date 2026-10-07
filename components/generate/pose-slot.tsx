@@ -285,6 +285,11 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
                 disabled={disabled}
               />
               <p className="text-xs text-muted-foreground">{t("generate.poseSkeletonHint")}</p>
+              {/* The answer decides what the 3D view can do; say what is missing rather than just leave it out. */}
+              {reference && !limits && <p className="text-xs text-muted-foreground">{t("generate.pose3dUnavailable")}</p>}
+              {limits && limits.zoom[0] === limits.zoom[1] && (
+                <p className="text-xs text-muted-foreground">{t("generate.pose3dNoZoom")}</p>
+              )}
               {!isPlainView(turn) && (
                 <p className="text-xs text-muted-foreground">
                   {t("generate.pose3dTurned", { yaw: turn.yaw, pitch: turn.pitch, zoom: turn.framing.zoom.toFixed(1) })}

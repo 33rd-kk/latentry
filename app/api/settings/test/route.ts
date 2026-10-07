@@ -34,5 +34,5 @@ export async function POST(request: Request) {
     ...(token ? { token } : {}),
   })
   const status = await adapter.status()
-  return json({ alive: status.alive, model: status.model, capabilities: status.capabilities })
+  return json({ alive: status.alive, model: status.model, capabilities: status.capabilities, hints: status.hints })
 }

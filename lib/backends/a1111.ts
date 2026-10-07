@@ -18,6 +18,7 @@
 import sharp from 'sharp'
 import { Agent, fetch as undiciFetch } from 'undici'
 import { fitToImage, getProfile } from '@/lib/profiles'
+import { a1111Hints } from './hints'
 import { errorMessage, isAbortError, stripDataUrl } from './http'
 import type {
   BackendAdapter,
@@ -304,6 +305,7 @@ export class A1111Adapter implements BackendAdapter {
         presets: false,
         preciseCancel: false,
       },
+      hints: a1111Hints(progress !== null),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
     }

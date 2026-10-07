@@ -34,6 +34,22 @@ export interface Capabilities {
   preciseCancel: boolean
 }
 
+/** The features a backend can lack that the page explains instead of just hiding. */
+export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose'] as const
+export type HintedFeature = (typeof HINTED_FEATURES)[number]
+
+/**
+ * Why a feature is off, so the page can say what would turn it on.
+ * - `kind`: this kind of backend cannot do it at all through Latentry.
+ * - `not-reported`: the server does not announce it in /api/health.
+ * - `declined`: the server says it cannot; `detail` is its own reason, if any.
+ */
+export interface FeatureHint {
+  reason: 'kind' | 'not-reported' | 'declined'
+  /** The server's words, plain text, already trimmed. */
+  detail?: string
+}
+
 /** What /api/gen/backends tells the browser. No URL and no token, ever. */
 export interface BackendStatus {
   id: string
@@ -45,6 +61,8 @@ export interface BackendStatus {
   /** The loaded model, as the backend names it; null when it does not say. */
   model: string | null
   capabilities: Capabilities
+  /** For each hinted feature it cannot use while up: why. Empty when offline. */
+  hints: Partial<Record<HintedFeature, FeatureHint>>
   /** The values its sampler / scheduler fields accept; empty hides the field. */
   samplers: string[]
   schedulers: string[]

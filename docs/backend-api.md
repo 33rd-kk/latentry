@@ -36,7 +36,8 @@ should answer `401` when it is missing or wrong. `/api/health` and
   "run_id": null,
   "samplers": ["Default", "Euler", "DPM++ 2M", "UniPC"],
   "schedulers": ["Default", "Karras", "Exponential"],
-  "tagger": true
+  "tagger": true,
+  "unavailable": { "inpaint": "This model has no inpainting pipeline." }
 }
 ```
 
@@ -48,6 +49,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `busy` | no | Something is generating. Shown as the backend's state. |
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
+| `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint` or `pose`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
 
 Any 2xx answer marks the backend as up.
 

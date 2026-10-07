@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { BACKEND_KINDS, type BackendKind } from "@/lib/backends/types"
+import { UnavailableFeatures } from "@/components/generate/unavailable-features"
+import { BACKEND_KINDS, type BackendKind, type BackendStatus } from "@/lib/backends/types"
 import { setProfileOverrides, type ProfileId } from "@/lib/profiles"
 import { TAG_STYLES } from "@/lib/tags"
 import type { SettingsView } from "@/lib/settings/view"
@@ -141,7 +142,7 @@ export function SettingsForm() {
   const [dirty, setDirty] = useState<Set<Part>>(new Set())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [tests, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; model?: string | null }>>({})
+  const [tests, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; model?: string | null; hints?: BackendStatus["hints"] }>>({})
 
   const load = useCallback(async () => {
     const response = await fetch("/api/settings", { cache: "no-store" })
@@ -215,7 +216,7 @@ export function SettingsForm() {
           body: JSON.stringify({ id: backend.id, kind: backend.kind, url: backend.url, token: backend.token || undefined, profile: backend.profile }),
         })
         const data = await response.json().catch(() => null)
-        setTests((current) => ({ ...current, [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model } }))
+        setTests((current) => ({ ...current, [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints } }))
       } catch {
         setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))
       }
@@ -354,6 +355,7 @@ export function SettingsForm() {
                     {test.state === "ok" ? t("settings.testOk", { model: test.model ?? "?" }) : t("settings.testFail")}
                   </p>
                 )}
+                {test?.state === "ok" && test.hints && <UnavailableFeatures hints={test.hints} />}
               </div>
             )
           })}

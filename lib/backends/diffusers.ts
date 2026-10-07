@@ -7,6 +7,7 @@
 
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { errorMessage, fetchWithTimeout, getJson, isAbortError } from './http'
+import { diffusersHints } from './hints'
 import type {
   BackendAdapter,
   BackendConfig,
@@ -43,6 +44,8 @@ interface HealthBody {
   tagger?: unknown
   img2img?: unknown
   inpaint?: unknown
+  /** Per feature, the server's own reason it is off. */
+  unavailable?: unknown
 }
 
 function stringList(value: unknown): string[] | null {
@@ -98,6 +101,7 @@ export class DiffusersAdapter implements BackendAdapter {
         presets: true,
         preciseCancel: true,
       },
+      hints: diffusersHints(health as Record<string, unknown> | null),
       samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
       schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
     }
