@@ -105,6 +105,10 @@ The eye in the header turns on secret mode, for this browser:
   or another device does not pick it up, and the server forgets it a minute
   after it ends.
 
-What it does not do: pictures are still saved to the gallery folder, with
-their prompt and settings inside the file, and anyone who can open the
-gallery can see them there. Turn secret mode off to save forms again.
+What it does not do, by design: pictures are still saved to the gallery
+folder, with their prompt and settings inside the file, and the gallery
+shows them like any other picture, prompt included, to anyone who can open
+it: another browser on this computer, or another device when Latentry is
+open to the network. Secret mode belongs to one browser, and the server
+cannot tell who is asking for the gallery. Turn secret mode off to save
+forms again.

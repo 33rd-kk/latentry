@@ -40,8 +40,9 @@ What it does guard against:
   holds.
 - **Secret mode** is a privacy aid for this browser, not a security
   boundary: it keeps typed text out of browser storage, gallery pictures out
-  of the browser cache, and secret runs from other pages; saved pictures
-  still carry their prompt.
+  of the browser cache, and secret runs from other pages. By design, saved
+  pictures still carry their prompt, and the gallery shows them, prompt
+  included, to anyone who can reach Latentry.
 
 What is out of scope: anyone already on your LAN or machine, and exposing
 Latentry to the internet. To do that, put an authenticating reverse proxy in
