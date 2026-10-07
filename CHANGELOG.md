@@ -1,51 +1,64 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-10-07)
 
-- **Gallery**: a card's full tag list folds back again: **Show less** is now
-  a proper button (bigger on touch screens), and a click or tap outside the
-  card, or Esc, folds it too.
-- **Secret mode** is easy to see: while it is on, the header shows a filled
-  **Secret** pill instead of a faint eye. In the gallery panel, analysing a
-  picture says how many tags were found while they are hidden, **Show for
-  this picture** reveals its prompt, settings and tags, and the tag list no
-  longer claims "No tags" when they are only hidden.
-- The manual has a page on [secret mode](https://33rd-kk.github.io/latentry/guide/secret-mode/):
-  what it hides, and what it does not.
-- **Generate**: prompts are sent in the tag spelling of the profile's model
-  family: underscores for SDXL, Illustrious / NoobAI and Pony, spaces for
-  Anima, as typed for generic. Settings or tags sent from the gallery arrive
-  in that spelling. Each profile's spelling, and the tags it never respells
-  (`score_*` by default), can be changed on Settings.
-- **Generate**: **Share across backends** next to the prompt chooses
-  whether the prompt and artist are kept per backend (the default) or shared
-  by every backend. The negative prompt stays per backend.
-- **Fixed**: sending a Pony picture's settings to the form no longer turns
-  `score_9` into `score 9`.
-- `long_hair` and `long hair` now count as the same tag when tags are added
-  to a prompt.
-- **Settings**: a backend token is only sent to the server it was set up
-  for (same scheme, host and port). **Test** no longer lends a saved token to
-  another address; changing a backend's address asks for its token again (or
-  for it to be removed); and `GEN_TOKEN_<ID>` only applies while
-  `GEN_BACKENDS` lists that id at the same address, so a backend added only on
-  the Settings page needs its token typed there.
-- **Secret mode** now also keeps a run to the page that started it (no
-  other tab, reload or device picks it up, and the server forgets it a minute
-  after it ends), keeps what the gallery sends to the form out of browser
-  storage, and blurs the gallery picker and hides WD14 tags. Pictures are
-  still saved to the gallery folder.
-- **Gallery**: pictures and thumbnails are no longer kept in the browser's
-  cache.
-- **Security**: whether a request comes from this machine (for changing
-  settings) is decided by the connection's real address too, so a program on
-  the LAN can no longer pass by writing `Host` and `X-Forwarded-For`.
+**Upgrading from 0.2.0**: a backend token is now only sent to the server it
+was set up for. A `GEN_TOKEN_<ID>` applies only while `GEN_BACKENDS` lists
+that id at the same address (scheme, host and port); a backend added only on
+the Settings page needs its token typed there. Moving a backend to another
+address on Settings asks for its token again.
+
+**Security**
+
+- Backend tokens could be sent to another address by anyone who can change
+  settings: **Test** lent a saved token to any URL, and a backend kept its
+  token when its address changed. Tokens now stay with their server.
+- "Only from this machine" (the default `SETTINGS_EDIT=local`) went by the
+  `Host` and `X-Forwarded-For` headers, which a program on the LAN can
+  write. It now also checks the address the connection really came from.
 - `npm start`, `npm run dev` and `npm run build` turn Next.js's anonymous
-  usage reports off, and the engine runs with Hugging Face's off and without
-  the other backends' tokens in its environment.
-- **Settings**: the wildcards in a profile's never-respelled tags are matched
-  without a regular expression, so a pattern with many `*` can no longer
-  freeze the generate page on a long tag.
+  usage reports off; the engine runs with Hugging Face's off and without the
+  other backends' tokens in its environment.
+
+**Secret mode**
+
+- Easy to see: while it is on, the header shows a filled **Secret** pill.
+- A run started in secret mode stays on the page that started it: no other
+  tab, reload or device picks it up, and the server forgets it a minute
+  after it ends.
+- What the gallery sends to the form is no longer written to browser
+  storage; the gallery picker blurs pictures and WD14 tags are hidden too.
+- In the gallery panel, **Show for this picture** reveals one picture's
+  prompt, settings and tags while it is on screen, and analysing a picture
+  says how many tags were found while they are hidden.
+- A new [manual page](https://33rd-kk.github.io/latentry/guide/secret-mode/)
+  says what it hides, and what it does not: pictures are still saved to the
+  gallery folder with their prompt, and shown in the gallery.
+
+**Generate**
+
+- Prompts are sent in the tag spelling of the profile's model family:
+  underscores for SDXL, Illustrious / NoobAI and Pony, spaces for Anima, as
+  typed for generic. Settings or tags sent from the gallery arrive in that
+  spelling. Each profile's spelling, and the tags it never respells
+  (`score_*` by default), can be changed on Settings.
+- **Share across backends** next to the prompt keeps one prompt and artist
+  for every backend; the negative prompt stays per backend.
+- `long_hair` and `long hair` count as the same tag when tags are added to a
+  prompt.
+
+**Gallery**
+
+- Pictures and thumbnails are no longer kept in the browser's cache.
+- A card's full tag list folds back with **Show less** (bigger on touch
+  screens), a click or tap outside the card, or Esc.
+
+**Fixed**
+
+- SDXL img2img counted one step too many whenever steps × strength was not
+  a whole number, so a batch stopped at e.g. 23/24 until its pictures came.
+- Sending a Pony picture's settings to the form no longer turns `score_9`
+  into `score 9`.
 
 ## 0.2.0 (2026-10-06)
 
