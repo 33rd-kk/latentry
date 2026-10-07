@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **README and manual** lead with what Latentry is for: private, local image
+  generation, and a gallery that remembers how every picture was made. A
+  new banner, a Privacy section in the README, and a
+  [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/) page in the
+  manual listing what goes over the network and what is kept where.
 - **Gallery**: **Stack** pictures that share a prompt or a seed into one
   card, and open a stack to see them. **Compare** two selected pictures with
   a slider (or side by side), their differing settings and the prompt tags

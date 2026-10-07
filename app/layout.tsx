@@ -11,7 +11,7 @@ const fontMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] 
 
 export const metadata: Metadata = {
   title: "Latentry",
-  description: "A local web UI for diffusion backends: generate, edit, browse and tag.",
+  description: "Private, local image generation. Every picture remembered.",
 }
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

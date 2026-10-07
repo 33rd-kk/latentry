@@ -25,8 +25,8 @@ const GLYPHS = {
 const NAME = GLYPHS.L.map((_, row) =>
   [...'Latentry'].map((letter) => GLYPHS[letter][row]).join('.')
 )
-const TAGLINE = 'A local web UI for the image models you already run.'
-const FEATURES = 'txt2img · img2img · inpaint · pose · gallery · WD14 tags'
+const TAGLINE = 'Private, local image generation. Every picture remembered.'
+const FEATURES = 'on your machine · no telemetry · txt2img · img2img · inpaint · pose · gallery'
 
 // Same colours and seed as scripts/make-banner.mjs.
 const PALETTE = [

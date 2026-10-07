@@ -2,13 +2,14 @@
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="assets/banner-dark.png">
-  <img alt="Latentry: a local web UI for the image models you already run" src="assets/banner-light.png">
+  <img alt="Latentry: private, local image generation. Every picture remembered." src="assets/banner-light.png">
 </picture>
 
-**A local web UI for the image models you already run.** One form for
-text-to-image, img2img, inpainting and pose, in front of several backends at
-once: Latentry's own engine, servers you already run, or both. Every picture
-lands in a searchable gallery with its settings.
+**Private, local image generation. Every picture remembered.** A web UI
+on your own computer, in front of Latentry's own engine, the servers you
+already run, or both. Your prompts, pictures and settings stay on your
+machine. Every picture is saved with how it was made, and the gallery finds
+it again by what it shows or how it was made.
 
 ![The generate page: a reference's pose turned 30 degrees in the 3D view, and the two pictures generated from it](assets/screenshot-generate.webp)
 
@@ -23,8 +24,13 @@ lands in a searchable gallery with its settings.
   sizes, steps, CFG, negative prompt, artist notation and quality tags.
 - **Gallery**: every finished image is saved with its settings embedded
   (readable by A1111's PNG Info too); other tools' folders are browsed
-  read-only. Search, filter, and send settings, tags or the picture back to
-  the form.
+  read-only, with settings read from PNG, JPEG and WebP. Search by prompt,
+  tag or setting (`lora:`, `steps:>=30`), order and filter, stack pictures
+  that share a prompt, compare two, and send settings, tags or the picture
+  back to the form.
+- **Private by design**: nothing is sent anywhere you did not set up, no
+  telemetry, settings only from this computer, and a secret mode. See
+  [Privacy](guide/privacy.md).
 - **Tags**: WD14 tags from a source picture, carried into the prompt by group
   (hair, eyes, outfit…); tags under every gallery card; tag a whole selection
   at once.
@@ -38,6 +44,7 @@ lands in a searchable gallery with its settings.
    generate the first picture.
 2. The guide, page by page: [Generate](guide/generate.md),
    [Pose and the 3D view](guide/pose.md), [Gallery](guide/gallery.md),
+   [Privacy](guide/privacy.md),
    [Setup and the engine](guide/engine.md), [Settings](guide/settings.md).
 3. [Other devices and security](guide/network.md) before using it from a
    phone.
