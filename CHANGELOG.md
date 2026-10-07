@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Secret mode** is easy to see: while it is on, the header shows a dark
+  **Secret** pill instead of a faint eye. In the gallery panel, analysing a
+  picture says how many tags were found while they are hidden, **Show for
+  this picture** reveals its prompt, settings and tags, and the tag list no
+  longer claims "No tags" when they are only hidden.
+- The manual has a page on [secret mode](https://33rd-kk.github.io/latentry/guide/secret-mode/):
+  what it hides, and what it does not.
 - **Generate**: prompts are sent in the tag spelling of the profile's model
   family: underscores for SDXL, Illustrious / NoobAI and Pony, spaces for
   Anima, as typed for generic. Settings or tags sent from the gallery arrive

@@ -32,6 +32,7 @@ nav:
       - Generate: guide/generate.md
       - Pose and the 3D view: guide/pose.md
       - Gallery: guide/gallery.md
+      - Secret mode: guide/secret-mode.md
       - Setup and the engine: guide/engine.md
       - Settings: guide/settings.md
       - Other devices and security: guide/network.md
