@@ -100,7 +100,7 @@ function spawnEngine(engine: EngineProcess): void {
   const child = spawn(paths.python, args, {
     cwd: paths.root,
     env: {
-      ...process.env,
+      ...engineEnv(),
       LATENTRY_ENGINE_TOKEN: engine.token,
       PYTHONUNBUFFERED: '1',
       ...(engine.gpu?.vendor === 'nvidia' ? { CUDA_VISIBLE_DEVICES: String(engine.gpu.index) } : {}),
@@ -254,6 +254,16 @@ export function engineBackends(): BackendConfig[] {
       profile: profileFor(engine.model, engine.family),
       token: engine.token,
     }))
+}
+
+/**
+ * This process's environment as the engine gets it: without the tokens of the
+ * other backends, which it has no use for, and with Hugging Face's usage
+ * reports off unless set otherwise.
+ */
+export function engineEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const kept = Object.fromEntries(Object.entries(env).filter(([key]) => !/^GEN_TOKEN_/i.test(key) && key !== 'DIFFUSION_API_TOKEN'))
+  return { HF_HUB_DISABLE_TELEMETRY: '1', ...kept } as unknown as NodeJS.ProcessEnv
 }
 
 /** Calls an engine's own API (models, downloads) with its token. */
