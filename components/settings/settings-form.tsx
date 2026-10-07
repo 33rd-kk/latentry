@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { BACKEND_KINDS, type BackendKind } from "@/lib/backends/types"
 import { setProfileOverrides, type ProfileId } from "@/lib/profiles"
+import { TAG_STYLES } from "@/lib/tags"
 import type { SettingsView } from "@/lib/settings/view"
 import { cn } from "@/lib/utils"
 import { useT, type MessageKey } from "@/lib/i18n"
@@ -33,7 +34,7 @@ interface BackendDraft {
   tokenSource: Source | null
 }
 
-type ProfileDraft = Record<"width" | "height" | "steps" | "cfg" | "negativePrompt" | "qualityTags" | "artistTemplate", string>
+type ProfileDraft = Record<"width" | "height" | "steps" | "cfg" | "negativePrompt" | "qualityTags" | "artistTemplate" | "tagStyle" | "keepTags", string>
 
 interface Draft {
   backends: BackendDraft[]
@@ -49,7 +50,7 @@ interface Draft {
 
 const AUTO = "__auto__"
 const BUILTIN = "builtin"
-const PROFILE_FIELDS: (keyof ProfileDraft)[] = ["width", "height", "steps", "cfg", "negativePrompt", "qualityTags", "artistTemplate"]
+const PROFILE_FIELDS: (keyof ProfileDraft)[] = ["width", "height", "steps", "cfg", "negativePrompt", "qualityTags", "artistTemplate", "tagStyle", "keepTags"]
 
 let nextKey = 0
 const newKey = () => `b${(nextKey += 1)}`
@@ -61,7 +62,8 @@ function toDraft(view: SettingsView): Draft {
     profiles[builtin.id] = Object.fromEntries(
       PROFILE_FIELDS.map((field) => {
         const value = override[field]
-        return [field, value === undefined ? "" : value === null ? "-" : String(value)]
+        // "-" stands for "none": no artist field, or no tags kept from respelling.
+        return [field, value === undefined ? "" : value === null || (field === "keepTags" && value === "") ? "-" : String(value)]
       })
     ) as ProfileDraft
   }
@@ -120,6 +122,8 @@ function toInput(draft: Draft, dirty: Set<Part>) {
         const value = fields![field].trim()
         if (!value) continue
         if (field === "artistTemplate") out[field] = value === "-" ? null : value
+        else if (field === "keepTags") out[field] = value === "-" ? "" : fields![field]
+        else if (field === "tagStyle") out[field] = value
         else if (field === "negativePrompt" || field === "qualityTags") out[field] = fields![field]
         else out[field] = Number(value)
       }
@@ -540,6 +544,26 @@ export function SettingsForm() {
                   <Field label={t("settings.profile.artistTemplate")} hint={t("settings.artistTemplateHint")}>
                     <Input value={fields.artistTemplate} placeholder={builtin.artistTemplate ?? "-"} onChange={(event) => set("artistTemplate", event.target.value)} />
                     {error(at("artistTemplate"))}
+                  </Field>
+                  <Field label={t("settings.profile.tagStyle")} hint={t("settings.tagStyleHint")}>
+                    <Select value={fields.tagStyle || BUILTIN} onValueChange={(value) => set("tagStyle", value === BUILTIN ? "" : value)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={BUILTIN}>{t("settings.tagStyleBuiltin", { style: t(`settings.tagStyles.${builtin.tagStyle}`) })}</SelectItem>
+                        {TAG_STYLES.map((style) => (
+                          <SelectItem key={style} value={style}>
+                            {t(`settings.tagStyles.${style}`)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {error(at("tagStyle"))}
+                  </Field>
+                  <Field label={t("settings.profile.keepTags")} hint={t("settings.keepTagsHint")}>
+                    <Input value={fields.keepTags} placeholder={builtin.keepTags || "-"} onChange={(event) => set("keepTags", event.target.value)} />
+                    {error(at("keepTags"))}
                   </Field>
                 </div>
               </div>

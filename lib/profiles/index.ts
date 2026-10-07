@@ -1,4 +1,6 @@
 // Model profiles: what a model family expects of a prompt and a canvas.
+
+import { formatTags, tagKey, type TagStyle } from '@/lib/tags'
 //
 // A profile is not a backend. The backend says how to talk to a server (see
 // lib/backends); the profile says what to ask it for — the starting size and
@@ -40,6 +42,10 @@ export interface Profile {
   artistTemplate: string | null
   /** Tags the family was trained to read as "good", offered as a toggle. */
   qualityTags: string
+  /** How the family spells a tag's word breaks: `long_hair` or `long hair`. */
+  tagStyle: TagStyle
+  /** Tags never respelled (comma-separated, `*` a wildcard): `score_9` is a token, not two words. */
+  keepTags: string
   /** Where the img2img strength slider starts. */
   defaultStrength: number
   /** Where it starts when the source is a pose reference rather than a picture to edit. */
@@ -60,6 +66,12 @@ const MEGAPIXEL_BUCKETS = [
   [640, 1536],
 ] as const
 
+// Pony's score tags are single tokens with their underscores; so is any
+// family's copy of them.
+const KEEP_TAGS = 'score_*'
+
+// Danbooru-trained SDXL checkpoints learned tags with their underscores;
+// Anima's captions were written with spaces. Generic leaves the prompt alone.
 const PROFILES: Record<ProfileId, Profile> = {
   generic: {
     id: 'generic',
@@ -69,6 +81,8 @@ const PROFILES: Record<ProfileId, Profile> = {
     resolutions: MEGAPIXEL_BUCKETS,
     artistTemplate: null,
     qualityTags: '',
+    tagStyle: 'asis',
+    keepTags: KEEP_TAGS,
     defaultStrength: 0.6,
     defaultPoseStrength: 0.85,
   },
@@ -86,6 +100,8 @@ const PROFILES: Record<ProfileId, Profile> = {
     resolutions: MEGAPIXEL_BUCKETS,
     artistTemplate: 'by {artist}',
     qualityTags: 'masterpiece, best quality',
+    tagStyle: 'underscore',
+    keepTags: KEEP_TAGS,
     defaultStrength: 0.6,
     defaultPoseStrength: 0.85,
   },
@@ -104,6 +120,8 @@ const PROFILES: Record<ProfileId, Profile> = {
     // Danbooru-trained: an artist is just their tag.
     artistTemplate: '{artist}',
     qualityTags: 'masterpiece, best quality, amazing quality, very aesthetic',
+    tagStyle: 'underscore',
+    keepTags: KEEP_TAGS,
     defaultStrength: 0.6,
     defaultPoseStrength: 0.85,
   },
@@ -122,6 +140,8 @@ const PROFILES: Record<ProfileId, Profile> = {
     // Pony's artist knowledge was deliberately obfuscated; a name does little.
     artistTemplate: null,
     qualityTags: 'score_9, score_8_up, score_7_up',
+    tagStyle: 'underscore',
+    keepTags: KEEP_TAGS,
     defaultStrength: 0.6,
     defaultPoseStrength: 0.85,
   },
@@ -141,6 +161,8 @@ const PROFILES: Record<ProfileId, Profile> = {
     // Anima reads "@name" as an artist style.
     artistTemplate: '@{artist}',
     qualityTags: '',
+    tagStyle: 'space',
+    keepTags: KEEP_TAGS,
     defaultStrength: 0.6,
     defaultPoseStrength: 0.85,
   },
@@ -159,6 +181,8 @@ export interface ProfileChanges {
   negativePrompt?: string
   qualityTags?: string
   artistTemplate?: string | null
+  tagStyle?: TagStyle
+  keepTags?: string
 }
 
 // Overrides from the settings page, laid over the built-in profiles. Held at
@@ -183,6 +207,8 @@ export function applyProfileChanges(base: Profile, changes: ProfileChanges | und
       negativePrompt: changes.negativePrompt ?? base.defaults.negativePrompt,
     },
     qualityTags: changes.qualityTags ?? base.qualityTags,
+    tagStyle: changes.tagStyle ?? base.tagStyle,
+    keepTags: changes.keepTags ?? base.keepTags,
     artistTemplate: changes.artistTemplate !== undefined ? changes.artistTemplate : base.artistTemplate,
   }
 }
@@ -201,36 +227,45 @@ export function listProfiles(): Profile[] {
   return PROFILE_IDS.map((id) => getProfile(id))
 }
 
+/** `text` with every tag spelled the way `profile`'s family reads it. */
+export function formatForProfile(text: string, profile: Profile): string {
+  return formatTags(text, profile.tagStyle, profile.keepTags)
+}
+
 /**
- * The prompt as it is sent: the artist in the profile's notation and the
- * quality tags in front, skipping either when it is empty or already there.
+ * The prompt as it is sent: its tags in the profile's spelling, the artist in
+ * the profile's notation and the quality tags in front, skipping either when
+ * it is empty or already there. The artist is left as written: `by {artist}`
+ * is words around a name, not a tag.
  */
 export function composePrompt(
   prompt: string,
   options: { profile: Profile; artist?: string; quality?: boolean }
 ): string {
+  const { profile } = options
+  const body = formatForProfile(prompt, profile)
   const parts: string[] = []
   const present = new Set(
-    prompt
+    body
       .split(',')
-      .map((tag) => tag.trim().toLowerCase())
+      .map(tagKey)
       .filter(Boolean)
   )
 
-  if (options.quality && options.profile.qualityTags) {
-    for (const tag of options.profile.qualityTags.split(',').map((t) => t.trim())) {
-      if (tag && !present.has(tag.toLowerCase())) parts.push(tag)
+  if (options.quality && profile.qualityTags) {
+    for (const tag of formatForProfile(profile.qualityTags, profile).split(',').map((t) => t.trim())) {
+      if (tag && !present.has(tagKey(tag))) parts.push(tag)
     }
   }
 
-  const template = options.profile.artistTemplate
+  const template = profile.artistTemplate
   const name = (options.artist ?? '').trim().replace(/^@+/, '').trim()
   if (template && name) {
     const artist = template.replace('{artist}', name)
-    if (!present.has(artist.toLowerCase())) parts.push(artist)
+    if (!present.has(tagKey(artist))) parts.push(artist)
   }
 
-  const rest = prompt.trim()
+  const rest = body.trim()
   if (rest) parts.push(rest)
   return parts.join(', ')
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## Unreleased
+
+- **Generate**: prompts are sent in the tag spelling of the profile's model
+  family: underscores for SDXL, Illustrious / NoobAI and Pony, spaces for
+  Anima, as typed for generic. Settings or tags sent from the gallery arrive
+  in that spelling. Each profile's spelling, and the tags it never respells
+  (`score_*` by default), can be changed on Settings.
+- **Generate**: **Share across backends** next to the prompt chooses
+  whether the prompt and artist are kept per backend (the default) or shared
+  by every backend. The negative prompt stays per backend.
+- **Fixed**: sending a Pony picture's settings to the form no longer turns
+  `score_9` into `score 9`.
+- `long_hair` and `long hair` now count as the same tag when tags are added
+  to a prompt.
+
 ## 0.2.0 (2026-10-06)
 
 First public release. The manual: https://33rd-kk.github.io/latentry/
