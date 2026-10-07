@@ -25,7 +25,7 @@ it again by what it shows or how it was made.
 - **Gallery**: every finished image is saved with its settings embedded
   (readable by A1111's PNG Info too); other tools' folders are browsed
   read-only, with settings read from PNG, JPEG and WebP. Search by prompt,
-  tag or setting (`lora:`, `steps:>=30`), order and filter, stack pictures
+  tag or setting (`model:`, `steps:>=30`), order and filter, stack pictures
   that share a prompt, compare two, and send settings, tags or the picture
   back to the form.
 - **Private by design**: nothing is sent anywhere you did not set up, no

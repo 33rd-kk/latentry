@@ -26,15 +26,14 @@ Type in **Search prompts, tags, models, file names**:
 - Quotes match one tag exactly: `"long hair"` does not match `very long hair`.
   Tags sent from the viewer are quoted.
 - Underscores and spaces are the same, and case does not matter.
-- Unquoted terms also match the model, the LoRAs and the file name.
-- `key:value` searches one setting. `model:`, `sampler:` and `lora:` match
-  names that contain the text (`model:noobai`, `lora:detail`). `seed:`,
-  `steps:`, `cfg:`, `w:` (width) and `h:` (height) compare numbers:
-  `steps:>=30`, `cfg:<5`, `w:1024` (`=` when no comparison is given). Width
-  and height are the picture's real size. Any other key is searched as
-  plain text.
+- Unquoted terms also match the model and the file name.
+- `key:value` searches one setting. `model:` and `sampler:` match names
+  that contain the text (`model:noobai`). `seed:`, `steps:`, `cfg:`, `w:`
+  (width) and `h:` (height) compare numbers: `steps:>=30`, `cfg:<5`,
+  `w:1024` (`=` when no comparison is given). Width and height are the
+  picture's real size. Any other key is searched as plain text.
 - A leading `-` leaves out pictures that match: `-smile`, `-"long hair"`,
-  `-lora:detail`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
+  `-model:pony`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
   just text.
 
 **Show search tips** under the box repeats this. **Refresh** picks up
@@ -69,9 +68,9 @@ toolbar, with × to remove it (or **Clear all**):
 - **Changed**: the last 24 hours, 7 days or 30 days.
 - **Resolution**: under 0.75 MP (SD 1.5 sizes), about 1 MP (SDXL sizes), or
   over 1.5 MP (upscaled).
-- **Model** and **LoRA**: every model and LoRA named in the folder's
-  pictures (the folder is read once when you open the filters). In secret
-  mode their names are not shown, and the folder is not read for them.
+- **Model**: every model named in the folder's pictures (the folder is read
+  once when you open the filters). In secret mode model names are not
+  shown, and the folder is not read for them.
 - **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
 - **Backend** and **profile**.
 - **Only pictures without WD14 tags**.

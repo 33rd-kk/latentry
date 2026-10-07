@@ -24,6 +24,12 @@ import { useT } from "@/lib/i18n"
 
 const ALL = "__all__"
 
+// The LoRA filter is built (lora: in the search, ?lora=, the folder's LoRAs
+// in ?facets=1) but not shown yet: Latentry's own engine cannot apply LoRAs,
+// so a <lora:…> written for it would be listed without having been used.
+// Turn this on once the engine applies them.
+const SHOW_LORA_FILTER = false
+
 /** The order of the pictures, in the toolbar. */
 export function SortSelect({ value, onChange }: { value: SortKey; onChange: (sort: SortKey) => void }) {
   const t = useT()
@@ -142,7 +148,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
             />
           </Field>
           {nameField("model", t("gallery.filter.model"), t("gallery.filter.allModels"), facets.models, reading)}
-          {nameField("lora", t("gallery.filter.lora"), t("gallery.filter.allLoras"), facets.loras)}
+          {SHOW_LORA_FILTER && nameField("lora", t("gallery.filter.lora"), t("gallery.filter.allLoras"), facets.loras)}
           <Field label={t("gallery.filter.source")}>
             <OptionSelect
               value={query.source}

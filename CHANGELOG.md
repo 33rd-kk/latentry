@@ -16,8 +16,7 @@
   app. They appear only when the browser runs on the same computer, and
   never act on a file outside the gallery folders. The gallery still has no
   delete, move or rename, by design.
-- **Gallery**: search and filter by LoRA (`lora:detail`, and a LoRA menu
-  under Filters), and leave pictures out with a leading `-` (`-smile`,
+- **Gallery**: leave pictures out with a leading `-` (`-smile`,
   `-"long hair"`, `-model:pony`). The viewer lists a picture's LoRAs.
 - **Gallery** reads settings from JPEG and WebP too (A1111 / Forge's EXIF,
   ComfyUI's WebP), and the LoRAs a picture used. Before, only PNGs had

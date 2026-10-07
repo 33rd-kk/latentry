@@ -28,10 +28,10 @@ made, then sends those settings back to the form to make it again.
   is saved with its settings embedded (readable by A1111's PNG Info too).
   Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
   and their settings are read from PNG, JPEG and WebP alike.
-  - Search prompts and tags, or one setting: `model:`, `lora:`, `seed:`,
+  - Search prompts and tags, or one setting: `model:`, `seed:`,
     `steps:>=30`, `w:1024`; leave pictures out with `-tag`.
   - Order by date, name, size, date made or pixel count; filter by shape,
-    file type, age, resolution, model, LoRA and more.
+    file type, age, resolution, model and more.
   - Stack pictures that share a prompt or seed, and compare two side by side
     or with a slider, with what differs between them.
   - Send a picture's settings, tags or the picture itself back to the form,
