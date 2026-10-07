@@ -13,6 +13,10 @@ export const STORAGE_KEYS = {
   /** The generate form of one backend: `${FORM_PREFIX}${backendId}`. */
   FORM_PREFIX: 'latentry:form:',
   SELECTED_BACKEND: 'latentry:backend',
+  /** Whether the prompt is kept per backend or shared by all (PromptScope). */
+  PROMPT_SCOPE: 'latentry:prompt-scope',
+  /** The prompt every backend's form shows while the scope is "shared". */
+  SHARED_PROMPT: 'latentry:shared-prompt',
   CHARACTER_PRESETS: 'latentry:characters',
   HANDOFF: 'latentry:handoff',
   SECRET_MODE: SECRET_MODE_STORAGE_KEY,
@@ -45,6 +49,21 @@ function writeInput(key: string, value: unknown): void {
   write(key, value)
 }
 
+/**
+ * Where the generate form keeps its words. Per backend, an Anima server and an
+ * SDXL web UI each remember their own prompt; shared, switching backends
+ * carries the prompt along and only the settings swap (the tag spelling is
+ * fixed per model when it is sent, see lib/profiles). The negative prompt is
+ * always per backend: what a family should avoid is the family's.
+ */
+export type PromptScope = 'backend' | 'shared'
+
+/** What the scope covers: the prompt and the artist that leads it. */
+export interface SharedPrompt {
+  prompt: string
+  artist: string
+}
+
 export interface CharacterPreset {
   id: string
   name: string
@@ -66,6 +85,15 @@ export const preferences = {
   getForm: (backendId: string): Record<string, unknown> | null => read(STORAGE_KEYS.FORM_PREFIX + backendId, null),
   setForm: (backendId: string, form: Record<string, unknown>) => writeInput(STORAGE_KEYS.FORM_PREFIX + backendId, form),
   clearForm: (backendId: string) => write(STORAGE_KEYS.FORM_PREFIX + backendId, null),
+
+  getPromptScope: (): PromptScope => (read<string>(STORAGE_KEYS.PROMPT_SCOPE, 'backend') === 'shared' ? 'shared' : 'backend'),
+  setPromptScope: (scope: PromptScope) => write(STORAGE_KEYS.PROMPT_SCOPE, scope),
+  getSharedPrompt: (): SharedPrompt | null => {
+    const raw = read<Record<string, unknown> | null>(STORAGE_KEYS.SHARED_PROMPT, null)
+    if (!raw || typeof raw !== 'object') return null
+    return { prompt: typeof raw.prompt === 'string' ? raw.prompt : '', artist: typeof raw.artist === 'string' ? raw.artist : '' }
+  },
+  setSharedPrompt: (shared: SharedPrompt) => writeInput(STORAGE_KEYS.SHARED_PROMPT, shared),
 
   getSelectedBackend: (): string | null => read(STORAGE_KEYS.SELECTED_BACKEND, null),
   setSelectedBackend: (id: string) => write(STORAGE_KEYS.SELECTED_BACKEND, id),

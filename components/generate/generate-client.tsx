@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { toast } from "sonner"
 import { ArrowLeftRight, Dices, Download, FolderCheck, ImageUp, Loader2, RotateCcw, Wand2 } from "lucide-react"
@@ -34,6 +34,7 @@ import {
   type CharacterPreset,
   type HandoffItem,
   type HandoffSettings,
+  type PromptScope,
 } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
 import { appendTags, prependTags } from "@/lib/tags"
@@ -125,6 +126,33 @@ function readStoredForm(backendId: string, fallbackProfile: ProfileId): FormStat
   }
 }
 
+/** A form with the shared prompt over its own, when the prompt is shared. */
+function withSharedPrompt(form: FormState): FormState {
+  if (preferences.getPromptScope() !== "shared") return form
+  const shared = preferences.getSharedPrompt()
+  return shared ? { ...form, prompt: shared.prompt, artist: shared.artist } : form
+}
+
+function subscribePromptScope(listener: () => void) {
+  const onChange = (event: Event) => {
+    if ((event as CustomEvent).detail?.key === STORAGE_KEYS.PROMPT_SCOPE) listener()
+  }
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === STORAGE_KEYS.PROMPT_SCOPE) listener()
+  }
+  window.addEventListener(STORAGE_EVENT_NAME, onChange)
+  window.addEventListener("storage", onStorage)
+  return () => {
+    window.removeEventListener(STORAGE_EVENT_NAME, onChange)
+    window.removeEventListener("storage", onStorage)
+  }
+}
+
+/** Whether the prompt is per backend or shared, read live. */
+function usePromptScope(): PromptScope {
+  return useSyncExternalStore(subscribePromptScope, preferences.getPromptScope, () => "backend")
+}
+
 /** `value` if the backend accepts it, else what it does accept first. */
 function accepted(value: string, options: string[]): string {
   return options.length === 0 || options.includes(value) ? value : options[0]
@@ -180,22 +208,56 @@ export function GenerateClient() {
     if (!selectedId || !status || owned?.owner === selectedId) return
     const stored = readStoredForm(selectedId, status.profile)
     restoredRef.current = stored !== null
-    setOwned({ owner: selectedId, form: stored ?? defaultForm(getProfile(status.profile)) })
+    setOwned({ owner: selectedId, form: withSharedPrompt(stored ?? defaultForm(getProfile(status.profile))) })
   }, [selectedId, status, owned?.owner])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist on every change, debounced so typing does not hit localStorage on
-  // each keystroke.
+  // each keystroke. A shared prompt is kept apart, and the backend's own
+  // prompt stays as it was, for when the prompt goes back to per backend.
+  const promptScope = usePromptScope()
   useEffect(() => {
     if (!owned) return
-    const timer = setTimeout(() => preferences.setForm(owned.owner, { ...owned.form }), 300)
+    const timer = setTimeout(() => {
+      if (promptScope === "shared") {
+        const own = preferences.getForm(owned.owner)
+        preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
+        preferences.setForm(owned.owner, {
+          ...owned.form,
+          prompt: typeof own?.prompt === "string" ? own.prompt : owned.form.prompt,
+          artist: typeof own?.artist === "string" ? own.artist : owned.form.artist,
+        })
+      } else preferences.setForm(owned.owner, { ...owned.form })
+    }, 300)
     return () => clearTimeout(timer)
-  }, [owned])
+  }, [owned, promptScope])
 
-  const selectBackend = useCallback((id: string) => {
-    setSelectedId(id)
-    preferences.setSelectedBackend(id)
-  }, [])
+  const changePromptScope = useCallback(
+    (scope: PromptScope) => {
+      if (!owned) return
+      if (scope === "shared") {
+        // What is on the form now becomes the prompt every backend shares.
+        preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
+      } else {
+        // Back to this backend's own prompt, as it was before sharing.
+        const own = readStoredForm(owned.owner, owned.form.profile)
+        if (own) update({ prompt: own.prompt, artist: own.artist })
+      }
+      preferences.setPromptScope(scope)
+    },
+    [owned, update]
+  )
+
+  const selectBackend = useCallback(
+    (id: string) => {
+      // The next form reads the shared prompt at once; the debounced save above
+      // may not have run yet, and the last words typed would stay behind.
+      if (owned && promptScope === "shared") preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
+      setSelectedId(id)
+      preferences.setSelectedBackend(id)
+    },
+    [owned, promptScope]
+  )
 
   const changeProfile = useCallback(
     (id: ProfileId) => {
@@ -239,7 +301,8 @@ export function GenerateClient() {
   const resetForm = useCallback(() => {
     if (!owned) return
     preferences.clearForm(owned.owner)
-    setOwned({ owner: owned.owner, form: defaultForm(getProfile(status?.profile)) })
+    // A shared prompt belongs to every backend, so resetting one keeps it.
+    setOwned({ owner: owned.owner, form: withSharedPrompt(defaultForm(getProfile(status?.profile))) })
   }, [owned, status?.profile])
 
   // ── img2img source, mask and pose ────────────────────────────────────────
@@ -753,12 +816,21 @@ export function GenerateClient() {
             <div className="space-y-1.5">
               <div className="flex items-center justify-between gap-2">
                 <Label htmlFor="prompt">{t("generate.positivePrompt")}</Label>
-                {profile.qualityTags && (
-                  <label className="flex items-center gap-2 text-xs text-muted-foreground" title={profile.qualityTags}>
-                    <Switch checked={form.quality} onCheckedChange={(quality) => update({ quality })} />
-                    {t("generate.qualityTags")}
+                <div className="flex items-center gap-4">
+                  <label className="flex items-center gap-2 text-xs text-muted-foreground" title={t("generate.sharedPromptHint")}>
+                    <Switch
+                      checked={promptScope === "shared"}
+                      onCheckedChange={(shared) => changePromptScope(shared ? "shared" : "backend")}
+                    />
+                    {t("generate.sharedPrompt")}
                   </label>
-                )}
+                  {profile.qualityTags && (
+                    <label className="flex items-center gap-2 text-xs text-muted-foreground" title={profile.qualityTags}>
+                      <Switch checked={form.quality} onCheckedChange={(quality) => update({ quality })} />
+                      {t("generate.qualityTags")}
+                    </label>
+                  )}
+                </div>
               </div>
               <Textarea
                 id="prompt"

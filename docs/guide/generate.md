@@ -21,6 +21,11 @@ form, so switching backends and back keeps what you typed.
 - **Artist**: a name, added to the prompt the way the profile writes it
   (for example `@name` or `by name`).
 - **Positive prompt** and **Negative prompt**.
+- **Share across backends**: by default each backend's form remembers its own
+  prompt. Turn this on and every backend shows the same prompt and artist,
+  so switching backends keeps your words and only the settings change. Turn
+  it off to get each backend's own prompt back. The negative prompt is always
+  per backend, because what to avoid depends on the model.
 - **Quality tags**: when on, the profile's quality tags (shown under the
   prompt) are put in front when generating.
 - **Tag spelling**: write tags either way, `long_hair` or `long hair`. When

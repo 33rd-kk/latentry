@@ -44,6 +44,8 @@
     "artist": "Artist",
     "artistPlaceholder": "Artist name (added to the prompt as “{example}”)",
     "positivePrompt": "Positive prompt",
+    "sharedPrompt": "Share across backends",
+    "sharedPromptHint": "On: every backend's form shows the same prompt and artist, so switching backends keeps them. Off: each backend remembers its own. The negative prompt is always per backend.",
     "positivePlaceholder": "Describe the image you want to generate",
     "negativePrompt": "Negative prompt",
     "qualityTags": "Quality tags",
