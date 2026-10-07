@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ImageMeta } from "@/lib/gallery/png-meta"
+import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
 
 export interface GalleryFolder {
   index: number
@@ -17,12 +18,6 @@ export interface GalleryPicture {
   width: number | null
   height: number | null
   meta: ImageMeta | null
-}
-
-export interface GalleryFilter {
-  q?: string
-  backend?: string
-  profile?: string
 }
 
 export function pictureUrl(picture: { dir: number; name: string }, thumb = false): string {
@@ -64,11 +59,11 @@ export interface GalleryPage {
 }
 
 /**
- * One folder of the gallery, a page at a time. Changing the folder or the
- * filter starts over; `loadMore` is safe to call repeatedly (it ignores calls
+ * One folder of the gallery, a page at a time. Changing the folder, the order
+ * or a filter starts over; `loadMore` is safe to call repeatedly (it ignores calls
  * while a page is on its way).
  */
-export function useGalleryPage(dir: number | null, filter: GalleryFilter): GalleryPage {
+export function useGalleryPage(dir: number | null, query: GalleryQuery): GalleryPage {
   const [pictures, setPictures] = useState<GalleryPicture[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -76,10 +71,12 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
   const [hasMore, setHasMore] = useState(false)
   const [generation, setGeneration] = useState(0)
   const inFlight = useRef(false)
-  // Which folder + filter the current list belongs to, so a slow page for the
+  // The query as it is sent; equal queries give equal strings.
+  const queryString = toParams(query).toString()
+  // Which folder + query the current list belongs to, so a slow page for the
   // previous one cannot land in the new one.
   const keyRef = useRef("")
-  const key = `${dir}|${filter.q ?? ""}|${filter.backend ?? ""}|${filter.profile ?? ""}|${generation}`
+  const key = `${dir}|${queryString}|${generation}`
 
   const fetchPage = useCallback(
     async (from: string | null, forKey: string) => {
@@ -87,11 +84,10 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
       inFlight.current = true
       setLoading(true)
       try {
-        const params = new URLSearchParams({ dir: String(dir), limit: String(PAGE_SIZE) })
+        const params = new URLSearchParams(queryString)
+        params.set("dir", String(dir))
+        params.set("limit", String(PAGE_SIZE))
         if (from) params.set("cursor", from)
-        if (filter.q) params.set("q", filter.q)
-        if (filter.backend) params.set("backend", filter.backend)
-        if (filter.profile) params.set("profile", filter.profile)
         const response = await fetch(`/api/gallery?${params}`, { cache: "no-store" })
         const data = await response.json().catch(() => null)
         if (keyRef.current !== forKey) return
@@ -108,7 +104,7 @@ export function useGalleryPage(dir: number | null, filter: GalleryFilter): Galle
         inFlight.current = false
       }
     },
-    [dir, filter.q, filter.backend, filter.profile]
+    [dir, queryString]
   )
 
   /* eslint-disable react-hooks/set-state-in-effect -- a new folder or filter is a new

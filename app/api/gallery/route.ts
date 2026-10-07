@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { jsonError, json } from '@/lib/api'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { listPage } from '@/lib/gallery/fs'
+import { fromParams } from '@/lib/gallery/filter'
 
 export const runtime = 'nodejs'
 
@@ -9,9 +10,10 @@ const MAX_LIMIT = 200
 
 /**
  * Without `dir`: the folders (by index and name, never their paths).
- * With `dir`: one page of that folder, newest first.
+ * With `dir`: one page of that folder, in the order and with the filters
+ * asked for (see lib/gallery/filter.ts), newest first by default.
  *
- *   ?dir=0&cursor=<from the last page>&limit=60&q=words&backend=id&profile=id
+ *   ?dir=0&cursor=<from the last page>&limit=60&q=words&sort=name-asc&orientation=portrait…
  */
 export async function GET(request: NextRequest) {
   const dirs = getGalleryDirs()
@@ -29,11 +31,7 @@ export async function GET(request: NextRequest) {
     const page = await listPage(dir, {
       cursor: params.get('cursor'),
       limit,
-      filter: {
-        q: params.get('q')?.trim() || undefined,
-        backend: params.get('backend')?.trim() || undefined,
-        profile: params.get('profile')?.trim() || undefined,
-      },
+      filter: fromParams(params),
     })
     return json(page)
   } catch (error) {

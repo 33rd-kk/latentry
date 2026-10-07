@@ -7,8 +7,9 @@ embedded in the PNG (A1111's PNG Info reads them too). Other folders, such as
 ComfyUI's or a web UI's output, can be browsed **read-only**. Choose the
 folders on [Settings](settings.md); with several, tabs switch between them.
 
-Pictures load newest first as you scroll; what is on screen stays in place
-while more load.
+Pictures load newest first as you scroll (see [Order and
+filters](#order-and-filters) for other orders); what is on screen stays in
+place while more load.
 
 ## Search
 
@@ -21,9 +22,33 @@ Type in **Search prompts, tags, models, file names**:
 - Underscores and spaces are the same, and case does not matter.
 - Unquoted terms also match the model and the file name.
 
-**Show search tips** under the box repeats this. Filter by **backend** or
-**profile** with the two menus, and **Refresh** for pictures that arrived
-from elsewhere.
+**Show search tips** under the box repeats this. **Refresh** picks up
+pictures that arrived from elsewhere.
+
+## Order and filters
+
+The menu next to the search box orders the pictures: **Newest first**,
+**Oldest first**, **Name A–Z**, **Name Z–A** or **Largest file first**. Names
+compare numbers as numbers, so `img2` comes before `img10`. "Newest" means
+the file's last change, so a picture copied in or tagged later counts as
+new.
+
+**Filters** opens the rest; each filter you set shows as a chip under the
+toolbar, with × to remove it (or **Clear all**):
+
+- **Shape**: portrait, landscape or square.
+- **File type**: PNG, WebP, JPG.
+- **Changed**: the last 24 hours, 7 days or 30 days.
+- **Resolution**: under 0.75 MP (SD 1.5 sizes), about 1 MP (SDXL sizes), or
+  over 1.5 MP (upscaled).
+- **Model**: the models seen in the pictures loaded so far. In secret mode
+  model names are not shown.
+- **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
+- **Backend** and **profile**.
+- **Only pictures without WD14 tags**.
+
+Filters, order and search work together. The order and filters last until
+you leave or reload the page; they are not remembered in the browser.
 
 ## Tags
 

@@ -7,7 +7,9 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
 import type { GalleryDir } from './dirs'
-import { matchesQuery, parseQuery, searchableOf, type SearchTerm } from './query'
+import { matchesQuery, parseQuery, searchableOf } from './query'
+import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
+import { compareEntries, DEFAULT_SORT, encodeCursor, startIndex, type SortKey } from './sort'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -128,7 +130,7 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
     )
     for (const entry of slice) if (entry) entries.push(entry)
   }
-  entries.sort((a, b) => b.mtime - a.mtime || a.name.localeCompare(b.name))
+  entries.sort(compareEntries('newest'))
   listings.set(dir.path, { dirMtime: dirStat.mtimeMs, at: Date.now(), entries })
   return entries
 }
@@ -226,43 +228,37 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
   return { ...entry, dir: dir.index, width, height, meta }
 }
 
-export interface ListFilter {
-  /** The search box: comma-separated terms, quoted for an exact tag (see ./query.ts). */
-  q?: string
-  backend?: string
-  profile?: string
+// Each listing sorted in the other orders, made when first asked for. Keyed
+// by the listing itself, so a new listing starts without them.
+const sortedListings = new WeakMap<GalleryEntry[], Map<SortKey, GalleryEntry[]>>()
+
+function sortedEntries(entries: GalleryEntry[], sort: SortKey): GalleryEntry[] {
+  // listEntries already sorts newest first.
+  if (sort === 'newest') return entries
+  let orders = sortedListings.get(entries)
+  if (!orders) sortedListings.set(entries, (orders = new Map()))
+  let sorted = orders.get(sort)
+  if (!sorted) orders.set(sort, (sorted = [...entries].sort(compareEntries(sort))))
+  return sorted
 }
 
-function matches(item: GalleryItem, filter: ListFilter, terms: SearchTerm[]): boolean {
-  if (filter.backend && item.meta?.backend !== filter.backend) return false
-  if (filter.profile && item.meta?.profile !== filter.profile) return false
-  return terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta), terms)
-}
-
-/** Cursor = the last item's "mtime:name", so new files arriving do not shift pages. */
-export function encodeCursor(entry: GalleryEntry): string {
-  return `${entry.mtime}:${entry.name}`
-}
-
-function isAfterCursor(entry: GalleryEntry, cursor: string): boolean {
-  const colon = cursor.indexOf(':')
-  const mtime = Number(cursor.slice(0, colon))
-  const name = cursor.slice(colon + 1)
-  if (!Number.isFinite(mtime)) return true
-  return entry.mtime < mtime || (entry.mtime === mtime && entry.name.localeCompare(name) > 0)
-}
-
-/** One page of a folder, newest first, after `cursor`, matching `filter`. */
+/** One page of a folder in the query's order, after `cursor`, matching the query. */
 export async function listPage(
   dir: GalleryDir,
-  options: { cursor?: string | null; limit: number; filter: ListFilter }
+  options: { cursor?: string | null; limit: number; filter: GalleryQuery }
 ): Promise<{ items: GalleryItem[]; nextCursor: string | null }> {
-  const entries = await listEntries(dir)
-  const start = options.cursor ? entries.findIndex((entry) => isAfterCursor(entry, options.cursor!)) : 0
+  const { filter } = options
+  const sort = filter.sort ?? DEFAULT_SORT
+  const now = Date.now()
+  // Age and file type need no file opened, so they narrow the list first.
+  const entries = sortedEntries(await listEntries(dir), sort).filter((entry) => matchesCheap(entry, filter, now))
+  const start = startIndex(entries, options.cursor, sort)
   if (start === -1) return { items: [], nextCursor: null }
 
-  const terms = parseQuery(options.filter.q ?? '')
-  const filtering = Boolean(terms.length || options.filter.backend || options.filter.profile)
+  const terms = parseQuery(filter.q ?? '')
+  const filtering = terms.length > 0 || needsMeta(filter)
+  const matches = (item: GalleryItem) =>
+    matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta), terms))
   const items: GalleryItem[] = []
   let index = start
   // Filtering reads metadata as it goes; a search through a huge folder stops
@@ -275,10 +271,10 @@ export async function listPage(
     for (let i = 0; i < infos.length; i += 1) {
       index += 1
       scanned += 1
-      if (!filtering || matches(infos[i], options.filter, terms)) items.push(infos[i])
+      if (!filtering || matches(infos[i])) items.push(infos[i])
       if (items.length >= options.limit || scanned >= scanLimit) break
     }
   }
   const last = entries[index - 1]
-  return { items, nextCursor: index < entries.length && last ? encodeCursor(last) : null }
+  return { items, nextCursor: index < entries.length && last ? encodeCursor(last, sort) : null }
 }
