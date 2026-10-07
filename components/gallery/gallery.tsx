@@ -17,7 +17,7 @@ import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-fi
 import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { useBulkTag } from "@/hooks/use-bulk-tag"
-import { pictureUrl, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, useFolderModels, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import type { ImageTag } from "@/lib/gallery/png-meta"
 import { listProfiles } from "@/lib/profiles"
@@ -56,12 +56,16 @@ export function Gallery() {
   const page = useGalleryPage(activeDir, query)
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
-  // The models met so far in this folder, for the model filter. Kept while
-  // filters change, so choosing a model does not shrink the list to it.
+  // The models met so far in this folder, for the model filter until the
+  // server has the whole folder's list. Kept while filters change, so
+  // choosing a model does not shrink the list to it.
   const pageModels = useMemo(() => modelsIn(page.pictures), [page.pictures])
   const [seenModels, setSeenModels] = useState<{ dir: number | null; models: string[] }>({ dir: activeDir, models: [] })
   const models = seenModels.dir === activeDir ? mergeModels(seenModels.models, pageModels) : pageModels
   if (seenModels.dir !== activeDir || models.length !== seenModels.models.length) setSeenModels({ dir: activeDir, models })
+  // The whole folder's models, asked for only while the panel is open, and
+  // never in secret mode (the panel shows no model names then).
+  const folderModels = useFolderModels(activeDir, filtersOpen && !secret)
 
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
@@ -221,10 +225,20 @@ export function Gallery() {
         onChange={changeFilters}
         backends={backends.map((option) => option.id)}
         profiles={profiles}
-        models={models}
+        models={folderModels.models ?? models}
+        modelsProgress={folderModels.progress}
         secret={secret}
       />
       <FilterChips query={query} onChange={changeFilters} profiles={profiles} secret={secret} />
+      {page.indexing &&
+        ("tooLarge" in page.indexing ? (
+          <p className="text-sm text-muted-foreground">{t("gallery.sort.tooLarge", { total: page.indexing.total })}</p>
+        ) : (
+          <div className="mx-auto max-w-md space-y-1 py-8 text-center text-sm text-muted-foreground">
+            <p>{t("gallery.sort.indexing", { done: page.indexing.done, total: page.indexing.total })}</p>
+            <Progress value={(page.indexing.done / Math.max(1, page.indexing.total)) * 100} />
+          </div>
+        ))}
 
       {(selecting || bulk.progress) && (
         <div className="space-y-2 rounded-md border bg-muted/30 p-3">
@@ -334,7 +348,7 @@ export function Gallery() {
           {t("gallery.loading")}
         </p>
       )}
-      {!page.loading && page.pictures.length === 0 && !page.error && (
+      {!page.loading && page.pictures.length === 0 && !page.error && !page.indexing && (
         <p className="py-12 text-center text-sm text-muted-foreground">
           {page.hasMore ? t("gallery.keepSearching") : t("gallery.empty")}
         </p>

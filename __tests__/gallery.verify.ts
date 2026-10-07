@@ -25,7 +25,8 @@ import {
   writePngText,
   type LatentryRecord,
 } from '../lib/gallery/png-meta'
-import { isSafeName, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import { invalidateListing, isSafeName, listModels, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+import { settleIndex } from '../lib/gallery/folder-index'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
 
@@ -208,6 +209,34 @@ async function main() {
     eq(await names({ since: 'day' }), ['wide.webp', 'p2.png'], 'the age filter')
     eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
+
+    // ── Orders that need the folder read first ──
+    const first = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
+    check(Boolean(first.indexing && 'done' in first.indexing && first.indexing.total === 3) && first.items.length === 0, 'a meta order first reports that the folder is being read')
+    await settleIndex(sortDir)
+    eq(await names({ sort: 'pixels-desc' }), ['wide.webp', 'p2.png', 'p10.png'], 'most pixels first, once read')
+    eq(await names({ sort: 'pixels-asc' }), ['p2.png', 'p10.png', 'wide.webp'], 'fewest pixels first')
+    const madeFirst = Date.now() > Date.parse(RECORD.created) ? ['p2.png', 'p10.png', 'wide.webp'] : ['wide.webp', 'p2.png', 'p10.png']
+    eq(await names({ sort: 'created-asc' }), madeFirst, "made, oldest first: the settings' time, else the file's")
+    eq(await names({ sort: 'pixels-desc', orientation: 'portrait' }), ['p2.png', 'p10.png'], 'a meta order and a filter together')
+    const pagedMeta: string[] = []
+    let metaCursor: string | null = null
+    do {
+      const next: Awaited<ReturnType<typeof listPage>> = await listPage(sortDir, { limit: 1, cursor: metaCursor, filter: { sort: 'pixels-asc' } })
+      pagedMeta.push(...next.items.map((item) => item.name))
+      metaCursor = next.nextCursor
+    } while (metaCursor && pagedMeta.length < 10)
+    eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
+    check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
+    eq(await listModels(sortDir), { models: [RECORD.model!] }, 'every model in the folder')
+
+    const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
+    await writeFile(path.join(sorting, 'big.png'), big)
+    invalidateListing(sortDir)
+    const again = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
+    eq(again.indexing, { done: 3, total: 4 }, 'a new file is read on its own; the others are already known')
+    await settleIndex(sortDir)
+    eq((await names({ sort: 'pixels-desc' }))[0], 'big.png', 'and then takes its place')
 
     check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')
     eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')

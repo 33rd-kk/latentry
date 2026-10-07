@@ -9,7 +9,8 @@ import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './
 import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
 import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
-import { compareEntries, DEFAULT_SORT, encodeCursor, startIndex, type SortKey } from './sort'
+import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
+import { indexStatus, modelsOf, withIndexValues } from './folder-index'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -232,26 +233,46 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
 // by the listing itself, so a new listing starts without them.
 const sortedListings = new WeakMap<GalleryEntry[], Map<SortKey, GalleryEntry[]>>()
 
-function sortedEntries(entries: GalleryEntry[], sort: SortKey): GalleryEntry[] {
+/** The listing in `sort`'s order. A meta order needs the folder's index ready first. */
+function sortedEntries(dir: GalleryDir, entries: GalleryEntry[], sort: SortKey): GalleryEntry[] {
   // listEntries already sorts newest first.
   if (sort === 'newest') return entries
   let orders = sortedListings.get(entries)
   if (!orders) sortedListings.set(entries, (orders = new Map()))
   let sorted = orders.get(sort)
-  if (!sorted) orders.set(sort, (sorted = [...entries].sort(compareEntries(sort))))
+  if (!sorted) {
+    const source = isMetaSort(sort) ? withIndexValues(dir, entries) : [...entries]
+    orders.set(sort, (sorted = source.sort(compareEntries(sort))))
+  }
   return sorted
+}
+
+/** While a meta order waits for the folder's index: how far it has got, or that the folder is too large. */
+export type IndexProgress = { done: number; total: number } | { tooLarge: true; total: number }
+
+export interface GalleryPage {
+  items: GalleryItem[]
+  nextCursor: string | null
+  /** Set instead of items while the folder is being read for a meta order; ask again. */
+  indexing?: IndexProgress
 }
 
 /** One page of a folder in the query's order, after `cursor`, matching the query. */
 export async function listPage(
   dir: GalleryDir,
   options: { cursor?: string | null; limit: number; filter: GalleryQuery }
-): Promise<{ items: GalleryItem[]; nextCursor: string | null }> {
+): Promise<GalleryPage> {
   const { filter } = options
   const sort = filter.sort ?? DEFAULT_SORT
   const now = Date.now()
   // Age and file type need no file opened, so they narrow the list first.
-  const entries = sortedEntries(await listEntries(dir), sort).filter((entry) => matchesCheap(entry, filter, now))
+  const listing = await listEntries(dir)
+  if (isMetaSort(sort)) {
+    const status = indexStatus(dir, listing)
+    if (status.state === 'too-large') return { items: [], nextCursor: null, indexing: { tooLarge: true, total: status.total } }
+    if (status.state === 'indexing') return { items: [], nextCursor: null, indexing: { done: status.done, total: status.total } }
+  }
+  const entries = sortedEntries(dir, listing, sort).filter((entry) => matchesCheap(entry, filter, now))
   const start = startIndex(entries, options.cursor, sort)
   if (start === -1) return { items: [], nextCursor: null }
 
@@ -267,7 +288,8 @@ export async function listPage(
   let scanned = 0
   while (index < entries.length && items.length < options.limit && scanned < scanLimit) {
     const batch = entries.slice(index, index + 32)
-    const infos = await Promise.all(batch.map((entry) => itemInfo(dir, entry)))
+    // Only the listing's own fields: a meta order's values stay out of the reply.
+    const infos = await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
     for (let i = 0; i < infos.length; i += 1) {
       index += 1
       scanned += 1
@@ -277,4 +299,13 @@ export async function listPage(
   }
   const last = entries[index - 1]
   return { items, nextCursor: index < entries.length && last ? encodeCursor(last, sort) : null }
+}
+
+/** Every model named in the folder, for the model filter; or the progress while the folder is read. */
+export async function listModels(dir: GalleryDir): Promise<{ models: string[] } | { models: null; indexing: IndexProgress }> {
+  const listing = await listEntries(dir)
+  const status = indexStatus(dir, listing)
+  if (status.state === 'too-large') return { models: null, indexing: { tooLarge: true, total: status.total } }
+  if (status.state === 'indexing') return { models: null, indexing: { done: status.done, total: status.total } }
+  return { models: modelsOf(dir, listing) }
 }

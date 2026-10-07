@@ -33,6 +33,19 @@ compare numbers as numbers, so `img2` comes before `img10`. "Newest" means
 the file's last change, so a picture copied in or tagged later counts as
 new.
 
+Four more orders need every picture in the folder looked at first:
+
+- **Made, newest first** / **Made, oldest first**: when the picture was
+  generated, as Latentry records it in the file. Pictures without that (from
+  other tools) use the file's last change.
+- **Most pixels first** / **Fewest pixels first**: width × height. Pictures
+  whose size cannot be read go last.
+
+The first time, the gallery reads the folder and shows how far it has got;
+after that only new or changed files are read. What it reads is kept in
+Latentry's memory only, never written to disk, and forgotten when Latentry
+stops. Folders of more than 20,000 pictures cannot use these orders.
+
 **Filters** opens the rest; each filter you set shows as a chip under the
 toolbar, with × to remove it (or **Clear all**):
 
@@ -41,8 +54,9 @@ toolbar, with × to remove it (or **Clear all**):
 - **Changed**: the last 24 hours, 7 days or 30 days.
 - **Resolution**: under 0.75 MP (SD 1.5 sizes), about 1 MP (SDXL sizes), or
   over 1.5 MP (upscaled).
-- **Model**: the models seen in the pictures loaded so far. In secret mode
-  model names are not shown.
+- **Model**: every model named in the folder's pictures (the folder is read
+  once when you open the filters). In secret mode model names are not shown,
+  and the folder is not read for them.
 - **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
 - **Backend** and **profile**.
 - **Only pictures without WD14 tags**.

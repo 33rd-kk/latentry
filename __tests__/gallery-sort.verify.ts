@@ -5,7 +5,7 @@
  * Run with: npm test -- gallery-sort
  */
 import { check, done, eq } from './assert'
-import { compareEntries, encodeCursor, SORT_KEYS, startIndex, type SortKey } from '../lib/gallery/sort'
+import { compareEntries, encodeCursor, isMetaSort, SORT_KEYS, startIndex, type SortKey } from '../lib/gallery/sort'
 import {
   activeFilterCount,
   formatOf,
@@ -20,12 +20,13 @@ import {
   type GalleryQuery,
 } from '../lib/gallery/filter'
 
+// created / pixels are what the folder index adds for the meta orders.
 const ENTRIES = [
-  { name: 'img10.png', mtime: 3000, size: 50 },
-  { name: 'img2.png', mtime: 1000, size: 300 },
-  { name: 'b.webp', mtime: 2000, size: 300 },
-  { name: 'a.png', mtime: 2000, size: 100 },
-  { name: 'odd:name.png', mtime: 500, size: 10 },
+  { name: 'img10.png', mtime: 3000, size: 50, created: 100, pixels: 1000 },
+  { name: 'img2.png', mtime: 1000, size: 300, created: 900, pixels: 0 },
+  { name: 'b.webp', mtime: 2000, size: 300, created: 2000, pixels: 4000 },
+  { name: 'a.png', mtime: 2000, size: 100, created: 900, pixels: 1000 },
+  { name: 'odd:name.png', mtime: 500, size: 10, created: 50, pixels: 0 },
 ]
 
 const order = (sort: SortKey) => [...ENTRIES].sort(compareEntries(sort)).map((entry) => entry.name)
@@ -36,6 +37,16 @@ eq(order('oldest'), ['odd:name.png', 'img2.png', 'a.png', 'b.webp', 'img10.png']
 eq(order('name-asc'), ['a.png', 'b.webp', 'img2.png', 'img10.png', 'odd:name.png'], 'names compare numbers as numbers')
 eq(order('name-desc'), ['odd:name.png', 'img10.png', 'img2.png', 'b.webp', 'a.png'], 'name Z–A is the reverse')
 eq(order('size-desc'), ['b.webp', 'img2.png', 'a.png', 'img10.png', 'odd:name.png'], 'largest first; equal sizes by name')
+eq(order('created-desc'), ['b.webp', 'a.png', 'img2.png', 'img10.png', 'odd:name.png'], 'made, newest first; equal times by name')
+eq(order('created-asc'), ['odd:name.png', 'img10.png', 'a.png', 'img2.png', 'b.webp'], 'made, oldest first')
+eq(order('pixels-desc'), ['b.webp', 'a.png', 'img10.png', 'img2.png', 'odd:name.png'], 'most pixels first; unknown sizes last')
+eq(order('pixels-asc'), ['a.png', 'img10.png', 'b.webp', 'img2.png', 'odd:name.png'], 'fewest pixels first; unknown sizes still last')
+eq(
+  [...ENTRIES].map(({ name, mtime, size }) => ({ name, mtime, size })).sort(compareEntries('created-desc')).map((entry) => entry.name),
+  order('newest'),
+  'without a date made, the file time stands in'
+)
+eq(SORT_KEYS.filter(isMetaSort), ['created-desc', 'created-asc', 'pixels-desc', 'pixels-asc'], 'which orders need the files read')
 eq(
   compareEntries('name-asc')({ name: 'é.png', mtime: 0, size: 0 }, { name: 'é.png', mtime: 0, size: 0 }) !== 0,
   true,

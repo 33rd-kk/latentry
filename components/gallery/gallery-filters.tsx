@@ -17,6 +17,7 @@ import {
   type GalleryQuery,
 } from "@/lib/gallery/filter"
 import { SORT_KEYS, type SortKey } from "@/lib/gallery/sort"
+import type { IndexProgress } from "@/lib/gallery/fs"
 import { useT } from "@/lib/i18n"
 
 const ALL = "__all__"
@@ -61,13 +62,15 @@ interface FilterPanelProps {
   onChange: (patch: Partial<GalleryQuery>) => void
   backends: string[]
   profiles: { id: string; label: string }[]
-  /** Models seen so far in this folder. */
+  /** The folder's models: all of them once read, else those seen so far. */
   models: string[]
+  /** While the folder is read for its models. */
+  modelsProgress: IndexProgress | null
   secret: boolean
 }
 
 /** Every filter but the search box, under the toolbar. */
-export function FilterPanel({ open, query, onChange, backends, profiles, models, secret }: FilterPanelProps) {
+export function FilterPanel({ open, query, onChange, backends, profiles, models, modelsProgress, secret }: FilterPanelProps) {
   const t = useT()
   const toggleFormat = (format: Format) => {
     const current = query.formats ?? []
@@ -118,7 +121,15 @@ export function FilterPanel({ open, query, onChange, backends, profiles, models,
               onChange={(resolution) => onChange({ resolution })}
             />
           </Field>
-          <Field label={t("gallery.filter.model")} hint={secret ? undefined : t("gallery.filter.modelHint")}>
+          <Field
+            label={t("gallery.filter.model")}
+            hint={secret ? undefined : t("gallery.filter.modelHint")}
+            note={
+              !secret && modelsProgress && !("tooLarge" in modelsProgress)
+                ? t("gallery.filter.modelsReading", { done: modelsProgress.done, total: modelsProgress.total })
+                : undefined
+            }
+          >
             {secret ? (
               // No model names on the page in secret mode, not even blurred.
               <p className="flex h-8 items-center text-sm text-muted-foreground">{t("gallery.filter.secretHidden")}</p>
@@ -228,13 +239,14 @@ export function FilterChips({
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Field({ label, hint, note, children }: { label: string; hint?: string; note?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <Label className="text-xs text-muted-foreground" title={hint}>
         {label}
       </Label>
       {children}
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
     </div>
   )
 }

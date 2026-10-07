@@ -181,7 +181,13 @@
       "oldest": "Oldest first",
       "name-asc": "Name A–Z",
       "name-desc": "Name Z–A",
-      "size-desc": "Largest file first"
+      "size-desc": "Largest file first",
+      "created-desc": "Made, newest first",
+      "created-asc": "Made, oldest first",
+      "pixels-desc": "Most pixels first",
+      "pixels-asc": "Fewest pixels first",
+      "indexing": "Reading the folder to sort it: {done} / {total} pictures",
+      "tooLarge": "This folder has {total} pictures, too many to sort this way. Choose another order."
     },
     "filter": {
       "button": "Filters",
@@ -203,7 +209,8 @@
       "large": "Over 1.5 MP (upscaled)",
       "model": "Model",
       "allModels": "All models",
-      "modelHint": "Models seen in the pictures loaded so far.",
+      "modelHint": "Models named in this folder's pictures.",
+      "modelsReading": "Reading the folder for its models: {done} / {total}",
       "profileLabel": "Profile",
       "source": "Settings from",
       "allSources": "Any",
