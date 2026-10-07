@@ -16,6 +16,7 @@ import {
   type A1111Transport,
 } from '../lib/backends/a1111'
 import { toEvent } from '../lib/backends/diffusers'
+import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL } from '../lib/backends/hints'
 import { applyEvent, consumeEvents, getCurrentJob, startJob, toSnapshot } from '../lib/diffusion/job-store'
 import type { BackendEvent, GenerateRequest } from '../lib/backends/types'
 
@@ -247,6 +248,34 @@ async function main() {
     })()
   )
   eq(broken.status, 'error', 'a stream that breaks ends the job in error')
+
+  // ── Why a feature is off ──
+  eq(diffusersHints(null), {}, 'a server that did not answer gets no feature hints')
+  eq(
+    diffusersHints({ model: 'anima' }),
+    { pose: { reason: 'not-reported' } },
+    'a server silent about pose is told to report pose_control; img2img and inpaint stay on'
+  )
+  eq(diffusersHints({ pose_control: true }), {}, 'a server with pose and default img2img/inpaint has no hints')
+  eq(
+    diffusersHints({ pose_control: false, inpaint: false, unavailable: { pose: 'Needs a 28-layer model.' } }),
+    { inpaint: { reason: 'declined' }, pose: { reason: 'declined', detail: 'Needs a 28-layer model.' } },
+    "an explicit false is declined, with the server's reason when it gives one"
+  )
+  eq(
+    diffusersHints({ unavailable: { pose: 'Adapter weights missing.' } }),
+    { pose: { reason: 'declined', detail: 'Adapter weights missing.' } },
+    'a reason without the flag still counts as the server declining'
+  )
+  eq(diffusersHints({ pose_control: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
+  eq(diffusersHints({ unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
+  eq(hintDetail('  two\nlines\t here  '), 'two lines here', 'a reason is folded onto one line')
+  eq(hintDetail(''), undefined, 'an empty reason is none')
+  eq(hintDetail(42), undefined, 'a reason that is not text is none')
+  const long = hintDetail('x'.repeat(500))
+  check(long?.length === MAX_HINT_DETAIL && long.endsWith('…'), 'a long reason is cut to the limit')
+  eq(a1111Hints(true), { pose: { reason: 'kind' } }, 'A1111 cannot take a pose, by kind')
+  eq(a1111Hints(false), {}, 'an A1111 that is down gets no feature hints')
 
   done('backends')
 }

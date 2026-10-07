@@ -144,7 +144,30 @@
     "pose3dUse": "Use this angle",
     "pose3dFront": "Front view",
     "pose3dTurned": "Seen from yaw {yaw}°, pitch {pitch}°, zoom ×{zoom}",
-    "pose3dFewJoints": "Only {count} of the 17 body joints are in the frame. This model follows the body only, so a close-up gives it little to follow."
+    "pose3dFewJoints": "Only {count} of the 17 body joints are in the frame. This model follows the body only, so a close-up gives it little to follow.",
+    "pose3dUnavailable": "No 3D view here: this backend's /api/pose does not turn a pose. To offer it, /api/pose takes \"want_3d\" and \"camera\" and answers with \"limits\" (see \"Turning the pose\" in docs/backend-api.md).",
+    "pose3dNoZoom": "This backend turns the pose but cannot zoom: its /api/pose answers \"limits\" without \"zoom\".",
+    "poseDropped": "This backend cannot follow a pose, so the skeleton you set is left out of the run. Switch back to a backend with pose to use it.",
+    "unavailable": {
+      "title": "Not available on this backend: {features}",
+      "feature": {
+        "img2img": "Source image",
+        "inpaint": "Inpaint mask",
+        "pose": "Skeleton pose"
+      },
+      "declined": "The server says it cannot do this with what it has loaded.",
+      "declinedBecause": "The server says: {detail}",
+      "kind": {
+        "img2img": "Latentry cannot send a source image to this kind of backend.",
+        "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
+        "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
+      },
+      "notReported": {
+        "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
+        "inpaint": "The server's /api/health has \"inpaint\": false or no answer for it. Drop that field (or set it to true) and accept \"mask_base64\" and \"mask_blur\" on /api/generate.",
+        "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md."
+      }
+    }
   },
   "gallery": {
     "notConfiguredTitle": "No gallery folder yet",

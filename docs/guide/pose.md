@@ -59,3 +59,27 @@ zooming out leaves room around the figure.
 The detection, 3D turn and drawing are
 [poseorbit](https://33rd-kk.github.io/poseorbit/), which can also be used on
 its own.
+
+## When pose or the 3D view does not show
+
+If a backend cannot use a feature, the form says so in a folded line,
+**Not available on this backend: …**. Open it to see why and what would turn
+the feature on:
+
+- **The server says: …** comes from the backend itself. The built-in engine
+  uses it to say, for example, that an Anima model with 40 layers cannot
+  follow a pose and a 28-layer v1.0 one can.
+- **/api/health does not say "pose_control": true** means a server you run
+  yourself has not announced pose. It needs `pose_control: true` in
+  `/api/health`, `POST /api/pose`, and the `pose_*` fields on
+  `/api/generate` (see [POST /api/pose](../backend-api.md#post-apipose)).
+- An A1111 web UI cannot follow a skeleton through Latentry. Use the built-in
+  engine or a diffusers-compatible server.
+
+When the pose works but the **3D** button does not appear, a note under the
+skeleton says so. The backend's `/api/pose` needs to take `want_3d` and
+`camera` and answer with `limits`, plus `limits.zoom` for zooming (see
+[Turning the pose](../backend-api.md#turning-the-pose-optional)).
+
+If you switch to a backend without pose while a skeleton is set, a warning
+says the skeleton is left out of the run.

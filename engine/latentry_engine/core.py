@@ -255,7 +255,24 @@ class Engine:
             "inpaint": family == FAMILY_SDXL,
             "pose_control": self._pose_supported(),
             "tagger": False,
+            # Why each feature is off, for Latentry to show (docs/backend-api.md).
+            "unavailable": self._unavailable(family),
         }
+
+    def _unavailable(self, family: str | None) -> dict[str, str]:
+        if self.loaded is None:
+            reason = "No model is loaded. Choose one in Latentry's settings."
+            return {"img2img": reason, "inpaint": reason, "pose": reason}
+        reasons: dict[str, str] = {}
+        if family == FAMILY_ANIMA:
+            reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
+            if not self._pose_supported():
+                layers = int(self.loaded.pipe.transformer.config.num_layers)
+                reasons["pose"] = (
+                    f"This Anima model has {layers} layers; the pose adapter only fits the 28-layer v1.0 models. "
+                    "Load a 28-layer Anima v1.0 model or an SDXL model to use pose."
+                )
+        return reasons
 
     def _pose_supported(self) -> bool:
         if self.loaded is None:

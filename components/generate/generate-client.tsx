@@ -21,6 +21,7 @@ import { SourceImageSlot, toSourceImage, type SourceImage, type SourceMode } fro
 import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
+import { UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { fetchPicture } from "@/hooks/use-gallery"
@@ -892,6 +893,10 @@ export function GenerateClient() {
                 disabled={isGenerating}
               />
             )}
+            {status && !capabilities?.pose && poseSkeleton && (
+              <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseDropped")}</p>
+            )}
+            {status?.alive && <UnavailableFeatures hints={status.hints ?? {}} />}
 
             <div className="space-y-2">
               <div className="flex flex-wrap gap-1">
