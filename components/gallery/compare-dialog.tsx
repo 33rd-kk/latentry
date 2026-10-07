@@ -36,7 +36,7 @@ interface CompareDialogProps {
 export function CompareDialog({ pair, onClose, secret }: CompareDialogProps) {
   const t = useT()
   // Secret mode hides the pictures and what describes them until "Show",
-  // which lasts for this pair only.
+  // which lasts for this pair while the dialog is open.
   const pairKey = pair ? `${pair[0].dir}/${pair[0].name}|${pair[1].dir}/${pair[1].name}` : ""
   const [shownFor, setShownFor] = useState<string | null>(null)
   const hidden = secret && shownFor !== pairKey
@@ -47,8 +47,13 @@ export function CompareDialog({ pair, onClose, secret }: CompareDialogProps) {
     return { rows: settingRows(a, b), tags: tagDiff(a.meta?.prompt, b.meta?.prompt), slide: sameShape(a, b) }
   }, [pair])
 
+  const close = () => {
+    setShownFor(null)
+    onClose()
+  }
+
   return (
-    <Dialog open={pair !== null} onOpenChange={(open) => !open && onClose()}>
+    <Dialog open={pair !== null} onOpenChange={(open) => !open && close()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>{t("gallery.compare.title")}</DialogTitle>

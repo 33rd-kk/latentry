@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Privacy**: a finished run's pictures and prompt leave Latentry's memory
+  once no page may load them any more (an hour, a minute for a secret run),
+  instead of staying until that backend's next run. The engine reads a
+  single-file SDXL model's config files from Hugging Face's cache after the
+  first load instead of asking the Hub each time. Prompt fields and search
+  boxes no longer use the browser's spell check (which some browsers do
+  online) or autofill. In secret mode, a comparison shown with **Show** is
+  hidden again when it is closed. The Privacy and Secret mode pages now
+  cover the engine's first-use downloads, the Hugging Face cache, Compare
+  and Download in secret mode, and what turning it off keeps.
 - **README and manual** lead with what Latentry is for: private, local image
   generation, and a gallery that remembers how every picture was made. A
   new banner, a Privacy section in the README, and a

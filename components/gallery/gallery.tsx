@@ -11,6 +11,7 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { useSecretMode } from "@/components/app-header"
+import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
 import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-filters"
@@ -198,6 +199,7 @@ export function Gallery() {
         <div className="relative min-w-48 flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            {...PRIVATE_TEXT}
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
             onFocus={() => setSearchFocused(true)}

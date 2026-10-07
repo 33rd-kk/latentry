@@ -22,3 +22,11 @@ export function isSecretMode(): boolean {
     return false
   }
 }
+
+/**
+ * For fields that take prompts and other words the user types, in either
+ * mode: no browser autofill history, and no spell check, which some browsers
+ * (Chrome's enhanced spell check, Edge's Editor) do by sending the text to an
+ * online service. Prompts are tag lists, so spell check only underlines them.
+ */
+export const PRIVATE_TEXT = { spellCheck: false, autoComplete: 'off' } as const
