@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- The logo `install.sh`, `install.ps1` and `npm start` print shows the new
+  banner's picture, and fits a 120-column terminal again (the longer second
+  line had pushed the picture out below 126 columns).
 - **Privacy**: a finished run's pictures and prompt leave Latentry's memory
   once no page may load them any more (an hour, a minute for a secret run),
   instead of staying until that backend's next run. The engine reads a
