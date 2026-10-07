@@ -125,7 +125,7 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
   controls.maxPolarAngle = (90 + options.limits.pitch) * DEG
 
   // A floor under the feet, so a turn reads as a turn.
-  const floor = new THREE.GridHelper(1.5, 10, 0x444444, 0x222222)
+  const floor = new THREE.GridHelper(1.5, 10, 0x5a5a5a, 0x333333)
   scene.add(floor)
 
   let figure: THREE.Group | null = null
