@@ -21,6 +21,11 @@ Type in **Search prompts, tags, models, file names**:
   Tags sent from the viewer are quoted.
 - Underscores and spaces are the same, and case does not matter.
 - Unquoted terms also match the model and the file name.
+- `key:value` searches one setting. `model:` and `sampler:` match names
+  that contain the text (`model:noobai`). `seed:`, `steps:`, `cfg:`, `w:`
+  (width) and `h:` (height) compare numbers: `steps:>=30`, `cfg:<5`,
+  `w:1024` (`=` when no comparison is given). Width and height are the
+  picture's real size. Any other key is searched as plain text.
 
 **Show search tips** under the box repeats this. **Refresh** picks up
 pictures that arrived from elsewhere.

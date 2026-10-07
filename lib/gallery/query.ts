@@ -3,6 +3,12 @@
 //   long hair, smile        two terms; each must appear (spaces inside a term are kept)
 //   "long hair"             a tag, matched exactly: not "very long hair"
 //   "long hair", outdoors   both kinds together
+//   model:noobai            a setting: model or sampler name contains the text
+//   steps:>=30, w:1024      a number: = (the default), >, >=, <, <=
+//
+// Settings you can name: model, sampler, seed, steps, cfg, w (width), h
+// (height). A term with any other key, or a number key without a number, is
+// searched as plain text, so "score:9" still finds a prompt that says it.
 //
 // Terms are separated by commas, the way prompts separate tags, so a tag of
 // several words stays one term. Underscores and spaces are the same thing
@@ -12,10 +18,22 @@
 
 import type { ImageMeta } from './png-meta'
 
+export const TEXT_FIELDS = ['model', 'sampler'] as const
+export const NUMBER_FIELDS = ['seed', 'steps', 'cfg', 'w', 'h'] as const
+type TextField = (typeof TEXT_FIELDS)[number]
+type NumberField = (typeof NUMBER_FIELDS)[number]
+type Comparison = '=' | '>' | '>=' | '<' | '<='
+
+export type FieldTerm =
+  | { key: TextField; contains: string }
+  | { key: NumberField; op: Comparison; value: number }
+
 export interface SearchTerm {
   text: string
   /** Quoted: must equal one of the picture's tags. */
   exact: boolean
+  /** `key:value`: matched against that setting instead of the text. */
+  field?: FieldTerm
 }
 
 /** Lowercase, underscores to spaces, runs of whitespace to one space. */
@@ -42,6 +60,23 @@ export function normalizeTag(token: string): string {
   return normalizeText(tag.replace(/\u0001(\d)/g, (_, index: string) => BRACKETS[Number(index)]))
 }
 
+/** A `key:value` term as a setting to match, or null to search it as text. */
+function fieldOf(raw: string): FieldTerm | null {
+  const match = /^\s*([a-z]+)\s*:\s*(.*?)\s*$/i.exec(raw)
+  if (!match) return null
+  const key = match[1].toLowerCase()
+  const value = match[2]
+  if ((TEXT_FIELDS as readonly string[]).includes(key)) {
+    const contains = normalizeText(value)
+    return contains ? { key: key as TextField, contains } : null
+  }
+  if ((NUMBER_FIELDS as readonly string[]).includes(key)) {
+    const number = /^(>=|<=|>|<|=)?\s*(-?\d+(?:\.\d+)?)$/.exec(value)
+    return number ? { key: key as NumberField, op: (number[1] as Comparison | undefined) ?? '=', value: Number(number[2]) } : null
+  }
+  return null
+}
+
 /** Splits the search box into terms: commas separate, quotes mark an exact tag. */
 export function parseQuery(query: string): SearchTerm[] {
   const terms: SearchTerm[] = []
@@ -50,7 +85,9 @@ export function parseQuery(query: string): SearchTerm[] {
   let wasQuoted = false
   const flush = () => {
     const text = wasQuoted ? normalizeTag(current) : normalizeText(current)
-    if (text) terms.push({ text, exact: wasQuoted })
+    const field = wasQuoted ? null : fieldOf(current)
+    if (field) terms.push({ text, exact: false, field })
+    else if (text) terms.push({ text, exact: wasQuoted })
     current = ''
     wasQuoted = false
   }
@@ -81,19 +118,54 @@ export interface Searchable {
   text: string
   /** Every tag: the prompt's tokens and the WD14 tags. */
   tags: Set<string>
+  /** The settings a `key:value` term can name; text ones normalised. */
+  fields: Partial<Record<TextField, string> & Record<NumberField, number>>
 }
 
-export function searchableOf(name: string, meta: ImageMeta | null): Searchable {
+/**
+ * `size` is the picture's real size when known; the size in its settings
+ * stands in otherwise (an upscaled picture's differ).
+ */
+export function searchableOf(name: string, meta: ImageMeta | null, size?: { width: number | null; height: number | null }): Searchable {
   const promptTags = (meta?.prompt ?? '').split(',').map(normalizeTag).filter(Boolean)
   const wdTags = (meta?.tags ?? []).map((tag) => normalizeTag(tag.name)).filter(Boolean)
   return {
     text: [normalizeText(name), normalizeText(meta?.prompt ?? ''), normalizeText(meta?.model ?? ''), ...wdTags].join('\n'),
     tags: new Set([...promptTags, ...wdTags]),
+    fields: {
+      model: meta?.model ? normalizeText(meta.model) : undefined,
+      sampler: meta?.sampler ? normalizeText(meta.sampler) : undefined,
+      seed: meta?.seed,
+      steps: meta?.steps,
+      cfg: meta?.cfg,
+      w: size?.width ?? meta?.width,
+      h: size?.height ?? meta?.height,
+    },
+  }
+}
+
+function matchesField(searchable: Searchable, field: FieldTerm): boolean {
+  if ('contains' in field) return searchable.fields[field.key]?.includes(field.contains) ?? false
+  const actual = searchable.fields[field.key]
+  if (actual === undefined) return false
+  switch (field.op) {
+    case '>':
+      return actual > field.value
+    case '>=':
+      return actual >= field.value
+    case '<':
+      return actual < field.value
+    case '<=':
+      return actual <= field.value
+    default:
+      return actual === field.value
   }
 }
 
 export function matchesQuery(searchable: Searchable, terms: SearchTerm[]): boolean {
-  return terms.every((term) => (term.exact ? searchable.tags.has(term.text) : searchable.text.includes(term.text)))
+  return terms.every((term) =>
+    term.field ? matchesField(searchable, term.field) : term.exact ? searchable.tags.has(term.text) : searchable.text.includes(term.text)
+  )
 }
 
 /** The search-box text that finds exactly this tag. */

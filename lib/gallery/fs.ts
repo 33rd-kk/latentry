@@ -279,7 +279,7 @@ export async function listPage(
   const terms = parseQuery(filter.q ?? '')
   const filtering = terms.length > 0 || needsMeta(filter)
   const matches = (item: GalleryItem) =>
-    matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta), terms))
+    matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta, item), terms))
   const items: GalleryItem[] = []
   let index = start
   // Filtering reads metadata as it goes; a search through a huge folder stops

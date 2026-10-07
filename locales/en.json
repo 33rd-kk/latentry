@@ -266,6 +266,7 @@
     "searchHintExact": "Quotes match one tag exactly: not \"very long hair\". Tags sent from the viewer are quoted.",
     "searchHintSpelling": "Underscores and spaces are the same, and case does not matter.",
     "searchHintOther": "Unquoted terms also match the model and the file name.",
+    "searchHintFields": "A setting: model or sampler contains the text; seed, steps, cfg, w and h compare numbers with =, >, >=, < or <=.",
     "searchHintHide": "Hide tips",
     "searchHintShow": "Show search tips",
     "showTags": "Tags",

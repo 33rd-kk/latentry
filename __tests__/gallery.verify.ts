@@ -209,6 +209,8 @@ async function main() {
     eq(await names({ since: 'day' }), ['wide.webp', 'p2.png'], 'the age filter')
     eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
+    eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
+    eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
 
     // ── Orders that need the folder read first ──
     const first = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
