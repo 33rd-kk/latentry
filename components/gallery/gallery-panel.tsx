@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { Eye, ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
 import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
 import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
@@ -44,6 +44,11 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
   const meta = picture.meta
   const [tagging, setTagging] = useState(false)
   const [note, setNote] = useState<string | null>(null)
+  // Secret mode hides what describes the picture; "Show" lifts that for the
+  // one picture on screen, and moving to another hides again.
+  const key = `${picture.dir}/${picture.name}`
+  const [revealedFor, setRevealedFor] = useState<string | null>(null)
+  const hidden = secret && revealedFor !== key
 
   const analyze = async () => {
     setTagging(true)
@@ -70,7 +75,9 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
         saved = write.ok
       }
       onMetaChange(picture, { ...(meta ?? { source: "unknown", prompt: "", negativePrompt: "" }), tags })
-      setNote(saved ? t("gallery.tagsSaved") : writable ? t("gallery.tagsNotSaved") : t("gallery.tagsReadOnly"))
+      const result = saved ? t("gallery.tagsSaved") : writable ? t("gallery.tagsNotSaved") : t("gallery.tagsReadOnly")
+      // The tags themselves stay hidden in secret mode; say that they exist.
+      setNote(hidden ? `${result} ${t("gallery.tagsHidden", { count: tags.length })}` : result)
     } catch (error) {
       setNote(error instanceof Error ? error.message : String(error))
     } finally {
@@ -105,7 +112,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
   }
 
   const sections: LightboxTagSection[] = []
-  if (meta && !secret) {
+  if (meta && !hidden) {
     sections.push({ label: t("gallery.prompt"), tags: splitTags(toSpacedTags(meta.prompt)), target: "positive" })
     sections.push({
       label: t("gallery.negative"),
@@ -114,7 +121,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
     })
   }
   // WD14 tags describe the picture as plainly as its prompt does.
-  if (meta?.tags?.length && !secret) {
+  if (meta?.tags?.length && !hidden) {
     const named = meta.tags.filter((tag) => tag.category === WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
     const general = meta.tags.filter((tag) => tag.category !== WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
     if (named.length) sections.push({ label: t("gallery.wd14Character"), tags: named, target: "positive" })
@@ -174,7 +181,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
       </div>
       {note && <p className="text-xs text-white/70">{note}</p>}
 
-      {facts.length > 0 && !secret && (
+      {facts.length > 0 && !hidden && (
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-xs">
           {facts.map(([label, value]) => (
             <div key={label} className="contents">
@@ -185,7 +192,15 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
         </dl>
       )}
       {!meta && <p className="text-xs text-white/50">{canTag ? t("gallery.noMetaTag") : t("gallery.noMeta")}</p>}
-      {secret && meta && <p className="text-xs text-white/50">{t("gallery.secretHidden")}</p>}
+      {hidden && meta && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
+          <span>{t("gallery.secretHidden")}</span>
+          <button type="button" className={action} onClick={() => setRevealedFor(key)}>
+            <Eye className="h-3 w-3" />
+            {t("gallery.secretReveal")}
+          </button>
+        </div>
+      )}
 
       <LightboxTagPanel
         sections={sections}

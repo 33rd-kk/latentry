@@ -4,7 +4,7 @@ import { useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Cpu, EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
+import { Cpu, Eye, EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -75,14 +75,18 @@ export function AppHeader() {
         <div className="ml-auto flex items-center gap-1">
           <Tooltip>
             <TooltipTrigger asChild>
+              {/* On, it is a filled pill with its name, so it reads at a glance
+                  in either theme; off, a plain eye like the other controls. */}
               <Button
-                variant={secret ? "secondary" : "ghost"}
-                size="icon"
+                variant={secret ? "default" : "ghost"}
+                size={secret ? "sm" : "icon"}
                 aria-pressed={secret}
                 aria-label={t("app.secretMode")}
                 onClick={() => preferences.setSecretMode(!secret)}
+                className={cn(secret && "gap-1.5 rounded-full px-3")}
               >
-                <EyeOff className={cn("h-4 w-4", secret && "text-primary")} />
+                {secret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                {secret && <span className="text-xs font-semibold">{t("app.secretModeOn")}</span>}
               </Button>
             </TooltipTrigger>
             <TooltipContent className="max-w-64">{t("app.secretModeHint")}</TooltipContent>
