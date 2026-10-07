@@ -71,6 +71,12 @@ export interface Job extends Omit<JobSnapshot, 'imageCount' | 'images'> {
   listeners: Set<Listener>
   context: JobContext
   /**
+   * Started in secret mode: only the page that started it, which knows the
+   * id, may watch it. It is never offered to a page that loads, and it is
+   * dropped from memory a short while after it ends (SECRET_GRACE_MS).
+   */
+  secret: boolean
+  /**
    * Saves still being written. The run is over as far as generating goes, but
    * a stream that says goodbye while the last file is still being written would
    * take the save's verdict with it — on a one-image run, every time.
@@ -87,6 +93,13 @@ export type ImageSink = (job: Job, image: JobImage, index: number) => Promise<st
  */
 export const RESUME_WINDOW_MS = 60 * 60 * 1000
 
+/**
+ * How long a secret run is kept after it ends: enough for the page that
+ * started it to receive the last images over a stream that dropped for a
+ * moment, not enough for anyone to come back for them.
+ */
+export const SECRET_GRACE_MS = 60 * 1000
+
 // Held on globalThis so `next dev`'s hot reload — which re-evaluates this
 // module — cannot orphan a job a page is in the middle of watching.
 const globalForJobs = globalThis as typeof globalThis & { __latentryJobs?: Map<string, Job> }
@@ -102,10 +115,15 @@ export function getJob(backend: string, id: string): Job | null {
   return job && job.id === id ? job : null
 }
 
-/** True while the page should still put this run back on screen after a reload. */
-export function isResumable(job: Job): boolean {
+/** True while a stream that knows this run's id may still watch it. */
+export function isWatchable(job: Job, now = Date.now()): boolean {
   if (job.status === 'running') return true
-  return Date.now() - (job.endedAt ?? job.startedAt) < RESUME_WINDOW_MS
+  return now - (job.endedAt ?? job.startedAt) < (job.secret ? SECRET_GRACE_MS : RESUME_WINDOW_MS)
+}
+
+/** True while the page should still put this run back on screen after a reload. Never for a secret run. */
+export function isResumable(job: Job, now = Date.now()): boolean {
+  return !job.secret && isWatchable(job, now)
 }
 
 export function toSnapshot(job: Job, options: { includeImages?: boolean } = {}): JobSnapshot {
@@ -155,7 +173,7 @@ export function subscribe(backend: string, id: string, listener: Listener): () =
  * Replaces the backend's current job. `total` and `steps` are only a starting
  * guess for the progress bars; the backend's own events correct both.
  */
-export function startJob(init: { backend: string; total: number; steps: number; context: JobContext }): Job {
+export function startJob(init: { backend: string; total: number; steps: number; context: JobContext; secret?: boolean }): Job {
   const previous = getCurrentJob(init.backend)
   const job: Job = {
     id: randomUUID(),
@@ -174,6 +192,7 @@ export function startJob(init: { backend: string; total: number; steps: number; 
     endedAt: null,
     listeners: new Set(),
     context: init.context,
+    secret: init.secret === true,
   }
   jobs.set(init.backend, job)
   // Whoever still watched the old run is now watching nothing; wake them so
@@ -188,6 +207,16 @@ function finish(job: Job, status: Exclude<JobStatus, 'running'>, error?: string)
   job.error = error ?? null
   job.endedAt = Date.now()
   job.currentStep = 0
+  notify(job)
+  if (job.secret) setTimeout(() => forget(job), SECRET_GRACE_MS).unref?.()
+}
+
+/** Drops a run from memory: its images, its prompt, and the record itself. */
+export function forget(job: Job): void {
+  if (jobs.get(job.backend) === job) jobs.delete(job.backend)
+  job.images = []
+  job.context = { ...job.context, request: { ...job.context.request, prompt: '', negative_prompt: '' } }
+  // A stream still open on it sees it gone and closes.
   notify(job)
 }
 

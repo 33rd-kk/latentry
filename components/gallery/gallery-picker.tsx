@@ -5,8 +5,10 @@ import { Loader2, Search } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useSecretMode } from "@/components/app-header"
 import { pictureUrl, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useT } from "@/lib/i18n"
+import { cn } from "@/lib/utils"
 
 interface GalleryPickerProps {
   open: boolean
@@ -22,6 +24,7 @@ interface GalleryPickerProps {
  */
 export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPickerProps) {
   const t = useT()
+  const secret = useSecretMode()
   const folders = useGalleryFolders()
   const [dir, setDir] = useState<number | null>(null)
   const [query, setQuery] = useState("")
@@ -95,9 +98,9 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
                   >
                     <img
                       src={pictureUrl(picture, true)}
-                      alt={picture.meta?.prompt?.slice(0, 80) || picture.name}
+                      alt={secret ? picture.name : picture.meta?.prompt?.slice(0, 80) || picture.name}
                       loading="lazy"
-                      className="h-full w-full object-cover transition group-hover:scale-105"
+                      className={cn("h-full w-full object-cover transition group-hover:scale-105", secret && "blur-xl")}
                     />
                   </button>
                 ))}

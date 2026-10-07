@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adapterOr404, jsonError } from '@/lib/api'
 import { encodeSseEvent } from '@/lib/diffusion/sse'
-import { getJob, subscribe, toSnapshot, type Job } from '@/lib/diffusion/job-store'
+import { getJob, isWatchable, subscribe, toSnapshot, type Job } from '@/lib/diffusion/job-store'
 import { serverMessage } from '@/lib/i18n/core'
 import { sseSlot } from '@/lib/security/request-budget'
 
@@ -118,7 +118,8 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
       }
 
       const job = getJob(backend, id)
-      if (!job) {
+      // Past its window a run is over for every viewer, not only for /job.
+      if (!job || !isWatchable(job)) {
         send('end', { status: 'gone', error: null })
         close()
         return

@@ -9,10 +9,12 @@
 //   SETTINGS_EDIT=off     never; the page is read-only and .env.local rules
 //
 // "local" goes by the Host header and the forwarded client address, which a
-// browser cannot forge. A program on the LAN can (Next.js does not expose the
-// socket address to a route), so on a network with people you do not trust,
-// use "off" and edit latentry.settings.json by hand.
+// browser cannot forge, and by the address the connection really came from
+// (lib/security/peer.ts), which nothing on the network can. The last is what
+// stops a program on the LAN that writes the headers; a reverse proxy on this
+// machine is still told apart by the client address it forwards.
 
+import { peerAddress } from '@/lib/security/peer'
 import { clientIp } from '@/lib/security/request-budget'
 
 type Env = Record<string, string | undefined>
@@ -42,5 +44,6 @@ export function editRefusal(headers: Headers, env: Env = process.env): 'off' | '
   if (mode === 'off') return 'off'
   if (mode === 'lan') return null
   const host = hostnameOf(headers.get('host') ?? '')
-  return isLoopback(host) && isLoopback(clientIp(headers)) ? null : 'notLocal'
+  const peer = peerAddress(headers)
+  return isLoopback(host) && isLoopback(clientIp(headers)) && (peer === undefined || isLoopback(peer)) ? null : 'notLocal'
 }

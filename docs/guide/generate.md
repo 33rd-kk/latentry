@@ -93,6 +93,22 @@ reloading the page, or opening it in another tab, picks up a run in progress.
 
 ## Secret mode
 
-The eye in the header turns on secret mode: nothing you type is remembered
-in the browser, and the gallery blurs thumbnails and hides prompts. Turn it
-off to save forms again.
+The eye in the header turns on secret mode, for this browser:
+
+- Nothing you type is kept in the browser: the form, the shared prompt,
+  saved characters, and what the gallery sends to the form (which then only
+  reaches the form in the same tab).
+- The gallery and the picker blur pictures and hide prompts, settings and
+  tags. Gallery pictures are never kept in the browser's cache, in either
+  mode.
+- A run is shown only on the page that started it: reloading, another tab
+  or another device does not pick it up, and the server forgets it a minute
+  after it ends.
+
+What it does not do, by design: pictures are still saved to the gallery
+folder, with their prompt and settings inside the file, and the gallery
+shows them like any other picture, prompt included, to anyone who can open
+it: another browser on this computer, or another device when Latentry is
+open to the network. Secret mode belongs to one browser, and the server
+cannot tell who is asking for the gallery. Turn secret mode off to save
+forms again.

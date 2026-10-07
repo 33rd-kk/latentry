@@ -5,7 +5,14 @@
  *
  * Run with: npm test -- security
  */
+import { createServer, type IncomingHttpHeaders } from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { tmpdir } from 'node:os'
+import path from 'node:path'
 import { check, done, eq } from './assert'
+import { POST as testBackend } from '../app/api/settings/test/route'
+import { editRefusal } from '../lib/settings/access'
+import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
 import { checkApiRequest } from '../lib/security/route-guard'
 import { checkRequestBudget, classifyRequest, clientIp, FixedWindow, sseSlot } from '../lib/security/request-budget'
@@ -110,4 +117,97 @@ check(slots[0] !== null, 'a stream slot')
 check(sseSlot(new Headers({ 'x-forwarded-for': '10.8.8.8' }), { REQUEST_BUDGET_SSE_PER_IP: '1' }) === null, 'over the per-IP stream cap')
 slots[0]!()
 
-done('security')
+// ── Privacy audit (2026-10), see audit/2026-10-privacy-audit.md (local, not committed) ──
+
+// F3: "local" settings edits go by the connection's real address, not only headers.
+const spoofed = { host: 'localhost', 'x-forwarded-for': '127.0.0.1' }
+eq(editRefusal(new Headers({ host: '192.168.1.20:3000', 'x-forwarded-for': '192.168.1.30' }), {}), 'notLocal', 'a LAN client may not edit settings by default')
+check(editRefusal(new Headers(spoofed), {}) === null, 'without the stamp (route code called directly) headers are all there is')
+installPeerStamp()
+const peer = peerHeaderName()!
+check(/^x-latentry-peer-[0-9a-f]{16}$/.test(peer), 'the stamp has a name no client can guess')
+eq(editRefusal(new Headers({ ...spoofed, [peer]: '192.168.1.30' }), {}), 'notLocal', 'F3: a LAN program writing Host: localhost and X-Forwarded-For: 127.0.0.1 is refused')
+eq(editRefusal(new Headers({ ...spoofed, [peer]: '::ffff:192.168.1.30' }), {}), 'notLocal', 'also as an IPv4-mapped address')
+eq(editRefusal(new Headers(spoofed), {}), 'notLocal', 'a request without the stamp is refused once stamping is on')
+check(editRefusal(new Headers({ ...spoofed, [peer]: '::1' }), {}) === null, 'this machine still may')
+eq(editRefusal(new Headers({ host: 'localhost', 'x-forwarded-for': '192.168.1.30', [peer]: '127.0.0.1' }), {}), 'notLocal', 'a reverse proxy here is told apart by the client it forwards')
+
+// The stamp on a real connection, and what a client sends under its name is replaced.
+async function stamping(): Promise<void> {
+  const server = createServer((request, response) => {
+    response.end(JSON.stringify(request.headers[peer] ?? null))
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  try {
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/`
+    const stamped = await (await fetch(url, { headers: { [peer]: '192.0.2.1' } })).json()
+    check(stamped === '127.0.0.1' || stamped === '::ffff:127.0.0.1', `the socket address is stamped over the client's (${stamped})`)
+  } finally {
+    server.close()
+  }
+}
+
+// F1: "test this backend" may use a saved token only on that backend's own server.
+async function tokenLending(): Promise<void> {
+  const seen: IncomingHttpHeaders[] = []
+  const server = createServer((request, response) => {
+    seen.push(request.headers)
+    response.writeHead(200, { 'Content-Type': 'application/json' })
+    response.end('{}')
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  const port = (server.address() as AddressInfo).port
+  // One listener, two origins: the backend is 127.0.0.1, "elsewhere" is localhost.
+  const home = `http://127.0.0.1:${port}/`
+  const elsewhere = `http://localhost:${port}/`
+  // Only this script's backends: no settings file, one backend in the environment.
+  Object.assign(process.env, {
+    LATENTRY_SETTINGS_FILE: path.join(tmpdir(), `latentry-audit-${process.pid}-none.json`),
+    GEN_BACKENDS: `victim|diffusers|${home}|generic`,
+    GEN_TOKEN_VICTIM: 'victim-secret-token',
+  })
+  delete process.env.SETTINGS_EDIT
+  try {
+    const ask = (body: Record<string, unknown>) =>
+      testBackend(
+        new Request('http://localhost:3000/api/settings/test', {
+          method: 'POST',
+          // As stamped for a connection from this machine.
+          headers: { host: 'localhost:3000', 'content-type': 'application/json', [peer]: '127.0.0.1' },
+          body: JSON.stringify(body),
+        })
+      )
+    const leaked = (expected: string) => seen.some((headers) => (headers.authorization ?? '').includes(expected))
+
+    eq((await ask({ kind: 'diffusers', url: elsewhere, token: 'typed-token' })).status, 200, 'a backend can be tried before it is saved')
+    check(leaked('typed-token'), 'a token typed into the form is sent with the try')
+
+    seen.length = 0
+    await ask({ kind: 'diffusers', url: home, id: 'victim' })
+    check(leaked('victim-secret-token'), 'trying a saved backend at its own address uses its token')
+
+    seen.length = 0
+    await ask({ kind: 'diffusers', url: elsewhere, id: 'victim' })
+    check(seen.length > 0 && !leaked('victim-secret-token'), 'F1: naming a saved backend id does not send its Bearer token to another server')
+
+    seen.length = 0
+    await ask({ kind: 'a1111', url: elsewhere, id: 'victim' })
+    check(seen.length > 0 && !seen.some((headers) => headers.authorization), 'F1: nor as Basic auth with kind a1111')
+
+    seen.length = 0
+    process.env.SETTINGS_EDIT = 'off'
+    eq((await ask({ kind: 'diffusers', url: elsewhere, id: 'victim' })).status, 403, 'SETTINGS_EDIT=off closes the route')
+    check(seen.length === 0, 'and nothing is sent')
+  } finally {
+    delete process.env.SETTINGS_EDIT
+    server.close()
+  }
+}
+
+stamping().then(tokenLending).then(
+  () => done('security'),
+  (error: unknown) => {
+    check(false, `token lending check threw: ${error instanceof Error ? error.stack : String(error)}`)
+    done('security')
+  }
+)

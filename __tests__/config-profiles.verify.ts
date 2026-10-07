@@ -10,7 +10,7 @@ import { check, done, eq } from './assert'
 import { parseBackends } from '../lib/backends/config'
 import { parseGalleryDirs } from '../lib/gallery/dirs'
 import { composePrompt, fitToImage, formatForProfile, getProfile, listProfiles } from '../lib/profiles'
-import { appendTag, appendTags, formatTags, prependTags, splitTags, tagKey, toSpacedTags } from '../lib/tags'
+import { appendTag, appendTags, formatTags, prependTags, splitTags, tagKey, toSpacedTags, wildcardMatch } from '../lib/tags'
 
 // ── GEN_BACKENDS ──
 const mixed = parseBackends({
@@ -112,5 +112,20 @@ eq(appendTags('a, B', ['b', 'c', 'C', ' d ', '']), 'a, B, c, d', 'bulk append sk
 eq(appendTags('a', ['A']), 'a', 'bulk append of only known tags leaves the prompt')
 eq(appendTags('', ['x', 'y']), 'x, y', 'bulk append to empty')
 eq(prependTags('scene, a', ['a', 'char']), 'char, scene, a', 'prepend skips what is there')
+
+// keepTags wildcards: matched without a regex, so a pattern from settings
+// cannot stall the server on a long tag (privacy audit 2026-10, F10).
+eq(
+  [['score_*', 'score_8_up'], ['SCORE_*', 'score_9'], ['*_up', 'score_8_up'], ['a*b*c', 'axxbyyc'], ['a*b*c', 'axxbyy'], ['*', ''], ['a', 'ab'], ['a*', 'a'], ['**a**', 'xa']].map(
+    ([pattern, text]) => wildcardMatch(pattern.toLowerCase(), text)
+  ),
+  [true, true, true, true, false, true, false, true, true],
+  'wildcard matching'
+)
+eq(formatTags('Score_9, rating_safe', 'space', 'score_*'), 'Score_9, rating safe', 'patterns ignore case')
+const started = performance.now()
+formatTags(Array.from({ length: 10 }, () => 'a'.repeat(2000)).join(', '), 'space', 'a*a*a*a*a*a*a*a*b, ' + 'a*'.repeat(500) + 'b')
+const took = performance.now() - started
+check(took < 1000, `F10: keepTags with many wildcards on 2000-character tags stays fast (${Math.round(took)} ms)`)
 
 done('config-profiles')

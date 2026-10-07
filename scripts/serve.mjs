@@ -1,7 +1,8 @@
-// `npm start` and `npm run dev`: Next.js, listening on this machine only
-// unless told otherwise.
+// `npm start`, `npm run dev` and `npm run build`: Next.js, listening on this
+// machine only unless told otherwise, and with its anonymous usage reports to
+// Vercel off (set NEXT_TELEMETRY_DISABLED to an empty value to send them).
 //
-//   node scripts/serve.mjs start|dev [next's own options...]
+//   node scripts/serve.mjs start|dev|build [next's own options...]
 //
 // Next.js listens on every network interface by default, which on Windows
 // also brings up a firewall prompt on the first run. Latentry has no login,
@@ -18,8 +19,8 @@ import { createRequire } from 'node:module'
 import path from 'node:path'
 
 const [mode, ...rest] = process.argv.slice(2)
-if (mode !== 'start' && mode !== 'dev') {
-  console.error('usage: node scripts/serve.mjs start|dev [next options]')
+if (mode !== 'start' && mode !== 'dev' && mode !== 'build') {
+  console.error('usage: node scripts/serve.mjs start|dev|build [next options]')
   process.exit(2)
 }
 
@@ -36,14 +37,17 @@ function configuredHost() {
 }
 
 const args = [mode, ...rest]
-if (!rest.some((arg) => arg === '-H' || arg === '--hostname' || arg.startsWith('--hostname='))) {
+if (mode !== 'build' && !rest.some((arg) => arg === '-H' || arg === '--hostname' || arg.startsWith('--hostname='))) {
   args.push('-H', configuredHost() ?? '127.0.0.1')
 }
 
 if (mode === 'start' && !process.env.LATENTRY_NO_LOGO) await import('./logo.mjs')
 
 const next = createRequire(import.meta.url).resolve('next/dist/bin/next')
-const child = spawn(process.execPath, [next, ...args], { stdio: 'inherit' })
+const child = spawn(process.execPath, [next, ...args], {
+  stdio: 'inherit',
+  env: { NEXT_TELEMETRY_DISABLED: '1', ...process.env },
+})
 // Ctrl+C reaches Next.js directly (same console); passing it on as well
 // would, on Windows, end it abruptly instead of letting it shut down.
 for (const signal of ['SIGINT', 'SIGTERM']) {

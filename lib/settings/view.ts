@@ -50,7 +50,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       kind,
       url,
       profile,
-      token: stored.get(id)?.token ? 'settings' : hasEnvToken(id) ? 'env' : null,
+      token: stored.get(id)?.token ? 'settings' : hasEnvToken(id, url) ? 'env' : null,
     })),
     tagger: taggerPreference(process.env, settings),
     wd14: (() => {

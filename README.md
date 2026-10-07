@@ -36,7 +36,8 @@ tagging in both directions.
   tags in the file. Tagging runs inside Latentry (on the CPU, with a WD14
   model you download), or on a backend that has a tagger.
 - Light and dark, and a secret mode that keeps what you type out of browser
-  storage and blurs the gallery. The UI is in English and can be machine
+  storage, blurs the gallery and keeps runs to the page that started them
+  (pictures are still saved to the gallery folder). The UI is in English and can be machine
   translated into other languages (see [Translations](#translations)).
 
 ### Screenshots

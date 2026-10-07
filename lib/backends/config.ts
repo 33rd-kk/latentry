@@ -13,12 +13,14 @@
 // GEN_BACKENDS is unset, as one diffusers backend with the generic profile.
 //
 // Backends saved from the settings page (latentry.settings.json) replace all
-// of this. A saved backend without a token still picks up GEN_TOKEN_<ID>, so
-// tokens can stay in the environment if preferred.
+// of this. A saved backend without a token still picks up GEN_TOKEN_<ID>, but
+// only while GEN_BACKENDS lists that id at the same address (scheme, host and
+// port): a token is never sent to a server it was not set up for, whoever
+// edits the settings.
 
 import { BACKEND_KINDS, type BackendConfig, type BackendKind } from './types'
 import { isProfileId } from '@/lib/profiles'
-import type { Settings } from '@/lib/settings/schema'
+import { sameOrigin, type Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
 import { engineBackends } from '@/lib/engine/supervisor'
 
@@ -111,6 +113,12 @@ function fromEnv(env: Env): BackendConfig[] {
   return cached.result.backends
 }
 
+/** The environment's token for this id, if the environment set it up for this address. */
+function envTokenFor(id: string, url: string, env: Env): string | undefined {
+  const configured = fromEnv(env).find((backend) => backend.id === id)
+  return configured?.token && sameOrigin(configured.url, url) ? configured.token : undefined
+}
+
 /** Where the backends come from right now, for the settings page. */
 export function backendsSource(settings: Settings = getSettings()): 'settings' | 'env' {
   return settings.backends ? 'settings' : 'env'
@@ -120,7 +128,7 @@ export function backendsSource(settings: Settings = getSettings()): 'settings' |
 export function getBackends(env: Env = process.env, settings: Settings = getSettings()): BackendConfig[] {
   if (!settings.backends) return fromEnv(env)
   return settings.backends.map(({ token, ...backend }) => {
-    const resolved = token ?? tokenFor(backend.id, env)
+    const resolved = token ?? envTokenFor(backend.id, backend.url, env)
     return { ...backend, ...(resolved ? { token: resolved } : {}) }
   })
 }
@@ -147,7 +155,7 @@ export function taggerPreference(env: Env = process.env, settings: Settings = ge
   return preferred ? preferred : null
 }
 
-/** Whether GEN_TOKEN_<ID> is set, for the settings page (never the value). */
-export function hasEnvToken(id: string, env: Env = process.env): boolean {
-  return Boolean(tokenFor(id, env))
+/** Whether GEN_TOKEN_<ID> applies to this backend, for the settings page (never the value). */
+export function hasEnvToken(id: string, url: string, env: Env = process.env): boolean {
+  return Boolean(envTokenFor(id, url, env))
 }

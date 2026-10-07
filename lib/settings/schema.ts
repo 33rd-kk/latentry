@@ -96,7 +96,20 @@ export function normalizeUrl(value: unknown): string | null {
   }
 }
 
-const isAbsolute = (value: string) => /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value)
+/**
+ * Whether two backend addresses are the same server: scheme, host and port.
+ * A token is only ever sent to the server it was set up for, so whoever can
+ * point a backend somewhere else cannot take its token along.
+ */
+export function sameOrigin(a: string, b: string): boolean {
+  try {
+    return new URL(a).origin === new URL(b).origin
+  } catch {
+    return false
+  }
+}
+
+const isAbsolute =(value: string) => /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value)
 
 function numberIn(value: unknown, min: number, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : null
@@ -105,7 +118,7 @@ function numberIn(value: unknown, min: number, max: number): number | null {
 /**
  * What the settings page sends for one backend. `token` is write-only:
  * a string sets it, "" clears it, and absent (or null) keeps whatever the file
- * already has for that id.
+ * already has for that id — as long as the address is still the same server.
  */
 export interface BackendInput {
   id: unknown
@@ -161,8 +174,15 @@ export function validateSettings(
         }
         seen.add(id)
         if (Object.keys(errors).some((key) => key.startsWith(`${at}.`))) return
-        const kept = current.backends?.find((backend) => backend.id === id)?.token
-        const token = typeof raw.token === 'string' ? raw.token.trim() : kept
+        const previous = current.backends?.find((backend) => backend.id === id)
+        const typed = typeof raw.token === 'string' ? raw.token.trim() : null
+        // A saved token stays with its server: moving the backend to another
+        // address needs the token typed again, or removed.
+        if (typed === null && previous?.token && !sameOrigin(previous.url, url!)) {
+          errors[`${at}.token`] = 'settings.errorTokenMoved'
+          return
+        }
+        const token = typed ?? previous?.token
         stored.push({ id, kind: raw.kind as BackendKind, url: url!, profile: raw.profile as ProfileId, ...(token ? { token } : {}) })
       })
       next.backends = stored
