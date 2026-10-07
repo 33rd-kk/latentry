@@ -2,62 +2,77 @@
 
 ## Unreleased
 
-- The logo `install.sh`, `install.ps1` and `npm start` print shows the new
-  banner's picture, and fits a 120-column terminal again (the longer second
-  line had pushed the picture out below 126 columns).
-- **Privacy**: a finished run's pictures and prompt leave Latentry's memory
-  once no page may load them any more (an hour, a minute for a secret run),
-  instead of staying until that backend's next run. The engine reads a
-  single-file SDXL model's config files from Hugging Face's cache after the
-  first load instead of asking the Hub each time. Prompt fields and search
-  boxes no longer use the browser's spell check (which some browsers do
-  online) or autofill. In secret mode, a comparison shown with **Show** is
-  hidden again when it is closed. The Privacy and Secret mode pages now
-  cover the engine's first-use downloads, the Hugging Face cache, Compare
-  and Download in secret mode, and what turning it off keeps.
-- **README and manual** lead with what Latentry is for: private, local image
-  generation, and a gallery that remembers how every picture was made. A
-  new banner, a Privacy section in the README, and a
-  [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/) page in the
-  manual listing what goes over the network and what is kept where.
-- **Gallery**: **Stack** pictures that share a prompt or a seed into one
-  card, and open a stack to see them. **Compare** two selected pictures with
-  a slider (or side by side), their differing settings and the prompt tags
-  only one has.
-- **Gallery**: **Show in folder** and **Open in default app** in the viewer
-  open a picture in this computer's file manager (selected) or its picture
-  app. They appear only when the browser runs on the same computer, and
-  never act on a file outside the gallery folders. The gallery still has no
-  delete, move or rename, by design.
-- **Gallery**: leave pictures out with a leading `-` (`-smile`,
-  `-"long hair"`, `-model:pony`). The viewer lists a picture's LoRAs.
-- **Gallery** reads settings from JPEG and WebP too (A1111 / Forge's EXIF,
-  ComfyUI's WebP), and the LoRAs a picture used. Before, only PNGs had
-  settings. It reads only the headers, and from EXIF only the fields that
-  hold settings. Viewing a WebP or JPEG no longer keeps the file open, so it
-  can be renamed or deleted elsewhere while Latentry runs.
-- **Gallery**: pictures can be ordered oldest first, by name, by file size,
-  by when they were made or by pixel count, and filtered by shape, file
-  type, age, resolution, model, where the settings came from, and whether
-  they have WD14 tags. The search box also takes settings as `key:value`
-  (`model:noobai`, `steps:>=30`, `w:1024`). The order and filters are not
-  kept in the browser; what the gallery reads to sort a folder stays in
-  memory.
-- **Secret mode**: a character saved while it is on is kept in that tab,
-  marked *temporary*, and dropped when secret mode is turned off. Before, it
-  showed in the list without being saved and vanished on the next reload.
-- **Backends**: when a backend cannot use the source image, inpaint mask or
-  skeleton pose, the form now says why and what would turn it on, instead of
-  just leaving it out. The same goes for a pose without the 3D view, and for
-  a skeleton dropped after switching to a backend without pose. Servers can
-  give their own reason in a new optional `/api/health` field, `unavailable`.
+## 0.4.0 (2026-10-08)
+
+**Upgrading from 0.3.0**: Latentry now needs **Node.js 22.19 or newer** (was
+22.12), for undici 8. Update Node.js first, then update Latentry as usual.
+
+**Gallery**
+
+- Order pictures oldest first, by name, by file size, by when they were made
+  or by pixel count. Filter them by shape, file type, age, resolution, model,
+  where the settings came from, and whether they have WD14 tags.
+- The search box takes settings as `key:value` (`model:noobai`, `steps:>=30`,
+  `w:1024`), and leaves pictures out with a leading `-` (`-smile`,
+  `-"long hair"`, `-model:pony`).
+- **Stack** pictures that share a prompt or a seed into one card, and open a
+  stack to see them. **Compare** two selected pictures with a slider (or side
+  by side), their differing settings and the prompt tags only one has.
+- Settings are read from JPEG and WebP too (A1111 / Forge's EXIF, ComfyUI's
+  WebP), along with the LoRAs a picture used, which the viewer lists. Before,
+  only PNGs had settings. Only the headers are read, and from EXIF only the
+  fields that hold settings.
+- **Show in folder** and **Open in default app** in the viewer open a
+  picture in this computer's file manager (selected) or its picture app.
+  They appear only when the browser runs on the same computer, and never act
+  on a file outside the gallery folders. The gallery still has no delete,
+  move or rename, by design.
+- The order and filters are not kept in the browser; what the gallery reads
+  to sort a folder stays in memory.
+
+**Privacy**
+
+- A finished run's pictures and prompt leave Latentry's memory once no page
+  may load them any more (an hour, a minute for a secret run), instead of
+  staying until that backend's next run.
+- The engine reads a single-file SDXL model's config files from Hugging
+  Face's cache after the first load, instead of asking the Hub each time.
+- Prompt fields and search boxes no longer use the browser's spell check
+  (which some browsers do online) or autofill.
+- Secret mode: a character saved while it is on is kept in that tab, marked
+  *temporary*, and dropped when secret mode is turned off (before, it
+  vanished on the next reload). A comparison shown with **Show** is hidden
+  again when it is closed.
+- A new [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/) page in
+  the manual lists what goes over the network and what is kept where, and
+  the Secret mode page covers Compare, Download and what turning it off
+  keeps.
+
+**Backends and install**
+
+- When a backend cannot use the source image, inpaint mask or skeleton pose,
+  the form says why and what would turn it on, instead of just leaving it
+  out. The same goes for a pose without the 3D view, and for a skeleton
+  dropped after switching to a backend without pose. Servers can give their
+  own reason in a new optional `/api/health` field, `unavailable`.
 - `install.sh --no-engine` (`install.ps1 -NoEngine`) is for servers you
   already run: it turns off the built-in engine in a new `.env.local` and
   points you to Settings instead of the Setup page.
-- Latentry now needs **Node.js 22.19 or newer** (was 22.12), for undici 8.
-- **Dark mode**: the 3D pose view and the skeleton preview have a visible
-  edge, dialogs dim the page behind them, and sliders show their whole track.
-  The 3D view's floor grid is a little brighter in both themes.
+
+**Look**
+
+- README and manual lead with what Latentry is for: private, local image
+  generation, and a gallery that remembers how every picture was made. A new
+  banner, also drawn by the logo that the install scripts and `npm start`
+  print, which fits a 120-column terminal.
+- Dark mode: the 3D pose view and the skeleton preview have a visible edge,
+  dialogs dim the page behind them, and sliders show their whole track. The
+  3D view's floor grid is a little brighter in both themes.
+
+**Fixed**
+
+- Viewing a WebP or JPEG in the gallery no longer keeps the file open, so it
+  can be renamed or deleted elsewhere while Latentry runs.
 
 ## 0.3.0 (2026-10-07)
 
