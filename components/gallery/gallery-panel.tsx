@@ -202,12 +202,15 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
         </div>
       )}
 
-      <LightboxTagPanel
-        sections={sections}
-        onSearch={onSearch}
-        onSendTag={(tag, target) => pushHandoff({ type: "tag", tag, target })}
-        onSendTags={(tags, target) => pushHandoff({ type: "tags", tags, target })}
-      />
+      {/* Hidden, "No tags" would be wrong: there may be tags, just not shown. */}
+      {!hidden && (
+        <LightboxTagPanel
+          sections={sections}
+          onSearch={onSearch}
+          onSendTag={(tag, target) => pushHandoff({ type: "tag", tag, target })}
+          onSendTags={(tags, target) => pushHandoff({ type: "tags", tags, target })}
+        />
+      )}
     </div>
   )
 }
