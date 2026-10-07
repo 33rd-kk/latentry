@@ -20,6 +20,19 @@
   for it to be removed); and `GEN_TOKEN_<ID>` only applies while
   `GEN_BACKENDS` lists that id at the same address, so a backend added only on
   the Settings page needs its token typed there.
+- **Secret mode** now also keeps a run to the page that started it (no
+  other tab, reload or device picks it up, and the server forgets it a minute
+  after it ends), keeps what the gallery sends to the form out of browser
+  storage, and blurs the gallery picker and hides WD14 tags. Pictures are
+  still saved to the gallery folder.
+- **Gallery**: pictures and thumbnails are no longer kept in the browser's
+  cache.
+- **Security**: whether a request comes from this machine (for changing
+  settings) is decided by the connection's real address too, so a program on
+  the LAN can no longer pass by writing `Host` and `X-Forwarded-For`.
+- `npm start`, `npm run dev` and `npm run build` turn Next.js's anonymous
+  usage reports off, and the engine runs with Hugging Face's off and without
+  the other backends' tokens in its environment.
 - **Settings**: the wildcards in a profile's never-respelled tags are matched
   without a regular expression, so a pattern with many `*` can no longer
   freeze the generate page on a long tag.

@@ -38,14 +38,13 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gallery/
 
 async function respond(request: NextRequest, handle: FileHandle, file: string, info: BigIntStats): Promise<Response> {
   const version = `${info.mtimeMs}-${info.size}`
-  const etag = `"${version}${request.nextUrl.searchParams.get('thumb') ? '-t' : ''}"`
   const headers = {
-    // Private: these are the user's own pictures, not for a shared cache.
-    'Cache-Control': 'private, max-age=3600',
-    ETag: etag,
+    // Not kept by the browser at all: a disk cache would hold every picture
+    // viewed, secret mode or not, long after the tab is closed. Thumbnails are
+    // cached in this server's memory instead (lib/gallery/thumbs.ts).
+    'Cache-Control': 'no-store',
     'X-Content-Type-Options': 'nosniff',
   }
-  if (request.headers.get('if-none-match') === etag) return new Response(null, { status: 304, headers })
 
   try {
     if (request.nextUrl.searchParams.get('thumb')) {

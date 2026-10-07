@@ -27,10 +27,21 @@ What it does guard against:
   addresses and hosts listed in `ALLOWED_HOSTS`.
 - **Floods**: per-IP request budgets.
 - **Settings from the network**: by default only this machine may change
-  settings (which decide the folders read and written). `SETTINGS_EDIT`
-  changes that; see the README.
+  settings (which decide the folders read and written, and where prompts
+  are sent). This goes by the address the connection really comes from, not
+  only by headers. `SETTINGS_EDIT` changes that; see the README. With
+  `SETTINGS_EDIT=lan`, anyone on the LAN can point a backend at their own
+  server and receive the prompts and pictures sent to it from then on.
+- **Backend tokens** are only sent to the server they were set up for (same
+  scheme, host and port), whoever edits the settings. A backend reached over
+  plain `http://` on another machine sends its prompts, pictures and token
+  unencrypted.
 - **The engine** listens on 127.0.0.1 with a random token only Latentry
   holds.
+- **Secret mode** is a privacy aid for this browser, not a security
+  boundary: it keeps typed text out of browser storage, gallery pictures out
+  of the browser cache, and secret runs from other pages; saved pictures
+  still carry their prompt.
 
 What is out of scope: anyone already on your LAN or machine, and exposing
 Latentry to the internet. To do that, put an authenticating reverse proxy in

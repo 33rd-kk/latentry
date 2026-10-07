@@ -113,7 +113,8 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
       target: "negative",
     })
   }
-  if (meta?.tags?.length) {
+  // WD14 tags describe the picture as plainly as its prompt does.
+  if (meta?.tags?.length && !secret) {
     const named = meta.tags.filter((tag) => tag.category === WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
     const general = meta.tags.filter((tag) => tag.category !== WD14_CHARACTER).map((tag) => tagForPrompt(tag.name))
     if (named.length) sections.push({ label: t("gallery.wd14Character"), tags: named, target: "positive" })

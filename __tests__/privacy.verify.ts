@@ -1,16 +1,16 @@
 /**
  * Privacy audit (2026-10): what secret mode keeps out of browser storage
  * (lib/storage.ts, lib/secret-mode.ts), and what the server's job record
- * (lib/diffusion/job-store.ts) still hands to any client after a run.
+ * (lib/diffusion/job-store.ts) hands to clients after a run.
  *
- * Gaps found by the audit are pinned with knownGap(); see
+ * Gaps still open are pinned with knownGap(); see
  * audit/2026-10-privacy-audit.md (local, not committed) for the IDs.
  *
  * Run with: npm test -- privacy
  */
-import { check, done, eq, knownGap } from './assert'
+import { check, done, eq } from './assert'
 import { drainHandoff, preferences, pushHandoff, STORAGE_KEYS } from '../lib/storage'
-import { applyEvent, getCurrentJob, getJob, isResumable, RESUME_WINDOW_MS, startJob, toSnapshot, type JobContext } from '../lib/diffusion/job-store'
+import { applyEvent, forget, getCurrentJob, getJob, isResumable, isWatchable, RESUME_WINDOW_MS, SECRET_GRACE_MS, startJob, toSnapshot, type JobContext } from '../lib/diffusion/job-store'
 
 // ── A browser, as far as lib/storage.ts needs one ──
 const store = new Map<string, string>()
@@ -40,19 +40,28 @@ eq(holding(SECRET), [], 'C1: the form, the shared prompt and characters are not 
 
 pushHandoff({ type: 'settings', settings: { prompt: SECRET, negativePrompt: SECRET } })
 pushHandoff({ type: 'tags', tags: [SECRET], target: 'positive' })
-knownGap(holding(SECRET).length === 0, 'F6', 'gallery → generate handoff writes the prompt to localStorage in secret mode')
-eq(drainHandoff().length, 2, 'the handoff still reaches the form (in memory is fine)')
-eq(holding(SECRET), [], 'a drained handoff leaves nothing behind')
+eq(holding(SECRET), [], 'F6: the gallery → generate handoff stays out of localStorage in secret mode')
+eq(drainHandoff().length, 2, 'and still reaches the form in this tab')
+eq(drainHandoff().length, 0, 'once')
+
+preferences.setSecretMode(false)
+pushHandoff({ type: 'tag', tag: 'outside', target: 'positive' })
+eq(holding('outside'), [STORAGE_KEYS.HANDOFF], 'outside secret mode it goes through localStorage, so another tab gets it')
+eq(drainHandoff().length, 1, 'drained')
+eq(holding('outside'), [], 'a drained handoff leaves nothing behind')
 
 // ── C2: what was typed before secret mode ──
 store.clear()
 preferences.setForm('anima', { prompt: BEFORE })
 preferences.setSharedPrompt({ prompt: BEFORE, artist: '' })
 eq(holding(BEFORE).sort(), [STORAGE_KEYS.FORM_PREFIX + 'anima', STORAGE_KEYS.SHARED_PROMPT].sort(), 'outside secret mode the form is kept')
+// F7, decided: drafts from before secret mode are not secret-mode data, and
+// deleting them on the toggle would lose work. Nothing typed during it is added.
 preferences.setSecretMode(true)
-knownGap(holding(BEFORE).length === 0, 'F7', 'turning secret mode on leaves the earlier prompt in localStorage')
+preferences.setForm('anima', { prompt: SECRET })
 preferences.setSecretMode(false)
-knownGap(holding(BEFORE).length === 0, 'F7', 'turning secret mode off clears nothing either')
+eq(holding(BEFORE).length, 2, 'drafts from before secret mode are kept')
+eq(holding(SECRET), [], 'nothing from during it is')
 preferences.setSecretMode(false)
 eq(store.get(STORAGE_KEYS.SECRET_MODE), 'false', 'the flag itself is a plain stored preference')
 
@@ -64,20 +73,29 @@ const context: JobContext = {
   model: null,
   mode: 'txt2img',
 }
-const job = startJob({ backend: 'audit', total: 1, steps: 1, context })
-applyEvent(job, { type: 'image', index: 0, total: 1, seed: 1, imageBase64: 'iVBORw0K' } as Parameters<typeof applyEvent>[1])
-applyEvent(job, { type: 'done' } as Parameters<typeof applyEvent>[1])
-eq(job.status, 'done', 'the run finished')
-check(!JSON.stringify(toSnapshot(job)).includes(SECRET), 'a snapshot never carries the prompt')
-check(!('images' in toSnapshot(job)), '/job answers without the images')
+type Event = Parameters<typeof applyEvent>[1]
+const image: Event = { type: 'image', index: 0, total: 1, seed: 1, imageBase64: 'iVBORw0K' } as Event
 
-// /job asks nothing of the caller but the backend id, and /job/stream only the job id it returns.
-knownGap(!(getCurrentJob('audit') && isResumable(getCurrentJob('audit')!)), 'F4', 'a finished run is offered to any client for an hour')
-check(JSON.stringify(toSnapshot(job, { includeImages: true })).includes('iVBORw0K'), 'the stream snapshot carries the images')
+// An ordinary run: back on screen after a reload, for an hour.
+const open = startJob({ backend: 'audit', total: 1, steps: 1, context })
+applyEvent(open, image)
+applyEvent(open, { type: 'done' } as Event)
+check(!JSON.stringify(toSnapshot(open)).includes(SECRET), 'a snapshot never carries the prompt')
+check(!('images' in toSnapshot(open)), '/job answers without the images')
+check(isResumable(open), 'an ordinary run is offered to a page that loads, within the hour')
+const late = (open.endedAt ?? 0) + RESUME_WINDOW_MS + 1
+check(!isResumable(open, late) && !isWatchable(open, late), 'F4: past the hour neither /job nor /job/stream serves it')
 
-job.endedAt = Date.now() - RESUME_WINDOW_MS - 1
-check(!isResumable(job), 'past the window the page no longer adopts the run')
-knownGap(getJob('audit', job.id) === null, 'F4', '/job/stream still serves the images past the resume window (it checks only the id)')
-check(getCurrentJob('audit')?.context.request.prompt === SECRET, 'the prompt stays in server memory until the next run or a restart')
+// A secret run: the starting page only, and gone a minute after it ends.
+const secret = startJob({ backend: 'audit', total: 1, steps: 1, context, secret: true })
+check(!isResumable(secret), 'F4: a secret run is never offered to a page that loads, even while running')
+check(isWatchable(secret), 'the page that started it can watch it')
+applyEvent(secret, image)
+applyEvent(secret, { type: 'done' } as Event)
+check(isWatchable(secret) && !isResumable(secret), 'just after it ends, only its stream may still read it')
+check(!isWatchable(secret, (secret.endedAt ?? 0) + SECRET_GRACE_MS + 1), 'not after the grace period')
+forget(secret)
+check(getCurrentJob('audit') === null && getJob('audit', secret.id) === null, 'F4: forgotten, the server no longer has it')
+check(secret.images.length === 0 && !JSON.stringify(secret.context).includes(SECRET), 'neither its images nor its prompt')
 
 done('privacy')

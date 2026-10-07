@@ -23,8 +23,9 @@ your network:
 Other devices can generate and use the gallery. **Settings and Setup stay
 read-only from them**: settings decide which folders are read and written.
 To allow changing them from the network as well, set `SETTINGS_EDIT=lan`
-(only on a network you trust); `SETTINGS_EDIT=off` makes them read-only
-everywhere.
+(only on a network you trust: anyone who can change settings can point a
+backend at their own server and receive your prompts and pictures from then
+on); `SETTINGS_EDIT=off` makes them read-only everywhere.
 
 ## What protects it
 
@@ -34,6 +35,8 @@ everywhere.
 - Requests are rate-limited per device.
 - The built-in engine listens on 127.0.0.1 with a random token only Latentry
   holds.
+- Backend tokens are only sent to the server they were set up for.
+- Next.js's anonymous usage reports and Hugging Face's are turned off.
 
 To reach it from outside your network, put an authenticating reverse proxy in
 front, one that overwrites `X-Forwarded-For` (the per-device limits trust

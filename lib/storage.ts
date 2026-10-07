@@ -119,6 +119,8 @@ export const preferences = {
 // The gallery and the form are separate pages, possibly in separate tabs, so
 // what the gallery sends waits in localStorage until the form drains it: on
 // mount, on the `storage` event from another tab, and on the same-tab event.
+// In secret mode it waits in this tab's memory instead — prompts and tags are
+// what the user typed — so it reaches the form in this tab only.
 
 /** The settings a gallery picture was made with, as the form applies them. */
 export interface HandoffSettings {
@@ -142,14 +144,27 @@ export type HandoffItem =
   | { type: 'settings'; settings: HandoffSettings }
   | { type: 'source'; url: string; as: 'variation' | 'pose' }
 
+let memoryHandoff: HandoffItem[] = []
+
+// Bounded: a form that is never opened must not let this grow forever.
+const HANDOFF_LIMIT = 50
+
 export function pushHandoff(item: HandoffItem): void {
+  if (isSecretMode()) {
+    memoryHandoff = [...memoryHandoff, item].slice(-HANDOFF_LIMIT)
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent(STORAGE_EVENT_NAME, { detail: { key: STORAGE_KEYS.HANDOFF, value: memoryHandoff } }))
+    }
+    return
+  }
   const queue = read<HandoffItem[]>(STORAGE_KEYS.HANDOFF, [])
-  // Bounded: a form that is never opened must not let this grow forever.
-  write(STORAGE_KEYS.HANDOFF, [...queue, item].slice(-50))
+  write(STORAGE_KEYS.HANDOFF, [...queue, item].slice(-HANDOFF_LIMIT))
 }
 
 export function drainHandoff(): HandoffItem[] {
-  const queue = read<HandoffItem[]>(STORAGE_KEYS.HANDOFF, [])
-  if (queue.length) write(STORAGE_KEYS.HANDOFF, null)
+  const stored = read<HandoffItem[]>(STORAGE_KEYS.HANDOFF, [])
+  if (stored.length) write(STORAGE_KEYS.HANDOFF, null)
+  const queue = [...stored, ...memoryHandoff]
+  memoryHandoff = []
   return queue
 }

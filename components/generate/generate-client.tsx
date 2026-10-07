@@ -25,6 +25,7 @@ import { useBackends } from "@/hooks/use-backends"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
+import { isSecretMode } from "@/lib/secret-mode"
 import { composePrompt, fitToImage, formatForProfile, getProfile, isProfileId, type Profile, type ProfileId } from "@/lib/profiles"
 import {
   drainHandoff,
@@ -697,6 +698,8 @@ export function GenerateClient() {
           num_inference_steps: form.steps,
           guidance_scale: form.cfg,
           profile: form.profile,
+          // Secret mode: the server keeps this run to this page only.
+          secret: isSecretMode(),
           ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
           ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
           ...(capabilities?.pose && poseSkeleton

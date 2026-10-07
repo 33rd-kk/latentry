@@ -27,9 +27,10 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   // A backend does one run at a time, so a second request would only queue
   // behind the first while its progress went unwatched. Hand back the running
   // job instead — a page that reloaded and pressed Generate again reattaches.
+  // A secret run's id is not handed out: only the page that started it may watch it.
   const running = getCurrentJob(id)
   if (running?.status === 'running') {
-    return json({ error: 'A generation is already running', job: toSnapshot(running) }, { status: 409 })
+    return json({ error: 'A generation is already running', ...(running.secret ? {} : { job: toSnapshot(running) }) }, { status: 409 })
   }
 
   // The check above only sees a run once startJob has recorded it, and that
@@ -53,6 +54,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
       backend: id,
       total: generate.image_count,
       steps,
+      secret: body.secret === true,
       context: {
         // The settings without the pictures: the record only needs to say a
         // source was used (strength is set exactly when one was), and the
