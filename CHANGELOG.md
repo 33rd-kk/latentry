@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Gallery** reads settings from JPEG and WebP too (A1111 / Forge's EXIF,
+  ComfyUI's WebP), and the LoRAs a picture used. Before, only PNGs had
+  settings. It reads only the headers, and from EXIF only the fields that
+  hold settings. Viewing a WebP or JPEG no longer keeps the file open, so it
+  can be renamed or deleted elsewhere while Latentry runs.
 - **Gallery**: pictures can be ordered oldest first, by name, by file size,
   by when they were made or by pixel count, and filtered by shape, file
   type, age, resolution, model, where the settings came from, and whether

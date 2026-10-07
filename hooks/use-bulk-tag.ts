@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useRef, useState } from "react"
-import type { ImageTag } from "@/lib/gallery/png-meta"
+import type { ImageTag } from "@/lib/image-meta"
 
 export interface BulkTagProgress {
   total: number

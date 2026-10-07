@@ -8,7 +8,7 @@ import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
 import { splitTags, toSpacedTags } from "@/lib/tags"
 import { tagForPrompt } from "@/lib/tag-groups"
-import type { ImageMeta, ImageTag } from "@/lib/gallery/png-meta"
+import type { ImageMeta, ImageTag } from "@/lib/image-meta"
 import { useT } from "@/lib/i18n"
 
 interface GalleryPanelProps {

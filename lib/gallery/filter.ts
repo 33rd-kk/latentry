@@ -9,7 +9,7 @@
 // Pure, so the verify script can pin it down.
 
 import { DEFAULT_SORT, isSortKey, type SortKey } from './sort'
-import type { ImageMeta } from './png-meta'
+import type { ImageMeta } from '../image-meta'
 
 export const SINCE = ['day', 'week', 'month'] as const
 export const FORMATS = ['png', 'webp', 'jpg'] as const

@@ -7,6 +7,12 @@ embedded in the PNG (A1111's PNG Info reads them too). Other folders, such as
 ComfyUI's or a web UI's output, can be browsed **read-only**. Choose the
 folders on [Settings](settings.md); with several, tabs switch between them.
 
+The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
+infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and
+Latentry's own record, including the LoRAs a picture used. It reads only the
+file's headers, never the whole picture. From EXIF it reads only the fields
+that hold settings, never location or camera data.
+
 Pictures load newest first as you scroll (see [Order and
 filters](#order-and-filters) for other orders); what is on screen stays in
 place while more load.

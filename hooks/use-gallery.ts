@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { ImageMeta } from "@/lib/gallery/png-meta"
+import type { ImageMeta } from "@/lib/image-meta"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import type { IndexProgress } from "@/lib/gallery/fs"
 

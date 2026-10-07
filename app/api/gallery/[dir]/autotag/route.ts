@@ -3,7 +3,7 @@ import { jsonError, readJson } from '@/lib/api'
 import { getTagger } from '@/lib/tagger'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { isSafeName, resolveInDir } from '@/lib/gallery/fs'
-import { metaFromText, readPngText } from '@/lib/gallery/png-meta'
+import { metaFromText, readPngText } from '@/lib/image-meta'
 import { writeTags } from '@/lib/gallery/save'
 import { tryAcquire } from '@/lib/security/concurrency'
 

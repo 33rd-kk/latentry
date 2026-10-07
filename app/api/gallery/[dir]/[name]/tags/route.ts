@@ -1,7 +1,7 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { writeTags } from '@/lib/gallery/save'
-import type { ImageTag } from '@/lib/gallery/png-meta'
+import type { ImageTag } from '@/lib/image-meta'
 
 export const runtime = 'nodejs'
 

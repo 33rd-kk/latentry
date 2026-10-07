@@ -16,7 +16,7 @@
 //
 // Pure, so the verify script can pin it down.
 
-import type { ImageMeta } from './png-meta'
+import type { ImageMeta } from '../image-meta'
 
 export const TEXT_FIELDS = ['model', 'sampler'] as const
 export const NUMBER_FIELDS = ['seed', 'steps', 'cfg', 'w', 'h'] as const

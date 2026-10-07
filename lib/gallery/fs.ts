@@ -4,8 +4,7 @@
 import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
 import type { BigIntStats } from 'node:fs'
 import path from 'node:path'
-import sharp from 'sharp'
-import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
+import { metaFromText, readImageInfo, type ImageMeta } from '../image-meta'
 import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
 import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
@@ -141,55 +140,6 @@ export function invalidateListing(dir: GalleryDir): void {
   listings.delete(dir.path)
 }
 
-/**
- * A PNG's size and text chunks, reading chunk headers and seeking past the
- * pixel data instead of loading the file. Text written after the image data
- * is still found; only IDAT's bytes are skipped.
- */
-export async function readPngInfo(
-  file: string
-): Promise<{ width: number; height: number; text: Record<string, string> } | null> {
-  const handle = await open(file, 'r')
-  try {
-    const header = Buffer.alloc(8)
-    let position = 0
-    const read = async (buffer: Buffer, at: number) => (await handle.read(buffer, 0, buffer.length, at)).bytesRead
-
-    if ((await read(header, 0)) !== 8 || !header.equals(PNG_SIGNATURE)) return null
-    position = 8
-    let width = 0
-    let height = 0
-    const text: Record<string, string> = {}
-    const chunkHead = Buffer.alloc(8)
-    // Text chunks are small; anything claiming more than this is not worth reading.
-    const MAX_TEXT_CHUNK = 8 * 1024 * 1024
-
-    while (true) {
-      if ((await read(chunkHead, position)) < 8) break
-      const length = chunkHead.readUInt32BE(0)
-      const type = chunkHead.toString('latin1', 4, 8)
-      const dataAt = position + 8
-      if (type === 'IHDR' && length >= 8) {
-        const ihdr = Buffer.alloc(8)
-        await read(ihdr, dataAt)
-        width = ihdr.readUInt32BE(0)
-        height = ihdr.readUInt32BE(4)
-      } else if ((type === 'tEXt' || type === 'zTXt' || type === 'iTXt') && length <= MAX_TEXT_CHUNK) {
-        const data = Buffer.alloc(length)
-        await read(data, dataAt)
-        const decoded = decodeTextChunk({ type, data })
-        if (decoded && !(decoded.keyword in text)) text[decoded.keyword] = decoded.text
-      } else if (type === 'IEND') {
-        break
-      }
-      position = dataAt + length + 4
-    }
-    return { width, height, text }
-  } finally {
-    await handle.close()
-  }
-}
-
 /** Size and settings for one listed file, cached until the file changes. */
 export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<GalleryItem> {
   const file = path.join(dir.path, entry.name)
@@ -201,17 +151,12 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
   let height: number | null = null
   let meta: ImageMeta | null = null
   try {
-    if (path.extname(entry.name).toLowerCase() === '.png') {
-      const info = await readPngInfo(file)
-      if (info) {
-        width = info.width || null
-        height = info.height || null
-        meta = metaFromText(info.text)
-      }
-    } else {
-      const info = await sharp(file).metadata()
-      width = info.width ?? null
-      height = info.height ?? null
+    // Headers only, for every format; the pixels are never decoded here.
+    const info = await readImageInfo(file)
+    if (info) {
+      width = info.width || null
+      height = info.height || null
+      meta = metaFromText(info.text)
     }
   } catch {
     // An unreadable file still gets a card; it just has nothing to say.

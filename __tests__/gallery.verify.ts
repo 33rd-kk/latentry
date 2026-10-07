@@ -1,5 +1,5 @@
 /**
- * PNG text chunks (lib/gallery/png-meta.ts), saving with settings
+ * PNG text chunks (lib/image-meta), saving with settings
  * (lib/gallery/save.ts) and the gallery's view of a folder (lib/gallery/fs.ts),
  * including the ways a name must not get out of its folder.
  *
@@ -20,12 +20,13 @@ import {
   PARAMETERS_KEY,
   pngSize,
   readChunks,
+  readImageInfo,
   readPngText,
   TAGS_KEY,
   writePngText,
   type LatentryRecord,
-} from '../lib/gallery/png-meta'
-import { invalidateListing, isSafeName, listModels, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+} from '../lib/image-meta'
+import { invalidateListing, isSafeName, listModels, listPage, openInDir, resolveInDir } from '../lib/gallery/fs'
 import { settleIndex } from '../lib/gallery/folder-index'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
@@ -155,7 +156,7 @@ async function main() {
     await utimes(path.join(folder, 'old.png'), now - 100, now - 100)
     await utimes(path.join(folder, 'new.png'), now, now)
 
-    const info = await readPngInfo(path.join(folder, 'new.png'))
+    const info = await readImageInfo(path.join(folder, 'new.png'))
     eq([info?.width, info?.height, Object.keys(info?.text ?? {}).sort()], [16, 24, [LATENTRY_KEY, PARAMETERS_KEY, TAGS_KEY].sort()], 'chunk headers are enough to read size and text')
 
     const page = await listPage(dir, { limit: 1, filter: {} })
@@ -279,8 +280,6 @@ async function main() {
     eq(await writeTags(dir, 'old.png', [{ name: 'cat_ears', category: 0, score: 0.7 }]), true, 'the save folder is')
     eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
   } finally {
-    // libvips keeps files it read open in its cache; Windows will not delete them while it does.
-    sharp.cache(false)
     await rm(root, { recursive: true, force: true })
   }
 

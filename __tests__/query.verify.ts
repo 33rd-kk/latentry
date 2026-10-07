@@ -6,7 +6,7 @@
  */
 import { check, done, eq } from './assert'
 import { exactTagQuery, matchesQuery, normalizeTag, parseQuery, searchableOf } from '../lib/gallery/query'
-import type { ImageMeta } from '../lib/gallery/png-meta'
+import type { ImageMeta } from '../lib/image-meta'
 
 eq(parseQuery('long hair, smile'), [{ text: 'long hair', exact: false }, { text: 'smile', exact: false }], 'commas separate; spaces stay inside a term')
 eq(parseQuery('"long hair"'), [{ text: 'long hair', exact: true }], 'quotes make an exact tag')

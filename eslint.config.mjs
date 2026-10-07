@@ -14,7 +14,30 @@ const eslintConfig = defineConfig([
       "@next/next/no-img-element": "off",
     },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "scripts/**", ".runtime/**", "models/**", "output/**"]),
+  {
+    // lib/image-meta is kept free of the app so it can become its own package:
+    // node's built-ins and its own files only (see its README.md).
+    files: ["lib/image-meta/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ regex: "^(?!node:|\\./)", message: "lib/image-meta imports only node: built-ins and its own files." }] },
+      ],
+    },
+  },
+  globalIgnores([
+    ".next/**",
+    // Builds of a second dev server (LATENTRY_DIST_DIR) and agent worktrees.
+    ".next-*/**",
+    ".claude/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "scripts/**",
+    ".runtime/**",
+    "models/**",
+    "output/**",
+  ]),
 ]);
 
 export default eslintConfig;
