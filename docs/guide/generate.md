@@ -35,7 +35,9 @@ form, so switching backends and back keeps what you typed.
   sentences are left as written. Change this per profile on
   [Settings](settings.md).
 - **Saved characters**: save the tags that make a character, together with
-  the artist, negative prompt and seed, and apply them to any form later.
+  the artist, negative prompt and seed, and apply them to any form later. In
+  [secret mode](secret-mode.md) a new one is only kept until secret mode is
+  turned off.
 
 ## Source image: img2img and inpainting
 

@@ -125,6 +125,8 @@
     "characterName": "Name",
     "characterTags": "Tags that make the character (comma-separated)",
     "characterSaveHint": "Saved together with the current artist, negative prompt and seed.",
+    "characterSaveSecret": "Secret mode: kept in this tab only, and gone when secret mode is turned off.",
+    "characterTemporary": "temporary",
     "poseSkeleton": "Skeleton pose",
     "poseFromSource": "Use the source's pose",
     "poseFromGallery": "From gallery",
