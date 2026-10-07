@@ -1,5 +1,5 @@
 site_name: Latentry
-site_description: A local web UI for the image models you already run. The manual.
+site_description: Private, local image generation. Every picture remembered. The manual.
 site_url: https://33rd-kk.github.io/latentry/
 repo_url: https://github.com/33rd-kk/latentry
 repo_name: 33rd-kk/latentry
@@ -33,6 +33,7 @@ nav:
       - Pose and the 3D view: guide/pose.md
       - Gallery: guide/gallery.md
       - Secret mode: guide/secret-mode.md
+      - Privacy: guide/privacy.md
       - Setup and the engine: guide/engine.md
       - Settings: guide/settings.md
       - Other devices and security: guide/network.md

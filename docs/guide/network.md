@@ -36,6 +36,10 @@ on); `SETTINGS_EDIT=off` makes them read-only everywhere.
 - The built-in engine listens on 127.0.0.1 with a random token only Latentry
   holds.
 - Backend tokens are only sent to the server they were set up for.
+- **Show in folder** / **Open in default app** in the gallery only work from
+  this computer. They start the file manager or picture app without a shell,
+  and only for pictures inside a gallery folder. The gallery has no way to
+  delete, move or rename files.
 - Next.js's anonymous usage reports and Hugging Face's are turned off.
 
 To reach it from outside your network, put an authenticating reverse proxy in

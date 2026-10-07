@@ -1,7 +1,7 @@
 "use client"
 
 import { memo, useEffect, useMemo, useRef, useState } from "react"
-import { Check, ChevronUp } from "lucide-react"
+import { Check, ChevronUp, Layers } from "lucide-react"
 import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { normalizeTag } from "@/lib/gallery/query"
 import { tagForPrompt } from "@/lib/tag-groups"
@@ -35,6 +35,8 @@ interface GalleryCardProps {
   onOpen: () => void
   onToggleSelect: () => void
   onSearchTag: (tag: string) => void
+  /** For a stack: shows the pictures in it, instead of opening this one. */
+  onOpenStack?: () => void
 }
 
 export const GalleryCard = memo(function GalleryCard({
@@ -45,6 +47,7 @@ export const GalleryCard = memo(function GalleryCard({
   selected,
   onOpen,
   onToggleSelect,
+  onOpenStack,
   onSearchTag,
 }: GalleryCardProps) {
   const t = useT()
@@ -86,12 +89,14 @@ export const GalleryCard = memo(function GalleryCard({
       ref={root}
       className={cn(
         "mb-3 break-inside-avoid overflow-hidden rounded-md border bg-card",
+        // A stack looks like cards lying under this one.
+        picture.stack && "mr-2.5 mb-5.5 shadow-[5px_5px_0_-1px_var(--card),5px_5px_0_0_var(--muted-foreground),10px_10px_0_-1px_var(--card),10px_10px_0_0_var(--muted-foreground)]",
         selected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
       )}
     >
       <button
         type="button"
-        onClick={selecting ? onToggleSelect : onOpen}
+        onClick={selecting ? onToggleSelect : (onOpenStack ?? onOpen)}
         aria-pressed={selecting ? selected : undefined}
         className="group relative block w-full overflow-hidden bg-muted/40 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         style={{ aspectRatio: ratio }}
@@ -103,6 +108,12 @@ export const GalleryCard = memo(function GalleryCard({
           loading="lazy"
           className={cn("h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]", secret && "blur-xl")}
         />
+        {picture.stack && (
+          <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white" title={t("gallery.stackHint", { count: picture.stack.count })}>
+            <Layers className="h-3 w-3" />
+            {picture.stack.count}
+          </span>
+        )}
         {selecting && (
           <span
             aria-hidden

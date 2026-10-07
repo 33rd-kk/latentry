@@ -23,6 +23,7 @@
     "panorail": "github:33rd-kk/panorail#v0.2.1",
     "radix-ui": "^1.6.7",
     "react": "19.3.0",
+    "react-compare-slider": "^4.0.0",
     "react-dom": "19.3.0",
     "sharp": "^0.35.5",
     "sonner": "^2.0.8",
@@ -44,7 +45,7 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5"
   },
-  "description": "A local web UI for diffusion backends: text-to-image, img2img, inpaint, pose, a gallery and WD14 tagging. Works with Anima, SDXL and friends side by side.",
+  "description": "Private, local image generation. Every picture remembered. A web UI for your own diffusion backends: text-to-image, img2img, inpaint, pose, a gallery that knows how each picture was made, and WD14 tagging.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -7,6 +7,12 @@ embedded in the PNG (A1111's PNG Info reads them too). Other folders, such as
 ComfyUI's or a web UI's output, can be browsed **read-only**. Choose the
 folders on [Settings](settings.md); with several, tabs switch between them.
 
+The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
+infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and
+Latentry's own record, including the LoRAs a picture used. It reads only the
+file's headers, never the whole picture. From EXIF it reads only the fields
+that hold settings, never location or camera data.
+
 Pictures load newest first as you scroll (see [Order and
 filters](#order-and-filters) for other orders); what is on screen stays in
 place while more load.
@@ -26,6 +32,9 @@ Type in **Search prompts, tags, models, file names**:
   (width) and `h:` (height) compare numbers: `steps:>=30`, `cfg:<5`,
   `w:1024` (`=` when no comparison is given). Width and height are the
   picture's real size. Any other key is searched as plain text.
+- A leading `-` leaves out pictures that match: `-smile`, `-"long hair"`,
+  `-model:pony`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
+  just text.
 
 **Show search tips** under the box repeats this. **Refresh** picks up
 pictures that arrived from elsewhere.
@@ -60,14 +69,30 @@ toolbar, with × to remove it (or **Clear all**):
 - **Resolution**: under 0.75 MP (SD 1.5 sizes), about 1 MP (SDXL sizes), or
   over 1.5 MP (upscaled).
 - **Model**: every model named in the folder's pictures (the folder is read
-  once when you open the filters). In secret mode model names are not shown,
-  and the folder is not read for them.
+  once when you open the filters). In secret mode model names are not
+  shown, and the folder is not read for them.
 - **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
 - **Backend** and **profile**.
 - **Only pictures without WD14 tags**.
 
 Filters, order and search work together. The order and filters last until
 you leave or reload the page; they are not remembered in the browser.
+
+## Stacks and comparing
+
+**Stack** (under Filters) puts pictures that share a prompt, or a seed, into
+one card: the first of them in the current order, with how many there are.
+Only pictures that match the search and filters count. Click a stack to see
+its pictures, and remove the **One stack** chip to go back. Stacking reads
+the folder first, the way the orders by date made do; what it keeps in
+memory is a hash of each prompt, not the prompt.
+
+To compare two pictures, choose **Select**, pick two, and **Compare**. Two
+pictures of the same shape (an upscale, say) lie on top of each other with
+a slider between them. Others sit side by side. Below are the settings that
+differ, highlighted, and the prompt tags only one of them has. In secret
+mode the pictures are blurred and the rest hidden until **Show for this
+comparison**.
 
 ## Tags
 
@@ -105,6 +130,11 @@ From the panel:
   [skeleton pose](pose.md), not its hair or outfit.
 - **Analyze with WD14**: read its tags now (saved into the file in a writable
   folder).
+- **Show in folder** and **Open in default app**: show the picture in this
+  computer's file manager (selected, on Windows and macOS), or in the app it
+  uses for pictures. Only when the browser runs on the computer Latentry
+  runs on; other devices do not see these buttons. Latentry itself never
+  deletes, moves or renames a picture. Do that in the file manager.
 - Each tag: copy it, search for it, or add it to the positive or negative
   prompt. Each section: **Copy all**, **All to positive**, **All to
   negative** (tags already in the prompt are skipped).

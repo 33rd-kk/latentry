@@ -4,13 +4,12 @@
 import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
 import type { BigIntStats } from 'node:fs'
 import path from 'node:path'
-import sharp from 'sharp'
-import { decodeTextChunk, metaFromText, PNG_SIGNATURE, type ImageMeta } from './png-meta'
+import { metaFromText, readImageInfo, type ImageMeta } from '../image-meta'
 import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
-import { matchesCheap, matchesMeta, needsMeta, type GalleryQuery } from './filter'
+import { matchesCheap, matchesMeta, needsMeta, toParams, type GalleryQuery, type StackGroup } from './filter'
 import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
-import { indexStatus, modelsOf, withIndexValues } from './folder-index'
+import { facetsOf, indexStatus, stackKeyOf, withIndexValues, type Facets } from './folder-index'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -25,6 +24,8 @@ export interface GalleryItem extends GalleryEntry {
   width: number | null
   height: number | null
   meta: ImageMeta | null
+  /** When stacking: the stack this picture stands for, if it has others. */
+  stack?: { key: string; count: number }
 }
 
 /**
@@ -141,55 +142,6 @@ export function invalidateListing(dir: GalleryDir): void {
   listings.delete(dir.path)
 }
 
-/**
- * A PNG's size and text chunks, reading chunk headers and seeking past the
- * pixel data instead of loading the file. Text written after the image data
- * is still found; only IDAT's bytes are skipped.
- */
-export async function readPngInfo(
-  file: string
-): Promise<{ width: number; height: number; text: Record<string, string> } | null> {
-  const handle = await open(file, 'r')
-  try {
-    const header = Buffer.alloc(8)
-    let position = 0
-    const read = async (buffer: Buffer, at: number) => (await handle.read(buffer, 0, buffer.length, at)).bytesRead
-
-    if ((await read(header, 0)) !== 8 || !header.equals(PNG_SIGNATURE)) return null
-    position = 8
-    let width = 0
-    let height = 0
-    const text: Record<string, string> = {}
-    const chunkHead = Buffer.alloc(8)
-    // Text chunks are small; anything claiming more than this is not worth reading.
-    const MAX_TEXT_CHUNK = 8 * 1024 * 1024
-
-    while (true) {
-      if ((await read(chunkHead, position)) < 8) break
-      const length = chunkHead.readUInt32BE(0)
-      const type = chunkHead.toString('latin1', 4, 8)
-      const dataAt = position + 8
-      if (type === 'IHDR' && length >= 8) {
-        const ihdr = Buffer.alloc(8)
-        await read(ihdr, dataAt)
-        width = ihdr.readUInt32BE(0)
-        height = ihdr.readUInt32BE(4)
-      } else if ((type === 'tEXt' || type === 'zTXt' || type === 'iTXt') && length <= MAX_TEXT_CHUNK) {
-        const data = Buffer.alloc(length)
-        await read(data, dataAt)
-        const decoded = decodeTextChunk({ type, data })
-        if (decoded && !(decoded.keyword in text)) text[decoded.keyword] = decoded.text
-      } else if (type === 'IEND') {
-        break
-      }
-      position = dataAt + length + 4
-    }
-    return { width, height, text }
-  } finally {
-    await handle.close()
-  }
-}
-
 /** Size and settings for one listed file, cached until the file changes. */
 export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<GalleryItem> {
   const file = path.join(dir.path, entry.name)
@@ -201,17 +153,12 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
   let height: number | null = null
   let meta: ImageMeta | null = null
   try {
-    if (path.extname(entry.name).toLowerCase() === '.png') {
-      const info = await readPngInfo(file)
-      if (info) {
-        width = info.width || null
-        height = info.height || null
-        meta = metaFromText(info.text)
-      }
-    } else {
-      const info = await sharp(file).metadata()
-      width = info.width ?? null
-      height = info.height ?? null
+    // Headers only, for every format; the pixels are never decoded here.
+    const info = await readImageInfo(file)
+    if (info) {
+      width = info.width || null
+      height = info.height || null
+      meta = metaFromText(info.text)
     }
   } catch {
     // An unreadable file still gets a card; it just has nothing to say.
@@ -267,19 +214,25 @@ export async function listPage(
   const now = Date.now()
   // Age and file type need no file opened, so they narrow the list first.
   const listing = await listEntries(dir)
-  if (isMetaSort(sort)) {
+  // Meta orders and stacks need the whole folder read first.
+  if (isMetaSort(sort) || filter.group) {
     const status = indexStatus(dir, listing)
     if (status.state === 'too-large') return { items: [], nextCursor: null, indexing: { tooLarge: true, total: status.total } }
     if (status.state === 'indexing') return { items: [], nextCursor: null, indexing: { done: status.done, total: status.total } }
   }
-  const entries = sortedEntries(dir, listing, sort).filter((entry) => matchesCheap(entry, filter, now))
-  const start = startIndex(entries, options.cursor, sort)
-  if (start === -1) return { items: [], nextCursor: null }
+  let entries = sortedEntries(dir, listing, sort).filter((entry) => matchesCheap(entry, filter, now))
+  const { group, stack } = filter
+  // Inside one stack: only its pictures, unstacked.
+  if (group && stack) entries = entries.filter((entry) => stackKeyOf(dir, entry.name, group) === stack)
 
   const terms = parseQuery(filter.q ?? '')
   const filtering = terms.length > 0 || needsMeta(filter)
   const matches = (item: GalleryItem) =>
     matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta, item), terms))
+  if (group && !stack) return stackedPage(dir, listing, entries, { ...options, sort, group, matches: filtering ? matches : null })
+
+  const start = startIndex(entries, options.cursor, sort)
+  if (start === -1) return { items: [], nextCursor: null }
   const items: GalleryItem[] = []
   let index = start
   // Filtering reads metadata as it goes; a search through a huge folder stops
@@ -301,11 +254,78 @@ export async function listPage(
   return { items, nextCursor: index < entries.length && last ? encodeCursor(last, sort) : null }
 }
 
-/** Every model named in the folder, for the model filter; or the progress while the folder is read. */
-export async function listModels(dir: GalleryDir): Promise<{ models: string[] } | { models: null; indexing: IndexProgress }> {
+interface Stacked {
+  /** One picture per stack (the first in the order), and every picture without a key. */
+  entries: GalleryEntry[]
+  stacks: Map<string, { key: string; count: number }>
+}
+
+// Stacking looks at every matching picture, so its result is kept per
+// listing and query (a few of them), and paging through it costs nothing.
+const stackedListings = new WeakMap<GalleryEntry[], Map<string, Stacked>>()
+const STACKED_KEEP = 4
+
+/**
+ * One page of stacks. A stack stands for the pictures that share a prompt
+ * (or seed) and match the search and filters; it shows the first of them in
+ * the order, with their count. Every picture's settings are already cached
+ * once the folder is indexed, so reading them all is quick.
+ */
+async function stackedPage(
+  dir: GalleryDir,
+  listing: GalleryEntry[],
+  entries: GalleryEntry[],
+  options: { cursor?: string | null; limit: number; filter: GalleryQuery; sort: SortKey; group: StackGroup; matches: ((item: GalleryItem) => boolean) | null }
+): Promise<GalleryPage> {
+  const cacheKey = toParams(options.filter).toString()
+  let cached = stackedListings.get(listing)
+  if (!cached) stackedListings.set(listing, (cached = new Map()))
+  let stacked = cached.get(cacheKey)
+  if (!stacked) {
+    stacked = { entries: [], stacks: new Map() }
+    const firstOf = new Map<string, string>()
+    for (let start = 0; start < entries.length; start += 64) {
+      const batch = entries.slice(start, start + 64)
+      const infos = await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
+      infos.forEach((info, i) => {
+        if (options.matches && !options.matches(info)) return
+        const key = stackKeyOf(dir, info.name, options.group)
+        const first = key === undefined ? undefined : firstOf.get(key)
+        if (key === undefined || first === undefined) {
+          stacked!.entries.push(batch[i])
+          if (key !== undefined) {
+            firstOf.set(key, info.name)
+            stacked!.stacks.set(info.name, { key, count: 1 })
+          }
+        } else {
+          stacked!.stacks.get(first)!.count += 1
+        }
+      })
+    }
+    if (cached.size >= STACKED_KEEP) cached.delete(cached.keys().next().value!)
+    cached.set(cacheKey, stacked)
+  }
+
+  const start = startIndex(stacked.entries, options.cursor, options.sort)
+  if (start === -1) return { items: [], nextCursor: null }
+  const page = stacked.entries.slice(start, start + options.limit)
+  const items = await Promise.all(
+    page.map(async ({ name, mtime, size }) => {
+      const item = await itemInfo(dir, { name, mtime, size })
+      const stack = stacked!.stacks.get(name)
+      return stack && stack.count > 1 ? { ...item, stack: { ...stack } } : item
+    })
+  )
+  const end = start + page.length
+  const last = stacked.entries[end - 1]
+  return { items, nextCursor: end < stacked.entries.length && last ? encodeCursor(last, options.sort) : null }
+}
+
+/** Every model and LoRA named in the folder, for the filters; or the progress while the folder is read. */
+export async function listFacets(dir: GalleryDir): Promise<{ facets: Facets } | { facets: null; indexing: IndexProgress }> {
   const listing = await listEntries(dir)
   const status = indexStatus(dir, listing)
-  if (status.state === 'too-large') return { models: null, indexing: { tooLarge: true, total: status.total } }
-  if (status.state === 'indexing') return { models: null, indexing: { done: status.done, total: status.total } }
-  return { models: modelsOf(dir, listing) }
+  if (status.state === 'too-large') return { facets: null, indexing: { tooLarge: true, total: status.total } }
+  if (status.state === 'indexing') return { facets: null, indexing: { done: status.done, total: status.total } }
+  return { facets: facetsOf(dir, listing) }
 }

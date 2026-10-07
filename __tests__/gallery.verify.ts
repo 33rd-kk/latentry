@@ -1,5 +1,5 @@
 /**
- * PNG text chunks (lib/gallery/png-meta.ts), saving with settings
+ * PNG text chunks (lib/image-meta), saving with settings
  * (lib/gallery/save.ts) and the gallery's view of a folder (lib/gallery/fs.ts),
  * including the ways a name must not get out of its folder.
  *
@@ -20,12 +20,13 @@ import {
   PARAMETERS_KEY,
   pngSize,
   readChunks,
+  readImageInfo,
   readPngText,
   TAGS_KEY,
   writePngText,
   type LatentryRecord,
-} from '../lib/gallery/png-meta'
-import { invalidateListing, isSafeName, listModels, listPage, openInDir, readPngInfo, resolveInDir } from '../lib/gallery/fs'
+} from '../lib/image-meta'
+import { invalidateListing, isSafeName, listFacets, listPage, openInDir, resolveInDir } from '../lib/gallery/fs'
 import { settleIndex } from '../lib/gallery/folder-index'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
@@ -155,7 +156,7 @@ async function main() {
     await utimes(path.join(folder, 'old.png'), now - 100, now - 100)
     await utimes(path.join(folder, 'new.png'), now, now)
 
-    const info = await readPngInfo(path.join(folder, 'new.png'))
+    const info = await readImageInfo(path.join(folder, 'new.png'))
     eq([info?.width, info?.height, Object.keys(info?.text ?? {}).sort()], [16, 24, [LATENTRY_KEY, PARAMETERS_KEY, TAGS_KEY].sort()], 'chunk headers are enough to read size and text')
 
     const page = await listPage(dir, { limit: 1, filter: {} })
@@ -209,6 +210,23 @@ async function main() {
     eq(await names({ since: 'day' }), ['wide.webp', 'p2.png'], 'the age filter')
     eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
+
+    // ── LoRAs, from a picture A1111 wrote ──
+    const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', writable: false }
+    await mkdir(loraDir.path)
+    await writeFile(
+      path.join(loraDir.path, 'with.png'),
+      writePngText(png, { [PARAMETERS_KEY]: '1girl, <lora:sub/Detail.safetensors:0.6>\nSteps: 20, Seed: 1, Lora hashes: "flat: 12ab"' })
+    )
+    await writeFile(path.join(loraDir.path, 'without.png'), written)
+    const inLoras = async (filter: Parameters<typeof listPage>[1]['filter']) =>
+      (await listPage(loraDir, { limit: 10, filter: { sort: 'name-asc', ...filter } })).items.map((item) => item.name)
+    eq(await inLoras({ lora: 'detail' }), ['with.png'], 'the LoRA filter')
+    eq(await inLoras({ q: 'lora:flat' }), ['with.png'], 'lora: in the search box, from Lora hashes')
+    eq(await inLoras({ q: '-lora:detail' }), ['without.png'], 'leaving out a LoRA')
+    listFacets(loraDir)
+    await settleIndex(loraDir)
+    eq(await listFacets(loraDir), { facets: { models: [RECORD.model!], loras: ['Detail', 'flat'] } }, "the folder's LoRAs for the filter")
     eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
     eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
 
@@ -230,7 +248,7 @@ async function main() {
     } while (metaCursor && pagedMeta.length < 10)
     eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
     check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
-    eq(await listModels(sortDir), { models: [RECORD.model!] }, 'every model in the folder')
+    eq(await listFacets(sortDir), { facets: { models: [RECORD.model!], loras: [] } }, 'every model and LoRA in the folder')
 
     const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
     await writeFile(path.join(sorting, 'big.png'), big)
@@ -239,6 +257,24 @@ async function main() {
     eq(again.indexing, { done: 3, total: 4 }, 'a new file is read on its own; the others are already known')
     await settleIndex(sortDir)
     eq((await names({ sort: 'pixels-desc' }))[0], 'big.png', 'and then takes its place')
+
+    // ── Stacks: p2 and p10 share a prompt and a seed; the others have neither ──
+    const stacked = async (filter: Parameters<typeof listPage>[1]['filter'], limit = 10) =>
+      (await listPage(sortDir, { limit, filter })).items.map((item) => `${item.name}${item.stack ? ` ×${item.stack.count}` : ''}`)
+    eq(await stacked({ group: 'prompt' }), ['big.png', 'wide.webp', 'p2.png ×2'], 'a stack shows its first picture in the order, with the count')
+    eq(await stacked({ group: 'seed', sort: 'oldest' }), ['p10.png ×2', 'wide.webp', 'big.png'], 'by seed, in another order')
+    const stackKey = (await listPage(sortDir, { limit: 10, filter: { group: 'prompt' } })).items.find((item) => item.stack)!.stack!.key
+    check(/^[0-9a-f]{40}$/.test(stackKey), 'a prompt stack is keyed by a hash, not the prompt')
+    eq(await stacked({ group: 'prompt', stack: stackKey }), ['p2.png', 'p10.png'], 'inside a stack: its pictures')
+    eq(await stacked({ group: 'prompt', untagged: true }), ['big.png', 'wide.webp', 'p10.png'], 'counted over matching pictures only (a stack of one is no stack)')
+    const pagedStacks: string[] = []
+    let stackCursor: string | null = null
+    do {
+      const next: Awaited<ReturnType<typeof listPage>> = await listPage(sortDir, { limit: 1, cursor: stackCursor, filter: { group: 'prompt' } })
+      pagedStacks.push(...next.items.map((item) => item.name))
+      stackCursor = next.nextCursor
+    } while (stackCursor && pagedStacks.length < 10)
+    eq(pagedStacks, ['big.png', 'wide.webp', 'p2.png'], 'paging through stacks')
 
     check((await resolveInDir(dir, 'new.png')) !== null, 'a file in the folder resolves')
     eq(await resolveInDir(dir, '../secret/private.png'), null, 'a path out of the folder does not')
@@ -279,8 +315,6 @@ async function main() {
     eq(await writeTags(dir, 'old.png', [{ name: 'cat_ears', category: 0, score: 0.7 }]), true, 'the save folder is')
     eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
   } finally {
-    // libvips keeps files it read open in its cache; Windows will not delete them while it does.
-    sharp.cache(false)
     await rm(root, { recursive: true, force: true })
   }
 

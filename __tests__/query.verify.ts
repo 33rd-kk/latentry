@@ -6,7 +6,7 @@
  */
 import { check, done, eq } from './assert'
 import { exactTagQuery, matchesQuery, normalizeTag, parseQuery, searchableOf } from '../lib/gallery/query'
-import type { ImageMeta } from '../lib/gallery/png-meta'
+import type { ImageMeta } from '../lib/image-meta'
 
 eq(parseQuery('long hair, smile'), [{ text: 'long hair', exact: false }, { text: 'smile', exact: false }], 'commas separate; spaces stay inside a term')
 eq(parseQuery('"long hair"'), [{ text: 'long hair', exact: true }], 'quotes make an exact tag')
@@ -67,5 +67,26 @@ check(matchesQuery(searchableOf('a.png', { ...meta, width: 832 }), parseQuery('w
 check(!findSet('h:>3000'), 'height')
 check(!matchesQuery(searchableOf('a.png', null), parseQuery('steps:>0')), 'a picture without the setting does not match')
 check(findSet('model:noobai, "very long hair", steps:30'), 'settings, tags and text together')
+
+// ── LoRAs ──
+const withLora = searchableOf('b.png', { ...meta, prompt: '1girl, <lora:Detail_Tweaker:0.6>, smile', loras: ['Detail_Tweaker', 'flat color'] })
+const findLora = (query: string) => matchesQuery(withLora, parseQuery(query))
+check(findLora('lora:detail') && findLora('lora:FLAT_COLOR'), 'lora: matches any of its LoRAs, as text')
+check(!findLora('lora:pony'), 'another LoRA does not match')
+check(!matchesQuery(searchableOf('c.png', meta), parseQuery('lora:detail')), 'a picture without LoRAs does not match')
+check(findLora('detail tweaker'), 'LoRA names are searched as plain text too')
+check(![...withLora.tags].some((tag) => tag.includes('lora')), 'a <lora:…> call is not a tag')
+
+// ── Leaving out ──
+eq(parseQuery('-smile'), [{ text: 'smile', exact: false, negate: true }], 'a leading - leaves out')
+eq(parseQuery('-"long hair"'), [{ text: 'long hair', exact: true, negate: true }], 'before a quoted tag too')
+eq(parseQuery(' - , -model:pony'), [{ text: 'model:pony', exact: false, field: { key: 'model', contains: 'pony' }, negate: true }], 'a lone - is nothing; a setting can be left out')
+eq(parseQuery('x-ray, seed:-1'), [
+  { text: 'x-ray', exact: false },
+  { text: 'seed:-1', exact: false, field: { key: 'seed', op: '=', value: -1 } },
+], 'a - inside a term or a value is not one')
+check(!find('-smile') && find('-pony') && find('"school uniform", -"long hair"'), 'leaving out, alone and with other terms')
+check(!find('-model:noobai') && find('-model:pony'), 'leaving out a setting')
+check(!findLora('-lora:detail') && find('-lora:detail'), 'leaving out a LoRA')
 
 done('query')

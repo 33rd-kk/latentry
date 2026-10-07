@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { toast } from "sonner"
-import { CheckSquare, FolderOpen, Loader2, Lock, RefreshCw, Search, Tags, X } from "lucide-react"
+import { CheckSquare, Columns2, FolderOpen, Loader2, Lock, RefreshCw, Search, Tags, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -14,16 +14,18 @@ import { useSecretMode } from "@/components/app-header"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
 import { FilterChips, FilterPanel, FilterToggle, SortSelect } from "./gallery-filters"
+import { CompareDialog } from "./compare-dialog"
 import { SearchHint, SearchHintToggle } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { useBulkTag } from "@/hooks/use-bulk-tag"
-import { pictureUrl, useFolderModels, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useLocalFlag } from "@/hooks/use-local-flag"
-import type { ImageTag } from "@/lib/gallery/png-meta"
+import type { ImageTag } from "@/lib/image-meta"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import { DEFAULT_SORT } from "@/lib/gallery/sort"
+import type { Facets } from "@/lib/gallery/folder-index"
 import { dealColumns, heightPerWidth } from "@/lib/gallery/columns"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -36,7 +38,7 @@ import { useT } from "@/lib/i18n"
 export function Gallery() {
   const t = useT()
   const secret = useSecretMode()
-  const folders = useGalleryFolders()
+  const { folders, canOpen } = useGalleryFolders()
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [searchText, setSearchText] = useState("")
@@ -46,6 +48,7 @@ export function Gallery() {
   // was looked for is kept in the browser or the address bar.
   const [filters, setFilters] = useState<Omit<GalleryQuery, "q">>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
+  const [comparing, setComparing] = useState<[GalleryPicture, GalleryPicture] | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
   const sentinel = useRef<HTMLDivElement>(null)
 
@@ -56,16 +59,25 @@ export function Gallery() {
   const page = useGalleryPage(activeDir, query)
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
-  // The models met so far in this folder, for the model filter until the
-  // server has the whole folder's list. Kept while filters change, so
-  // choosing a model does not shrink the list to it.
-  const pageModels = useMemo(() => modelsIn(page.pictures), [page.pictures])
-  const [seenModels, setSeenModels] = useState<{ dir: number | null; models: string[] }>({ dir: activeDir, models: [] })
-  const models = seenModels.dir === activeDir ? mergeModels(seenModels.models, pageModels) : pageModels
-  if (seenModels.dir !== activeDir || models.length !== seenModels.models.length) setSeenModels({ dir: activeDir, models })
-  // The whole folder's models, asked for only while the panel is open, and
-  // never in secret mode (the panel shows no model names then).
-  const folderModels = useFolderModels(activeDir, filtersOpen && !secret)
+  // The models and LoRAs met so far in this folder, for the filters until
+  // the server has the whole folder's lists. Kept while filters change, so
+  // choosing one does not shrink the list to it.
+  const pageFacets = useMemo(() => facetsIn(page.pictures), [page.pictures])
+  const [seen, setSeen] = useState<{ dir: number | null; facets: Facets }>({ dir: activeDir, facets: { models: [], loras: [] } })
+  const seenFacets =
+    seen.dir === activeDir
+      ? { models: mergeNames(seen.facets.models, pageFacets.models), loras: mergeNames(seen.facets.loras, pageFacets.loras) }
+      : pageFacets
+  if (
+    seen.dir !== activeDir ||
+    seenFacets.models.length !== seen.facets.models.length ||
+    seenFacets.loras.length !== seen.facets.loras.length
+  ) {
+    setSeen({ dir: activeDir, facets: seenFacets })
+  }
+  // The whole folder's names, asked for only while the panel is open, and
+  // never in secret mode (the panel shows no names then).
+  const folderFacets = useFolderFacets(activeDir, filtersOpen && !secret)
 
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
@@ -225,8 +237,8 @@ export function Gallery() {
         onChange={changeFilters}
         backends={backends.map((option) => option.id)}
         profiles={profiles}
-        models={folderModels.models ?? models}
-        modelsProgress={folderModels.progress}
+        facets={folderFacets.facets ?? seenFacets}
+        facetsProgress={folderFacets.progress}
         secret={secret}
       />
       <FilterChips query={query} onChange={changeFilters} profiles={profiles} secret={secret} />
@@ -264,6 +276,20 @@ export function Gallery() {
             </Button>
             <Button type="button" variant="ghost" size="sm" disabled={bulk.running || selected.size === 0} onClick={() => setSelected(new Set())}>
               {t("gallery.selectNone")}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={selected.size !== 2}
+              title={t("gallery.compare.buttonHint")}
+              onClick={() => {
+                const two = page.pictures.filter((picture) => selected.has(picture.name))
+                if (two.length === 2) setComparing([two[0], two[1]])
+              }}
+            >
+              <Columns2 className="mr-1 h-4 w-4" />
+              {t("gallery.compare.button")}
             </Button>
             <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={skipTagged} onCheckedChange={setSkipTagged} disabled={bulk.running} />
@@ -333,6 +359,7 @@ export function Gallery() {
                   selected={selected.has(picture.name)}
                   onOpen={() => setViewing(index)}
                   onToggleSelect={() => toggleSelected(picture.name)}
+                  onOpenStack={picture.stack ? () => changeFilters({ stack: picture.stack!.key }) : undefined}
                   onSearchTag={(tag) => setSearchText(exactTagQuery(tag))}
                 />
               )
@@ -362,6 +389,7 @@ export function Gallery() {
       )}
       {page.error && <p className="text-sm text-destructive">{page.error}</p>}
 
+      <CompareDialog pair={comparing} onClose={() => setComparing(null)} secret={secret} />
       <ImageLightbox
         items={items}
         index={viewing}
@@ -375,6 +403,7 @@ export function Gallery() {
               picture={viewed}
               writable={folder?.writable ?? false}
               canTag={tagger !== null}
+              canOpen={canOpen}
               secret={secret}
               onSearch={(tag) => {
                 setViewing(null)
@@ -390,16 +419,21 @@ export function Gallery() {
   )
 }
 
-/** The models named in these pictures, sorted. */
-function modelsIn(pictures: GalleryPicture[]): string[] {
+/** The models and LoRAs named in these pictures, each sorted. */
+function facetsIn(pictures: GalleryPicture[]): Facets {
   const models = new Set<string>()
-  for (const picture of pictures) if (picture.meta?.model) models.add(picture.meta.model)
-  return [...models].sort((a, b) => a.localeCompare(b))
+  const loras = new Set<string>()
+  for (const picture of pictures) {
+    if (picture.meta?.model) models.add(picture.meta.model)
+    for (const lora of picture.meta?.loras ?? []) loras.add(lora)
+  }
+  const sorted = (names: Set<string>) => [...names].sort((a, b) => a.localeCompare(b))
+  return { models: sorted(models), loras: sorted(loras) }
 }
 
 /** Both lists in one, sorted; `known` itself when `found` adds nothing. */
-function mergeModels(known: string[], found: string[]): string[] {
-  const added = found.filter((model) => !known.includes(model))
+function mergeNames(known: string[], found: string[]): string[] {
+  const added = found.filter((name) => !known.includes(name))
   return added.length ? [...known, ...added].sort((a, b) => a.localeCompare(b)) : known
 }
 

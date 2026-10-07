@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- **README and manual** lead with what Latentry is for: private, local image
+  generation, and a gallery that remembers how every picture was made. A
+  new banner, a Privacy section in the README, and a
+  [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/) page in the
+  manual listing what goes over the network and what is kept where.
+- **Gallery**: **Stack** pictures that share a prompt or a seed into one
+  card, and open a stack to see them. **Compare** two selected pictures with
+  a slider (or side by side), their differing settings and the prompt tags
+  only one has.
+- **Gallery**: **Show in folder** and **Open in default app** in the viewer
+  open a picture in this computer's file manager (selected) or its picture
+  app. They appear only when the browser runs on the same computer, and
+  never act on a file outside the gallery folders. The gallery still has no
+  delete, move or rename, by design.
+- **Gallery**: leave pictures out with a leading `-` (`-smile`,
+  `-"long hair"`, `-model:pony`). The viewer lists a picture's LoRAs.
+- **Gallery** reads settings from JPEG and WebP too (A1111 / Forge's EXIF,
+  ComfyUI's WebP), and the LoRAs a picture used. Before, only PNGs had
+  settings. It reads only the headers, and from EXIF only the fields that
+  hold settings. Viewing a WebP or JPEG no longer keeps the file open, so it
+  can be renamed or deleted elsewhere while Latentry runs.
 - **Gallery**: pictures can be ordered oldest first, by name, by file size,
   by when they were made or by pixel count, and filtered by shape, file
   type, age, resolution, model, where the settings came from, and whether

@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { Eye, ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { ExternalLink, Eye, FolderOpen, ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
 import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
 import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
 import { splitTags, toSpacedTags } from "@/lib/tags"
 import { tagForPrompt } from "@/lib/tag-groups"
-import type { ImageMeta, ImageTag } from "@/lib/gallery/png-meta"
+import type { ImageMeta, ImageTag } from "@/lib/image-meta"
 import { useT } from "@/lib/i18n"
 
 interface GalleryPanelProps {
@@ -16,6 +16,8 @@ interface GalleryPanelProps {
   writable: boolean
   /** Whether some backend can tag; without one the analyse button is hidden. */
   canTag: boolean
+  /** Whether this browser is on the machine itself, so the picture can be shown in its file manager. */
+  canOpen: boolean
   secret: boolean
   onSearch: (tag: string) => void
   /** The picture's metadata after its tags were written back. */
@@ -38,7 +40,7 @@ const WD14_CHARACTER = 4
  * tags, and the ways back into the form. The viewer sits above every toast,
  * so outcomes are said here, in the panel.
  */
-export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMetaChange }: GalleryPanelProps) {
+export function GalleryPanel({ picture, writable, canTag, canOpen, secret, onSearch, onMetaChange }: GalleryPanelProps) {
   const t = useT()
   const router = useRouter()
   const meta = picture.meta
@@ -55,6 +57,21 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
     setRevealed(false)
   }
   const hidden = secret && !revealed
+
+  // The file itself is never changed from here: only shown, by the system.
+  const openOutside = async (action: "reveal" | "open") => {
+    setNote(null)
+    try {
+      const response = await fetch(`${pictureUrl(picture)}/open`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action }),
+      })
+      if (!response.ok) setNote(t("gallery.openFailed"))
+    } catch {
+      setNote(t("gallery.openFailed"))
+    }
+  }
 
   const analyze = async () => {
     setTagging(true)
@@ -138,6 +155,7 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
   if (meta) {
     if (meta.backend) facts.push([t("gallery.backend"), `${meta.backend}${meta.profile ? ` · ${meta.profile}` : ""}`])
     if (meta.model) facts.push([t("gallery.model"), meta.model])
+    if (meta.loras?.length) facts.push([t("gallery.loras"), meta.loras.join(", ")])
     if (meta.mode) facts.push([t("gallery.mode"), meta.mode])
     if (meta.seed !== undefined) facts.push([t("gallery.seed"), meta.seed])
     const width = meta.width ?? picture.width
@@ -183,6 +201,18 @@ export function GalleryPanel({ picture, writable, canTag, secret, onSearch, onMe
             {tagging ? <Loader2 className="h-3 w-3 animate-spin" /> : <Tags className="h-3 w-3" />}
             {meta?.tags?.length ? t("gallery.reanalyze") : t("gallery.analyze")}
           </button>
+        )}
+        {canOpen && (
+          <>
+            <button type="button" className={action} onClick={() => void openOutside("reveal")} title={t("gallery.revealHint")}>
+              <FolderOpen className="h-3 w-3" />
+              {t("gallery.reveal")}
+            </button>
+            <button type="button" className={action} onClick={() => void openOutside("open")} title={t("gallery.openAppHint")}>
+              <ExternalLink className="h-3 w-3" />
+              {t("gallery.openApp")}
+            </button>
+          </>
         )}
       </div>
       {note && <p className="text-xs text-white/70">{note}</p>}

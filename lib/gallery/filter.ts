@@ -9,19 +9,22 @@
 // Pure, so the verify script can pin it down.
 
 import { DEFAULT_SORT, isSortKey, type SortKey } from './sort'
-import type { ImageMeta } from './png-meta'
+import type { ImageMeta } from '../image-meta'
 
 export const SINCE = ['day', 'week', 'month'] as const
 export const FORMATS = ['png', 'webp', 'jpg'] as const
 export const ORIENTATIONS = ['portrait', 'landscape', 'square'] as const
 export const RESOLUTIONS = ['small', 'standard', 'large'] as const
 export const SOURCES = ['latentry', 'a1111', 'comfyui', 'none'] as const
+export const GROUPS = ['prompt', 'seed'] as const
 
 export type Since = (typeof SINCE)[number]
 export type Format = (typeof FORMATS)[number]
 export type Orientation = (typeof ORIENTATIONS)[number]
 export type Resolution = (typeof RESOLUTIONS)[number]
 export type Source = (typeof SOURCES)[number]
+/** What pictures can be stacked by: the same prompt, or the same seed. */
+export type StackGroup = (typeof GROUPS)[number]
 
 export interface GalleryQuery {
   /** The search box: comma-separated terms, quoted for an exact tag (see ./query.ts). */
@@ -36,10 +39,16 @@ export interface GalleryQuery {
   orientation?: Orientation
   resolution?: Resolution
   model?: string
+  /** A LoRA the picture used, by name. */
+  lora?: string
   /** Which tool wrote the settings; "none" for a picture without any. */
   source?: Source
   /** Only pictures without WD14 tags. */
   untagged?: boolean
+  /** Stack pictures that share a prompt or a seed into one card. */
+  group?: StackGroup
+  /** With `group`: show the pictures of this one stack (its key). */
+  stack?: string
 }
 
 const SINCE_MS: Record<Since, number> = {
@@ -67,6 +76,11 @@ function oneOf<T extends string>(allowed: readonly T[], value: string | null): T
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined
 }
 
+/** A stack key: a prompt's SHA-1, or a seed. */
+function stackKey(value: string | null): string | undefined {
+  return value && /^(?:[0-9a-f]{40}|-?\d{1,20})$/.test(value) ? value : undefined
+}
+
 function text(value: string | null, max = MAX_TEXT): string | undefined {
   const trimmed = value?.trim().slice(0, max)
   return trimmed || undefined
@@ -92,14 +106,18 @@ export function toParams(query: GalleryQuery): URLSearchParams {
   set('orientation', query.orientation)
   set('resolution', query.resolution)
   set('model', text(query.model ?? null))
+  set('lora', text(query.lora ?? null))
   set('source', query.source)
   if (query.untagged) set('untagged', '1')
+  set('group', query.group)
+  if (query.group) set('stack', stackKey(query.stack ?? null))
   return params
 }
 
 /** The query from URL parameters. Unknown values are dropped, not guessed at. */
 export function fromParams(params: URLSearchParams): GalleryQuery {
   const sort = params.get('sort')
+  const group = oneOf(GROUPS, params.get('group'))
   const formats = FORMATS.filter((format) => (params.get('formats') ?? '').split(',').includes(format))
   return {
     q: text(params.get('q'), MAX_QUERY),
@@ -111,8 +129,11 @@ export function fromParams(params: URLSearchParams): GalleryQuery {
     orientation: oneOf(ORIENTATIONS, params.get('orientation')),
     resolution: oneOf(RESOLUTIONS, params.get('resolution')),
     model: text(params.get('model')),
+    lora: text(params.get('lora')),
     source: oneOf(SOURCES, params.get('source')),
     untagged: params.get('untagged') === '1' || undefined,
+    group,
+    stack: group ? stackKey(params.get('stack')) : undefined,
   }
 }
 
@@ -127,15 +148,18 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.orientation,
     query.resolution,
     query.model,
+    query.lora,
     query.source,
     query.untagged,
+    query.group,
+    query.stack,
   ].filter(Boolean).length
 }
 
 /** Whether a picture's settings or size are needed to apply the query. */
 export function needsMeta(query: GalleryQuery): boolean {
   return Boolean(
-    query.backend || query.profile || query.orientation || query.resolution || query.model || query.source || query.untagged
+    query.backend || query.profile || query.orientation || query.resolution || query.model || query.lora || query.source || query.untagged
   )
 }
 
@@ -189,6 +213,7 @@ export function matchesMeta(
   if (query.orientation && orientationOf(item.width, item.height) !== query.orientation) return false
   if (query.resolution && resolutionOf(item.width, item.height) !== query.resolution) return false
   if (query.model && meta?.model !== query.model) return false
+  if (query.lora && !meta?.loras?.some((lora) => lora.toLowerCase() === query.lora!.toLowerCase())) return false
   if (query.source && sourceOf(meta) !== query.source) return false
   if (query.untagged && meta?.tags?.length) return false
   return true

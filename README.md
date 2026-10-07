@@ -1,17 +1,20 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/banner-dark.png">
-  <img alt="Latentry: a local web UI for the image models you already run" src="docs/assets/banner-light.png">
+  <img alt="Latentry: private, local image generation. Every picture remembered." src="docs/assets/banner-light.png">
 </picture>
 
 # Latentry
 
 **Manual: https://33rd-kk.github.io/latentry/**
 
-A local web UI for the image models you already run. One form for
-text-to-image, img2img, inpainting and pose, in front of several backends at
-once: an Anima server and an SDXL web UI side by side, each with its own
-settings. Plus a gallery that knows how every picture was made, and WD14
-tagging in both directions.
+**Private, local image generation. Every picture remembered.**
+
+Latentry is a web UI that runs on your own computer, in front of the image
+models you already run, its own engine, or both. Your prompts, pictures,
+settings and tokens stay on your machine: nothing is sent anywhere you did
+not set up, and nothing is reported back. Every picture is saved with how it
+was made, and the gallery finds it again by what it shows or how it was
+made, then sends those settings back to the form to make it again.
 
 ## What it does
 
@@ -21,24 +24,29 @@ tagging in both directions.
   3D before generating (with [poseorbit](https://github.com/33rd-kk/poseorbit)).
   Runs live on the server, so a reload or a second tab picks up a run in
   progress.
-- **Several backends, several model families.** Each backend keeps its own
-  form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
-  sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
-  it any time.
-- **Gallery.** Every finished image is saved with its settings embedded
-  (readable by A1111's PNG Info too). It also browses other folders
-  read-only, such as ComfyUI or web UI outputs, and reads their metadata.
-  Search, filter by backend or profile, and send settings, tags or the
-  picture itself back to the form.
+- **A gallery that knows how every picture was made.** Every finished image
+  is saved with its settings embedded (readable by A1111's PNG Info too).
+  Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
+  and their settings are read from PNG, JPEG and WebP alike.
+  - Search prompts and tags, or one setting: `model:`, `seed:`,
+    `steps:>=30`, `w:1024`; leave pictures out with `-tag`.
+  - Order by date, name, size, date made or pixel count; filter by shape,
+    file type, age, resolution, model and more.
+  - Stack pictures that share a prompt or seed, and compare two side by side
+    or with a slider, with what differs between them.
+  - Send a picture's settings, tags or the picture itself back to the form,
+    or show it in your file manager.
 - **Tags.** Extract WD14 tags from a source image and carry a character's
   look into the prompt by group (hair, eyes, outfit…). Show tags under every
   gallery card, tag one picture or a whole selection at once, and keep the
   tags in the file. Tagging runs inside Latentry (on the CPU, with a WD14
   model you download), or on a backend that has a tagger.
-- Light and dark, and a secret mode that keeps what you type out of browser
-  storage, blurs the gallery and keeps runs to the page that started them
-  (pictures are still saved to the gallery folder). The UI is in English and can be machine
-  translated into other languages (see [Translations](#translations)).
+- **Several backends, several model families.** Each backend keeps its own
+  form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
+  sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
+  it any time.
+- Light and dark. The UI is in English and can be machine translated into
+  other languages (see [Translations](#translations)).
 
 ### Screenshots
 
@@ -50,6 +58,29 @@ tagging in both directions.
 
 <sub>The pictures were generated with Anima through Latentry, from original
 prompts (no named characters or artists).</sub>
+
+## Privacy
+
+Latentry is built to leave as little behind as it can, and to send nothing
+anywhere you did not choose. In short:
+
+- **Nothing leaves your machine** except requests to the backends you set
+  up, and downloads you start: installing and building (packages, and the
+  UI's font, fetched once at build time), and the engine, models and tagger
+  from the Setup page. No telemetry: the anonymous usage reports of Next.js
+  and Hugging Face are turned off.
+- **Closed by default.** It listens on 127.0.0.1, settings can only be
+  changed from this computer, and a backend's token is only ever sent to that
+  backend.
+- **The browser keeps little.** The gallery's search, order and filters are
+  not stored, and its index of a folder is kept in memory only. **Secret
+  mode** keeps what you type out of browser storage and blurs the gallery.
+- **Your files are yours.** Latentry writes pictures, and tags you ask for,
+  into its own save folder only, and never deletes, moves or renames a
+  picture.
+
+The manual's [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/)
+page lists what is kept where.
 
 ## Backends
 
@@ -131,8 +162,8 @@ back to `.env.local`.
 
 - **The gallery reads folders on the machine running Latentry.** Backends can
   live elsewhere on the network, but `GALLERY_SAVE_DIR` and `GALLERY_DIRS`
-  must be local (or a mounted share). Folders are set in `.env.local` only,
-  never from the browser.
+  must be local (or a mounted share). Folders are set in `.env.local` or on
+  the Settings page, which only this computer can change.
 - **Images are saved twice** if your backend also saves its own copy.
   Latentry's copy is the one with the settings embedded. Turn the backend's
   saving off if you do not want both.

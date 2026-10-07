@@ -23,7 +23,7 @@ import {
   writePngText,
   type ImageTag,
   type LatentryRecord,
-} from './png-meta'
+} from '../image-meta'
 import type { ImageSink, Job, JobImage } from '@/lib/diffusion/job-store'
 
 function pad(value: number, width = 2): string {

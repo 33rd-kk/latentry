@@ -25,7 +25,7 @@ interface GalleryPickerProps {
 export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPickerProps) {
   const t = useT()
   const secret = useSecretMode()
-  const folders = useGalleryFolders()
+  const { folders } = useGalleryFolders()
   const [dir, setDir] = useState<number | null>(null)
   const [query, setQuery] = useState("")
   const [q, setQ] = useState("")

@@ -19,6 +19,7 @@ import {
   toParams,
   type GalleryQuery,
 } from '../lib/gallery/filter'
+import { sameShape, settingRows, tagDiff } from '../lib/gallery/compare'
 
 // created / pixels are what the folder index adds for the meta orders.
 const ENTRIES = [
@@ -88,6 +89,7 @@ const full: GalleryQuery = {
   orientation: 'portrait',
   resolution: 'standard',
   model: 'Anima-Base (v1.0)',
+  lora: 'detail tweaker',
   source: 'latentry',
   untagged: true,
 }
@@ -103,7 +105,7 @@ eq(fromParams(new URLSearchParams({ model: 'x'.repeat(500) })).model?.length, 20
 
 // ── Counting and needing metadata ──
 eq(activeFilterCount({ q: 'smile', sort: 'oldest' }), 0, 'the search and the order are not filters')
-eq(activeFilterCount(full), 9, 'every filter counts once')
+eq(activeFilterCount(full), 10, 'every filter counts once')
 eq(activeFilterCount({ formats: ['png', 'webp', 'jpg'] }), 0, 'every file type is no filter')
 eq([needsMeta({ since: 'day', formats: ['png'] }), needsMeta({ orientation: 'square' })], [false, true], 'age and type need no file opened')
 
@@ -131,5 +133,30 @@ check(!matchesMeta(picture, { untagged: true }), 'a tagged picture is not untagg
 check(matchesMeta({ ...picture, meta: { ...picture.meta, tags: [] } }, { untagged: true }), 'an empty tag list is untagged')
 check(!matchesMeta({ width: null, height: null, meta: null }, { orientation: 'square' }), 'an unknown size matches no shape')
 check(matchesMeta({ width: null, height: null, meta: null }, { source: 'none', untagged: true }), 'a picture with nothing is "no settings" and untagged')
+
+check(matchesMeta({ ...picture, meta: { ...picture.meta, loras: ['Detail Tweaker'] } }, { lora: 'detail tweaker' }), 'the LoRA filter, any case')
+check(!matchesMeta({ ...picture, meta: { ...picture.meta, loras: ['Detail Tweaker XL'] } }, { lora: 'detail tweaker' }), 'the LoRA filter names one LoRA exactly')
+check(!matchesMeta(picture, { lora: 'detail tweaker' }), 'a picture without LoRAs')
+
+// ── Stacks in the query string ──
+const sha = 'a'.repeat(40)
+eq(fromParams(toParams({ group: 'prompt', stack: sha })).stack, sha, 'a prompt stack key survives')
+eq(fromParams(toParams({ group: 'seed', stack: '-1' })).stack, '-1', 'a seed key survives')
+eq(fromParams(new URLSearchParams({ group: 'prompt', stack: 'long hair, smile' })).stack, undefined, 'a stack key that is no hash or seed is dropped')
+eq(fromParams(new URLSearchParams({ stack: sha })).stack, undefined, 'no stack without a group')
+eq(fromParams(new URLSearchParams({ group: 'model' })).group, undefined, 'only prompt and seed stack')
+
+// ── Comparing two pictures ──
+const sideA = { width: 832, height: 1216, meta: { source: 'latentry' as const, prompt: '1girl, (smile:1.2), red hair, <lora:x:1>', negativePrompt: '', seed: 1, steps: 30, model: 'M', loras: ['x'] } }
+const sideB = { width: 1664, height: 2432, meta: { source: 'latentry' as const, prompt: '1girl, frown, red_hair', negativePrompt: '', seed: 2, steps: 30, model: 'M' } }
+eq(tagDiff(sideA.meta.prompt, sideB.meta.prompt), { onlyA: ['smile'], onlyB: ['frown'], shared: 2 }, 'tags only in one prompt, bare, LoRA calls left out')
+eq(
+  settingRows(sideA, sideB).map((row) => `${row.key}:${row.differs ? 'differs' : 'same'}`),
+  ['model:same', 'loras:differs', 'seed:differs', 'steps:same', 'size:differs'],
+  'the settings either has, and which differ'
+)
+check(sameShape(sideA, sideB), 'an upscale has the same shape')
+check(!sameShape(sideA, { ...sideB, width: 1024, height: 1024 }), 'a square does not')
+check(!sameShape(sideA, { ...sideB, width: null }), 'an unknown size does not')
 
 done('gallery-sort')
