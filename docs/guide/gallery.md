@@ -28,7 +28,9 @@ from elsewhere.
 ## Tags
 
 - **Tags** shows each picture's tags under its card: its prompt, or the WD14
-  tags read from it. Click a tag to search for it.
+  tags read from it. Click a tag to search for it. A card shows its first
+  tags; **+N** lists them all, and **Show less**, a click or tap anywhere
+  outside the card, or Esc folds them again.
 - **Select** picks pictures (or **Select all**, **Select untagged**) and **Tag
   … with WD14** reads tags for all of them, skipping pictures that already
   have tags if you like. In the save folder the tags are written into the

@@ -1,7 +1,7 @@
 "use client"
 
-import { memo, useMemo, useState } from "react"
-import { Check } from "lucide-react"
+import { memo, useEffect, useMemo, useRef, useState } from "react"
+import { Check, ChevronUp } from "lucide-react"
 import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { normalizeTag } from "@/lib/gallery/query"
 import { tagForPrompt } from "@/lib/tag-groups"
@@ -49,6 +49,33 @@ export const GalleryCard = memo(function GalleryCard({
 }: GalleryCardProps) {
   const t = useT()
   const [expanded, setExpanded] = useState(false)
+  const root = useRef<HTMLDivElement>(null)
+
+  // An open tag list folds back by itself: a click or tap anywhere outside
+  // the card, or Esc. On click rather than on press, so the outside click
+  // lands first and the layout only shifts after it.
+  useEffect(() => {
+    if (!expanded) return
+    const onClick = (event: MouseEvent) => {
+      if (!root.current?.contains(event.target as Node)) setExpanded(false)
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setExpanded(false)
+    }
+    document.addEventListener("click", onClick)
+    document.addEventListener("keydown", onKey)
+    return () => {
+      document.removeEventListener("click", onClick)
+      document.removeEventListener("keydown", onKey)
+    }
+  }, [expanded])
+
+  const collapse = () => {
+    setExpanded(false)
+    // A long list may have scrolled the card's top away; bring it back.
+    const card = root.current
+    if (card && card.getBoundingClientRect().top < 0) card.scrollIntoView({ block: "start", behavior: "smooth" })
+  }
   const ratio = picture.width && picture.height ? `${picture.width} / ${picture.height}` : "1 / 1"
   const caption = picture.meta?.prompt
   const { tags, from } = useMemo(() => cardTags(picture), [picture])
@@ -56,6 +83,7 @@ export const GalleryCard = memo(function GalleryCard({
 
   return (
     <div
+      ref={root}
       className={cn(
         "mb-3 break-inside-avoid overflow-hidden rounded-md border bg-card",
         selected && "ring-2 ring-primary ring-offset-2 ring-offset-background"
@@ -116,10 +144,23 @@ export const GalleryCard = memo(function GalleryCard({
               {tags.length > COLLAPSED_TAGS && (
                 <button
                   type="button"
-                  onClick={() => setExpanded((open) => !open)}
-                  className="rounded px-1.5 py-0.5 text-[11px] font-medium text-primary hover:underline"
+                  aria-expanded={expanded}
+                  title={expanded ? t("gallery.cardLessHint") : t("gallery.cardMore", { count: tags.length - COLLAPSED_TAGS })}
+                  onClick={() => (expanded ? collapse() : setExpanded(true))}
+                  className={cn(
+                    "flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[11px] font-medium leading-4 text-foreground transition-colors hover:bg-primary/10",
+                    // A finger needs more to aim at than a pointer.
+                    "pointer-coarse:px-2.5 pointer-coarse:py-1.5"
+                  )}
                 >
-                  {expanded ? t("gallery.cardLess") : `+${tags.length - COLLAPSED_TAGS}`}
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="h-3 w-3" />
+                      {t("gallery.cardLess")}
+                    </>
+                  ) : (
+                    `+${tags.length - COLLAPSED_TAGS}`
+                  )}
                 </button>
               )}
             </div>

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Gallery**: a card's full tag list folds back again: **Show less** is now
+  a proper button (bigger on touch screens), and a click or tap outside the
+  card, or Esc, folds it too.
 - **Secret mode** is easy to see: while it is on, the header shows a filled
   **Secret** pill instead of a faint eye. In the gallery panel, analysing a
   picture says how many tags were found while they are hidden, **Show for
