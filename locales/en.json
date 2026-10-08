@@ -82,7 +82,6 @@
     "blurResults": "Blur results",
     "showPicture": "Show picture",
     "blurPicture": "Blur picture",
-    "pictureHidden": "Blurred in secret mode.",
     "fullScreen": "View full screen",
     "imageAlt": "Generated image, seed {seed}",
     "save": "Download",

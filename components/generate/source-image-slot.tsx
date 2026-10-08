@@ -95,8 +95,9 @@ export function SourceImageSlot({
   const [showGallery, setShowGallery] = useState(false)
   const [masking, setMasking] = useState(false)
   // Secret mode blurs the source: its preview and the mask editor alike, one
-  // switch for both. "Show picture" (or a click on the preview) shows it until
-  // it is blurred again or another source takes its place.
+  // switch for both. Only the "Show picture" button shows it (not a click on
+  // the preview, which a stray tap could hit), until it is blurred again or
+  // another source takes its place.
   const secret = useSecretMode()
   const [shownSource, setShownSource] = useShownInSecret<string>()
   const veiled = secret && value !== null && shownSource !== value.dataUrl
@@ -162,23 +163,9 @@ export function SourceImageSlot({
 
       {value ? (
         <div className="flex items-start gap-3">
-          {secret ? (
-            <button
-              type="button"
-              className="h-28 w-28 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted/50"
-              onClick={() => setShownSource(veiled ? value.dataUrl : null)}
-              title={veiled ? t("generate.showPicture") : t("generate.pictureHidden")}
-              aria-pressed={!veiled}
-            >
-              <img src={value.dataUrl} alt={t("generate.sourceImage")} className={cn("h-full w-full object-contain", veiled && "blur-xl")} />
-            </button>
-          ) : (
-            <img
-              src={value.dataUrl}
-              alt={t("generate.sourceImage")}
-              className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-muted/50 object-contain"
-            />
-          )}
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted/50">
+            <img src={value.dataUrl} alt={t("generate.sourceImage")} className={cn("h-full w-full object-contain", veiled && "blur-xl")} />
+          </div>
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
               <span>{value.width} × {value.height}</span>

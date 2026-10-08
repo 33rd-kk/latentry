@@ -58,9 +58,10 @@ reloaded). Deleting a character deletes it for good, in either mode.
   **Show results**, and **Blur results** hides them again. That lasts for
   the run on screen; the next run starts blurred again.
 - The source picture is blurred, both its preview and the mask editor,
-  with your strokes drawn sharp on top. **Show picture** (or a click on
-  the preview) shows it, **Blur picture** blurs it again; one switch
-  covers both. A new source starts blurred.
+  with your strokes drawn sharp on top. **Show picture** shows it,
+  **Blur picture** blurs it again; one switch covers both. A click on the
+  preview does nothing, so a stray tap never shows it. A new source starts
+  blurred.
 - When a pose reference has several people, the picture to choose from is
   blurred, with each person's numbered box drawn sharp on top, so you can
   pick by where they stand. **Show picture** and **Blur picture** switch
