@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
+  time. The engine has tests (models folder, GPU plan, the HTTP API's token
+  and input checks), which CI runs without a GPU or a model.
+
 ## 0.4.0 (2026-10-08)
 
 **Upgrading from 0.3.0**: Latentry now needs **Node.js 22.19 or newer** (was

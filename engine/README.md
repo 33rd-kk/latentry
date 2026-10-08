@@ -88,3 +88,15 @@ It listens on 127.0.0.1. Set `LATENTRY_ENGINE_TOKEN` to require a Bearer
 token. Besides the backend API it has `GET /api/models`,
 `POST /api/models/load` `{ id }`, `POST /api/models/download`
 `{ repo_id, filename? }` and `GET /api/models/downloads`.
+
+## Tests
+
+`engine/tests` checks what needs no GPU or model: telling models apart from
+their headers, the GPU plan, and the HTTP API's token and input checks. From
+`engine/`, with the engine's Python:
+
+```bash
+python -m pytest tests
+```
+
+CI runs them on Linux with PyTorch's CPU build.
