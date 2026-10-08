@@ -2,16 +2,16 @@
 
 ## Unreleased
 
-- **img2img**: a detailed source picture with a mask no longer fails with
-  "Invalid JSON body". Latentry accepted only the first 10MB of a request
-  and cut the rest. It now takes up to 48MB, and above that the page says the
-  pictures are too large before sending them.
-- **Generate page**: a slider moved away from its default shows a reset
-  arrow next to its label, which puts it back to the profile's value. This
-  covers width, height, steps, image count, CFG and both strengths.
-- **LoRA**: on a backend that does not load LoRAs (anything but an A1111
-  web UI), a `<lora:…>` or `<lyco:…>` tag in the prompt shows a note that it
-  is read as plain words.
+## 0.5.0 (2026-10-08)
+
+**Upgrading from 0.4.0**: phones and other computers must now be **paired**
+before they can use Latentry (this computer needs nothing). After updating,
+open **Settings > Phones and other computers > Add a device** on this
+computer and type the code on each device. Behind a reverse proxy that does
+its own login, set `LATENTRY_PAIRING=off`.
+
+**Pairing and security**
+
 - **Pairing**: a phone or another computer must now be paired before it can
   use Latentry. On this computer, **Settings > Phones and other computers >
   Add a device** shows a code (one use, 10 minutes) to type on the other
@@ -21,29 +21,51 @@
   and can unpair it, and every page warns from three days before. The list
   keeps no record of use and is stored encrypted. The key can be kept in the
   system keychain and passed in `LATENTRY_PAIRING_KEY`; the network guide
-  shows how on Windows, macOS and Linux. This computer needs nothing. `LATENTRY_PAIRING=off` turns it off,
-  for a reverse proxy that does its own login.
-- **Security**: the per-device request limits count the address a
-  connection really comes from, and believe `X-Forwarded-For` only from this
-  computer. Stopping a run takes that run's id. The engine answers only
-  requests addressed to this computer, and run by hand it refuses to listen
-  beyond it without `LATENTRY_ENGINE_TOKEN`.
-- **Secret mode** blurs every picture until you choose to show it: the
-  gallery's viewer (one picture at a time, with **Show for this picture**,
-  blurred again on the next one or when it closes), the generate page's
-  results and their full-size view (**Show results**, per run), the source
-  picture in its preview and the mask editor (strokes stay sharp), and the
-  picture you pick a pose's person from (its numbered boxes stay sharp).
-  On the generate page each has a **Show** / **Blur** button, so a picture
-  can be blurred again, on a phone too. The full-size viewer has its own
-  secret-mode switch in the bar, so it can be turned on without closing
-  the picture; turning it on blurs anything shown before.
+  shows how on Windows, macOS and Linux. `LATENTRY_PAIRING=off` turns it
+  off, for a reverse proxy that does its own login.
+- The per-device request limits count the address a connection really comes
+  from, and believe `X-Forwarded-For` only from this computer. Stopping a
+  run takes that run's id.
+
+**Secret mode**
+
+- Every picture is blurred until you choose to show it: the gallery's
+  viewer (one picture at a time, with **Show for this picture**, blurred
+  again on the next one or when it closes), the generate page's results and
+  their full-size view (**Show results**, per run), the source picture in
+  its preview and the mask editor (strokes stay sharp), and the picture you
+  pick a pose's person from (its numbered boxes stay sharp). On the generate
+  page each has a **Show** / **Blur** button, so a picture can be blurred
+  again, on a phone too. The full-size viewer has its own secret-mode switch
+  in the bar, so it can be turned on without closing the picture; turning it
+  on blurs anything shown before.
+
+**Generate**
+
+- A slider moved away from its default shows a reset arrow next to its
+  label, which puts it back to the profile's value. This covers width,
+  height, steps, image count, CFG and both strengths.
+- On a backend that does not load LoRAs (anything but an A1111 web UI), a
+  `<lora:…>` or `<lyco:…>` tag in the prompt shows a note that it is read as
+  plain words.
 - **From gallery** (source and pose pictures) opens in place, under its
   button, instead of as a dialog over the page, so the header and its
   secret-mode switch stay one tap away while you choose.
-- **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
-  time. The engine has tests (models folder, GPU plan, the HTTP API's token
-  and input checks), which CI runs without a GPU or a model.
+
+**Engine (0.3.0)**
+
+- The engine answers only requests addressed to this computer, and run by
+  hand it refuses to listen beyond it without `LATENTRY_ENGINE_TOKEN`. The
+  token is compared in constant time.
+- The engine has tests (models folder, GPU plan, the HTTP API's token and
+  input checks), which CI runs without a GPU or a model.
+
+**Fixed**
+
+- img2img with a detailed source picture and a mask no longer fails with
+  "Invalid JSON body". Latentry accepted only the first 10MB of a request
+  and cut the rest. It now takes up to 48MB, and above that the page says
+  the pictures are too large before sending them.
 
 ## 0.4.0 (2026-10-08)
 
