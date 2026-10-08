@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **img2img**: a detailed source picture with a mask no longer fails with
+  "Invalid JSON body". Latentry accepted only the first 10MB of a request
+  and cut the rest. It now takes up to 48MB, and above that the page says the
+  pictures are too large before sending them.
+- **Generate page**: a slider moved away from its default shows a reset
+  arrow next to its label, which puts it back to the profile's value. This
+  covers width, height, steps, image count, CFG and both strengths.
+- **LoRA**: on a backend that does not load LoRAs (anything but an A1111
+  web UI), a `<lora:…>` or `<lyco:…>` tag in the prompt shows a note that it
+  is read as plain words.
 - **Pairing**: a phone or another computer must now be paired before it can
   use Latentry. On this computer, **Settings > Phones and other computers >
   Add a device** shows a code (one use, 10 minutes) to type on the other

@@ -88,6 +88,16 @@ export function withSharedPrompt(form: FormState): FormState {
   return shared ? { ...form, prompt: shared.prompt, artist: shared.artist } : form
 }
 
+/**
+ * Whether a prompt calls a LoRA as `<lora:name:weight>` or `<lyco:…>`. Only an
+ * A1111 web UI loads those; other backends read the tag as plain words. The
+ * same pattern as lorasInPrompt in lib/image-meta, which the browser cannot
+ * import (it brings node:zlib along).
+ */
+export function callsLora(prompt: string): boolean {
+  return /<(?:lora|lyco):[^:>]+(?::[^>]*)?>/i.test(prompt)
+}
+
 /** `value` if the backend accepts it, else what it does accept first. */
 export function accepted(value: string, options: string[]): string {
   return options.length === 0 || options.includes(value) ? value : options[0]

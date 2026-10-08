@@ -5,7 +5,7 @@
  *
  * Run with: npm test -- pairing
  */
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NextRequest } from 'next/server'
@@ -84,6 +84,10 @@ async function main(): Promise<void> {
   check(!removeDevice(phone.device.id, now + 2000), 'removing it again finds nothing')
   eq(listDevices(tablet.device.expiresAt).length, 0, 'an expired device drops off the list')
   writeFileSync(devicesPath(), sealed.replace(/"data":"(.)/, (_m, c: string) => `"data":"${c === 'A' ? 'B' : 'A'}`))
+  // The list is re-read when its modification time changes. On Windows a
+  // write this soon after the last one can keep the same time, so move it on.
+  const later = new Date(Date.now() + 60_000)
+  utimesSync(devicesPath(), later, later)
   check(!verifyDevice(tablet.value, now + 2000), 'a list tampered with pairs nobody')
   forgetAllDevices()
 

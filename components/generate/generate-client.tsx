@@ -24,6 +24,7 @@ import { useJobWatch } from "@/hooks/use-job-watch"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, DEFAULT } from "@/lib/generate/form"
 import { isSecretMode } from "@/lib/secret-mode"
+import { MAX_REQUEST_BODY_BYTES } from "@/lib/limits"
 import { composePrompt, fitToImage, formatForProfile } from "@/lib/profiles"
 import type { CharacterPreset } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
@@ -36,6 +37,9 @@ import { useT } from "@/lib/i18n"
  * useJobWatch (on the server, watched here), and what the gallery sends in
  * useGalleryHandoff; this puts them together and starts and cancels runs.
  */
+// Where the skeleton's strength slider starts: the pose followed as given.
+const DEFAULT_POSE_STRENGTH = 1
+
 export function GenerateClient() {
   const t = useT()
   const { backends, tagger, loaded, refresh: refreshBackends } = useBackends()
@@ -97,7 +101,7 @@ export function GenerateClient() {
   // The tags the extractor last carried into the prompt — what "save character" offers to keep.
   const [lastExtractedTags, setLastExtractedTags] = useState("")
   const [poseSkeleton, setPoseSkeleton] = useState<PoseSkeleton | null>(null)
-  const [poseStrength, setPoseStrength] = useState(1)
+  const [poseStrength, setPoseStrength] = useState(DEFAULT_POSE_STRENGTH)
 
   const addExtractedTags = useCallback(
     (tags: string[]) => {
@@ -137,6 +141,35 @@ export function GenerateClient() {
       return
     }
     const useSource = Boolean(sourceImage && capabilities?.img2img)
+    const body = JSON.stringify({
+      prompt: composePrompt(form.prompt, { profile, artist: form.artist, quality: form.quality }),
+      negative_prompt: formatForProfile(form.negativePrompt, profile),
+      width: form.width,
+      height: form.height,
+      seed: form.seed,
+      image_count: form.imageCount,
+      sampler,
+      scheduler,
+      num_inference_steps: form.steps,
+      guidance_scale: form.cfg,
+      profile: form.profile,
+      // Secret mode: the server keeps this run to this page only.
+      secret: isSecretMode(),
+      ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
+      ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
+      ...(capabilities?.pose && poseSkeleton
+        ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
+        : {}),
+    })
+    // The server would refuse it anyway (the body is cut at this size), so say
+    // why here rather than after uploading it. The pictures are base64, so the
+    // length in characters is the size in bytes, near enough.
+    if (body.length > MAX_REQUEST_BODY_BYTES) {
+      toast.error(t("generate.tooLarge"), {
+        description: t("generate.tooLargeBody", { limit: MAX_REQUEST_BODY_BYTES / 1024 / 1024 }),
+      })
+      return
+    }
     // Optimistic, so the bars appear on click; the first snapshot replaces it.
     begin({
       completed: 0,
@@ -149,26 +182,7 @@ export function GenerateClient() {
       const response = await fetch(`/api/gen/${encodeURIComponent(selectedId)}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: composePrompt(form.prompt, { profile, artist: form.artist, quality: form.quality }),
-          negative_prompt: formatForProfile(form.negativePrompt, profile),
-          width: form.width,
-          height: form.height,
-          seed: form.seed,
-          image_count: form.imageCount,
-          sampler,
-          scheduler,
-          num_inference_steps: form.steps,
-          guidance_scale: form.cfg,
-          profile: form.profile,
-          // Secret mode: the server keeps this run to this page only.
-          secret: isSecretMode(),
-          ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
-          ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
-          ...(capabilities?.pose && poseSkeleton
-            ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
-            : {}),
-        }),
+        body,
       })
       const data = await response.json().catch(() => null)
 
@@ -272,6 +286,7 @@ export function GenerateClient() {
               update={update}
               promptScope={formState.promptScope}
               onPromptScopeChange={formState.changePromptScope}
+              backendKind={status.kind}
             />
 
             {capabilities?.img2img && (
@@ -279,6 +294,7 @@ export function GenerateClient() {
                 value={sourceImage}
                 onChange={changeSource}
                 strength={strength}
+                defaultStrength={sourceMode === "pose" ? profile.defaultPoseStrength : profile.defaultStrength}
                 onStrengthChange={setStrength}
                 mask={mask}
                 onMaskChange={setMask}
@@ -304,6 +320,7 @@ export function GenerateClient() {
                 value={poseSkeleton}
                 onChange={setPoseSkeleton}
                 strength={poseStrength}
+                defaultStrength={DEFAULT_POSE_STRENGTH}
                 onStrengthChange={setPoseStrength}
                 outputSize={outputSize}
                 source={sourceImage}

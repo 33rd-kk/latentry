@@ -26,6 +26,16 @@
 // on 127.0.0.1 behaves exactly as before. LATENTRY_PAIRING=off turns it off
 // for everyone (for a reverse proxy that does its own login).
 //
+// Why not a library (looked at 2026-10): the crypto here is node:crypto's
+// own (HMAC-SHA256, AES-256-GCM, timingSafeEqual); only the flow is ours.
+//   - Better Auth's device-authorization plugin (RFC 8628) is the nearest,
+//     but it needs user accounts and a database, which Latentry has neither of.
+//   - iron-session would seal the cookie, but the cookie holds nothing secret
+//     (a device id and an expiry), and removing one device still needs the
+//     list kept here.
+//   - PairDrop, Paapi and the like pair devices to talk to each other, not
+//     to be let in.
+//
 // Run from proxy.ts (the check) and /api/pair, /api/settings/pairing (the rest).
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'

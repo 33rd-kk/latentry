@@ -18,6 +18,26 @@ import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
 import { checkApiRequest } from '../lib/security/route-guard'
 import { checkRequestBudget, classifyRequest, clientIp, FixedWindow, sseSlot } from '../lib/security/request-budget'
+import { bodyTooLarge } from '../lib/api'
+import { MAX_REQUEST_BODY_BYTES } from '../lib/limits'
+import nextConfig from '../next.config'
+
+// ── Request body size ──
+// Next cuts a body off at proxyClientMaxBodySize (10MB by default) and the
+// route then sees broken JSON; the limit is raised to fit a detailed img2img
+// request, kept bounded, and a larger body is refused by name.
+eq(nextConfig.experimental?.proxyClientMaxBodySize, MAX_REQUEST_BODY_BYTES, 'Next buffers bodies up to the shared limit')
+check(MAX_REQUEST_BODY_BYTES > 10 * 1024 * 1024 && MAX_REQUEST_BODY_BYTES <= 64 * 1024 * 1024, "the limit is above Next's 10MB and still bounded")
+const sized = (length: number | null) =>
+  new Request('http://127.0.0.1/api/gen/x/generate', {
+    method: 'POST',
+    headers: length === null ? {} : { 'content-length': String(length) },
+    body: '{}',
+  })
+check(bodyTooLarge(sized(MAX_REQUEST_BODY_BYTES + 1)), 'a body over the limit is refused')
+check(!bodyTooLarge(sized(MAX_REQUEST_BODY_BYTES)) && !bodyTooLarge(sized(15 * 1024 * 1024)), 'a 15MB img2img body is not')
+check(!bodyTooLarge(sized(null)), 'a body without Content-Length is left to the parser')
+
 
 // ── Locks and slots ──
 const first = tryAcquire('lock:a')
