@@ -122,7 +122,7 @@ export function GenerateClient() {
 
   // ── The backend's run, and what the gallery sent over ────────────────────
   const job = useJobWatch(selectedId, refreshBackends, t)
-  const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef } = job
+  const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   useGalleryHandoff({ ready, editForm, backendRef, changeSource, changeSourceMode, t })
 
   // ── Generate and cancel ──────────────────────────────────────────────────
@@ -197,13 +197,14 @@ export function GenerateClient() {
   }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
-    if (!selectedId) return
+    if (!selectedId || !runId) return
     setIsCancelling(true)
     try {
       const response = await fetch(`/api/gen/${encodeURIComponent(selectedId)}/cancel`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: "{}",
+        // Names the run this page watches: only that one may be stopped.
+        body: JSON.stringify({ job: runId }),
       })
       if (!response.ok) {
         const data = await response.json().catch(() => null)
@@ -215,7 +216,7 @@ export function GenerateClient() {
       setIsCancelling(false)
       toast.error(t("generate.cancelFailed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [selectedId, setIsCancelling, t])
+  }, [selectedId, runId, setIsCancelling, t])
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (loaded && backends.length === 0) return <SetupNotice />

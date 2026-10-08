@@ -11,6 +11,8 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
 import { POST as testBackend } from '../app/api/settings/test/route'
+import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
+import { startJob } from '../lib/diffusion/job-store'
 import { editRefusal } from '../lib/settings/access'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
@@ -132,6 +134,18 @@ eq(editRefusal(new Headers(spoofed), {}), 'notLocal', 'a request without the sta
 check(editRefusal(new Headers({ ...spoofed, [peer]: '::1' }), {}) === null, 'this machine still may')
 eq(editRefusal(new Headers({ host: 'localhost', 'x-forwarded-for': '192.168.1.30', [peer]: '127.0.0.1' }), {}), 'notLocal', 'a reverse proxy here is told apart by the client it forwards')
 
+// G2 (API audit 2026-10): the budget counts the connection, not a header the client wrote.
+eq(clientIp(new Headers({ 'x-forwarded-for': '10.1.2.3', [peer]: '192.168.1.30' })), '192.168.1.30', 'G2: a LAN client is its socket address, whatever it forwards')
+eq(clientIp(new Headers({ [peer]: '::ffff:192.168.1.30' })), '192.168.1.30', 'an IPv4-mapped address is the same client')
+eq(clientIp(new Headers({ 'x-forwarded-for': '192.168.1.40', [peer]: '127.0.0.1' })), '192.168.1.40', 'a reverse proxy on this machine still names its client')
+const forging = (n: number) =>
+  checkRequestBudget(
+    { method: 'POST', pathname: '/api/gen/x/generate', headers: new Headers({ 'x-forwarded-for': `10.7.0.${n}`, [peer]: '192.168.1.77' }) },
+    { REQUEST_BUDGET_POST_PER_MIN: '2' }
+  )
+check(forging(1) === null && forging(2) === null, 'G2: two POSTs fit')
+check(forging(3)?.scope === 'ip', 'G2: a third is refused although each forged a new X-Forwarded-For')
+
 // The stamp on a real connection, and what a client sends under its name is replaced.
 async function stamping(): Promise<void> {
   const server = createServer((request, response) => {
@@ -204,7 +218,45 @@ async function tokenLending(): Promise<void> {
   }
 }
 
-stamping().then(tokenLending).then(
+// G4 (API audit 2026-10): a run is stopped only by a client that names it.
+async function cancelling(): Promise<void> {
+  const cancels: string[] = []
+  const server = createServer((request, response) => {
+    let body = ''
+    request.on('data', (chunk) => (body += chunk))
+    request.on('end', () => {
+      if (request.url === '/api/cancel') cancels.push(body)
+      response.writeHead(200, { 'Content-Type': 'application/json' })
+      response.end('{"status":"cancelling"}')
+    })
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  Object.assign(process.env, {
+    LATENTRY_SETTINGS_FILE: path.join(tmpdir(), `latentry-audit-${process.pid}-none.json`),
+    GEN_BACKENDS: `runner|diffusers|http://127.0.0.1:${(server.address() as AddressInfo).port}/|generic`,
+  })
+  try {
+    const job = startJob({ backend: 'runner', total: 1, steps: 1, context: { request: {} as never, profile: 'generic', kind: 'diffusers', model: null, mode: 'txt2img' } as never })
+    const cancel = (body: unknown) =>
+      cancelRoute(
+        new Request('http://localhost:3000/api/gen/runner/cancel', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        }),
+        { params: Promise.resolve({ backend: 'runner' }) } as never
+      )
+    eq((await cancel({})).status, 409, 'G4: a cancel that names no run is refused')
+    eq((await cancel({ job: 'someone-else' })).status, 409, 'G4: so is one naming another run')
+    check(cancels.length === 0, 'G4: and the backend is not asked to stop anything')
+    eq((await cancel({ job: job.id })).status, 200, 'the page watching the run may stop it')
+    check(cancels.length === 1, 'and the backend is asked to')
+  } finally {
+    server.close()
+  }
+}
+
+stamping().then(tokenLending).then(cancelling).then(
   () => done('security'),
   (error: unknown) => {
     check(false, `token lending check threw: ${error instanceof Error ? error.stack : String(error)}`)

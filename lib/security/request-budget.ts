@@ -13,14 +13,15 @@
 // instead, see sseSlot) and gallery image bytes, which a scrolling gallery
 // legitimately asks for by the hundred.
 //
-// The IP comes from x-forwarded-for, which Next fills in from the socket but
-// passes through as-is when the client already sent one. A LAN client that
-// forges it can dodge its own window -- not the all-IP one. Good enough for a
-// LAN; put a reverse proxy that overwrites the header in front if it is not.
+// The IP is the address the connection really came from (lib/security/peer.ts).
+// x-forwarded-for is a header any client can write, so it is believed only
+// from a connection on this machine -- a reverse proxy here, which says who
+// it is forwarding for. Elsewhere a forged one changes nothing.
 //
 // REQUEST_BUDGET=off turns it off.
 
 import { tryEnter, type Release } from '@/lib/security/concurrency'
+import { isLoopbackAddress, peerAddress } from '@/lib/security/peer'
 
 type Env = Record<string, string | undefined>
 
@@ -41,8 +42,14 @@ export const BUDGET_DEFAULTS = {
 
 const WINDOW_MS = 60 * 1000
 
-/** The first hop of x-forwarded-for (Next sets it from the socket), else x-real-ip. */
+/**
+ * Who sent this request. The connection's own address when it comes from
+ * another machine; from this machine (a reverse proxy, or no stamp at all in
+ * the verify scripts) the first hop of x-forwarded-for, else x-real-ip.
+ */
 export function clientIp(headers: Headers): string {
+  const peer = peerAddress(headers)
+  if (peer && !isLoopbackAddress(peer)) return peer.replace(/^::ffff:/i, '')
   const forwarded = headers.get('x-forwarded-for')
   const first = forwarded?.split(',')[0]?.trim()
   if (first) return first
