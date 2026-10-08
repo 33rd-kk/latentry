@@ -47,6 +47,10 @@ next-env.d.ts
 # settings saved from the settings page (holds backend tokens)
 latentry.settings.json
 latentry.settings.json.*.tmp
+# the key paired devices' cookies are signed with, and the list of them
+latentry.pairing-key
+latentry.pairing-devices.json
+latentry.pairing-devices.json.*.tmp
 /.next-*/
 
 # engine runtime (uv, Python, venv, logs) and downloaded models

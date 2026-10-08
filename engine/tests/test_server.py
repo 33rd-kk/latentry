@@ -1,5 +1,5 @@
-"""The engine's HTTP API, without a model: the token, health, the models
-folder, and the checks before a load or a download starts.
+"""The engine's HTTP API, without a model: the host and token checks, health,
+the models folder, and the checks before a load or a download starts.
 """
 
 from __future__ import annotations
@@ -12,9 +12,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from latentry_engine import __version__
+from latentry_engine.__main__ import open_without_token
 from latentry_engine.server import create_app
 
 TOKEN = "test-token-123"
+# As Latentry reaches it; TestClient's own default host would be refused.
+BASE = "http://127.0.0.1:7861"
 
 
 def write_safetensors(path: Path, keys: list[str]) -> None:
@@ -32,7 +35,7 @@ def models_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def client(models_dir: Path, monkeypatch: pytest.MonkeyPatch) -> TestClient:
     monkeypatch.setenv("LATENTRY_ENGINE_TOKEN", TOKEN)
-    return TestClient(create_app(models_dir))
+    return TestClient(create_app(models_dir), base_url=BASE)
 
 
 def auth(token: str = TOKEN) -> dict[str, str]:
@@ -59,7 +62,42 @@ def test_everything_else_needs_the_token(client: TestClient, headers: dict[str, 
 
 def test_without_a_token_set_nothing_is_asked(models_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("LATENTRY_ENGINE_TOKEN", raising=False)
-    assert TestClient(create_app(models_dir)).get("/api/models").status_code == 200
+    assert TestClient(create_app(models_dir), base_url=BASE).get("/api/models").status_code == 200
+
+
+@pytest.mark.parametrize("host", ["evil.example", "evil.example:7861", "192.168.1.20:7861", "testserver"])
+def test_a_host_that_is_not_loopback_is_refused(client: TestClient, host: str) -> None:
+    # DNS rebinding: a page whose hostname now points at 127.0.0.1. Refused
+    # with or without the token, and on /api/health too.
+    assert client.get("/api/health", headers={"Host": host}).status_code == 403
+    assert client.get("/api/models", headers={"Host": host, **auth()}).status_code == 403
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1:7861", "localhost:7861", "[::1]:7861", "LOCALHOST"])
+def test_loopback_hosts_are_answered(client: TestClient, host: str) -> None:
+    assert client.get("/api/health", headers={"Host": host}).status_code == 200
+
+
+def test_allowed_hosts_are_answered(models_dir: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("LATENTRY_ENGINE_TOKEN", raising=False)
+    app = TestClient(create_app(models_dir, allowed_hosts=("gpu-box.lan",)), base_url=BASE)
+    assert app.get("/api/health", headers={"Host": "gpu-box.lan:7861"}).status_code == 200
+    assert app.get("/api/health", headers={"Host": "other.lan:7861"}).status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("host", "token", "refused"),
+    [
+        ("127.0.0.1", None, False),
+        ("localhost", "", False),
+        ("::1", None, False),
+        ("0.0.0.0", None, True),
+        ("192.168.1.20", "", True),
+        ("0.0.0.0", TOKEN, False),
+    ],
+)
+def test_listening_beyond_loopback_needs_a_token(host: str, token: str | None, refused: bool) -> None:
+    assert (open_without_token(host, token) is not None) == refused
 
 
 def test_models_lists_the_folder(client: TestClient) -> None:

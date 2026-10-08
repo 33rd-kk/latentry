@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { serverMessage } from '@/lib/i18n/core'
 import { checkRequestBudget, type BudgetRejection } from '@/lib/security/request-budget'
+import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
 import { checkApiRequest } from '@/lib/security/route-guard'
+import { isFromThisMachine } from '@/lib/settings/access'
 
 /** Short page for a refused page load; a browser has no JSON handler to show. */
 const TOO_MANY_REQUESTS_HTML = `<!doctype html>
@@ -32,7 +34,8 @@ function budgetRejection(rejection: BudgetRejection): NextResponse {
 
 /**
  * Every /api route is same-origin only, from a host that cannot be DNS-rebound
- * (see lib/security/route-guard.ts), and everything is counted against a
+ * (see lib/security/route-guard.ts); a device other than this machine must be
+ * paired (see lib/security/pairing.ts); and everything is counted against a
  * per-IP budget (see lib/security/request-budget.ts).
  */
 export function proxy(request: NextRequest) {
@@ -43,6 +46,24 @@ export function proxy(request: NextRequest) {
     if (rejection) {
       return NextResponse.json({ error: rejection.error }, { status: rejection.status, headers: { 'Cache-Control': 'no-store' } })
     }
+  }
+
+  if (
+    pairingEnabled(process.env) &&
+    !isPairingPath(pathname) &&
+    !isFromThisMachine(request.headers) &&
+    !verifyDevice(deviceCookie(request.headers))
+  ) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: serverMessage('system.notPaired'), pairing: true },
+        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+      )
+    }
+    const pair = request.nextUrl.clone()
+    pair.pathname = '/pair'
+    pair.search = ''
+    return NextResponse.redirect(pair, { headers: { 'Cache-Control': 'no-store' } })
   }
 
   const overBudget = checkRequestBudget({ method: request.method, headers: request.headers, pathname }, process.env)
