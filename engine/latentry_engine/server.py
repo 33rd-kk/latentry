@@ -17,6 +17,7 @@ An optional token (LATENTRY_ENGINE_TOKEN) is checked as a Bearer token.
 
 from __future__ import annotations
 
+import hmac
 import json
 import os
 import threading
@@ -87,7 +88,9 @@ def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
     @app.middleware("http")
     async def check_token(request: Request, call_next):
         if token and request.url.path != "/api/health":
-            if request.headers.get("authorization") != f"Bearer {token}":
+            # Compared in constant time, so the answer's timing says nothing about the token.
+            sent = request.headers.get("authorization", "").encode()
+            if not hmac.compare_digest(sent, f"Bearer {token}".encode()):
                 from fastapi.responses import JSONResponse
 
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)

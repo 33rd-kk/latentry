@@ -38,6 +38,12 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      # The engine at least compiling: running it needs a GPU and a model.
-      # (poseorbit, which it depends on, is tested in its own repository.)
+          cache: pip
+          cache-dependency-path: engine/pyproject.toml
       - run: python -m compileall -q engine/latentry_engine
+      # engine/tests: what can be checked without a GPU or a model (the models
+      # folder, the GPU plan, the HTTP API's token and input checks). PyTorch
+      # comes from its CPU index; poseorbit is tested in its own repository.
+      - run: python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: python -m pip install -e engine pytest httpx
+      - run: python -m pytest engine/tests -q -p no:cacheprovider
