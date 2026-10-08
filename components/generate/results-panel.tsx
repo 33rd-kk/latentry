@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import Link from "next/link"
 import { Download, Eye, EyeOff, FolderCheck, ImageUp } from "lucide-react"
-import { useSecretMode } from "@/components/app-header"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
@@ -30,7 +30,7 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
   // Secret mode blurs a run's pictures until "Show results", which lasts for
   // that run only: the next one starts blurred again.
   const secret = useSecretMode()
-  const [shownRun, setShownRun] = useState<string | null>(null)
+  const [shownRun, setShownRun] = useShownInSecret<string>()
   const veiled = secret && (runId === null || shownRun !== runId)
 
   const previewItems = useMemo<LightboxItem[]>(

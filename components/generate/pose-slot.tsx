@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
-import { useSecretMode } from "@/components/app-header"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -209,7 +209,7 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
   // stay sharp on top, so a person can still be picked by where they stand.
   // "Show" lifts the blur for this picture until another one is chosen from.
   const secret = useSecretMode()
-  const [shownChooser, setShownChooser] = useState<string | null>(null)
+  const [shownChooser, setShownChooser] = useShownInSecret<string>()
   const chooserVeiled = secret && choosing !== null && shownChooser !== choosing.dataUrl
 
   return (

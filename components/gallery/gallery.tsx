@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
-import { useSecretMode } from "@/components/app-header"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
@@ -53,7 +53,7 @@ export function Gallery() {
   const [viewing, setViewing] = useState<number | null>(null)
   // Secret mode: the one picture shown with "Show", forgotten on every move
   // in the viewer (coming back included) and when it closes.
-  const [revealedKey, setRevealedKey] = useState<string | null>(null)
+  const [revealedKey, setRevealedKey] = useShownInSecret<string>()
   const sentinel = useRef<HTMLDivElement>(null)
 
   const activeDir = dir ?? folders?.[0]?.index ?? null

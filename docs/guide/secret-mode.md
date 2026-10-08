@@ -13,6 +13,11 @@ Click the eye at the top right. While secret mode is on, the button is a
 filled **Secret** pill with a crossed-out eye, on every page; off, it is a
 plain eye. Click it again to turn it off.
 
+The full-size viewer, in the gallery and for a run's results, has the same
+eye in its own bar, so you can turn secret mode on (or off) without closing
+the picture. Turning it on, from either place, blurs everything again,
+including pictures you had chosen to show.
+
 The setting is remembered by this browser, so a reload keeps it. Another
 browser, or another device, has its own setting.
 

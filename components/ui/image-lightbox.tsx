@@ -2,9 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { createPortal } from "react-dom"
+import { Eye, EyeOff } from "lucide-react"
 import { openViewer, type ViewerHandle, type ViewerItem } from "panorail"
 import "panorail/style.css"
+import { useSecretMode } from "@/components/app-header"
 import { tStatic } from "@/lib/i18n/core"
+import { preferences } from "@/lib/storage"
 
 export type LightboxItem = ViewerItem
 
@@ -54,7 +57,10 @@ interface ImageLightboxProps {
   veiled?: boolean
   /** With `veiled`: the one image (by its `src`) the user chose to show, left sharp. */
   shownSrc?: string | null
-  /** Opens the panel when the viewer opens, whatever was last chosen (and does not remember it). */
+  /**
+   * Opens the panel when the viewer opens, or when this turns on while it is
+   * open, whatever was last chosen (and does not remember it).
+   */
   panelOpenOnStart?: boolean
 }
 
@@ -93,6 +99,14 @@ export function ImageLightbox({
   }, [open, veiled, shownSrc])
   const viewer = useRef<ViewerHandle | null>(null)
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null)
+  // Holds the secret-mode switch; the effect below puts it in the viewer's bar.
+  const [secretEl] = useState(() => {
+    if (typeof document === "undefined") return null
+    const el = document.createElement("span")
+    el.style.display = "contents"
+    return el
+  })
+  const secret = useSecretMode()
   // Whether there is a panel is settled when the viewer opens.
   const hasPanel = !!renderPanel
 
@@ -136,13 +150,23 @@ export function ImageLightbox({
         : undefined,
     })
     viewer.current = handle
+    // The secret-mode switch, in the viewer's own bar so it is in reach without
+    // closing the picture. panorail has no slot for host buttons, so a holder
+    // goes in before the bar's first button (the panel or download one).
+    const bar = document.querySelector(".pswp__top-bar")
+    if (bar && secretEl) bar.insertBefore(secretEl, bar.querySelector(".pswp__button"))
     return () => {
       viewer.current = null
+      secretEl?.remove()
       handle.destroy()
     }
     // Opening and closing only; the list and the index are synced below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
+
+  useEffect(() => {
+    if (panelOpenOnStart) viewer.current?.setPanelOpen(true)
+  }, [panelOpenOnStart])
 
   useEffect(() => {
     viewer.current?.setItems(items, !!hasMore)
@@ -152,6 +176,26 @@ export function ImageLightbox({
     if (index !== null && viewer.current && viewer.current.index !== index) viewer.current.goTo(index)
   }, [index])
 
-  if (!open || !panelEl || !renderPanel) return null
-  return createPortal(renderPanel(index!), panelEl)
+  if (!open) return null
+  const label = tStatic("app.secretMode")
+  return (
+    <>
+      {secretEl &&
+        createPortal(
+          <button
+            type="button"
+            className="pswp__button"
+            title={label}
+            aria-label={label}
+            aria-pressed={secret}
+            onClick={() => preferences.setSecretMode(!secret)}
+            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
+          >
+            {secret ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+          </button>,
+          secretEl
+        )}
+      {panelEl && renderPanel && createPortal(renderPanel(index!), panelEl)}
+    </>
+  )
 }

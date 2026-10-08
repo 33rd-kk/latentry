@@ -9,7 +9,9 @@
   picture in its preview and the mask editor (strokes stay sharp), and the
   picture you pick a pose's person from (its numbered boxes stay sharp).
   On the generate page each has a **Show** / **Blur** button, so a picture
-  can be blurred again, on a phone too.
+  can be blurred again, on a phone too. The full-size viewer has its own
+  secret-mode switch in the bar, so it can be turned on without closing
+  the picture; turning it on blurs anything shown before.
 - **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
   time. The engine has tests (models folder, GPU plan, the HTTP API's token
   and input checks), which CI runs without a GPU or a model.

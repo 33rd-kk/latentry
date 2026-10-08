@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
-import { useSecretMode } from "@/components/app-header"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -98,7 +98,7 @@ export function SourceImageSlot({
   // switch for both. "Show picture" (or a click on the preview) shows it until
   // it is blurred again or another source takes its place.
   const secret = useSecretMode()
-  const [shownSource, setShownSource] = useState<string | null>(null)
+  const [shownSource, setShownSource] = useShownInSecret<string>()
   const veiled = secret && value !== null && shownSource !== value.dataUrl
 
   const load = useCallback(
