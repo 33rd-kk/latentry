@@ -21,11 +21,23 @@ your network:
    example `http://192.168.1.20:3000`. It shows **Pair this device**.
 5. On this computer, open **Settings**, scroll to **Phones and other
    computers** and choose **Add a device**.
-6. Type the code it shows on the other device and choose **Pair**.
+6. Type the code it shows on the other device, give the device a name if
+   you like (for example "My phone"), and choose **Pair**.
 
 The code works once, for 10 minutes. A paired device stays paired for 30
-days; then it asks for a new code. **Forget all devices** on the same card
-unpairs every device at once (for a lost phone, say).
+days; then it asks for a new code.
+
+- **On this computer**, the same card lists the paired devices, each with
+  its name (or a number), when it was paired and when that ends. **Remove**
+  unpairs one device; **Forget all devices** unpairs them all (for a lost
+  phone, say).
+- **On a paired device**, its **Settings** page says what it is paired as
+  and when that ends, and **Unpair this device** unpairs it. From three days
+  before the end, every page says so, with a link to pair it again.
+
+The list keeps only the name, when the device was paired and when that
+ends; nothing about when or how it is used. It is stored encrypted next to
+the settings file.
 
 Paired devices can generate and use the gallery. **Settings and Setup stay
 read-only from them**: settings decide which folders are read and written.

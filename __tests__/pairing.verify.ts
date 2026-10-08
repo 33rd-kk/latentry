@@ -5,29 +5,35 @@
  *
  * Run with: npm test -- pairing
  */
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { check, done, eq } from './assert'
 import {
+  cleanName,
   CODE_MS,
   CODE_TRIES,
   createCode,
   currentCode,
   DEVICE_COOKIE,
   deviceCookie,
+  devicesPath,
   forgetAllDevices,
   isPairingPath,
   issueDevice,
   keyPath,
+  listDevices,
+  MAX_NAME_LENGTH,
   normalizeCode,
+  pairedDevice,
   pairingEnabled,
   redeemCode,
+  removeDevice,
   verifyDevice,
 } from '../lib/security/pairing'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
-import { POST as pairRoute } from '../app/api/pair/route'
+import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
 import { GET as pairingSettings, POST as pairingAction } from '../app/api/settings/pairing/route'
 import { proxy } from '../proxy'
 
@@ -57,6 +63,28 @@ async function main(): Promise<void> {
   forgetAllDevices()
   check(!verifyDevice(device.value, now), 'forgetting every device: a cookie signed before no longer verifies')
   check(verifyDevice(issueDevice(now).value, now), 'one issued after does')
+
+  // ── The list of devices ──
+  forgetAllDevices()
+  eq(listDevices(now).length, 0, 'forgetting every device empties the list')
+  const phone = issueDevice(now, process.env, '  My\u0000 phone\n ')
+  const tablet = issueDevice(now + 1000, process.env, null)
+  eq(phone.device.name, 'My phone', 'a name is kept without control characters or extra spaces')
+  eq(tablet.device.name, null, 'a device may give no name')
+  eq([phone.device.number, tablet.device.number], [1, 2], 'devices are numbered in pairing order')
+  eq(cleanName('x'.repeat(100))?.length, MAX_NAME_LENGTH, `a name is cut to ${MAX_NAME_LENGTH} characters`)
+  eq(listDevices(now + 2000).map((d) => d.id), [phone.device.id, tablet.device.id], 'both are listed')
+  eq(pairedDevice(phone.value, now + 2000)?.id, phone.device.id, 'a cookie finds its device')
+  const sealed = readFileSync(devicesPath(), 'utf8')
+  check(!sealed.includes('My phone') && !sealed.includes(phone.device.id), 'the list on disk shows no names or ids (encrypted)')
+  check(removeDevice(phone.device.id, now + 2000), 'one device is removed')
+  check(!verifyDevice(phone.value, now + 2000), 'its cookie no longer verifies')
+  check(verifyDevice(tablet.value, now + 2000), 'the other device is still paired')
+  check(!removeDevice(phone.device.id, now + 2000), 'removing it again finds nothing')
+  eq(listDevices(tablet.device.expiresAt).length, 0, 'an expired device drops off the list')
+  writeFileSync(devicesPath(), sealed.replace(/"data":"(.)/, (_m, c: string) => `"data":"${c === 'A' ? 'B' : 'A'}`))
+  check(!verifyDevice(tablet.value, now + 2000), 'a list tampered with pairs nobody')
+  forgetAllDevices()
 
   // ── Codes ──
   check(!redeemCode('ABCDEFGH', now), 'no code yet: nothing pairs')
@@ -116,6 +144,7 @@ async function main(): Promise<void> {
   delete process.env.LATENTRY_PAIRING
 
   // ── /api/pair and /api/settings/pairing ──
+  forgetAllDevices()
   const fromHere = { host: 'localhost:3000', 'content-type': 'application/json', [peer]: '127.0.0.1' }
   const fromLan = { host: '192.168.1.20:3000', 'content-type': 'application/json', [peer]: '192.168.1.31' }
   const post = (url: string, headers: Record<string, string>, body: unknown) =>
@@ -133,7 +162,29 @@ async function main(): Promise<void> {
   const cookie = right.headers.get('set-cookie') ?? ''
   check(cookie.startsWith(`${DEVICE_COOKIE}=`), 'with the device cookie')
   check(/HttpOnly/i.test(cookie) && /SameSite=Strict/i.test(cookie) && /Path=\//.test(cookie) && /Max-Age=2592000/.test(cookie), `HttpOnly, SameSite=Strict, 30 days (${cookie.replace(/=v1\.[^;]+/, '=…')})`)
-  check(verifyDevice(cookie.split(';')[0].slice(DEVICE_COOKIE.length + 1)), 'and it verifies')
+  const cookieValue = cookie.split(';')[0].slice(DEVICE_COOKIE.length + 1)
+  check(verifyDevice(cookieValue), 'and it verifies')
+
+  // The device's own view, the list on this machine, re-pairing and unpairing.
+  const withCookie = (headers: Record<string, string>, value: string) => ({ ...headers, cookie: `${DEVICE_COOKIE}=${value}` })
+  const mine = await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: withCookie(fromLan, cookieValue) }))).json()
+  check(mine.paired === true && typeof mine.expiresAt === 'number' && !('id' in mine), 'a paired device sees when its pairing ends (not its id)')
+  eq((await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: fromLan }))).json()).paired, false, 'an unpaired one is told so')
+  eq((await (await thisDeviceRoute(new Request('http://localhost:3000/api/pair', { headers: fromHere }))).json()).local, true, 'this machine is told it needs none')
+  const listed = await (await pairingSettings(new Request('http://localhost:3000/api/settings/pairing', { headers: fromHere }))).json()
+  eq(listed.devices.length, 1, 'this machine sees the paired device')
+  const again = await (await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'code' }))).json()
+  const repaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', withCookie({ ...fromLan, [peer]: '192.168.1.33' }, cookieValue), { code: again.code.code, name: 'Renamed' }))
+  eq(repaired.status, 200, 'a paired device can pair again')
+  const after = await (await pairingSettings(new Request('http://localhost:3000/api/settings/pairing', { headers: fromHere }))).json()
+  eq(after.devices.map((d: { name: string }) => d.name), ['Renamed'], 'pairing again replaces its entry instead of adding one')
+  check(!verifyDevice(cookieValue), 'and its old cookie stops working')
+  const newValue = (repaired.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
+  eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'remove', id: 'nope' }))).status, 404, 'removing an unknown device is a 404')
+  const unpaired = await unpairRoute(new Request('http://192.168.1.20:3000/api/pair', { method: 'DELETE', headers: withCookie(fromLan, newValue) }))
+  check(/Max-Age=0/.test(unpaired.headers.get('set-cookie') ?? ''), 'a device can unpair itself, and its cookie is cleared')
+  check(!verifyDevice(newValue), 'after which it no longer verifies')
+  eq(listDevices().length, 0, 'and it is off the list')
   let limited = 0
   for (let i = 0; i < 6; i++) {
     if ((await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...fromLan, [peer]: '192.168.1.32' }, { code: 'WRONGWRG' }))).status === 429) limited++

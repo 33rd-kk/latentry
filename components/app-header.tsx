@@ -8,6 +8,7 @@ import { Cpu, Eye, EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from 
 import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { PairingNotice } from "@/components/this-device"
 import { cn } from "@/lib/utils"
 import { preferences, STORAGE_EVENT_NAME, STORAGE_KEYS } from "@/lib/storage"
 import { isSecretMode } from "@/lib/secret-mode"
@@ -136,6 +137,7 @@ export function AppHeader() {
           </Button>
         </div>
       </div>
+      <PairingNotice />
     </header>
   )
 }

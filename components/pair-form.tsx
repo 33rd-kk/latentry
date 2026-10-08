@@ -15,6 +15,7 @@ import { useT } from "@/lib/i18n"
 export function PairForm() {
   const t = useT()
   const [code, setCode] = useState("")
+  const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -26,7 +27,7 @@ export function PairForm() {
       const response = await fetch("/api/pair", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, name }),
       })
       if (response.ok) {
         window.location.replace("/")
@@ -68,6 +69,18 @@ export function PairForm() {
               className="font-mono text-lg tracking-widest"
               autoFocus
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="pair-name">{t("pair.name")}</Label>
+            <Input
+              id="pair-name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              autoComplete="off"
+              maxLength={40}
+              placeholder={t("pair.namePlaceholder")}
+            />
+            <p className="text-xs text-muted-foreground">{t("pair.nameHint")}</p>
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
           <Button type="submit" className="w-full" disabled={busy || code.trim().length < 8}>

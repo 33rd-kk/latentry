@@ -27,8 +27,14 @@ What it does guard against:
   this machine needs a device cookie, which a device gets by typing a code
   shown on this machine's Settings page (8 characters, one use, 10 minutes,
   10 tries, 5 tries a minute per device). The cookie is HMAC-signed,
-  HttpOnly, SameSite=Strict and good for 30 days; **Forget all devices**
-  replaces the signing key, which unpairs them all. Over plain `http://` the
+  HttpOnly, SameSite=Strict and good for 30 days, and verifies only while
+  its device is on the list of paired devices kept next to the settings
+  file (its name, when it was paired and when that ends; nothing about its
+  use). That list is encrypted (AES-256-GCM) with a key derived from the
+  signing key, so it does not show device names on its own, in a backup for
+  example; whoever can read the whole folder can read it. **Remove** unpairs
+  one device; **Forget all devices** replaces the signing key and empties
+  the list, which unpairs them all. Over plain `http://` the
   cookie travels unencrypted, so someone who can watch your LAN traffic could
   copy it. `LATENTRY_PAIRING=off` turns pairing off, for a reverse proxy on
   this machine that does its own login.

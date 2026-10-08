@@ -470,7 +470,14 @@
     "pairingForget": "Forget all devices",
     "pairingForgetConfirm": "Forget every paired device? Each will need a new code.",
     "pairingForgotten": "Every paired device was forgotten.",
-    "pairingFailed": "That did not work. Reload the page and try again."
+    "pairingFailed": "That did not work. Reload the page and try again.",
+    "pairingDevices": "Paired devices: {count}",
+    "pairingNone": "None yet.",
+    "pairingDevice": "Device {number}",
+    "pairingDeviceDates": "Paired {paired} · ends {ends} ({days} days left)",
+    "pairingRemove": "Remove",
+    "pairingRemoveNamed": "Remove {name}",
+    "pairingRemoveConfirm": "Remove “{name}”? It will need a new code to use Latentry again."
   },
   "setup": {
     "title": "Setup",
@@ -546,6 +553,17 @@
     "hint": "On the computer running Latentry, open Settings and choose Add a device, then type the code it shows here.",
     "code": "Code",
     "submit": "Pair",
-    "wrongCode": "That code is wrong or has expired. Make a new one on the computer running Latentry."
+    "wrongCode": "That code is wrong or has expired. Make a new one on the computer running Latentry.",
+    "name": "Name for this device (optional)",
+    "namePlaceholder": "e.g. My phone",
+    "nameHint": "Shown in the list of paired devices on the computer running Latentry.",
+    "thisDevice": "This device",
+    "pairedAs": "Paired as “{name}” on {date}.",
+    "endsOn": "The pairing ends on {date} ({days} days left); then it needs a new code.",
+    "endsSoon": "This device's pairing ends in {days} days.",
+    "endsToday": "This device's pairing ends within a day.",
+    "again": "Pair it again with a new code",
+    "unpair": "Unpair this device",
+    "unpairConfirm": "Unpair this device? It will need a new code to use Latentry again."
   }
 }

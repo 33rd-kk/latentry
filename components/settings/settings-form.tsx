@@ -18,6 +18,7 @@ import { TAG_STYLES } from "@/lib/tags"
 import type { SettingsView } from "@/lib/settings/view"
 import { cn } from "@/lib/utils"
 import { useT, type MessageKey } from "@/lib/i18n"
+import { ThisDeviceCard } from "@/components/this-device"
 import { PairingCard } from "./pairing-card"
 
 type Source = "settings" | "env"
@@ -246,6 +247,7 @@ export function SettingsForm() {
           </CardHeader>
         </Card>
         <PairingCard />
+        <ThisDeviceCard />
       </div>
     )
   }

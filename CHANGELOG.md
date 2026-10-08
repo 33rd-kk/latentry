@@ -5,8 +5,12 @@
 - **Pairing**: a phone or another computer must now be paired before it can
   use Latentry. On this computer, **Settings > Phones and other computers >
   Add a device** shows a code (one use, 10 minutes) to type on the other
-  device; it then stays paired for 30 days. **Forget all devices** unpairs
-  them all. This computer needs nothing. `LATENTRY_PAIRING=off` turns it off,
+  device, with a name if you like; it then stays paired for 30 days. The
+  same card lists the paired devices with when each ends, and removes one or
+  all of them. A paired device's Settings page shows when its pairing ends
+  and can unpair it, and every page warns from three days before. The list
+  keeps no record of use and is stored encrypted. This computer needs
+  nothing. `LATENTRY_PAIRING=off` turns it off,
   for a reverse proxy that does its own login.
 - **Security**: the per-device request limits count the address a
   connection really comes from, and believe `X-Forwarded-For` only from this
