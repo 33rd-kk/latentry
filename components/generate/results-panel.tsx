@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Download, Eye, FolderCheck, ImageUp } from "lucide-react"
+import { Download, Eye, EyeOff, FolderCheck, ImageUp } from "lucide-react"
 import { useSecretMode } from "@/components/app-header"
 import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -93,17 +93,18 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
         )}
         {jobStatus === "cancelled" && !jobError && <p className="mb-4 text-sm text-muted-foreground">{t("generate.runCancelled")}</p>}
 
-        {veiled && results.some(Boolean) && (
+        {secret && results.some(Boolean) && (
           <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span>{t("generate.resultsHidden")}</span>
+            {veiled && <span>{t("generate.resultsHidden")}</span>}
             <button
               type="button"
               className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline disabled:opacity-50"
-              onClick={() => setShownRun(runId)}
+              onClick={() => setShownRun(veiled ? runId : null)}
               disabled={runId === null}
+              aria-pressed={!veiled}
             >
-              <Eye className="h-3 w-3" />
-              {t("generate.showResults")}
+              {veiled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {veiled ? t("generate.showResults") : t("generate.blurResults")}
             </button>
           </div>
         )}

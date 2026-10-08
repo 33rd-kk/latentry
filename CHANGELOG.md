@@ -6,8 +6,10 @@
   gallery's viewer (one picture at a time, with **Show for this picture**,
   blurred again on the next one or when it closes), the generate page's
   results and their full-size view (**Show results**, per run), the source
-  picture's preview, and the picture you pick a pose's person from (its
-  numbered boxes stay sharp). The mask editor is not blurred.
+  picture in its preview and the mask editor (strokes stay sharp), and the
+  picture you pick a pose's person from (its numbered boxes stay sharp).
+  On the generate page each has a **Show** / **Blur** button, so a picture
+  can be blurred again, on a phone too.
 - **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
   time. The engine has tests (models folder, GPU plan, the HTTP API's token
   and input checks), which CI runs without a GPU or a model.

@@ -48,15 +48,16 @@ reloaded). Deleting a character deletes it for good, in either mode.
 **The generate page blurs pictures too.**
 
 - A run's results, and the full-size view of them, are blurred until
-  **Show results**. That lasts for the run on screen; the next run starts
-  blurred again.
-- The source picture's preview is blurred; click it to show it, and again
-  to blur it. A new source starts blurred. The mask editor is not blurred:
-  you open it to paint over the picture.
+  **Show results**, and **Blur results** hides them again. That lasts for
+  the run on screen; the next run starts blurred again.
+- The source picture is blurred, both its preview and the mask editor,
+  with your strokes drawn sharp on top. **Show picture** (or a click on
+  the preview) shows it, **Blur picture** blurs it again; one switch
+  covers both. A new source starts blurred.
 - When a pose reference has several people, the picture to choose from is
   blurred, with each person's numbered box drawn sharp on top, so you can
-  pick by where they stand. **Show picture** reveals it until you choose
-  from another picture. The skeleton itself is lines only.
+  pick by where they stand. **Show picture** and **Blur picture** switch
+  it; another picture starts blurred. The skeleton itself is lines only.
 
 **Settings sent from the gallery stay in this tab.** **Generate with these
 settings**, **Use as source** and tags sent to the prompt reach the form in
@@ -86,8 +87,8 @@ These are by design:
   for the gallery.
 - **The backend sees everything it is sent.** What an A1111 / Forge or
   other server does with prompts and pictures is up to that server.
-- The page you are on shows what you are doing: the form, the mask editor
-  when you open it, and any picture you choose to show.
+- The page you are on shows what you are doing: the form, your mask
+  strokes, and any picture you choose to show.
 - **Download** in the viewer saves the picture as any download does: it is
   in the downloads folder and the browser's download list.
 - Turning secret mode off does not throw away what is on the form: from the

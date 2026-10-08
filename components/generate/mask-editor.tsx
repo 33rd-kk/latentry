@@ -8,12 +8,17 @@ import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import type { SourceImage } from "./source-image-slot"
+import { VeilToggle } from "./veil-toggle"
 
 interface MaskEditorProps {
   source: SourceImage
   /** PNG data URL of the painted strokes, or null when nothing is painted. */
   onChange: (mask: string | null) => void
   disabled?: boolean
+  /** Secret mode: the picture under the strokes is blurred (the strokes stay sharp). */
+  veiled?: boolean
+  /** Offered in secret mode: show or blur the picture. */
+  onVeilChange?: (veiled: boolean) => void
 }
 
 /**
@@ -25,7 +30,7 @@ interface MaskEditorProps {
  * such a mask by its alpha (and the A1111 adapter turns the alpha into the
  * web UI's white-on-black), so the stroke colour is only for showing it here.
  */
-export function MaskEditor({ source, onChange, disabled }: MaskEditorProps) {
+export function MaskEditor({ source, onChange, disabled, veiled = false, onVeilChange }: MaskEditorProps) {
   const t = useT()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
@@ -107,7 +112,12 @@ export function MaskEditor({ source, onChange, disabled }: MaskEditorProps) {
   return (
     <div className="space-y-2">
       <div className="relative overflow-hidden rounded-md border border-border/50 bg-muted/50">
-        <img src={source.dataUrl} alt={t("generate.sourceImage")} className="block w-full select-none" draggable={false} />
+        <img
+          src={source.dataUrl}
+          alt={t("generate.sourceImage")}
+          className={cn("block w-full select-none", veiled && "blur-xl")}
+          draggable={false}
+        />
         <canvas
           ref={canvasRef}
           className={cn("absolute inset-0 h-full w-full touch-none opacity-60", disabled ? "cursor-not-allowed" : "cursor-crosshair")}
@@ -153,6 +163,7 @@ export function MaskEditor({ source, onChange, disabled }: MaskEditorProps) {
           <Trash2 className="mr-1 h-3.5 w-3.5" />
           {t("generate.maskClear")}
         </Button>
+        {onVeilChange && <VeilToggle veiled={veiled} onChange={onVeilChange} />}
         <div className="flex min-w-40 flex-1 items-center gap-2">
           <Label className="shrink-0 text-xs">{t("generate.maskBrushSize", { value: brushSize })}</Label>
           <Slider

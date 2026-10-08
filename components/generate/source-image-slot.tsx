@@ -11,6 +11,7 @@ import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import { MaskEditor } from "./mask-editor"
+import { VeilToggle } from "./veil-toggle"
 
 /**
  * What the source is for. "variation" redraws this picture (whole, or the
@@ -93,9 +94,9 @@ export function SourceImageSlot({
   const [error, setError] = useState<string | null>(null)
   const [showGallery, setShowGallery] = useState(false)
   const [masking, setMasking] = useState(false)
-  // Secret mode blurs the preview; a click shows this source, until it is
-  // clicked again or another source takes its place. The mask editor is not
-  // blurred: painting needs the picture, and it is opened on purpose.
+  // Secret mode blurs the source: its preview and the mask editor alike, one
+  // switch for both. "Show picture" (or a click on the preview) shows it until
+  // it is blurred again or another source takes its place.
   const secret = useSecretMode()
   const [shownSource, setShownSource] = useState<string | null>(null)
   const veiled = secret && value !== null && shownSource !== value.dataUrl
@@ -179,8 +180,9 @@ export function SourceImageSlot({
             />
           )}
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
               <span>{value.width} × {value.height}</span>
+              {secret && <VeilToggle veiled={veiled} onChange={(blur) => setShownSource(blur ? null : value.dataUrl)} />}
               {mode === "variation" && canInpaint && (
                 <Button
                   type="button"
@@ -283,7 +285,15 @@ export function SourceImageSlot({
         }}
       />
 
-      {value && masking && mode === "variation" && <MaskEditor source={value} onChange={onMaskChange} disabled={disabled} />}
+      {value && masking && mode === "variation" && (
+        <MaskEditor
+          source={value}
+          onChange={onMaskChange}
+          disabled={disabled}
+          veiled={veiled}
+          onVeilChange={secret ? (blur) => setShownSource(blur ? null : value.dataUrl) : undefined}
+        />
+      )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
