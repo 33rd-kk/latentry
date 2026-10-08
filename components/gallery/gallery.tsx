@@ -410,7 +410,8 @@ export function Gallery() {
         }}
         hasMore={page.hasMore}
         onLoadMore={page.loadMore}
-        veiled={secret && !revealed}
+        veiled={secret}
+        shownSrc={revealed && viewed ? pictureUrl(viewed) : null}
         panelOpenOnStart={secret}
         renderPanel={() =>
           viewed ? (

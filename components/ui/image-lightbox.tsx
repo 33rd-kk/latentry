@@ -47,11 +47,13 @@ interface ImageLightboxProps {
    */
   renderPanel?: (index: number) => ReactNode
   /**
-   * Blurs the image on screen (secret mode, until the user shows it). Done with
-   * a mark on <html> that the stylesheet reads, as the viewer's own markup is
-   * panorail's.
+   * Blurs the viewer's images (secret mode), every one of them: the next and
+   * previous slides are already loaded, and a swipe brings them on screen
+   * before the index changes.
    */
   veiled?: boolean
+  /** With `veiled`: the one image (by its `src`) the user chose to show, left sharp. */
+  shownSrc?: string | null
   /** Opens the panel when the viewer opens, whatever was last chosen (and does not remember it). */
   panelOpenOnStart?: boolean
 }
@@ -71,17 +73,24 @@ export function ImageLightbox({
   onLoadMore,
   renderPanel,
   veiled = false,
+  shownSrc = null,
   panelOpenOnStart = false,
 }: ImageLightboxProps) {
   const open = index !== null && index >= 0 && index < items.length
 
-  // The mark goes away with the viewer, and as soon as the image may be seen.
+  // A stylesheet for as long as the viewer is open and veiled, as the slides'
+  // markup is panorail's (PhotoSwipe's .pswp__img). It blurs every slide, so a
+  // swipe never shows the next image sharp, and spares only the shown one,
+  // matched by the src panorail sets from the item.
   useEffect(() => {
     if (!open || !veiled) return
-    const root = document.documentElement
-    root.setAttribute("data-secret-veil", "")
-    return () => root.removeAttribute("data-secret-veil")
-  }, [open, veiled])
+    const style = document.createElement("style")
+    style.textContent =
+      ".pswp__img { filter: blur(32px); }" +
+      (shownSrc ? ` .pswp__img[src="${CSS.escape(shownSrc)}"] { filter: none; }` : "")
+    document.head.appendChild(style)
+    return () => style.remove()
+  }, [open, veiled, shownSrc])
   const viewer = useRef<ViewerHandle | null>(null)
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null)
   // Whether there is a panel is settled when the viewer opens.

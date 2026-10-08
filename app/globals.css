@@ -141,10 +141,3 @@
     transform: translateX(300%);
   }
 }
-
-/* Secret mode: components/ui/image-lightbox.tsx marks <html> while the image on
-   screen should stay blurred (panorail renders the viewer, with PhotoSwipe's
-   markup). Heavy enough that nothing in the picture can be made out. */
-html[data-secret-veil] .pswp__img {
-  filter: blur(32px);
-}
