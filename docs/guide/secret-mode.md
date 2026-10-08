@@ -37,7 +37,9 @@ reloaded). Deleting a character deletes it for good, in either mode.
 **The gallery hides what is in it.**
 
 - Thumbnails in the gallery and in the gallery picker (when choosing a
-  source picture) are blurred, and their captions and tags are hidden.
+  source picture) are blurred, and their captions and tags are hidden. The
+  picker opens in the page, not over it, so the header's eye is still in
+  reach while it is open.
 - Opening a picture shows it blurred, with the side panel open and its
   prompt, settings and tags hidden. **Show for this picture** reveals the
   picture and all of that while it stays on screen. Moving to another

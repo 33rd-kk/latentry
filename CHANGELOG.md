@@ -12,6 +12,9 @@
   can be blurred again, on a phone too. The full-size viewer has its own
   secret-mode switch in the bar, so it can be turned on without closing
   the picture; turning it on blurs anything shown before.
+- **From gallery** (source and pose pictures) opens in place, under its
+  button, instead of as a dialog over the page, so the header and its
+  secret-mode switch stay one tap away while you choose.
 - **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
   time. The engine has tests (models folder, GPU plan, the HTTP API's token
   and input checks), which CI runs without a GPU or a model.

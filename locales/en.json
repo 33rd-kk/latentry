@@ -92,6 +92,7 @@
     "sourceImage": "Source image (img2img)",
     "sourceDrop": "Drop an image or click to choose — leave empty for text-to-image",
     "sourceFromGallery": "From gallery",
+    "pickerClose": "Close the picker",
     "sourceClear": "Remove",
     "sourceLoadFailed": "Couldn't read that image.",
     "sourceMode": "What the source is for",
