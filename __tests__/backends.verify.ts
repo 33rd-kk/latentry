@@ -16,6 +16,7 @@ import {
   type A1111Transport,
 } from '../lib/backends/a1111'
 import { toEvent } from '../lib/backends/diffusers'
+import { recordFor } from '../lib/gallery/save'
 import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL } from '../lib/backends/hints'
 import { applyEvent, consumeEvents, getCurrentJob, startJob, toSnapshot } from '../lib/diffusion/job-store'
 import type { BackendEvent, GenerateRequest } from '../lib/backends/types'
@@ -83,6 +84,12 @@ async function main() {
   // ── diffusers-compatible events ──
   eq(toEvent('start', { index: 0, total: 2, steps: 30, run_id: 'r1' }), { type: 'start', index: 0, total: 2, steps: 30, runId: 'r1' }, 'start')
   eq(toEvent('image', { index: 1, seed: 9, image_base64: '' }), null, 'an image without bytes is dropped')
+  eq(
+    toEvent('image', { index: 0, seed: 9, image_base64: 'AA==', loras: [{ name: 'sub/style.safetensors', weight: 0.6 }, { name: 'bare' }, { weight: 1 }] }),
+    { type: 'image', index: 0, seed: 9, imageBase64: 'AA==', loras: [{ name: 'style', weight: 0.6 }, { name: 'bare', weight: 1 }] },
+    'image: the LoRAs the backend applied, named as everywhere else'
+  )
+  eq('loras' in (toEvent('image', { index: 0, seed: 9, image_base64: 'AA==', loras: [] }) ?? {}), false, 'image: no LoRAs said, none recorded')
   eq(toEvent('error', {}), { type: 'error', message: 'The backend reported an error.' }, 'error without a message')
   eq(toEvent('heartbeat', {}), null, 'unknown events are ignored')
 
@@ -220,6 +227,13 @@ async function main() {
   )
   await new Promise((resolve) => setTimeout(resolve, 5))
   eq([job.status, job.completed, saved, job.images.map((image) => image.saved_name), job.pendingSaves], ['done', 2, ['1', '2'], ['file-1.png', 'file-2.png'], 0], 'images are saved as they arrive')
+  eq('loras' in job.images[0], false, 'an image the backend said no LoRAs for has none')
+  const loraJob = startJob({ backend: 'lora', total: 1, steps: 1, context: { ...job.context, kind: 'diffusers' } })
+  applyEvent(loraJob, { type: 'image', index: 0, seed: 3, imageBase64: 'AA==', loras: [{ name: 'style', weight: 0.6 }] })
+  eq(loraJob.images[0].loras, [{ name: 'style', weight: 0.6 }], 'the applied LoRAs stay with the image')
+  const created = new Date(0)
+  eq(recordFor(loraJob, loraJob.images[0], created, null).loras, [{ name: 'style', weight: 0.6 }], 'and go into its record')
+  eq('loras' in recordFor(job, job.images[0], created, null), false, 'a record without applied LoRAs has no loras')
   eq(toSnapshot(job).imageCount, 2, 'the snapshot counts images without carrying them')
 
   const other = startJob({ backend: 'b2', total: 1, steps: 1, context: job.context })

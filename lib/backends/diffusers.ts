@@ -6,6 +6,7 @@
 // forwards them, renaming fields to camelCase on the way through.
 
 import { readSseFrames } from '@/lib/diffusion/sse'
+import { loraName, type LoraUse } from '@/lib/image-meta'
 import { errorMessage, fetchWithTimeout, getJson, isAbortError } from './http'
 import { diffusersHints } from './hints'
 import type {
@@ -241,6 +242,16 @@ export class DiffusersAdapter implements BackendAdapter {
   }
 }
 
+/** An `image` event's `loras`: [{ name, weight }], kept only when well formed. */
+function appliedLoras(value: unknown): LoraUse[] | null {
+  if (!Array.isArray(value)) return null
+  const loras = value.flatMap((lora) => {
+    const name = typeof lora?.name === 'string' ? loraName(lora.name) : ''
+    return name ? [{ name, weight: finite(lora.weight) ?? 1 }] : []
+  })
+  return loras.length ? loras : null
+}
+
 /** One SSE event of the diffusers-compatible API, in the common vocabulary. */
 export function toEvent(event: string, data: Record<string, unknown>): BackendEvent | null {
   switch (event) {
@@ -263,6 +274,7 @@ export function toEvent(event: string, data: Record<string, unknown>): BackendEv
         seed: finite(data.seed) ?? -1,
         imageBase64: data.image_base64,
         ...(finite(data.steps_observed) ? { stepsObserved: finite(data.steps_observed)! } : {}),
+        ...(appliedLoras(data.loras) ? { loras: appliedLoras(data.loras)! } : {}),
       }
     case 'done':
       return { type: 'done' }

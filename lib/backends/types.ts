@@ -6,6 +6,7 @@
 // the other adapters only have to synthesise it. The job store and the page
 // never learn which kind of server a run went to.
 
+import type { LoraUse } from '@/lib/image-meta'
 import type { ProfileId } from '@/lib/profiles'
 
 export const BACKEND_KINDS = ['diffusers', 'a1111'] as const
@@ -95,7 +96,16 @@ export interface GenerateRequest {
 export type BackendEvent =
   | { type: 'start'; index: number; total: number; steps: number; runId?: string }
   | { type: 'step'; index: number; step: number }
-  | { type: 'image'; index: number; total?: number; seed: number; imageBase64: string; stepsObserved?: number }
+  | {
+      type: 'image'
+      index: number
+      total?: number
+      seed: number
+      imageBase64: string
+      stepsObserved?: number
+      /** The LoRAs the backend applied, when it says; a backend that does not say applied none we know of. */
+      loras?: LoraUse[]
+    }
   | { type: 'done' }
   | { type: 'cancelled' }
   | { type: 'error'; message: string }

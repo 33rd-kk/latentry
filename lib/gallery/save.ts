@@ -59,6 +59,7 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     steps: request.num_inference_steps,
     cfg: request.guidance_scale,
     ...(request.strength !== undefined ? { strength: request.strength } : {}),
+    ...(image.loras?.length ? { loras: image.loras } : {}),
     created: created.toISOString(),
   }
 }

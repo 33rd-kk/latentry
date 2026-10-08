@@ -11,6 +11,7 @@ import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import {
   decodeUserComment,
+  loraCallsInPrompt,
   loraName,
   lorasInPrompt,
   metaFromText,
@@ -175,7 +176,16 @@ async function main() {
     '4': { class_type: 'CLIPTextEncode', inputs: { text: 'a hero <lora:prompted:1>' } },
   }
   eq(parseComfyPrompt(JSON.stringify(graph))?.loras, ['prompted', 'hero', 'light'], 'ComfyUI: loader nodes and prompt calls; a slot switched off is not')
-  eq(parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'x, <lora:mine:0.7>' }))?.loras, ['mine'], "Latentry's record: from its prompt")
+  eq(
+    loraCallsInPrompt('<lora:one:0.5>, <lyco:two>, <lora:three:x>, <lora:four:0.8:0.2>, <lora: :1>'),
+    [{ name: 'one', weight: 0.5 }, { name: 'two', weight: 1 }, { name: 'three', weight: 1 }, { name: 'four', weight: 0.8 }],
+    'calls with weights: the first number, else 1'
+  )
+  const record = (fields: object) => parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'x, <lora:mine:0.7>', ...fields }))?.loras
+  eq(record({ kind: 'diffusers', loras: [{ name: 'applied', weight: 1 }] }), ['applied'], "Latentry's record: the LoRAs the backend applied, not the prompt's")
+  eq(record({ kind: 'diffusers', loras: [] }), undefined, "Latentry's record: an empty list is none")
+  eq(record({ kind: 'diffusers' }), undefined, "Latentry's record, older: a prompt call alone is not a LoRA used")
+  eq(record({ kind: 'a1111' }), ['mine'], "Latentry's record, older, from A1111: it applied the prompt's calls")
 
   done('image-meta')
 }

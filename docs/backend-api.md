@@ -113,7 +113,7 @@ On success the response is `text/event-stream`:
 |---|---|
 | `start` | `{ "index": 0, "total": 2, "steps": 30, "run_id": "…" }`. Sent before each image. `steps` is what will actually run (img2img runs fewer). `run_id` names the run for `/api/cancel`. |
 | `step` | `{ "index": 0, "step": 12 }`. Denoising steps completed for this image. |
-| `image` | `{ "index": 0, "total": 2, "seed": 1234, "image_base64": "…png…", "steps_observed": 30 }` |
+| `image` | `{ "index": 0, "total": 2, "seed": 1234, "image_base64": "…png…", "steps_observed": 30 }`. Optional `loras`: `[{ "name": "style", "weight": 0.6 }]`, the LoRAs the server applied to this image. Leave it out if it applied none. |
 | `done` | `{}` |
 | `cancelled` | `{}` |
 | `error` | `{ "message": "…" }` |
@@ -256,11 +256,16 @@ after `IHDR`:
     "model": "…", "mode": "txt2img",
     "prompt": "…", "negative_prompt": "…", "seed": 1234,
     "width": 832, "height": 1216, "sampler": "Euler", "scheduler": "Karras",
-    "steps": 30, "cfg": 5, "strength": 0.6, "created": "2026-10-03T07:48:36.401Z" }
+    "steps": 30, "cfg": 5, "strength": 0.6,
+    "loras": [{ "name": "style", "weight": 0.6 }],
+    "created": "2026-10-03T07:48:36.401Z" }
   ```
 
   `mode` is `txt2img`, `img2img`, `inpaint` or `pose`. `strength` is present
-  only when a source image was used. The prompt is the one sent, artist and
+  only when a source image was used. `loras` is present only when LoRAs were
+  applied: the ones a diffusers-compatible server listed in its `image`
+  event, or for A1111 the prompt's `<lora:…>` calls, which it applies
+  itself. A call in the prompt that no backend applied is not listed. The prompt is the one sent, artist and
   quality tags included.
 
 WD14 tags written back from the gallery go in a third chunk,

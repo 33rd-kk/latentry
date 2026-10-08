@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **LoRAs in the viewer**: the gallery lists a picture's LoRAs only when the
+  backend applied them. A `<lora:…>` call that Latentry's engine or another
+  diffusers server read as plain words is no longer listed, in new pictures
+  or old ones. Pictures from A1111 are listed as before.
+
 ## 0.5.0 (2026-10-08)
 
 **Upgrading from 0.4.0**: phones and other computers must now be **paired**

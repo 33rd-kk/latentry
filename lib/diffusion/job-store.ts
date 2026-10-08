@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { BackendEvent, GenerateRequest } from '@/lib/backends/types'
+import type { LoraUse } from '@/lib/image-meta'
 
 /**
  * Server-side record of the run each backend is doing, so the page can be
@@ -27,6 +28,8 @@ export interface JobImage {
   image_base64: string
   /** The file it was saved as in the gallery, once saved; null when saving is off or failed. */
   saved_name: string | null
+  /** The LoRAs the backend applied to it, when it said. */
+  loras?: LoraUse[]
 }
 
 /** What a subscriber is told about a job; images are left out where the caller only needs the numbers. */
@@ -278,7 +281,12 @@ export function applyEvent(job: Job, event: BackendEvent, sink?: ImageSink): voi
       return
     case 'image': {
       job.stepsPerImage = event.stepsObserved || job.stepsPerImage
-      const image: JobImage = { seed: event.seed, image_base64: event.imageBase64, saved_name: null }
+      const image: JobImage = {
+        seed: event.seed,
+        image_base64: event.imageBase64,
+        saved_name: null,
+        ...(event.loras?.length ? { loras: event.loras } : {}),
+      }
       const index = job.images.length
       job.images.push(image)
       // Per image rather than once at the end: one failure cannot take the
