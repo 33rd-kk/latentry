@@ -31,6 +31,8 @@ export interface JobWatch {
   jobError: string | null
   /** Separate from jobError: the run succeeded, saving it to the gallery did not. */
   saveWarning: string | null
+  /** The run on screen, for what is tied to one run (secret mode's "Show"). */
+  runId: string | null
   isGenerating: boolean
   isCancelling: boolean
   setIsCancelling: (cancelling: boolean) => void
@@ -55,6 +57,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
   const [saveWarning, setSaveWarning] = useState<string | null>(null)
+  const [runId, setRunId] = useState<string | null>(null)
 
   // Refs rather than state: the handlers below must see the current values
   // without being rebuilt, which would drop the stream they are reading.
@@ -85,6 +88,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     (backend: string, id: string) => {
       closeSource()
       watchedIdRef.current = id
+      setRunId(id)
       const source = new EventSource(`/api/gen/${encodeURIComponent(backend)}/job/stream?id=${encodeURIComponent(id)}`)
       sourceRef.current = source
       const mine = () => sourceRef.current === source && backendRef.current === backend
@@ -189,6 +193,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     backendRef.current = selectedId
     closeSource()
     watchedIdRef.current = null
+    setRunId(null)
     setResults([])
     setProgress(null)
     setJobError(null)
@@ -221,6 +226,8 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
 
   const begin = useCallback(
     (next: JobProgress) => {
+      // A new run, not yet known by its id: nothing shown carries over.
+      setRunId(null)
       setResults([])
       setJobError(null)
       setSaveWarning(null)
@@ -241,6 +248,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     jobStatus,
     jobError,
     saveWarning,
+    runId,
     isGenerating: jobStatus === "running",
     isCancelling,
     setIsCancelling,

@@ -2,11 +2,12 @@
 
 import { useCallback, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic"
-import { Images, Loader2, PersonStanding, RefreshCw, Rotate3d, Users, X } from "lucide-react"
+import { Eye, Images, Loader2, PersonStanding, RefreshCw, Rotate3d, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
+import { useSecretMode } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -203,6 +204,12 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
   // but it no longer lines up edge to edge; say so rather than silently shift it.
   const sizeChanged = value && (value.width !== outputSize.width || value.height !== outputSize.height)
   const choosing = value && reference && people.length > 1 ? reference : null
+  // Secret mode blurs the picture people are chosen from; the numbered boxes
+  // stay sharp on top, so a person can still be picked by where they stand.
+  // "Show" lifts the blur for this picture until another one is chosen from.
+  const secret = useSecretMode()
+  const [shownChooser, setShownChooser] = useState<string | null>(null)
+  const chooserVeiled = secret && choosing !== null && shownChooser !== choosing.dataUrl
 
   return (
     <div className="space-y-2">
@@ -402,13 +409,23 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
           <p className="flex items-center gap-1 text-xs text-muted-foreground">
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Users className="h-3 w-3" />}
             {t("generate.posePeople", { count: people.length })}
+            {chooserVeiled && (
+              <button
+                type="button"
+                className="ml-2 inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline"
+                onClick={() => setShownChooser(choosing.dataUrl)}
+              >
+                <Eye className="h-3 w-3" />
+                {t("generate.showPicture")}
+              </button>
+            )}
           </p>
           {/* The boxes are fractions of the picture, so they sit right at whatever size it renders. */}
-          <div className="relative inline-block max-w-full">
+          <div className="relative inline-block max-w-full overflow-hidden rounded-md">
             <img
               src={choosing.dataUrl}
               alt=""
-              className="block max-h-56 max-w-full rounded-md border border-border/50 bg-muted/50"
+              className={cn("block max-h-56 max-w-full rounded-md border border-border/50 bg-muted/50", chooserVeiled && "blur-xl")}
             />
             {people.map((detected, index) => {
               const [x0, y0, x1, y1] = detected.bbox

@@ -46,6 +46,14 @@ interface ImageLightboxProps {
    * viewer has no panel, and no button for one.
    */
   renderPanel?: (index: number) => ReactNode
+  /**
+   * Blurs the image on screen (secret mode, until the user shows it). Done with
+   * a mark on <html> that the stylesheet reads, as the viewer's own markup is
+   * panorail's.
+   */
+  veiled?: boolean
+  /** Opens the panel when the viewer opens, whatever was last chosen (and does not remember it). */
+  panelOpenOnStart?: boolean
 }
 
 /**
@@ -62,8 +70,18 @@ export function ImageLightbox({
   hasMore,
   onLoadMore,
   renderPanel,
+  veiled = false,
+  panelOpenOnStart = false,
 }: ImageLightboxProps) {
   const open = index !== null && index >= 0 && index < items.length
+
+  // The mark goes away with the viewer, and as soon as the image may be seen.
+  useEffect(() => {
+    if (!open || !veiled) return
+    const root = document.documentElement
+    root.setAttribute("data-secret-veil", "")
+    return () => root.removeAttribute("data-secret-veil")
+  }, [open, veiled])
   const viewer = useRef<ViewerHandle | null>(null)
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null)
   // Whether there is a panel is settled when the viewer opens.
@@ -71,9 +89,9 @@ export function ImageLightbox({
 
   // The viewer outlives renders, so it reads the latest props through a ref.
   // Declared first, so it is current by the time the effects below run.
-  const latest = useRef({ items, hasMore, onIndexChange, onClose, onLoadMore })
+  const latest = useRef({ items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart })
   useEffect(() => {
-    latest.current = { items, hasMore, onIndexChange, onClose, onLoadMore }
+    latest.current = { items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart }
   })
 
   useEffect(() => {
@@ -99,7 +117,7 @@ export function ImageLightbox({
       },
       panel: hasPanel
         ? {
-            open: readPanelOpen(),
+            open: latest.current.panelOpenOnStart || readPanelOpen(),
             onToggle: writePanelOpen,
             mount: (el) => {
               setPanelEl(el)

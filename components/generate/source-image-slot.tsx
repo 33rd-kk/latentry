@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
+import { useSecretMode } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -92,6 +93,12 @@ export function SourceImageSlot({
   const [error, setError] = useState<string | null>(null)
   const [showGallery, setShowGallery] = useState(false)
   const [masking, setMasking] = useState(false)
+  // Secret mode blurs the preview; a click shows this source, until it is
+  // clicked again or another source takes its place. The mask editor is not
+  // blurred: painting needs the picture, and it is opened on purpose.
+  const secret = useSecretMode()
+  const [shownSource, setShownSource] = useState<string | null>(null)
+  const veiled = secret && value !== null && shownSource !== value.dataUrl
 
   const load = useCallback(
     async (source: Promise<Blob>) => {
@@ -154,11 +161,23 @@ export function SourceImageSlot({
 
       {value ? (
         <div className="flex items-start gap-3">
-          <img
-            src={value.dataUrl}
-            alt={t("generate.sourceImage")}
-            className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-muted/50 object-contain"
-          />
+          {secret ? (
+            <button
+              type="button"
+              className="h-28 w-28 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted/50"
+              onClick={() => setShownSource(veiled ? value.dataUrl : null)}
+              title={veiled ? t("generate.showPicture") : t("generate.pictureHidden")}
+              aria-pressed={!veiled}
+            >
+              <img src={value.dataUrl} alt={t("generate.sourceImage")} className={cn("h-full w-full object-contain", veiled && "blur-xl")} />
+            </button>
+          ) : (
+            <img
+              src={value.dataUrl}
+              alt={t("generate.sourceImage")}
+              className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-muted/50 object-contain"
+            />
+          )}
           <div className="min-w-0 flex-1 space-y-2">
             <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
               <span>{value.width} × {value.height}</span>

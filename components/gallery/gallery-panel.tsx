@@ -19,6 +19,9 @@ interface GalleryPanelProps {
   /** Whether this browser is on the machine itself, so the picture can be shown in its file manager. */
   canOpen: boolean
   secret: boolean
+  /** In secret mode: whether this picture was shown (its image and what describes it). */
+  revealed: boolean
+  onReveal: () => void
   onSearch: (tag: string) => void
   /** The picture's metadata after its tags were written back. */
   onMetaChange: (picture: GalleryPicture, meta: ImageMeta) => void
@@ -40,22 +43,15 @@ const WD14_CHARACTER = 4
  * tags, and the ways back into the form. The viewer sits above every toast,
  * so outcomes are said here, in the panel.
  */
-export function GalleryPanel({ picture, writable, canTag, canOpen, secret, onSearch, onMetaChange }: GalleryPanelProps) {
+export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revealed, onReveal, onSearch, onMetaChange }: GalleryPanelProps) {
   const t = useT()
   const router = useRouter()
   const meta = picture.meta
   const [tagging, setTagging] = useState(false)
   const [note, setNote] = useState<string | null>(null)
-  // Secret mode hides what describes the picture; "Show" lifts that for this
-  // visit to the picture only. Moving to any other picture, coming back
-  // included, hides it again: the reveal is forgotten on every change.
-  const key = `${picture.dir}/${picture.name}`
-  const [shownKey, setShownKey] = useState(key)
-  const [revealed, setRevealed] = useState(false)
-  if (shownKey !== key) {
-    setShownKey(key)
-    setRevealed(false)
-  }
+  // Secret mode hides the picture and what describes it; "Show" lifts that for
+  // this visit to the picture only (the gallery forgets it on every move, and
+  // when the viewer closes).
   const hidden = secret && !revealed
 
   // The file itself is never changed from here: only shown, by the system.
@@ -228,10 +224,11 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, onSea
         </dl>
       )}
       {!meta && <p className="text-xs text-white/50">{canTag ? t("gallery.noMetaTag") : t("gallery.noMeta")}</p>}
-      {hidden && meta && (
+      {/* Even without settings: the picture itself is hidden too. */}
+      {hidden && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-white/60">
           <span>{t("gallery.secretHidden")}</span>
-          <button type="button" className={action} onClick={() => setRevealed(true)}>
+          <button type="button" className={action} onClick={onReveal}>
             <Eye className="h-3 w-3" />
             {t("gallery.secretReveal")}
           </button>
