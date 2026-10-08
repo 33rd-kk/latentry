@@ -13,6 +13,11 @@ Click the eye at the top right. While secret mode is on, the button is a
 filled **Secret** pill with a crossed-out eye, on every page; off, it is a
 plain eye. Click it again to turn it off.
 
+The full-size viewer, in the gallery and for a run's results, has the same
+eye in its own bar, so you can turn secret mode on (or off) without closing
+the picture. Turning it on, from either place, blurs everything again,
+including pictures you had chosen to show.
+
 The setting is remembered by this browser, so a reload keeps it. Another
 browser, or another device, has its own setting.
 
@@ -32,17 +37,35 @@ reloaded). Deleting a character deletes it for good, in either mode.
 **The gallery hides what is in it.**
 
 - Thumbnails in the gallery and in the gallery picker (when choosing a
-  source picture) are blurred, and their captions and tags are hidden.
-- Opening a picture shows it full size, but the side panel hides its
-  prompt, settings and tags. **Show for this picture** reveals them while
-  that picture stays on screen. Moving to another picture hides them again,
-  and so does coming back to it.
+  source picture) are blurred, and their captions and tags are hidden. The
+  picker opens in the page, not over it, so the header's eye is still in
+  reach while it is open.
+- Opening a picture shows it blurred, with the side panel open and its
+  prompt, settings and tags hidden. **Show for this picture** reveals the
+  picture and all of that while it stays on screen. Moving to another
+  picture blurs and hides again, and so does coming back to it or closing
+  the viewer.
 - **Compare** blurs both pictures and hides their differing settings and
   tags. **Show** reveals them until the comparison is closed.
 - **Analyze with WD14** still works and saves the tags into the file. The
   panel says how many tags it found instead of listing them.
 
-![The viewer's side panel in secret mode, with Show for this picture](../assets/manual-secret-panel.webp)
+![The viewer in secret mode: the picture blurred, and Show for this picture in the side panel](../assets/manual-secret-panel.webp)
+
+**The generate page blurs pictures too.**
+
+- A run's results, and the full-size view of them, are blurred until
+  **Show results**, and **Blur results** hides them again. That lasts for
+  the run on screen; the next run starts blurred again.
+- The source picture is blurred, both its preview and the mask editor,
+  with your strokes drawn sharp on top. **Show picture** shows it,
+  **Blur picture** blurs it again; one switch covers both. A click on the
+  preview does nothing, so a stray tap never shows it. A new source starts
+  blurred.
+- When a pose reference has several people, the picture to choose from is
+  blurred, with each person's numbered box drawn sharp on top, so you can
+  pick by where they stand. **Show picture** and **Blur picture** switch
+  it; another picture starts blurred. The skeleton itself is lines only.
 
 **Settings sent from the gallery stay in this tab.** **Generate with these
 settings**, **Use as source** and tags sent to the prompt reach the form in
@@ -72,8 +95,8 @@ These are by design:
   for the gallery.
 - **The backend sees everything it is sent.** What an A1111 / Forge or
   other server does with prompts and pictures is up to that server.
-- The page you are on shows what you are doing: the form, the results, and
-  any picture you open full size.
+- The page you are on shows what you are doing: the form, your mask
+  strokes, and any picture you choose to show.
 - **Download** in the viewer saves the picture as any download does: it is
   in the downloads folder and the browser's download list.
 - Turning secret mode off does not throw away what is on the form: from the

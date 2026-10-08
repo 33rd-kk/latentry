@@ -7,11 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import { isPlainView, WHOLE_FRAME, type PoseCamera, type PoseFraming } from "@/lib/pose"
 import { toSourceImage, type SourceImage } from "./source-image-slot"
+import { VeilToggle } from "./veil-toggle"
 
 // WebGL exists only in the browser, and three.js is big: load it when the 3D view opens.
 const Pose3dView = dynamic(() => import("./pose-3d-view"), { ssr: false })
@@ -203,6 +205,12 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
   // but it no longer lines up edge to edge; say so rather than silently shift it.
   const sizeChanged = value && (value.width !== outputSize.width || value.height !== outputSize.height)
   const choosing = value && reference && people.length > 1 ? reference : null
+  // Secret mode blurs the picture people are chosen from; the numbered boxes
+  // stay sharp on top, so a person can still be picked by where they stand.
+  // "Show" lifts the blur for this picture until another one is chosen from.
+  const secret = useSecretMode()
+  const [shownChooser, setShownChooser] = useShownInSecret<string>()
+  const chooserVeiled = secret && choosing !== null && shownChooser !== choosing.dataUrl
 
   return (
     <div className="space-y-2">
@@ -399,16 +407,19 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
 
       {choosing && (
         <div className="space-y-1.5">
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
             {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <Users className="h-3 w-3" />}
-            {t("generate.posePeople", { count: people.length })}
-          </p>
+            <span>{t("generate.posePeople", { count: people.length })}</span>
+            {secret && (
+              <VeilToggle veiled={chooserVeiled} onChange={(blur) => setShownChooser(blur ? null : choosing.dataUrl)} />
+            )}
+          </div>
           {/* The boxes are fractions of the picture, so they sit right at whatever size it renders. */}
-          <div className="relative inline-block max-w-full">
+          <div className="relative inline-block max-w-full overflow-hidden rounded-md">
             <img
               src={choosing.dataUrl}
               alt=""
-              className="block max-h-56 max-w-full rounded-md border border-border/50 bg-muted/50"
+              className={cn("block max-h-56 max-w-full rounded-md border border-border/50 bg-muted/50", chooserVeiled && "blur-xl")}
             />
             {people.map((detected, index) => {
               const [x0, y0, x1, y1] = detected.bbox

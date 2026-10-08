@@ -1,8 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { Loader2, Search } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Loader2, Search, X } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useSecretMode } from "@/components/app-header"
@@ -15,13 +15,15 @@ interface GalleryPickerProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
-  /** Called with the picked picture's full-size URL; the dialog closes itself. */
+  /** Called with the picked picture's full-size URL; the picker closes itself. */
   onPick: (url: string, picture: GalleryPicture) => void
 }
 
 /**
  * A gallery picture as a source: the same folders and search as the gallery
- * page, in a dialog, one click to choose.
+ * page, one click to choose. It opens in place, under the button that asked
+ * for it, rather than as a dialog over the page: the page and its header stay
+ * in reach, so secret mode is one tap away while pictures are on screen.
  */
 export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPickerProps) {
   const t = useT()
@@ -33,6 +35,18 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
   const activeDir = dir ?? folders?.[0]?.index ?? null
   const page = useGalleryPage(open ? activeDir : null, { q })
   const sentinel = useRef<HTMLDivElement>(null)
+  const panel = useRef<HTMLElement>(null)
+
+  // Brought into view when it opens; Esc closes it, as it did as a dialog.
+  useEffect(() => {
+    if (!open) return
+    panel.current?.scrollIntoView({ block: "start", behavior: "smooth" })
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onOpenChange(false)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [open, onOpenChange])
 
   // The search applies after typing pauses, not on every keystroke.
   useEffect(() => {
@@ -50,12 +64,22 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
     return () => observer.disconnect()
   }, [page])
 
+  if (!open) return null
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[85vh] max-w-3xl overflow-hidden sm:max-w-3xl">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
+    <section ref={panel} aria-label={title} className="scroll-mt-16 space-y-3 rounded-md border bg-muted/20 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          aria-label={t("generate.pickerClose")}
+          title={t("generate.pickerClose")}
+          onClick={() => onOpenChange(false)}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
 
         {folders && folders.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("gallery.notConfigured")}</p>
@@ -85,8 +109,8 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
               </div>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5">
+            <div className="max-h-[50vh] overflow-y-auto">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                 {page.pictures.map((picture) => (
                   <button
                     key={`${picture.dir}/${picture.name}`}
@@ -121,7 +145,6 @@ export function GalleryPicker({ open, onOpenChange, title, onPick }: GalleryPick
             </div>
           </div>
         )}
-      </DialogContent>
-    </Dialog>
+    </section>
   )
 }

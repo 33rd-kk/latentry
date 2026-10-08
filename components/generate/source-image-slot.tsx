@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 import { MaskEditor } from "./mask-editor"
+import { VeilToggle } from "./veil-toggle"
 
 /**
  * What the source is for. "variation" redraws this picture (whole, or the
@@ -92,6 +94,13 @@ export function SourceImageSlot({
   const [error, setError] = useState<string | null>(null)
   const [showGallery, setShowGallery] = useState(false)
   const [masking, setMasking] = useState(false)
+  // Secret mode blurs the source: its preview and the mask editor alike, one
+  // switch for both. Only the "Show picture" button shows it (not a click on
+  // the preview, which a stray tap could hit), until it is blurred again or
+  // another source takes its place.
+  const secret = useSecretMode()
+  const [shownSource, setShownSource] = useShownInSecret<string>()
+  const veiled = secret && value !== null && shownSource !== value.dataUrl
 
   const load = useCallback(
     async (source: Promise<Blob>) => {
@@ -154,14 +163,13 @@ export function SourceImageSlot({
 
       {value ? (
         <div className="flex items-start gap-3">
-          <img
-            src={value.dataUrl}
-            alt={t("generate.sourceImage")}
-            className="h-28 w-28 shrink-0 rounded-md border border-border/50 bg-muted/50 object-contain"
-          />
+          <div className="h-28 w-28 shrink-0 overflow-hidden rounded-md border border-border/50 bg-muted/50">
+            <img src={value.dataUrl} alt={t("generate.sourceImage")} className={cn("h-full w-full object-contain", veiled && "blur-xl")} />
+          </div>
           <div className="min-w-0 flex-1 space-y-2">
-            <div className="flex items-center justify-between gap-1 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-1 text-xs text-muted-foreground">
               <span>{value.width} × {value.height}</span>
+              {secret && <VeilToggle veiled={veiled} onChange={(blur) => setShownSource(blur ? null : value.dataUrl)} />}
               {mode === "variation" && canInpaint && (
                 <Button
                   type="button"
@@ -264,7 +272,15 @@ export function SourceImageSlot({
         }}
       />
 
-      {value && masking && mode === "variation" && <MaskEditor source={value} onChange={onMaskChange} disabled={disabled} />}
+      {value && masking && mode === "variation" && (
+        <MaskEditor
+          source={value}
+          onChange={onMaskChange}
+          disabled={disabled}
+          veiled={veiled}
+          onVeilChange={secret ? (blur) => setShownSource(blur ? null : value.dataUrl) : undefined}
+        />
+      )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 

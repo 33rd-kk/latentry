@@ -1,6 +1,6 @@
 "use client"
 
-import { useSyncExternalStore } from "react"
+import { useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
@@ -31,6 +31,22 @@ function subscribeSecretMode(listener: () => void) {
 /** Secret mode, read live so every component that shows prompts agrees. */
 export function useSecretMode(): boolean {
   return useSyncExternalStore(subscribeSecretMode, isSecretMode, () => false)
+}
+
+/**
+ * What the user chose to show in secret mode (a picture's key, a run's id),
+ * forgotten whenever secret mode is turned on: turning it on, from the header
+ * or from a viewer, blurs everything again.
+ */
+export function useShownInSecret<T>(): [T | null, (shown: T | null) => void] {
+  const secret = useSecretMode()
+  const [shown, setShown] = useState<T | null>(null)
+  const [wasSecret, setWasSecret] = useState(secret)
+  if (secret !== wasSecret) {
+    setWasSecret(secret)
+    if (secret) setShown(null)
+  }
+  return [shown, setShown]
 }
 
 /** "de" -> "Deutsch": a language's own name for itself, from the browser. */

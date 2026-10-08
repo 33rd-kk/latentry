@@ -2,7 +2,9 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Download, FolderCheck, ImageUp } from "lucide-react"
+import { Download, Eye, EyeOff, FolderCheck, ImageUp } from "lucide-react"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
+import { cn } from "@/lib/utils"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
@@ -15,7 +17,7 @@ import { useT } from "@/lib/i18n"
 const MAX_STEP_PERCENT = 99
 
 interface ResultsPanelProps {
-  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating">
+  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId">
   /** Offered when the backend can start from a picture: a result becomes the source. */
   onUseAsSource?: (source: SourceImage) => void
 }
@@ -23,8 +25,13 @@ interface ResultsPanelProps {
 /** The run's progress, its pictures, and the full-screen viewer for them. */
 export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
   const t = useT()
-  const { results, progress, jobStatus, jobError, saveWarning, isGenerating } = job
+  const { results, progress, jobStatus, jobError, saveWarning, isGenerating, runId } = job
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  // Secret mode blurs a run's pictures until "Show results", which lasts for
+  // that run only: the next one starts blurred again.
+  const secret = useSecretMode()
+  const [shownRun, setShownRun] = useShownInSecret<string>()
+  const veiled = secret && (runId === null || shownRun !== runId)
 
   const previewItems = useMemo<LightboxItem[]>(
     () =>
@@ -86,6 +93,21 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
         )}
         {jobStatus === "cancelled" && !jobError && <p className="mb-4 text-sm text-muted-foreground">{t("generate.runCancelled")}</p>}
 
+        {secret && results.some(Boolean) && (
+          <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            {veiled && <span>{t("generate.resultsHidden")}</span>}
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 text-foreground underline-offset-4 hover:underline disabled:opacity-50"
+              onClick={() => setShownRun(veiled ? runId : null)}
+              disabled={runId === null}
+              aria-pressed={!veiled}
+            >
+              {veiled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+              {veiled ? t("generate.showResults") : t("generate.blurResults")}
+            </button>
+          </div>
+        )}
         {results.length === 0 ? (
           !isGenerating && !jobError && <p className="text-sm text-muted-foreground">{t("generate.noImages")}</p>
         ) : (
@@ -97,12 +119,12 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
                     type="button"
                     onClick={() => setPreviewIndex(index)}
                     title={t("generate.fullScreen")}
-                    className="block w-full cursor-zoom-in rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="block w-full cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
                     <img
                       src={`data:image/png;base64,${image.image_base64}`}
                       alt={t("generate.imageAlt", { seed: image.seed })}
-                      className="w-full rounded-md border border-border/50 bg-muted/50 object-contain"
+                      className={cn("w-full rounded-md border border-border/50 bg-muted/50 object-contain", veiled && "blur-xl")}
                     />
                   </button>
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -142,7 +164,13 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
             )}
           </div>
         )}
-        <ImageLightbox items={previewItems} index={previewIndex} onIndexChange={setPreviewIndex} onClose={() => setPreviewIndex(null)} />
+        <ImageLightbox
+          items={previewItems}
+          index={previewIndex}
+          onIndexChange={setPreviewIndex}
+          onClose={() => setPreviewIndex(null)}
+          veiled={veiled}
+        />
       </CardContent>
     </Card>
   )

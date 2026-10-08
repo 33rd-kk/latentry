@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+- **Secret mode** blurs every picture until you choose to show it: the
+  gallery's viewer (one picture at a time, with **Show for this picture**,
+  blurred again on the next one or when it closes), the generate page's
+  results and their full-size view (**Show results**, per run), the source
+  picture in its preview and the mask editor (strokes stay sharp), and the
+  picture you pick a pose's person from (its numbered boxes stay sharp).
+  On the generate page each has a **Show** / **Blur** button, so a picture
+  can be blurred again, on a phone too. The full-size viewer has its own
+  secret-mode switch in the bar, so it can be turned on without closing
+  the picture; turning it on blurs anything shown before.
+- **From gallery** (source and pose pictures) opens in place, under its
+  button, instead of as a dialog over the page, so the header and its
+  secret-mode switch stay one tap away while you choose.
 - **Engine**: the token in `LATENTRY_ENGINE_TOKEN` is compared in constant
   time. The engine has tests (models folder, GPU plan, the HTTP API's token
   and input checks), which CI runs without a GPU or a model.

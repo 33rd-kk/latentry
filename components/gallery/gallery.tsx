@@ -10,7 +10,7 @@ import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
-import { useSecretMode } from "@/components/app-header"
+import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { GalleryCard } from "./gallery-card"
 import { GalleryPanel } from "./gallery-panel"
@@ -51,6 +51,9 @@ export function Gallery() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [comparing, setComparing] = useState<[GalleryPicture, GalleryPicture] | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
+  // Secret mode: the one picture shown with "Show", forgotten on every move
+  // in the viewer (coming back included) and when it closes.
+  const [revealedKey, setRevealedKey] = useShownInSecret<string>()
   const sentinel = useRef<HTMLDivElement>(null)
 
   const activeDir = dir ?? folders?.[0]?.index ?? null
@@ -180,6 +183,8 @@ export function Gallery() {
   }
 
   const viewed = viewing !== null ? page.pictures[viewing] : null
+  const viewedKey = viewed ? `${viewed.dir}/${viewed.name}` : null
+  const revealed = viewedKey !== null && revealedKey === viewedKey
 
   return (
     <div className="space-y-4">
@@ -395,10 +400,19 @@ export function Gallery() {
       <ImageLightbox
         items={items}
         index={viewing}
-        onIndexChange={setViewing}
-        onClose={() => setViewing(null)}
+        onIndexChange={(index) => {
+          setViewing(index)
+          setRevealedKey(null)
+        }}
+        onClose={() => {
+          setViewing(null)
+          setRevealedKey(null)
+        }}
         hasMore={page.hasMore}
         onLoadMore={page.loadMore}
+        veiled={secret}
+        shownSrc={revealed && viewed ? pictureUrl(viewed) : null}
+        panelOpenOnStart={secret}
         renderPanel={() =>
           viewed ? (
             <GalleryPanel
@@ -407,8 +421,11 @@ export function Gallery() {
               canTag={tagger !== null}
               canOpen={canOpen}
               secret={secret}
+              revealed={revealed}
+              onReveal={() => setRevealedKey(viewedKey)}
               onSearch={(tag) => {
                 setViewing(null)
+                setRevealedKey(null)
                 // Quoted, so a tag of several words is searched as that one tag.
                 setSearchText(exactTagQuery(tag))
               }}
