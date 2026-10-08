@@ -123,7 +123,9 @@ on the Setup page or with `LATENTRY_ENGINE=off`); start Latentry with
 Latentry listens on this computer only. To use it from a phone or another
 computer, add `LATENTRY_HOST=0.0.0.0` to `.env.local`, restart it, and open
 `http://<this computer's address>:3000` there; on Windows, allow Node.js
-through the firewall on private networks when asked.
+through the firewall on private networks when asked. The device asks to be
+paired: choose **Add a device** under **Settings** on this computer and type
+the code it shows. A device stays paired for 30 days.
 
 ### Using servers you already run
 
@@ -175,15 +177,15 @@ back to `.env.local`.
   (`http://localhost`). Other devices see the app but not the settings page.
   `SETTINGS_EDIT=lan` allows it from the network, `SETTINGS_EDIT=off` turns it
   off. Since settings choose which folders are read and written, only open
-  this up on a network you trust: the localhost check relies on headers a
-  program (not a browser) could forge.
+  this up on a network you trust.
 - **It is meant for your own machine or LAN.** It listens on 127.0.0.1
   unless `LATENTRY_HOST` says otherwise. `/api` only answers for
   `localhost` and private-network addresses (add others with
   `ALLOWED_HOSTS`), refuses cross-site requests, and rate-limits per IP.
-  There is no login. To expose it further, put an authenticating reverse
-  proxy in front of it, one that overwrites `X-Forwarded-For` (the per-IP
-  limits trust that header).
+  There are no accounts: this computer can always use it, and other devices
+  must be paired with a code first. To expose it further, put an
+  authenticating reverse proxy in front of it, on this computer, one that
+  overwrites `X-Forwarded-For`.
 
 ## Translations
 

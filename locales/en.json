@@ -355,7 +355,8 @@
     "viewerPanel": "Details",
     "busyStarting": "A run is being started on this backend by another request. Try again in a moment.",
     "tooManyRequests": "Too many requests. Wait {seconds}s and try again.",
-    "tooManyStreams": "Too many live connections from this device. Close some tabs and reload."
+    "tooManyStreams": "Too many live connections from this device. Close some tabs and reload.",
+    "notPaired": "This device is not paired. Open Latentry in the browser to pair it with a code from the computer running it."
   },
   "settings": {
     "title": "Settings",
@@ -459,7 +460,17 @@
     "wd14General": "General threshold",
     "wd14Character": "Character threshold",
     "errorThreshold": "Between 0.01 and 1.",
-    "errorBackendReserved": "\"builtin\" is reserved for the built-in tagger."
+    "errorBackendReserved": "\"builtin\" is reserved for the built-in tagger.",
+    "pairingTitle": "Phones and other computers",
+    "pairingHint": "Devices other than this computer need a code to use Latentry. Add a device here, then type the code on it at the address you open Latentry with. A paired device stays paired for {days} days.",
+    "pairingOff": "Pairing is off (LATENTRY_PAIRING=off): any device that can reach Latentry can use it.",
+    "pairingAdd": "Add a device",
+    "pairingNewCode": "New code",
+    "pairingCodeHint": "Type this code on the other device. It works once, for {minutes}:{seconds} more.",
+    "pairingForget": "Forget all devices",
+    "pairingForgetConfirm": "Forget every paired device? Each will need a new code.",
+    "pairingForgotten": "Every paired device was forgotten.",
+    "pairingFailed": "That did not work. Reload the page and try again."
   },
   "setup": {
     "title": "Setup",
@@ -529,5 +540,12 @@
     "modelsFolderDefault": "Use the default",
     "save": "Save",
     "saved": "Saved"
+  },
+  "pair": {
+    "title": "Pair this device",
+    "hint": "On the computer running Latentry, open Settings and choose Add a device, then type the code it shows here.",
+    "code": "Code",
+    "submit": "Pair",
+    "wrongCode": "That code is wrong or has expired. Make a new one on the computer running Latentry."
   }
 }

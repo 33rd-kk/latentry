@@ -18,6 +18,7 @@ import { TAG_STYLES } from "@/lib/tags"
 import type { SettingsView } from "@/lib/settings/view"
 import { cn } from "@/lib/utils"
 import { useT, type MessageKey } from "@/lib/i18n"
+import { PairingCard } from "./pairing-card"
 
 type Source = "settings" | "env"
 type Part = "backends" | "tagger" | "wd14" | "gallery" | "profiles"
@@ -234,13 +235,18 @@ export function SettingsForm() {
   }
 
   if (!view.editable) {
+    // Pairing is managed on this machine even where SETTINGS_EDIT=off; the
+    // card hides itself everywhere else.
     return (
-      <Card className="mx-auto max-w-2xl">
-        <CardHeader>
-          <CardTitle>{t("settings.title")}</CardTitle>
-          <CardDescription>{t(view.reason === "off" ? "settings.lockedOff" : "settings.lockedRemote")}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-2xl space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("settings.title")}</CardTitle>
+            <CardDescription>{t(view.reason === "off" ? "settings.lockedOff" : "settings.lockedRemote")}</CardDescription>
+          </CardHeader>
+        </Card>
+        <PairingCard />
+      </div>
     )
   }
 
@@ -573,6 +579,9 @@ export function SettingsForm() {
           })}
         </div>
       </Section>
+
+      {/* ── Phones and other computers ── */}
+      <PairingCard />
 
       <div className="fixed inset-x-0 bottom-0 z-20 border-t bg-background/90 backdrop-blur">
         <div className="mx-auto flex max-w-4xl items-center justify-end gap-2 px-4 py-3">

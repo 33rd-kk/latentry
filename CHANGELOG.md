@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Pairing**: a phone or another computer must now be paired before it can
+  use Latentry. On this computer, **Settings > Phones and other computers >
+  Add a device** shows a code (one use, 10 minutes) to type on the other
+  device; it then stays paired for 30 days. **Forget all devices** unpairs
+  them all. This computer needs nothing. `LATENTRY_PAIRING=off` turns it off,
+  for a reverse proxy that does its own login.
+- **Security**: the per-device request limits count the address a
+  connection really comes from, and believe `X-Forwarded-For` only from this
+  computer. Stopping a run takes that run's id. The engine answers only
+  requests addressed to this computer, and run by hand it refuses to listen
+  beyond it without `LATENTRY_ENGINE_TOKEN`.
 - **Secret mode** blurs every picture until you choose to show it: the
   gallery's viewer (one picture at a time, with **Show for this picture**,
   blurred again on the next one or when it closes), the generate page's
