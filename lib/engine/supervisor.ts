@@ -258,11 +258,13 @@ export function engineBackends(): BackendConfig[] {
 
 /**
  * This process's environment as the engine gets it: without the tokens of the
- * other backends, which it has no use for, and with Hugging Face's usage
- * reports off unless set otherwise.
+ * other backends or the pairing key, which it has no use for, and with
+ * Hugging Face's usage reports off unless set otherwise.
  */
 export function engineEnv(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
-  const kept = Object.fromEntries(Object.entries(env).filter(([key]) => !/^GEN_TOKEN_/i.test(key) && key !== 'DIFFUSION_API_TOKEN'))
+  const kept = Object.fromEntries(
+    Object.entries(env).filter(([key]) => !/^GEN_TOKEN_/i.test(key) && key !== 'DIFFUSION_API_TOKEN' && key !== 'LATENTRY_PAIRING_KEY')
+  )
   return { HF_HUB_DISABLE_TELEMETRY: '1', ...kept } as unknown as NodeJS.ProcessEnv
 }
 

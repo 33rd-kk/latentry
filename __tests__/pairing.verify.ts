@@ -5,7 +5,7 @@
  *
  * Run with: npm test -- pairing
  */
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NextRequest } from 'next/server'
@@ -33,6 +33,7 @@ import {
   verifyDevice,
 } from '../lib/security/pairing'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
+import { engineEnv } from '../lib/engine/supervisor'
 import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
 import { GET as pairingSettings, POST as pairingAction } from '../app/api/settings/pairing/route'
 import { proxy } from '../proxy'
@@ -85,6 +86,19 @@ async function main(): Promise<void> {
   writeFileSync(devicesPath(), sealed.replace(/"data":"(.)/, (_m, c: string) => `"data":"${c === 'A' ? 'B' : 'A'}`))
   check(!verifyDevice(tablet.value, now + 2000), 'a list tampered with pairs nobody')
   forgetAllDevices()
+
+  // ── The key from LATENTRY_PAIRING_KEY (a keychain), never on disk ──
+  const keyless = mkdtempSync(path.join(tmpdir(), 'latentry-pairing-env-'))
+  const envKey = { LATENTRY_SETTINGS_FILE: path.join(keyless, 'settings.json'), LATENTRY_PAIRING_KEY: 'ab'.repeat(32) }
+  const fromKeychain = issueDevice(now, envKey, 'Keychain')
+  check(verifyDevice(fromKeychain.value, now, envKey), 'a device paired with the key from the environment verifies')
+  check(!existsSync(keyPath(envKey)), 'and no key file is written')
+  check(!verifyDevice(fromKeychain.value, now, { ...envKey, LATENTRY_PAIRING_KEY: 'cd'.repeat(32) }), 'another key in the environment pairs nobody')
+  forgetAllDevices(envKey)
+  check(!verifyDevice(fromKeychain.value, now, envKey) && !existsSync(keyPath(envKey)), 'forgetting every device empties the list, still without a key file')
+  check(!verifyDevice(fromKeychain.value, now, { ...envKey, LATENTRY_PAIRING_KEY: 'not-hex' }), 'a malformed key pairs nobody (and throws nothing)')
+  eq(engineEnv({ LATENTRY_PAIRING_KEY: 'ab'.repeat(32), PATH: 'x' } as unknown as NodeJS.ProcessEnv).LATENTRY_PAIRING_KEY, undefined, 'the engine is not given the key')
+  rmSync(keyless, { recursive: true, force: true })
 
   // ── Codes ──
   check(!redeemCode('ABCDEFGH', now), 'no code yet: nothing pairs')

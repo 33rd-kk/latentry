@@ -86,7 +86,21 @@ function writeKey(file: string): Buffer {
   return key
 }
 
+/**
+ * LATENTRY_PAIRING_KEY, when set: the key as 64 hex characters, read from a
+ * keychain at launch so it is never on disk (docs/guide/network.md). Then no
+ * key file is read or written.
+ */
+function keyFromEnv(env: Env): Buffer | null {
+  const value = env.LATENTRY_PAIRING_KEY?.trim()
+  if (!value) return null
+  if (!/^(?:[0-9a-f]{2}){32,}$/i.test(value)) throw new Error('LATENTRY_PAIRING_KEY must be at least 64 hex characters (32 bytes)')
+  return Buffer.from(value, 'hex')
+}
+
 function signingKey(env: Env = process.env): Buffer {
+  const fromEnv = keyFromEnv(env)
+  if (fromEnv) return fromEnv
   const file = keyPath(env)
   const stat = statSync(file, { throwIfNoEntry: false })
   const cached = globalForPairing.__pairingKey
@@ -199,8 +213,21 @@ export function issueDevice(
   return { value: `${payload}.${signature(signingKey(env), payload)}`, maxAgeSeconds: DEVICE_MS / 1000, device }
 }
 
-/** The paired device a cookie belongs to: signed with this key, not expired, still on the list. */
+/**
+ * The paired device a cookie belongs to: signed with this key, not expired,
+ * still on the list. A key that cannot be used (a malformed
+ * LATENTRY_PAIRING_KEY) pairs nobody rather than failing every request.
+ */
 export function pairedDevice(value: string | undefined, now = Date.now(), env: Env = process.env): PairedDevice | null {
+  try {
+    return findDevice(value, now, env)
+  } catch (error) {
+    console.error('Pairing:', error instanceof Error ? error.message : error)
+    return null
+  }
+}
+
+function findDevice(value: string | undefined, now: number, env: Env): PairedDevice | null {
   if (!value) return null
   const parts = value.split('.')
   if (parts.length !== 4 || parts[0] !== 'v1') return null
@@ -226,11 +253,17 @@ export function removeDevice(id: string, now = Date.now(), env: Env = process.en
   return true
 }
 
-/** Forgets every paired device: an empty list and a new key, so no cookie signed before verifies. */
+/**
+ * Forgets every paired device: an empty list, and a new key when the key is
+ * a file, so no cookie signed before verifies. A key from LATENTRY_PAIRING_KEY
+ * stays (the empty list is enough); change it in the keychain to replace it.
+ */
 export function forgetAllDevices(env: Env = process.env): void {
-  const file = keyPath(env)
-  const key = writeKey(file)
-  globalForPairing.__pairingKey = { file, mtimeMs: statSync(file).mtimeMs, key }
+  if (!keyFromEnv(env)) {
+    const file = keyPath(env)
+    const key = writeKey(file)
+    globalForPairing.__pairingKey = { file, mtimeMs: statSync(file).mtimeMs, key }
+  }
   writeDevices([], env)
   globalForPairing.__pairingCode = null
 }

@@ -46,6 +46,69 @@ To allow changing them from the network as well, set `SETTINGS_EDIT=lan`
 backend at their own server and receive your prompts and pictures from then
 on); `SETTINGS_EDIT=off` makes them read-only everywhere.
 
+## Tip: keep the pairing key in your keychain
+
+Paired devices are recognised by a key in `latentry.pairing-key`, next to
+the settings file (the Latentry folder by default). The list of devices is
+encrypted with it. Anyone who can read that folder can read the key, so you
+may prefer to keep it in your system's keychain and hand it to Latentry
+when it starts, in `LATENTRY_PAIRING_KEY`. Latentry then reads no key file
+and writes none.
+
+Stop Latentry first, run the steps in the Latentry folder, and from then on
+start it as shown. Moving the key this way keeps every device paired.
+
+### Windows (PowerShell 7)
+
+The key is sealed for your Windows account with DPAPI, the protection
+Credential Manager uses:
+
+```powershell
+Get-Content latentry.pairing-key | ConvertTo-SecureString -AsPlainText -Force |
+  ConvertFrom-SecureString | Set-Content "$env:LOCALAPPDATA\latentry-pairing-key.dpapi"
+Remove-Item latentry.pairing-key
+
+# Each time you start Latentry:
+$env:LATENTRY_PAIRING_KEY = Get-Content "$env:LOCALAPPDATA\latentry-pairing-key.dpapi" |
+  ConvertTo-SecureString | ConvertFrom-SecureString -AsPlainText
+npm start
+```
+
+### macOS (Keychain)
+
+```bash
+security add-generic-password -a latentry -s latentry-pairing-key -w "$(cat latentry.pairing-key)"
+rm latentry.pairing-key
+
+# Each time you start Latentry:
+LATENTRY_PAIRING_KEY="$(security find-generic-password -a latentry -s latentry-pairing-key -w)" npm start
+```
+
+### Linux (Secret Service: GNOME Keyring, KWallet)
+
+```bash
+secret-tool store --label="Latentry pairing key" service latentry account pairing-key < latentry.pairing-key
+rm latentry.pairing-key
+
+# Each time you start Latentry:
+LATENTRY_PAIRING_KEY="$(secret-tool lookup service latentry account pairing-key)" npm start
+```
+
+Good to know:
+
+- Do not put `LATENTRY_PAIRING_KEY` in `.env.local`: that is a file on disk
+  again.
+- If Latentry starts without it (and without the file), it makes a new key,
+  and every device has to pair again.
+- While Latentry runs, the key is in its environment, which other programs
+  running as you can read. The keychain keeps it off the disk, not away
+  from your own account.
+- **Forget all devices** empties the list but keeps this key. To replace the
+  key as well, store a new one in the keychain (64 hex characters, for
+  example from `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`);
+  every device then pairs again.
+- The built-in engine is not given the key.
+
 ## What protects it
 
 - It listens on 127.0.0.1 unless `LATENTRY_HOST` says otherwise.

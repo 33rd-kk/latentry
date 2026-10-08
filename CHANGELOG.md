@@ -9,8 +9,9 @@
   same card lists the paired devices with when each ends, and removes one or
   all of them. A paired device's Settings page shows when its pairing ends
   and can unpair it, and every page warns from three days before. The list
-  keeps no record of use and is stored encrypted. This computer needs
-  nothing. `LATENTRY_PAIRING=off` turns it off,
+  keeps no record of use and is stored encrypted. The key can be kept in the
+  system keychain and passed in `LATENTRY_PAIRING_KEY`; the network guide
+  shows how on Windows, macOS and Linux. This computer needs nothing. `LATENTRY_PAIRING=off` turns it off,
   for a reverse proxy that does its own login.
 - **Security**: the per-device request limits count the address a
   connection really comes from, and believe `X-Forwarded-For` only from this

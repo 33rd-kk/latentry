@@ -34,7 +34,9 @@ What it does guard against:
   signing key, so it does not show device names on its own, in a backup for
   example; whoever can read the whole folder can read it. **Remove** unpairs
   one device; **Forget all devices** replaces the signing key and empties
-  the list, which unpairs them all. Over plain `http://` the
+  the list, which unpairs them all. The key can instead come from the
+  system keychain at launch (`LATENTRY_PAIRING_KEY`; see the network
+  guide), so it is not on disk. Over plain `http://` the
   cookie travels unencrypted, so someone who can watch your LAN traffic could
   copy it. `LATENTRY_PAIRING=off` turns pairing off, for a reverse proxy on
   this machine that does its own login.
