@@ -29,7 +29,7 @@
 // Run from proxy.ts (the check) and /api/pair, /api/settings/pairing (the rest).
 
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
-import { mkdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { settingsPath } from '@/lib/settings/store'
 
@@ -79,10 +79,11 @@ const globalForPairing = globalThis as typeof globalThis & {
   __pairingCode?: { code: string; expiresAt: number; triesLeft: number } | null
 }
 
-function writeKey(file: string): Buffer {
+/** A new random key in `file`; with flag 'wx', only if there is no file yet. */
+function writeKey(file: string, flag: 'w' | 'wx' = 'w'): Buffer {
   const key = randomBytes(32)
   mkdirSync(path.dirname(file), { recursive: true })
-  writeFileSync(file, key.toString('hex') + '\n', { mode: 0o600 })
+  writeFileSync(file, key.toString('hex') + '\n', { mode: 0o600, flag })
   return key
 }
 
@@ -98,22 +99,56 @@ function keyFromEnv(env: Env): Buffer | null {
   return Buffer.from(value, 'hex')
 }
 
+/**
+ * A file's modification time and, unless it is still `knownMtimeMs`, its
+ * text; null when there is no such file. Both come from one open handle, so
+ * the text is the version the time belongs to, whatever happens to the path.
+ */
+function readIfChanged(file: string, knownMtimeMs?: number): { mtimeMs: number; text: string | null } | null {
+  let fd: number
+  try {
+    fd = openSync(file, 'r')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+  try {
+    const { mtimeMs } = fstatSync(fd)
+    return { mtimeMs, text: mtimeMs === knownMtimeMs ? null : readFileSync(fd, 'utf8') }
+  } finally {
+    closeSync(fd)
+  }
+}
+
 function signingKey(env: Env = process.env): Buffer {
   const fromEnv = keyFromEnv(env)
   if (fromEnv) return fromEnv
   const file = keyPath(env)
-  const stat = statSync(file, { throwIfNoEntry: false })
-  const cached = globalForPairing.__pairingKey
-  if (stat && cached && cached.file === file && cached.mtimeMs === stat.mtimeMs) return cached.key
-  let key: Buffer
-  if (stat) {
-    key = Buffer.from(readFileSync(file, 'utf8').trim(), 'hex')
-    if (key.length < 32) key = writeKey(file)
-  } else {
-    key = writeKey(file)
-  }
-  globalForPairing.__pairingKey = { file, mtimeMs: statSync(file).mtimeMs, key }
+  const cached = globalForPairing.__pairingKey?.file === file ? globalForPairing.__pairingKey : undefined
+  const found = readIfChanged(file, cached?.mtimeMs)
+  if (found && found.text === null && cached) return cached.key
+  const key = found?.text ? Buffer.from(found.text.trim(), 'hex') : null
+  if (!found || !key || key.length < 32) return createKey(file, !found, env)
+  globalForPairing.__pairingKey = { file, mtimeMs: found.mtimeMs, key }
   return key
+}
+
+/**
+ * Writes a new key. When there was no file (`fresh`), it is created only if
+ * still absent, so two requests racing to make the first key cannot each
+ * sign with their own; the loser reads the winner's.
+ */
+function createKey(file: string, fresh: boolean, env: Env): Buffer {
+  try {
+    const key = writeKey(file, fresh ? 'wx' : 'w')
+    // Not cached here: the next read takes the time and the key from one
+    // handle, so a cache can never pair this key with another write's time.
+    globalForPairing.__pairingKey = undefined
+    return key
+  } catch (error) {
+    if (fresh && (error as NodeJS.ErrnoException).code === 'EEXIST') return signingKey(env)
+    throw error
+  }
 }
 
 function signature(key: Buffer, payload: string): string {
@@ -154,19 +189,19 @@ function decryptList(text: string, env: Env): unknown {
 
 function readDevices(env: Env): PairedDevice[] {
   const file = devicesPath(env)
-  const stat = statSync(file, { throwIfNoEntry: false })
-  if (!stat) return []
-  const cached = globalForPairing.__pairingDevices
-  if (cached && cached.file === file && cached.mtimeMs === stat.mtimeMs) return cached.devices
+  const cached = globalForPairing.__pairingDevices?.file === file ? globalForPairing.__pairingDevices : undefined
+  const found = readIfChanged(file, cached?.mtimeMs)
+  if (!found) return []
+  if (found.text === null && cached) return cached.devices
   let devices: PairedDevice[] = []
   try {
-    const parsed = decryptList(readFileSync(file, 'utf8'), env)
+    const parsed = decryptList(found.text ?? '', env)
     if (Array.isArray(parsed)) devices = parsed.filter(isDevice)
   } catch {
     // Unreadable, tampered with or sealed with another key: no device is
     // paired until the list is written again.
   }
-  globalForPairing.__pairingDevices = { file, mtimeMs: stat.mtimeMs, devices }
+  globalForPairing.__pairingDevices = { file, mtimeMs: found.mtimeMs, devices }
   return devices
 }
 
@@ -176,7 +211,8 @@ function writeDevices(devices: PairedDevice[], env: Env): void {
   const temp = `${file}.${process.pid}.tmp`
   writeFileSync(temp, encryptList(devices, env), { mode: 0o600 })
   renameSync(temp, file)
-  globalForPairing.__pairingDevices = { file, mtimeMs: statSync(file).mtimeMs, devices }
+  // Read back on next use (see createKey).
+  globalForPairing.__pairingDevices = undefined
 }
 
 /** "My phone" as typed: control characters out, spaces folded, at most MAX_NAME_LENGTH. */
@@ -260,9 +296,8 @@ export function removeDevice(id: string, now = Date.now(), env: Env = process.en
  */
 export function forgetAllDevices(env: Env = process.env): void {
   if (!keyFromEnv(env)) {
-    const file = keyPath(env)
-    const key = writeKey(file)
-    globalForPairing.__pairingKey = { file, mtimeMs: statSync(file).mtimeMs, key }
+    writeKey(keyPath(env))
+    globalForPairing.__pairingKey = undefined
   }
   writeDevices([], env)
   globalForPairing.__pairingCode = null
