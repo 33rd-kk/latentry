@@ -13,6 +13,9 @@ management for Latentry's engine manager.
 
 Bound to 127.0.0.1 by default: Latentry talks to it, nothing else needs to.
 An optional token (LATENTRY_ENGINE_TOKEN) is checked as a Bearer token.
+Only requests for a loopback host (or one passed in allowed_hosts) are
+answered, so a web page whose hostname is re-resolved to 127.0.0.1 (DNS
+rebinding) cannot drive it from a browser on this machine.
 """
 
 from __future__ import annotations
@@ -73,8 +76,20 @@ class DownloadBody(BaseModel):
     filename: str | None = None
 
 
-def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+
+
+def hostname_of(host: str) -> str:
+    """Host header -> bare lowercase hostname (port and IPv6 brackets dropped)."""
+    host = host.strip().lower()
+    if host.startswith("["):
+        return host[1 : host.find("]")]
+    return host.rsplit(":", 1)[0] if ":" in host else host
+
+
+def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts: tuple[str, ...] = ()) -> FastAPI:
     app = FastAPI(title="Latentry engine", version=__version__)
+    hosts = LOOPBACK_HOSTS | {host.strip().lower() for host in allowed_hosts if host.strip()}
     plan = gpu_plan()
     controls = pose_control.controls_dir(models_dir)
     engine = Engine(plan, controls)
@@ -87,6 +102,12 @@ def create_app(models_dir: Path, initial_model: str | None = None) -> FastAPI:
 
     @app.middleware("http")
     async def check_token(request: Request, call_next):
+        # Before the token, and for /api/health too: a rebound hostname is
+        # refused whether or not a token is set.
+        if hostname_of(request.headers.get("host", "")) not in hosts:
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse({"detail": "Forbidden host"}, status_code=403)
         if token and request.url.path != "/api/health":
             # Compared in constant time, so the answer's timing says nothing about the token.
             sent = request.headers.get("authorization", "").encode()

@@ -84,8 +84,11 @@ RTX 5060 Ti 16 GB, PyTorch 2.14.1+cu130, diffusers 0.40:
 python -m latentry_engine --port 7861 --models-dir ../models --model Illustrious-XL-v2.0.safetensors
 ```
 
-It listens on 127.0.0.1. Set `LATENTRY_ENGINE_TOKEN` to require a Bearer
-token. Besides the backend API it has `GET /api/models`,
+It listens on 127.0.0.1 and answers only requests addressed to
+`127.0.0.1`, `localhost` or `::1` (add a hostname with `--allow-host`), so a
+web page cannot reach it by re-resolving its own name to this machine. Set
+`LATENTRY_ENGINE_TOKEN` to require a Bearer token; listening anywhere else
+(`--host 0.0.0.0`) is refused without one. Besides the backend API it has `GET /api/models`,
 `POST /api/models/load` `{ id }`, `POST /api/models/download`
 `{ repo_id, filename? }` and `GET /api/models/downloads`.
 
