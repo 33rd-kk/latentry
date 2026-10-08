@@ -5,6 +5,7 @@ import dynamic from "next/dynamic"
 import { Images, Loader2, PersonStanding, RefreshCw, Rotate3d, Users, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { SliderLabel } from "@/components/generate/slider-label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
@@ -50,6 +51,8 @@ interface PoseSlotProps {
   value: PoseSkeleton | null
   onChange: (value: PoseSkeleton | null) => void
   strength: number
+  /** Where the strength slider starts; its reset goes back here. */
+  defaultStrength: number
   onStrengthChange: (value: number) => void
   /** The run's output size; the skeleton is drawn at it so it lines up with the picture. */
   outputSize: { width: number; height: number }
@@ -74,7 +77,7 @@ interface PoseSlotProps {
  * frame (a face close-up, or room around the figure), then have the backend
  * draw the skeleton from there.
  */
-export function PoseSlot({ backend, value, onChange, strength, onStrengthChange, outputSize, source, disabled }: PoseSlotProps) {
+export function PoseSlot({ backend, value, onChange, strength, defaultStrength, onStrengthChange, outputSize, source, disabled }: PoseSlotProps) {
   const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [loading, setLoading] = useState(false)
@@ -283,7 +286,15 @@ export function PoseSlot({ backend, value, onChange, strength, onStrengthChange,
               </Button>
             </div>
             <div className="space-y-1.5">
-              <Label>{t("generate.poseStrength", { value: strength.toFixed(2) })}</Label>
+              <SliderLabel
+                value={strength}
+                defaultValue={defaultStrength}
+                shown={defaultStrength.toFixed(2)}
+                onReset={() => onStrengthChange(defaultStrength)}
+                disabled={disabled}
+              >
+                {t("generate.poseStrength", { value: strength.toFixed(2) })}
+              </SliderLabel>
               <Slider
                 min={0}
                 max={2}

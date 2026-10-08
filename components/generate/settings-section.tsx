@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { SliderLabel } from "@/components/generate/slider-label"
 import { CUSTOM_PRESET, DEFAULT, type FormState } from "@/lib/generate/form"
 import type { Profile } from "@/lib/profiles"
 import type { BackendStatus, Preset } from "@/lib/backends/types"
@@ -63,7 +64,9 @@ export function SettingsSection({
         </div>
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
-            <Label>{t("generate.width", { value: form.width })}</Label>
+            <SliderLabel value={form.width} defaultValue={profile.defaults.width} onReset={() => update({ width: profile.defaults.width })}>
+              {t("generate.width", { value: form.width })}
+            </SliderLabel>
             <Slider min={256} max={2048} step={64} value={[form.width]} onValueChange={([value]) => update({ width: value })} />
           </div>
           <Tooltip>
@@ -82,7 +85,9 @@ export function SettingsSection({
             <TooltipContent>{t("generate.swapDimensions")}</TooltipContent>
           </Tooltip>
           <div className="flex-1 space-y-1.5">
-            <Label>{t("generate.height", { value: form.height })}</Label>
+            <SliderLabel value={form.height} defaultValue={profile.defaults.height} onReset={() => update({ height: profile.defaults.height })}>
+              {t("generate.height", { value: form.height })}
+            </SliderLabel>
             <Slider min={256} max={2048} step={64} value={[form.height]} onValueChange={([value]) => update({ height: value })} />
           </div>
         </div>
@@ -119,11 +124,15 @@ export function SettingsSection({
         <div className="space-y-1.5">
           {/* With a source, only the tail of the schedule runs; the label says
               so, or it would disagree with the progress bar's count. */}
-          <Label>
+          <SliderLabel
+            value={form.steps}
+            defaultValue={profile.defaults.steps}
+            onReset={() => update({ steps: profile.defaults.steps, presetName: CUSTOM_PRESET })}
+          >
             {img2imgSteps !== null
               ? t("generate.stepsI2i", { value: form.steps, actual: img2imgSteps })
               : t("generate.steps", { value: form.steps })}
-          </Label>
+          </SliderLabel>
           <Slider
             min={1}
             max={100}
@@ -135,7 +144,9 @@ export function SettingsSection({
       </div>
 
       <div className="space-y-1.5">
-        <Label>{t("generate.imageCount", { value: form.imageCount })}</Label>
+        <SliderLabel value={form.imageCount} defaultValue={1} onReset={() => update({ imageCount: 1 })}>
+          {t("generate.imageCount", { value: form.imageCount })}
+        </SliderLabel>
         <Slider min={1} max={16} step={1} value={[form.imageCount]} onValueChange={([value]) => update({ imageCount: value })} />
       </div>
 
@@ -199,7 +210,14 @@ export function SettingsSection({
       )}
 
       <div className="space-y-1.5">
-        <Label>{t("generate.guidanceScale", { value: form.cfg.toFixed(1) })}</Label>
+        <SliderLabel
+          value={form.cfg}
+          defaultValue={profile.defaults.cfg}
+          shown={profile.defaults.cfg.toFixed(1)}
+          onReset={() => update({ cfg: profile.defaults.cfg })}
+        >
+          {t("generate.guidanceScale", { value: form.cfg.toFixed(1) })}
+        </SliderLabel>
         <Slider min={1} max={15} step={0.1} value={[form.cfg]} onValueChange={([value]) => update({ cfg: value })} />
       </div>
     </>

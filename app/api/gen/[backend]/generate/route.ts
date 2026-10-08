@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
-import { adapterOr404, backendStatus, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
+import { adapterOr404, backendStatus, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { consumeEvents, getCurrentJob, startJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { saveToGallery } from '@/lib/gallery/save'
 import { serverMessage } from '@/lib/i18n/core'
+import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
 
 export const runtime = 'nodejs'
@@ -18,6 +19,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   const adapter = adapterOr404((await ctx.params).backend)
   if (adapter instanceof NextResponse) return adapter
 
+  if (bodyTooLarge(request)) return jsonError(serverMessage('generate.tooLargeBody', { limit: MAX_REQUEST_BODY_BYTES / 1024 / 1024 }), 413)
   const body = await readJson(request)
   if (!body) return jsonError('Invalid JSON body', 400)
   const generate = toGenerateRequest(body)

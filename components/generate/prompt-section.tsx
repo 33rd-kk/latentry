@@ -4,7 +4,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import type { FormState } from "@/lib/generate/form"
+import { callsLora, type FormState } from "@/lib/generate/form"
+import type { BackendKind } from "@/lib/backends/types"
 import type { Profile } from "@/lib/profiles"
 import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import type { PromptScope } from "@/lib/storage"
@@ -16,10 +17,12 @@ interface PromptSectionProps {
   update: (patch: Partial<FormState>) => void
   promptScope: PromptScope
   onPromptScopeChange: (scope: PromptScope) => void
+  /** Which kind of backend the prompt goes to: only A1111 loads `<lora:…>`. */
+  backendKind: BackendKind
 }
 
 /** The words: artist (where the profile has a notation for one), prompt and negative prompt. */
-export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange }: PromptSectionProps) {
+export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, backendKind }: PromptSectionProps) {
   const t = useT()
   return (
     <>
@@ -64,6 +67,9 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
         />
         {form.quality && profile.qualityTags && (
           <p className="text-xs text-muted-foreground">{t("generate.qualityTagsHint", { tags: profile.qualityTags })}</p>
+        )}
+        {backendKind !== "a1111" && callsLora(form.prompt) && (
+          <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.loraIgnored")}</p>
         )}
       </div>
       <div className="space-y-1.5">

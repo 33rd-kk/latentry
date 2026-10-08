@@ -34,6 +34,9 @@ form, so switching backends and back keeps what you typed.
   spelling too. Score tags, face tags such as `^_^`, LoRA calls, `BREAK` and
   sentences are left as written. Change this per profile on
   [Settings](settings.md).
+- **LoRA calls** such as `<lora:name:0.8>` are loaded only by an A1111 web
+  UI. On other backends, including Latentry's engine, the prompt shows a
+  note: the tag is read as plain words there.
 - **Saved characters**: save the tags that make a character, together with
   the artist, negative prompt and seed, and apply them to any form later. In
   [secret mode](secret-mode.md) a new one is only kept until secret mode is
@@ -61,6 +64,10 @@ is redrawn, everything else stays exactly as the source. **Brush**,
 around 0.6–0.8 works best; near 1.0 the painted area ignores the source and
 stops fitting its surroundings.
 
+The source picture, mask and pose are sent together, up to 48 MB. Only a
+very detailed 2048px source comes near that; if it goes over, a message asks
+for a smaller or simpler picture.
+
 ### Tags from the source
 
 **Extract tags** reads the source's WD14 tags (a tagger must be set up; see
@@ -79,6 +86,9 @@ outfit does not carry over.
 - **Steps**, **Image count**, **Sampler**, **Scheduler** and **Guidance
   scale** (CFG). Backends with speed presets show **Speed preset** instead of
   sampler and steps; **Custom** brings them back.
+- A slider moved away from its default shows a small arrow at the end of its
+  label: press it to put that one slider back to the profile's value. On a
+  phone this catches a slider moved by a stray tap while scrolling.
 - **Reset** (the arrow next to Generate) puts this backend's form back to the
   profile's defaults.
 

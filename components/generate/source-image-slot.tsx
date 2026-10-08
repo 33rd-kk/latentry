@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from "react"
 import { Brush, ImagePlus, Images, Loader2, PersonStanding, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { SliderLabel } from "@/components/generate/slider-label"
 import { Slider } from "@/components/ui/slider"
 import { GalleryPicker } from "@/components/gallery/gallery-picker"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
@@ -59,6 +60,8 @@ interface SourceImageSlotProps {
   value: SourceImage | null
   onChange: (value: SourceImage | null) => void
   strength: number
+  /** Where the strength slider starts in the current mode; its reset goes back here. */
+  defaultStrength: number
   onStrengthChange: (value: number) => void
   /** Inpaint mask over the source (see MaskEditor); null redraws the whole image. */
   mask: string | null
@@ -79,6 +82,7 @@ export function SourceImageSlot({
   value,
   onChange,
   strength,
+  defaultStrength,
   onStrengthChange,
   mask,
   onMaskChange,
@@ -219,7 +223,15 @@ export function SourceImageSlot({
               ))}
             </div>
             <div className="space-y-1.5">
-              <Label>{t("generate.strength", { value: strength.toFixed(2) })}</Label>
+              <SliderLabel
+                value={strength}
+                defaultValue={defaultStrength}
+                shown={defaultStrength.toFixed(2)}
+                onReset={() => onStrengthChange(defaultStrength)}
+                disabled={disabled}
+              >
+                {t("generate.strength", { value: strength.toFixed(2) })}
+              </SliderLabel>
               <Slider
                 min={0.05}
                 max={1}

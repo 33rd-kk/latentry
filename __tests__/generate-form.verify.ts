@@ -5,7 +5,7 @@
  * Run with: npm test -- generate-form
  */
 import { check, done, eq } from './assert'
-import { accepted, applySettings, CUSTOM_PRESET, DEFAULT, defaultForm, type FormState } from '../lib/generate/form'
+import { accepted, applySettings, callsLora, CUSTOM_PRESET, DEFAULT, defaultForm, type FormState } from '../lib/generate/form'
 import { getProfile } from '../lib/profiles'
 
 const sdxl = getProfile('sdxl')
@@ -54,5 +54,10 @@ eq(
   "from the same backend: everything it says, in its own profile's spelling"
 )
 eq(applySettings(form, { prompt: 'cat', negativePrompt: '' }, true).width, 832, 'what a picture does not say stays as it was')
+
+// ── <lora:…> in a prompt, warned about where the backend will not load it ──
+check(callsLora('1girl, <lora:detail:0.8>, smile'), 'a <lora:name:weight> tag is found')
+check(callsLora('<LyCORIS:x>') === false && callsLora('<lyco:style>'), '<lyco:…> counts, other angle brackets do not')
+check(!callsLora('1girl, lora, <lora:>'), 'the word lora and an empty tag do not')
 
 done('generate-form')

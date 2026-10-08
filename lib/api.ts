@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { getAdapter } from '@/lib/backends'
 import type { BackendAdapter, BackendStatus, GenerateRequest } from '@/lib/backends/types'
+import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
@@ -17,6 +18,16 @@ export function json(body: unknown, init: { status?: number; headers?: Record<st
 /** The adapter for a backend id from the URL; a 404 response for an unknown one. */
 export function adapterOr404(id: string): BackendAdapter | NextResponse {
   return getAdapter(id) ?? jsonError('Unknown backend', 404)
+}
+
+/**
+ * True when the request says its body is larger than Latentry accepts. Next
+ * has already cut such a body short, so it would only fail as broken JSON;
+ * this lets a route say what really went wrong.
+ */
+export function bodyTooLarge(request: Request): boolean {
+  const length = Number(request.headers.get('content-length'))
+  return Number.isFinite(length) && length > MAX_REQUEST_BODY_BYTES
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown> | null> {
