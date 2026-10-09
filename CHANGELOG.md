@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **LoRA filter in the gallery**: **Filters** has a **LoRA** menu listing the
+  folder's LoRAs, and the search takes `lora:name` and `-lora:name`. Both go
+  by the LoRAs a picture was made with.
+
 - **LoRAs on Latentry's engine**: put LoRA files in the `loras` folder inside
   the models folder and call them as `<lora:name:0.8>`, as on A1111, or pick
   one from **Add a LoRA** next to the prompt. SDXL and Anima LoRAs are both
