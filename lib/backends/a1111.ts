@@ -17,6 +17,7 @@
 
 import sharp from 'sharp'
 import { Agent, fetch as undiciFetch } from 'undici'
+import { loraCallsInPrompt } from '@/lib/image-meta'
 import { fitToImage, getProfile } from '@/lib/profiles'
 import { a1111Hints } from './hints'
 import { errorMessage, isAbortError, stripDataUrl } from './http'
@@ -406,6 +407,7 @@ export class A1111Adapter implements BackendAdapter {
       // images are the last `total` of the list.
       const pictures = images.length > total ? images.slice(images.length - total) : images
       const seeds = seedsFromInfo(body?.info)
+      const loras = loraCallsInPrompt(request.prompt)
       for (let index = 0; index < pictures.length; index += 1) {
         yield {
           type: 'image',
@@ -413,6 +415,8 @@ export class A1111Adapter implements BackendAdapter {
           total,
           seed: seeds[index] ?? (request.seed >= 0 ? request.seed + index : -1),
           imageBase64: stripDataUrl(pictures[index]),
+          // A1111 applies the prompt's LoRA calls itself.
+          ...(loras.length ? { loras } : {}),
         }
       }
       yield inflight.cancelRequested ? { type: 'cancelled' } : { type: 'done' }

@@ -58,7 +58,18 @@ export interface LatentryRecord {
   steps: number
   cfg: number
   strength?: number
+  /**
+   * The LoRAs the backend says it applied. Left out when it applied none or
+   * cannot say: a `<lora:…>` call in the prompt alone proves nothing.
+   */
+  loras?: LoraUse[]
   created: string
+}
+
+/** One LoRA as applied to a run: its name (no folder or extension) and weight. */
+export interface LoraUse {
+  name: string
+  weight: number
 }
 
 /** A LoRA as it is named across tools: no folder, no model-file extension. */
@@ -72,6 +83,18 @@ export function lorasInPrompt(prompt: string): string[] {
   const names: string[] = []
   for (const match of prompt.matchAll(/<(?:lora|lyco):([^:>]+)(?::[^>]*)?>/gi)) names.push(loraName(match[1]))
   return names
+}
+
+/** The LoRA calls in a prompt with their weights: the first number after the name, else 1. */
+export function loraCallsInPrompt(prompt: string): LoraUse[] {
+  const calls: LoraUse[] = []
+  // Each part stops where the next one starts, and none runs past a "<", so an unclosed call cannot backtrack.
+  for (const match of prompt.matchAll(/<(?:lora|lyco):([^:<>]+)(?::([^:<>]*))?(?::[^<>]*)?>/gi)) {
+    const weight = Number(match[2])
+    const name = loraName(match[1])
+    if (name) calls.push({ name, weight: match[2]?.trim() && Number.isFinite(weight) ? weight : 1 })
+  }
+  return calls
 }
 
 /** Names once each, in the order first met; undefined when there are none. */
@@ -277,8 +300,19 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     profile: str(record.profile),
     mode: str(record.mode),
     created: str(record.created),
-    loras: uniqueLoras(lorasInPrompt(record.prompt)),
+    loras: recordLoras(record),
   }
+}
+
+/**
+ * A record's LoRAs. Records from before `loras` was written fall back to the
+ * prompt only when A1111 drew them, as no other backend applied the calls.
+ */
+function recordLoras(record: Partial<LatentryRecord>): string[] | undefined {
+  if (Array.isArray(record.loras)) {
+    return uniqueLoras(record.loras.flatMap((lora) => (typeof lora?.name === 'string' ? [loraName(lora.name)] : [])))
+  }
+  return record.kind === 'a1111' ? uniqueLoras(lorasInPrompt(record.prompt ?? '')) : undefined
 }
 
 export function parseTags(text: string | undefined): ImageTag[] | null {

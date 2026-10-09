@@ -22,6 +22,7 @@ export {
 } from './png'
 export {
   formatA1111Parameters,
+  loraCallsInPrompt,
   loraName,
   lorasInPrompt,
   metaFromText,
@@ -32,4 +33,5 @@ export {
   type ImageMeta,
   type ImageTag,
   type LatentryRecord,
+  type LoraUse,
 } from './meta'
