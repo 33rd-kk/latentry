@@ -7,7 +7,8 @@ Anima runs on its stock modular pipeline.
 
 Pose control (pose_control.py) follows a skeleton poseorbit drew: SDXL
 through an OpenPose ControlNet pipeline built from the same weights, Anima
-through a LoRA adapter put on for the run only.
+through a LoRA adapter put on for the run only. The prompt's own LoRAs
+(loras.py) are put on for the run only too.
 """
 
 from __future__ import annotations
@@ -26,7 +27,7 @@ from PIL import Image, ImageFilter
 
 from poseorbit import letterbox
 
-from . import pose_control, samplers
+from . import loras, pose_control, samplers
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 from .prompts import encode_sdxl
@@ -62,6 +63,10 @@ class GenerateRequest:
     # size: it is letterboxed onto the run's.
     pose_skeleton: Image.Image | None = None
     pose_strength: float = 1.0
+    # Resolved by loras.resolve, and already taken out of `prompt`.
+    loras: list[loras.LoraCall] = field(default_factory=list)
+    # Say each LoRA's hash in the image events (A1111's "Lora hashes").
+    lora_hashes: bool = False
 
 
 @dataclass
@@ -126,6 +131,15 @@ def img2img_steps(steps: int, strength: float, family: str) -> int:
         return max(1, min(int(steps * strength), steps))
     init = min(steps * strength, steps)
     return max(1, steps - int(max(steps - init, 0)))
+
+
+def _with_loras(emit: Emit, applied: list[dict]) -> Emit:
+    """`emit` that adds the applied LoRAs to each image event."""
+
+    def wrapped(event: str, data: dict) -> None:
+        emit(event, {**data, "loras": applied} if event == "image" else data)
+
+    return wrapped
 
 
 class Engine:
@@ -258,6 +272,7 @@ class Engine:
             # Anima's stock pipeline has no inpainting.
             "inpaint": family == FAMILY_SDXL,
             "pose_control": self._pose_supported(),
+            "lora": self.loaded is not None,
             "tagger": False,
             # Why each feature is off, for Latentry to show (docs/backend-api.md).
             "unavailable": self._unavailable(family),
@@ -266,7 +281,7 @@ class Engine:
     def _unavailable(self, family: str | None) -> dict[str, str]:
         if self.loaded is None:
             reason = "No model is loaded. Choose one in Latentry's settings."
-            return {"img2img": reason, "inpaint": reason, "pose": reason}
+            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason}
         reasons: dict[str, str] = {}
         if family == FAMILY_ANIMA:
             reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
@@ -300,6 +315,11 @@ class Engine:
             raise EngineError("This model cannot inpaint.")
         if request.pose_skeleton is not None and not self._pose_supported():
             raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
+        # Worked out before the first step, so a run that cannot read a
+        # LoRA's file fails before it starts.
+        applied = loras.applied_list(request.loras, request.lora_hashes)
+        if applied:
+            emit = _with_loras(emit, applied)
         if self.loaded.family == FAMILY_SDXL:
             self._generate_sdxl(request, emit, cancel, run_id)
         else:
@@ -332,74 +352,75 @@ class Engine:
         else:
             pipe.vae.disable_tiling()
 
-        device = getattr(pipe, "_execution_device", self.plan.device)
-        embeds = encode_sdxl(pipe, request.prompt, request.negative_prompt, device)
-        seeds = self._seeds(request)
-        generator_device = "cpu" if self.plan.offload != "none" else self.plan.device
-        done = 0
-        batch_size = self.pose_batch_size if pose else self.batch_size
-        while done < len(seeds):
-            batch = seeds[done : done + batch_size]
-            emit("start", {"index": done, "total": len(seeds), "steps": steps, "run_id": run_id})
+        with loras.applied(pipe, request.loras):
+            device = getattr(pipe, "_execution_device", self.plan.device)
+            embeds = encode_sdxl(pipe, request.prompt, request.negative_prompt, device)
+            seeds = self._seeds(request)
+            generator_device = "cpu" if self.plan.offload != "none" else self.plan.device
+            done = 0
+            batch_size = self.pose_batch_size if pose else self.batch_size
+            while done < len(seeds):
+                batch = seeds[done : done + batch_size]
+                emit("start", {"index": done, "total": len(seeds), "steps": steps, "run_id": run_id})
 
-            def on_step(pipeline, step, timestep, kwargs, first=done):
-                if cancel.is_set():
-                    pipeline._interrupt = True
-                emit("step", {"index": first, "step": step + 1})
-                return kwargs
+                def on_step(pipeline, step, timestep, kwargs, first=done):
+                    if cancel.is_set():
+                        pipeline._interrupt = True
+                    emit("step", {"index": first, "step": step + 1})
+                    return kwargs
 
-            arguments = {
-                **embeds,
-                "num_images_per_prompt": len(batch),
-                "num_inference_steps": request.num_inference_steps,
-                "guidance_scale": request.guidance_scale,
-                "generator": [torch.Generator(generator_device).manual_seed(seed) for seed in batch],
-                "callback_on_step_end": on_step,
-            }
-            if source is None:
-                arguments.update(width=width, height=height)
-            else:
-                arguments.update(image=source, strength=request.strength)
-                if mask is not None:
-                    arguments.update(mask_image=pipe.mask_processor.blur(mask, blur_factor=request.mask_blur) if request.mask_blur else mask, width=width, height=height)
-            if skeleton is not None:
-                # txt2img takes the control picture as `image`; the others use that for the source.
-                arguments["image" if source is None else "control_image"] = skeleton
-                arguments["controlnet_conditioning_scale"] = request.pose_strength
-            started = time.time()
-            try:
-                images = pipe(**arguments).images
-            except torch.cuda.OutOfMemoryError:
-                # Whatever else is on the GPU decides what fits; halve the
-                # batch and try the same images again, down to one at a time.
-                torch.cuda.empty_cache()
-                if len(batch) == 1:
-                    raise
-                batch_size = max(1, len(batch) // 2)
-                if pose:
-                    self.pose_batch_size = batch_size
+                arguments = {
+                    **embeds,
+                    "num_images_per_prompt": len(batch),
+                    "num_inference_steps": request.num_inference_steps,
+                    "guidance_scale": request.guidance_scale,
+                    "generator": [torch.Generator(generator_device).manual_seed(seed) for seed in batch],
+                    "callback_on_step_end": on_step,
+                }
+                if source is None:
+                    arguments.update(width=width, height=height)
                 else:
-                    self.batch_size = batch_size
-                print(f"[engine] out of memory at batch {len(batch)}; now {batch_size}", flush=True)
-                continue
-            if cancel.is_set():
-                raise Cancelled()
-            for offset, (image, seed) in enumerate(zip(images, batch)):
-                if mask is not None and source is not None:
-                    # Outside the mask, the source's own pixels, exactly.
-                    soft = mask.filter(ImageFilter.GaussianBlur(request.mask_blur)) if request.mask_blur else mask
-                    image = Image.composite(image.resize(source.size), source, soft)
-                emit("image", {
-                    "index": done + offset,
-                    "total": len(seeds),
-                    "seed": seed,
-                    "image_base64": encode_png(image),
-                    "steps_observed": steps,
-                    "timings": {"batch": time.time() - started, "batch_size": len(batch)},
-                })
-            done += len(batch)
-            if cancel.is_set():
-                raise Cancelled()
+                    arguments.update(image=source, strength=request.strength)
+                    if mask is not None:
+                        arguments.update(mask_image=pipe.mask_processor.blur(mask, blur_factor=request.mask_blur) if request.mask_blur else mask, width=width, height=height)
+                if skeleton is not None:
+                    # txt2img takes the control picture as `image`; the others use that for the source.
+                    arguments["image" if source is None else "control_image"] = skeleton
+                    arguments["controlnet_conditioning_scale"] = request.pose_strength
+                started = time.time()
+                try:
+                    images = pipe(**arguments).images
+                except torch.cuda.OutOfMemoryError:
+                    # Whatever else is on the GPU decides what fits; halve the
+                    # batch and try the same images again, down to one at a time.
+                    torch.cuda.empty_cache()
+                    if len(batch) == 1:
+                        raise
+                    batch_size = max(1, len(batch) // 2)
+                    if pose:
+                        self.pose_batch_size = batch_size
+                    else:
+                        self.batch_size = batch_size
+                    print(f"[engine] out of memory at batch {len(batch)}; now {batch_size}", flush=True)
+                    continue
+                if cancel.is_set():
+                    raise Cancelled()
+                for offset, (image, seed) in enumerate(zip(images, batch)):
+                    if mask is not None and source is not None:
+                        # Outside the mask, the source's own pixels, exactly.
+                        soft = mask.filter(ImageFilter.GaussianBlur(request.mask_blur)) if request.mask_blur else mask
+                        image = Image.composite(image.resize(source.size), source, soft)
+                    emit("image", {
+                        "index": done + offset,
+                        "total": len(seeds),
+                        "seed": seed,
+                        "image_base64": encode_png(image),
+                        "steps_observed": steps,
+                        "timings": {"batch": time.time() - started, "batch_size": len(batch)},
+                    })
+                done += len(batch)
+                if cancel.is_set():
+                    raise Cancelled()
 
     def _generate_anima(self, request: GenerateRequest, emit: Emit, cancel: threading.Event, run_id: str) -> None:
         loaded = self.loaded
@@ -428,12 +449,19 @@ class Engine:
                 emit("step", {"index": state["index"], "step": state["forwards"] // per_step})
 
         scopes = contextlib.ExitStack()
-        if request.pose_skeleton is not None:
-            if loaded.pose_adapter is None:
-                loaded.pose_adapter = pose_control.AnimaPoseAdapter(pipe, self.controls_dir)
-            # Once around all the images: loading the LoRA is the slow part.
-            skeleton = letterbox(request.pose_skeleton, (width, height))
-            scopes.enter_context(loaded.pose_adapter.applied(skeleton, request.pose_strength))
+        try:
+            if request.pose_skeleton is not None:
+                if loaded.pose_adapter is None:
+                    loaded.pose_adapter = pose_control.AnimaPoseAdapter(pipe, self.controls_dir)
+                # Once around all the images: loading the LoRA is the slow part.
+                skeleton = letterbox(request.pose_skeleton, (width, height))
+                scopes.enter_context(loaded.pose_adapter.applied(skeleton, request.pose_strength))
+            # After the pose adapter, which takes every LoRA off when it ends.
+            scopes.enter_context(loras.applied(pipe, request.loras))
+        except BaseException:
+            # A LoRA that would not load must not leave the pose adapter on.
+            scopes.close()
+            raise
         handle = pipe.transformer.register_forward_pre_hook(hook)
         try:
             seeds = self._seeds(request)

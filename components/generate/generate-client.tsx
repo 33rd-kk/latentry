@@ -17,6 +17,7 @@ import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
 import { ResultsPanel } from "@/components/generate/results-panel"
 import { useBackends } from "@/hooks/use-backends"
+import { useEngineLoras } from "@/hooks/use-engine-loras"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
@@ -53,6 +54,7 @@ export function GenerateClient() {
   const engineModels = useEngineModels()
   const { load: loadEngineModel } = engineModels
   const isEngine = Boolean(selectedId && engineModels.engines.includes(selectedId))
+  const engineLoras = useEngineLoras()
   const chooseModel = useCallback(
     async (model: EngineModelOption) => {
       const error = await loadEngineModel(model.id)
@@ -286,7 +288,16 @@ export function GenerateClient() {
               update={update}
               promptScope={formState.promptScope}
               onPromptScopeChange={formState.changePromptScope}
-              backendKind={status.kind}
+              appliesLoras={Boolean(capabilities?.lora)}
+              loraPicker={
+                isEngine && capabilities?.lora
+                  ? {
+                      loras: engineLoras.loras,
+                      family: engineModels.models?.find((model) => model.id === engineModels.current)?.family ?? null,
+                      onOpen: engineLoras.refresh,
+                    }
+                  : undefined
+              }
             />
 
             {capabilities?.img2img && (

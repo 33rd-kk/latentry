@@ -14,6 +14,7 @@ import {
   loraCallsInPrompt,
   loraName,
   lorasInPrompt,
+  formatA1111Parameters,
   metaFromText,
   parseA1111Parameters,
   parseComfyPrompt,
@@ -181,6 +182,12 @@ async function main() {
     [{ name: 'one', weight: 0.5 }, { name: 'two', weight: 1 }, { name: 'three', weight: 1 }, { name: 'four', weight: 0.8 }],
     'calls with weights: the first number, else 1'
   )
+  const base = { schema: 1, backend: 'engine', kind: 'diffusers', profile: 'sdxl', model: null, mode: 'txt2img', prompt: 'x, <lora:style:0.6>', negative_prompt: '', seed: 1, width: 8, height: 8, sampler: 'Euler', scheduler: 'Default', steps: 1, cfg: 5, created: '' } as const
+  check(!formatA1111Parameters(base).includes('Lora hashes'), 'no Lora hashes unless given')
+  check(!formatA1111Parameters(base, [{ name: 'style', weight: 0.6 }]).includes('Lora hashes'), 'nor for LoRAs without a hash')
+  const hashed = formatA1111Parameters(base, [{ name: 'style', weight: 0.6, hash: 'abcdef012345' }, { name: 'b', weight: 1, hash: '0123456789ab' }])
+  check(hashed.includes('Lora hashes: "style: abcdef012345, b: 0123456789ab"'), 'Lora hashes as A1111 writes them')
+  eq(parseA1111Parameters(hashed).loras, ['style', 'b'], 'and read back as A1111 infotext')
   const record = (fields: object) => parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'x, <lora:mine:0.7>', ...fields }))?.loras
   eq(record({ kind: 'diffusers', loras: [{ name: 'applied', weight: 1 }] }), ['applied'], "Latentry's record: the LoRAs the backend applied, not the prompt's")
   eq(record({ kind: 'diffusers', loras: [] }), undefined, "Latentry's record: an empty list is none")

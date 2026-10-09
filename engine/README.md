@@ -45,6 +45,25 @@ The weights download on first use into `models/controls/`. Anima-Control-Pose
 is under CircleStone Labs' **non-commercial** licence (as Anima itself is);
 the ControlNet and the detectors are Apache-2.0.
 
+## LoRAs
+
+Put LoRA `.safetensors` files in `models/loras/` (subfolders are fine) and
+call them in the prompt as A1111 does: `<lora:name:0.8>`, where `name` is the
+file name without `.safetensors` (`latentry_engine/loras.py`). The generate
+page also lists them under **Add a LoRA**, which puts the call into the prompt.
+
+- The calls are taken out of the prompt before it is encoded, and the LoRAs
+  are put on for that run only and taken off after, as the pose adapter is.
+- SDXL takes kohya and diffusers LoRAs; Anima takes the ComfyUI
+  (`diffusion_model.…`) and diffusers layouts. A LoRA made for the other
+  family, a name not in the folder, or a file diffusers cannot apply stops
+  the run with a message, rather than running without it.
+- Each `image` event lists the LoRAs applied. With `lora_hashes: true`
+  (Latentry sends it only when **Write LoRA hashes** is on in Settings) it adds
+  A1111's short hash of each file, worked out in memory and never stored.
+- A LoRA's licence is its author's. The picker shows the licence a file names
+  in its metadata (`modelspec.license`), if any; check the model page too.
+
 ## The GPU plan
 
 Chosen once at start from the GPU memory that is **free** then (another
@@ -88,7 +107,7 @@ It listens on 127.0.0.1 and answers only requests addressed to
 `127.0.0.1`, `localhost` or `::1` (add a hostname with `--allow-host`), so a
 web page cannot reach it by re-resolving its own name to this machine. Set
 `LATENTRY_ENGINE_TOKEN` to require a Bearer token; listening anywhere else
-(`--host 0.0.0.0`) is refused without one. Besides the backend API it has `GET /api/models`,
+(`--host 0.0.0.0`) is refused without one. Besides the backend API it has `GET /api/loras` (names, family and licence, no paths), `GET /api/models`,
 `POST /api/models/load` `{ id }`, `POST /api/models/download`
 `{ repo_id, filename? }` and `GET /api/models/downloads`.
 

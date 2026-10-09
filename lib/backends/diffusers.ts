@@ -39,6 +39,7 @@ interface HealthBody {
   transformer?: unknown
   num_layers?: unknown
   pose_control?: unknown
+  lora?: unknown
   busy?: unknown
   samplers?: unknown
   schedulers?: unknown
@@ -96,6 +97,8 @@ export class DiffusersAdapter implements BackendAdapter {
         img2img: health ? health.img2img !== false : false,
         inpaint: health ? health.inpaint !== false : false,
         pose: health?.pose_control === true,
+        // Only a server that says so: one that does not reads the calls as words.
+        lora: health?.lora === true,
         // A server that says nothing about its tagger is assumed to have one;
         // /api/tag answers 503 when its model is missing, which is shown as such.
         tag: health ? health.tagger !== false : false,
@@ -242,12 +245,13 @@ export class DiffusersAdapter implements BackendAdapter {
   }
 }
 
-/** An `image` event's `loras`: [{ name, weight }], kept only when well formed. */
+/** An `image` event's `loras`: [{ name, weight, hash? }], kept only when well formed. */
 function appliedLoras(value: unknown): LoraUse[] | null {
   if (!Array.isArray(value)) return null
   const loras = value.flatMap((lora) => {
     const name = typeof lora?.name === 'string' ? loraName(lora.name) : ''
-    return name ? [{ name, weight: finite(lora.weight) ?? 1 }] : []
+    const hash = typeof lora?.hash === 'string' && /^[0-9a-f]{8,64}$/i.test(lora.hash) ? lora.hash.toLowerCase() : null
+    return name ? [{ name, weight: finite(lora.weight) ?? 1, ...(hash ? { hash } : {}) }] : []
   })
   return loras.length ? loras : null
 }

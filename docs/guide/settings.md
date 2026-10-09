@@ -45,6 +45,11 @@ tagger. The built-in model needs a folder with `model.onnx` and
 - **Other folders (read-only)**: other tools' output to browse. Latentry
   never writes to these.
 - **Tag every saved image with WD14 as it arrives.**
+- **Write LoRA hashes into saved images** (off by default). A picture made
+  with LoRAs on Latentry's engine then carries A1111's "Lora hashes", which
+  sites such as Civitai use to link the LoRAs. A hash identifies the exact
+  file on this computer, so anyone you share the picture with can tell which
+  files you have. Off, the picture still names the LoRAs and their weights.
 
 The browser never sees these paths; it only names folders by number.
 

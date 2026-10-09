@@ -11,7 +11,7 @@ import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/prom
 import path from 'node:path'
 import { getTagger } from '@/lib/tagger'
 import { serverMessage } from '@/lib/i18n/core'
-import { autoTagEnabled, getSaveDir, type GalleryDir } from './dirs'
+import { autoTagEnabled, getSaveDir, loraHashesEnabled, type GalleryDir } from './dirs'
 import { invalidateListing, resolveInDir } from './fs'
 import {
   formatA1111Parameters,
@@ -59,7 +59,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     steps: request.num_inference_steps,
     cfg: request.guidance_scale,
     ...(request.strength !== undefined ? { strength: request.strength } : {}),
-    ...(image.loras?.length ? { loras: image.loras } : {}),
+    // Names and weights only: a hash says which file, and is written only where asked.
+    ...(image.loras?.length ? { loras: image.loras.map(({ name, weight }) => ({ name, weight })) } : {}),
     created: created.toISOString(),
   }
 }
@@ -112,7 +113,7 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
     const size = { width: png.readUInt32BE(16), height: png.readUInt32BE(20) }
     const record = recordFor(job, image, created, size)
     png = writePngText(png, {
-      ...(existing[PARAMETERS_KEY] ? {} : { [PARAMETERS_KEY]: formatA1111Parameters(record) }),
+      ...(existing[PARAMETERS_KEY] ? {} : { [PARAMETERS_KEY]: formatA1111Parameters(record, loraHashesEnabled() ? image.loras : []) }),
       [LATENTRY_KEY]: JSON.stringify(record),
     })
     const name = await uniqueName(dir, fileNameFor(job.backend, image.seed, index, created))

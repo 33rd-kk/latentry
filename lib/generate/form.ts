@@ -89,13 +89,26 @@ export function withSharedPrompt(form: FormState): FormState {
 }
 
 /**
- * Whether a prompt calls a LoRA as `<lora:name:weight>` or `<lyco:…>`. Only an
- * A1111 web UI loads those; other backends read the tag as plain words. The
- * same pattern as lorasInPrompt in lib/image-meta, which the browser cannot
+ * Whether a prompt calls a LoRA as `<lora:name:weight>` or `<lyco:…>`. A1111
+ * and Latentry's engine load those; other backends read the tag as plain
+ * words. The same pattern as lorasInPrompt in lib/image-meta, which the browser cannot
  * import (it brings node:zlib along).
  */
 export function callsLora(prompt: string): boolean {
   return /<(?:lora|lyco):[^:>]+(?::[^>]*)?>/i.test(prompt)
+}
+
+/**
+ * The prompt with `<lora:name:1>` put in at `at` (the caret), or at the end,
+ * set off from its neighbours by commas; and where the caret goes after it.
+ */
+export function insertLora(prompt: string, name: string, at = prompt.length): { prompt: string; caret: number } {
+  const tag = `<lora:${name}:1>`
+  const before = prompt.slice(0, Math.max(0, Math.min(at, prompt.length)))
+  const after = prompt.slice(before.length)
+  const head = !before.trim() ? before : /,\s*$/.test(before) ? before.replace(/,\s*$/, ', ') : `${before.trimEnd()}, `
+  const tail = after.trim() && !/^\s*,/.test(after) ? `, ${after.trimStart()}` : after
+  return { prompt: head + tag + tail, caret: head.length + tag.length }
 }
 
 /** `value` if the backend accepts it, else what it does accept first. */
