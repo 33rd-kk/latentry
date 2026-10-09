@@ -31,7 +31,9 @@ from .models import FAMILY_ANIMA, FAMILY_SDXL, safetensors_header
 # SD 1.x LoRAs: recognised so they can be refused by name; no model here runs them.
 FAMILY_SD15 = "sd15"
 
-CALL = re.compile(r"<(?:lora|lyco):([^:>]+)(?::([^:>]*))?[^>]*>", re.IGNORECASE)
+# Each part stops where the next one starts, so a long unclosed call cannot
+# make a match backtrack (CodeQL py/polynomial-redos).
+CALL = re.compile(r"<(?:lora|lyco):([^:>]+)(?::([^:>]*))?(?::[^>]*)?>", re.IGNORECASE)
 LICENSE_KEYS = ("modelspec.license", "license")
 ADAPTER_PREFIX = "lora_"
 
@@ -117,11 +119,19 @@ def calls_in(prompt: str) -> tuple[str, list[tuple[str, float]]]:
             weight = 1.0
         if name:
             calls.setdefault(name.lower(), (name, weight))
-    cleaned = CALL.sub("", prompt)
-    # What a removed call leaves behind: ", ," and doubled spaces.
-    cleaned = re.sub(r"\s*,(\s*,)+", ",", cleaned)
-    cleaned = re.sub(r"[ \t]{2,}", " ", cleaned).strip().strip(",").strip()
-    return cleaned, list(calls.values())
+    # What a removed call leaves behind: empty items between commas, and
+    # doubled spaces. Split and joined rather than matched, to stay linear.
+    items = [_single_spaces(item) for item in CALL.sub("", prompt).split(",") if item.strip()]
+    return ",".join(items).strip(), list(calls.values())
+
+
+def _single_spaces(text: str) -> str:
+    """Runs of spaces and tabs as one space; newlines kept."""
+    out: list[str] = []
+    for char in text.replace("\t", " "):
+        if char != " " or not out or out[-1] != " ":
+            out.append(char)
+    return "".join(out)
 
 
 def resolve(prompt: str, models_dir: Path, family: str) -> tuple[str, list[LoraCall]]:
