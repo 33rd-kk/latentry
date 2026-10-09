@@ -17,6 +17,7 @@ import { spawn } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const [mode, ...rest] = process.argv.slice(2)
 if (mode !== 'start' && mode !== 'dev' && mode !== 'build') {
@@ -43,8 +44,12 @@ if (mode !== 'build' && !rest.some((arg) => arg === '-H' || arg === '--hostname'
 
 if (mode === 'start' && !process.env.LATENTRY_NO_LOGO) await import('./logo.mjs')
 
+// Requests are stamped with their real address from before Next.js loads, so
+// the first one after a start is already known to come from this machine
+// (see lib/security/peer-stamp.mjs). Next passes this on to its server process.
+const preload = mode === 'build' ? [] : ['--import', pathToFileURL(path.resolve(import.meta.dirname, 'peer-stamp-preload.mjs')).href]
 const next = createRequire(import.meta.url).resolve('next/dist/bin/next')
-const child = spawn(process.execPath, [next, ...args], {
+const child = spawn(process.execPath, [...preload, next, ...args], {
   stdio: 'inherit',
   env: { NEXT_TELEMETRY_DISABLED: '1', ...process.env },
 })

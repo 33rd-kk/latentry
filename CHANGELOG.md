@@ -25,6 +25,10 @@
   its page afterwards, so they keep working when the library changes. They
   look and work as before.
 
+- **Fixed:** with `npm run dev`, the first page opened on this machine after a
+  start went to the pairing page. Reloading worked. Requests are now known to
+  come from this machine from the very first one.
+
 ## 0.5.0 (2026-10-08)
 
 **Upgrading from 0.4.0**: phones and other computers must now be **paired**
