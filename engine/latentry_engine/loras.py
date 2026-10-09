@@ -31,9 +31,9 @@ from .models import FAMILY_ANIMA, FAMILY_SDXL, safetensors_header
 # SD 1.x LoRAs: recognised so they can be refused by name; no model here runs them.
 FAMILY_SD15 = "sd15"
 
-# Each part stops where the next one starts, so a long unclosed call cannot
-# make a match backtrack (CodeQL py/polynomial-redos).
-CALL = re.compile(r"<(?:lora|lyco):([^:>]+)(?::([^:>]*))?(?::[^>]*)?>", re.IGNORECASE)
+# Each part stops where the next one starts, and none runs past a "<", so an
+# unclosed call cannot make a match backtrack (CodeQL py/polynomial-redos).
+CALL = re.compile(r"<(?:lora|lyco):([^:<>]+)(?::([^:<>]*))?(?::[^<>]*)?>", re.IGNORECASE)
 LICENSE_KEYS = ("modelspec.license", "license")
 ADAPTER_PREFIX = "lora_"
 
