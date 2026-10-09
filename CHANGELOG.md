@@ -20,6 +20,11 @@
   diffusers server read as plain words is no longer listed, in new pictures
   or old ones. Pictures from A1111 are listed as before.
 
+- **Viewer**: the secret-mode eye and the blur in the picture viewer now come
+  from the viewer library itself (panorail 0.3.0) instead of being added to
+  its page afterwards, so they keep working when the library changes. They
+  look and work as before.
+
 ## 0.5.0 (2026-10-08)
 
 **Upgrading from 0.4.0**: phones and other computers must now be **paired**

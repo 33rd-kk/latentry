@@ -30,6 +30,13 @@ function writePanelOpen(open: boolean) {
   }
 }
 
+// Secret mode blurs every slide, so a swipe never shows the next image sharp,
+// and spares only the one the user chose to show. panorail sets the blur
+// before an image loads.
+function veilFor(veiled: boolean, shownSrc: string | null) {
+  return veiled ? (item: LightboxItem) => item.src !== shownSrc : undefined
+}
+
 interface ImageLightboxProps {
   items: LightboxItem[]
   /** The item on screen; `null` means closed. */
@@ -84,37 +91,20 @@ export function ImageLightbox({
 }: ImageLightboxProps) {
   const open = index !== null && index >= 0 && index < items.length
 
-  // A stylesheet for as long as the viewer is open and veiled, as the slides'
-  // markup is panorail's (PhotoSwipe's .pswp__img). It blurs every slide, so a
-  // swipe never shows the next image sharp, and spares only the shown one,
-  // matched by the src panorail sets from the item.
-  useEffect(() => {
-    if (!open || !veiled) return
-    const style = document.createElement("style")
-    style.textContent =
-      ".pswp__img { filter: blur(32px); }" +
-      (shownSrc ? ` .pswp__img[src="${CSS.escape(shownSrc)}"] { filter: none; }` : "")
-    document.head.appendChild(style)
-    return () => style.remove()
-  }, [open, veiled, shownSrc])
   const viewer = useRef<ViewerHandle | null>(null)
   const [panelEl, setPanelEl] = useState<HTMLElement | null>(null)
-  // Holds the secret-mode switch; the effect below puts it in the viewer's bar.
-  const [secretEl] = useState(() => {
-    if (typeof document === "undefined") return null
-    const el = document.createElement("span")
-    el.style.display = "contents"
-    return el
-  })
+  // The secret-mode switch, a button panorail puts in the viewer's bar.
+  const [secretEl, setSecretEl] = useState<HTMLButtonElement | null>(null)
   const secret = useSecretMode()
   // Whether there is a panel is settled when the viewer opens.
   const hasPanel = !!renderPanel
+  const veil = veilFor(veiled, shownSrc)
 
   // The viewer outlives renders, so it reads the latest props through a ref.
   // Declared first, so it is current by the time the effects below run.
-  const latest = useRef({ items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart })
+  const latest = useRef({ items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart, secret, veil })
   useEffect(() => {
-    latest.current = { items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart }
+    latest.current = { items, hasMore, onIndexChange, onClose, onLoadMore, panelOpenOnStart, secret, veil }
   })
 
   useEffect(() => {
@@ -123,6 +113,7 @@ export function ImageLightbox({
       items: latest.current.items,
       index: index!,
       hasMore: !!latest.current.hasMore,
+      veil: latest.current.veil,
       loadMore: () => latest.current.onLoadMore?.(),
       onIndexChange: (i) => latest.current.onIndexChange(i),
       onClose: () => {
@@ -148,16 +139,22 @@ export function ImageLightbox({
             },
           }
         : undefined,
+      // The secret-mode switch, in the viewer's own bar so it is in reach
+      // without closing the picture. Its icon is portaled in below.
+      buttons: [
+        {
+          label: tStatic("app.secretMode"),
+          onClick: () => preferences.setSecretMode(!latest.current.secret),
+          mount: (el) => {
+            setSecretEl(el)
+            return () => setSecretEl(null)
+          },
+        },
+      ],
     })
     viewer.current = handle
-    // The secret-mode switch, in the viewer's own bar so it is in reach without
-    // closing the picture. panorail has no slot for host buttons, so a holder
-    // goes in before the bar's first button (the panel or download one).
-    const bar = document.querySelector(".pswp__top-bar")
-    if (bar && secretEl) bar.insertBefore(secretEl, bar.querySelector(".pswp__button"))
     return () => {
       viewer.current = null
-      secretEl?.remove()
       handle.destroy()
     }
     // Opening and closing only; the list and the index are synced below.
@@ -169,6 +166,14 @@ export function ImageLightbox({
   }, [panelOpenOnStart])
 
   useEffect(() => {
+    viewer.current?.setVeil(veilFor(veiled, shownSrc))
+  }, [veiled, shownSrc])
+
+  useEffect(() => {
+    secretEl?.setAttribute("aria-pressed", String(secret))
+  }, [secretEl, secret])
+
+  useEffect(() => {
     viewer.current?.setItems(items, !!hasMore)
   }, [items, hasMore])
 
@@ -177,24 +182,9 @@ export function ImageLightbox({
   }, [index])
 
   if (!open) return null
-  const label = tStatic("app.secretMode")
   return (
     <>
-      {secretEl &&
-        createPortal(
-          <button
-            type="button"
-            className="pswp__button"
-            title={label}
-            aria-label={label}
-            aria-pressed={secret}
-            onClick={() => preferences.setSecretMode(!secret)}
-            style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff" }}
-          >
-            {secret ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-          </button>,
-          secretEl
-        )}
+      {secretEl && createPortal(secret ? <EyeOff aria-hidden /> : <Eye aria-hidden />, secretEl)}
       {panelEl && renderPanel && createPortal(renderPanel(index!), panelEl)}
     </>
   )
