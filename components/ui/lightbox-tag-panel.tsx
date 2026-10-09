@@ -122,8 +122,9 @@ export function LightboxTagPanel({ title, sections, onSearch, onSendTag, onSendT
             </div>
           </div>
           <div className="flex flex-wrap gap-1">
-            {section.tags.map((tag) => {
-              const key = `${section.label}:${tag}`
+            {section.tags.map((tag, index) => {
+              // By position: a prompt can name the same tag twice.
+              const key = `${section.label}:${index}`
               const active = activeTag === key
               return (
                 <div key={key} className="contents">
