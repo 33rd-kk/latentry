@@ -5,6 +5,7 @@ Everything the engine can load lives in one folder:
     models/
       some-checkpoint.safetensors      a single-file SDXL checkpoint (A1111/Civitai style)
       some-model/model_index.json      a diffusers-format model (Hugging Face style)
+      loras/…/style.safetensors        LoRAs (loras.py), never listed as models
 
 A model's id is its path inside the folder, so the same id means the same
 files on every start.
@@ -37,14 +38,22 @@ class ModelInfo:
         return {"id": self.id, "name": self.name, "family": self.family, "size_bytes": self.size_bytes}
 
 
-def _safetensors_keys(path: Path) -> list[str]:
-    """The tensor names in a .safetensors file, from its JSON header only."""
+def safetensors_header(path: Path) -> tuple[list[str], dict[str, str]]:
+    """The tensor names and the `__metadata__` strings of a .safetensors
+    file, from its JSON header only."""
     with path.open("rb") as file:
         (length,) = struct.unpack("<Q", file.read(8))
         if length > 100_000_000:
-            return []
+            return [], {}
         header = json.loads(file.read(length))
-    return [key for key in header if key != "__metadata__"]
+    metadata = header.get("__metadata__")
+    strings = {str(key): value for key, value in metadata.items() if isinstance(value, str)} if isinstance(metadata, dict) else {}
+    return [key for key in header if key != "__metadata__"], strings
+
+
+def _safetensors_keys(path: Path) -> list[str]:
+    """The tensor names in a .safetensors file, from its JSON header only."""
+    return safetensors_header(path)[0]
 
 
 def _checkpoint_family(path: Path) -> str | None:

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **LoRAs on Latentry's engine**: put LoRA files in the `loras` folder inside
+  the models folder and call them as `<lora:name:0.8>`, as on A1111, or pick
+  one from **Add a LoRA** next to the prompt. SDXL and Anima LoRAs are both
+  supported. They are on for that run only. A missing LoRA, or one made for
+  the other model family, stops the run with a message.
+- **Write LoRA hashes** (Settings > Gallery folders, off by default): saved
+  pictures made with LoRAs carry A1111's "Lora hashes". These identify the
+  exact files, so leave it off unless you want sites to link the LoRAs.
+
 - **LoRAs in the viewer**: the gallery lists a picture's LoRAs only when the
   backend applied them. A `<lora:…>` call that Latentry's engine or another
   diffusers server read as plain words is no longer listed, in new pictures

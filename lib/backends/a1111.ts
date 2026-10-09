@@ -302,6 +302,7 @@ export class A1111Adapter implements BackendAdapter {
         img2img: true,
         inpaint: true,
         pose: false,
+        lora: true,
         tag: info.taggerModel !== null,
         presets: false,
         preciseCancel: false,

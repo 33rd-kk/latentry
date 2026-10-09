@@ -32,6 +32,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
   "transformer": "org/finetune",
   "num_layers": 28,
   "pose_control": true,
+  "lora": true,
   "busy": false,
   "run_id": null,
   "samplers": ["Default", "Euler", "DPM++ 2M", "UniPC"],
@@ -46,6 +47,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `model` | no | Shown in the UI. `org/` is dropped. |
 | `transformer`, `num_layers` | no | Shown with the model when present. |
 | `pose_control` | no | `true` enables the skeleton pose slot and `/api/pose`. |
+| `lora` | no | `true`: the server applies `<lora:name:weight>` calls in the prompt itself. Without it, the prompt shows a note that such a call is read as plain words. |
 | `busy` | no | Something is generating. Shown as the backend's state. |
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
@@ -83,7 +85,8 @@ steps.
 
   "init_image_base64": "…", "strength": 0.6,
   "mask_base64": "…", "mask_blur": 4,
-  "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0
+  "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
+  "lora_hashes": false
 }
 ```
 
@@ -97,6 +100,13 @@ steps.
   (`pose_is_skeleton: true`), followed at `pose_strength` (0–2, 1.0 as
   trained). The skeleton's drawing style is the backend's business: it is
   drawn by the same backend that follows it.
+- **LoRAs** (servers with `lora: true`): the prompt's `<lora:name:weight>`
+  calls, A1111-style. The server takes them out of the prompt, applies them,
+  and lists them in each `image` event. `lora_hashes: true` asks for each
+  one's `hash` too: the first 12 hex digits of the SHA-256 of the file's
+  tensor data, as A1111 writes in "Lora hashes". Latentry asks only when the
+  user turned **Write LoRA hashes** on. A call the server cannot apply should
+  fail the request (`400`) rather than be dropped.
 
 Refusals come back before any streaming, as JSON with a `detail` (or
 `error`) string:
@@ -113,7 +123,7 @@ On success the response is `text/event-stream`:
 |---|---|
 | `start` | `{ "index": 0, "total": 2, "steps": 30, "run_id": "…" }`. Sent before each image. `steps` is what will actually run (img2img runs fewer). `run_id` names the run for `/api/cancel`. |
 | `step` | `{ "index": 0, "step": 12 }`. Denoising steps completed for this image. |
-| `image` | `{ "index": 0, "total": 2, "seed": 1234, "image_base64": "…png…", "steps_observed": 30 }`. Optional `loras`: `[{ "name": "style", "weight": 0.6 }]`, the LoRAs the server applied to this image. Leave it out if it applied none. |
+| `image` | `{ "index": 0, "total": 2, "seed": 1234, "image_base64": "…png…", "steps_observed": 30 }`. Optional `loras`: `[{ "name": "style", "weight": 0.6, "hash": "…" }]`, the LoRAs the server applied to this image (`hash` only when asked). Leave it out if it applied none. |
 | `done` | `{}` |
 | `cancelled` | `{}` |
 | `error` | `{ "message": "…" }` |
@@ -248,6 +258,9 @@ after `IHDR`:
   ```
 
   If the backend already wrote `parameters` (A1111 does), it is kept.
+  With **Write LoRA hashes** on in Settings (off by default), a picture made
+  with LoRAs also gets `Lora hashes: "style: 0123456789ab"`. A hash
+  identifies the exact file, so the `latentry` record never holds one.
 
 - **`latentry`**: JSON (iTXt, UTF-8, deflated when long):
 
