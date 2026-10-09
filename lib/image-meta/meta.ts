@@ -88,8 +88,8 @@ export function lorasInPrompt(prompt: string): string[] {
 /** The LoRA calls in a prompt with their weights: the first number after the name, else 1. */
 export function loraCallsInPrompt(prompt: string): LoraUse[] {
   const calls: LoraUse[] = []
-  // Each part stops where the next one starts, so an unclosed call cannot backtrack.
-  for (const match of prompt.matchAll(/<(?:lora|lyco):([^:>]+)(?::([^:>]*))?(?::[^>]*)?>/gi)) {
+  // Each part stops where the next one starts, and none runs past a "<", so an unclosed call cannot backtrack.
+  for (const match of prompt.matchAll(/<(?:lora|lyco):([^:<>]+)(?::([^:<>]*))?(?::[^<>]*)?>/gi)) {
     const weight = Number(match[2])
     const name = loraName(match[1])
     if (name) calls.push({ name, weight: match[2]?.trim() && Number.isFinite(weight) ? weight : 1 })
