@@ -20,7 +20,7 @@
     "next": "16.3.8",
     "next-themes": "^0.4.6",
     "onnxruntime-node": "^1.30.0",
-    "panorail": "github:33rd-kk/panorail#v0.2.1",
+    "panorail": "github:33rd-kk/panorail#v0.3.0",
     "radix-ui": "^1.6.7",
     "react": "19.3.0",
     "react-compare-slider": "^4.0.0",
