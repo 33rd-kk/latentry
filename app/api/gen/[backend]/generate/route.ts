@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { adapterOr404, backendStatus, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { consumeEvents, getCurrentJob, startJob, toSnapshot } from '@/lib/diffusion/job-store'
+import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { saveToGallery } from '@/lib/gallery/save'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
@@ -24,6 +25,8 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   if (!body) return jsonError('Invalid JSON body', 400)
   const generate = toGenerateRequest(body)
   if (!generate) return jsonError('prompt is required', 400)
+  // Only worked out when the pictures are saved with them (off by default).
+  if (adapter.config.kind === 'diffusers' && loraHashesEnabled() && getSaveDir()) generate.lora_hashes = true
 
   const id = adapter.config.id
   // A backend does one run at a time, so a second request would only queue

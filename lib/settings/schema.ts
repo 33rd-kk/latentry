@@ -33,6 +33,11 @@ export interface GallerySettings {
   /** Folders to browse, read-only. */
   dirs?: string[]
   autoTag?: boolean
+  /**
+   * Write A1111's "Lora hashes" into saved pictures. Off unless turned on: a
+   * hash identifies the LoRA file on this machine, wherever the picture goes.
+   */
+  loraHashes?: boolean
 }
 
 /** Latentry's own WD14 tagger (lib/tagger/wd14.ts). */
@@ -132,7 +137,7 @@ export interface SettingsInput {
   backends?: BackendInput[] | null
   tagger?: unknown
   wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
-  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown } | null
+  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
   engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown } | null
 }
@@ -223,7 +228,7 @@ export function validateSettings(
     if (current.gallery) next.gallery = current.gallery
   } else if (input.gallery !== null) {
     const gallery: GallerySettings = {}
-    const { saveDir, dirs, autoTag } = input.gallery
+    const { saveDir, dirs, autoTag, loraHashes } = input.gallery
     if (saveDir === null || saveDir === '') gallery.saveDir = null
     else if (typeof saveDir === 'string' && isAbsolute(saveDir.trim())) gallery.saveDir = saveDir.trim()
     else if (saveDir !== undefined) errors['gallery.saveDir'] = 'settings.errorAbsolute'
@@ -238,6 +243,7 @@ export function validateSettings(
       }
     }
     if (autoTag !== undefined) gallery.autoTag = autoTag === true
+    if (loraHashes !== undefined) gallery.loraHashes = loraHashes === true
     next.gallery = gallery
   }
 

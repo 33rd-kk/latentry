@@ -60,6 +60,11 @@ export function getSaveDir(env: Env = process.env): GalleryDir | null {
 }
 
 /** GALLERY_AUTO_TAG, or what the settings page set. */
+/** Whether saved pictures say which LoRA files made them (settings only; off by default). */
+export function loraHashesEnabled(settings: Settings = getSettings()): boolean {
+  return settings.gallery?.loraHashes === true
+}
+
 export function autoTagEnabled(env: Env = process.env, settings: Settings = getSettings()): boolean {
   return settings.gallery?.autoTag ?? env.GALLERY_AUTO_TAG?.trim() === '1'
 }

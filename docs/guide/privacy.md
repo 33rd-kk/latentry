@@ -33,11 +33,12 @@ unless you set `LATENTRY_HOST`; see
 
 | Where | What | When it goes |
 |---|---|---|
-| The gallery's save folder | Every finished picture, with its prompt and settings inside the file; WD14 tags, when you tag a picture there | When you delete the files |
+| The gallery's save folder | Every finished picture, with its prompt and settings inside the file (the LoRAs used, by name and weight); WD14 tags, when you tag a picture there; LoRA hashes only if you turn **Write LoRA hashes** on | When you delete the files |
 | `.env.local`, `latentry.settings.json` | Backends, folders and options, and backend tokens (in the settings file when typed on Settings) | When you change or delete them |
 | `.runtime/`, `models/` | The engine, the models and the tagger you downloaded | When you delete them, or uninstall |
 | Hugging Face's cache (`~/.cache/huggingface`, or `HF_HOME`) | The config files of a single-file SDXL model (no weights, no prompts) | When you delete it |
 | This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, and display preferences such as tags under cards | Kept between visits. Clear the site's data to remove it |
+| The engine's memory | A hash of each LoRA file a run asked hashes for (only with **Write LoRA hashes** on) | When the engine stops |
 | Latentry's memory | Runs in progress; each backend's last run, pictures and prompt, for an hour after it ends (a minute for a secret run); thumbnails, and the gallery's index of a folder (date made, size, model, LoRAs, a hash of each prompt, the seed) | The last run after that time; the rest when Latentry stops |
 
 Not kept anywhere: the gallery's search, order and filters (they last only

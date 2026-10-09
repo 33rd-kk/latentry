@@ -49,8 +49,8 @@ def test_health_needs_no_token_and_says_what_is_off(client: TestClient) -> None:
     assert body["model"] is None
     assert "Default" in body["samplers"]
     # No model loaded: every feature is off, each with a reason to show.
-    assert body["img2img"] is False and body["inpaint"] is False
-    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose"}
+    assert body["img2img"] is False and body["inpaint"] is False and body["lora"] is False
+    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose", "lora"}
     assert all(isinstance(reason, str) and reason for reason in body["unavailable"].values())
 
 
@@ -104,6 +104,16 @@ def test_models_lists_the_folder(client: TestClient) -> None:
     body = client.get("/api/models", headers=auth()).json()
     assert [model["id"] for model in body["models"]] == ["unknown.safetensors", "xl.safetensors"]
     assert body["current"] is None
+
+
+def test_loras_lists_the_loras_folder_not_the_models(client: TestClient, models_dir: Path) -> None:
+    assert client.get("/api/loras", headers=auth()).json() == {"loras": []}
+    (models_dir / "loras").mkdir()
+    write_safetensors(models_dir / "loras" / "style.safetensors", ["lora_te1_x.lora_up.weight"])
+    assert client.get("/api/loras").status_code == 401
+    assert client.get("/api/loras", headers=auth()).json() == {"loras": [{"name": "style", "family": "sdxl", "size_bytes": (models_dir / "loras" / "style.safetensors").stat().st_size, "license": None}]}
+    models_listed = [model["id"] for model in client.get("/api/models", headers=auth()).json()["models"]]
+    assert models_listed == ["unknown.safetensors", "xl.safetensors"], "a LoRA is not a model"
 
 
 def test_load_refuses_a_missing_or_unknown_model(client: TestClient) -> None:
