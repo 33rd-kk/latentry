@@ -29,6 +29,10 @@
   start went to the pairing page. Reloading worked. Requests are now known to
   come from this machine from the very first one.
 
+- **Fixed:** a prompt that names the same tag twice no longer causes an error
+  in the viewer's tag panel, and choosing one of the two opens only its own
+  actions.
+
 ## 0.5.0 (2026-10-08)
 
 **Upgrading from 0.4.0**: phones and other computers must now be **paired**
