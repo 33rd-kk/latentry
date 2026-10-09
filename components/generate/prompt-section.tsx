@@ -29,9 +29,12 @@ interface PromptSectionProps {
 export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, appliesLoras, loraPicker }: PromptSectionProps) {
   const t = useT()
   const promptRef = useRef<HTMLTextAreaElement>(null)
+  // Where the caret was when the prompt lost focus: opening the picker takes
+  // the focus, so the caret has to be remembered before that.
+  const caretRef = useRef<number | null>(null)
   const pickLora = (name: string) => {
-    const field = promptRef.current
-    const { prompt, caret } = insertLora(form.prompt, name, field && document.activeElement === field ? field.selectionStart : undefined)
+    const { prompt, caret } = insertLora(form.prompt, name, caretRef.current ?? undefined)
+    caretRef.current = caret
     update({ prompt })
     requestAnimationFrame(() => {
       promptRef.current?.focus()
@@ -79,6 +82,9 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
           rows={6}
           placeholder={t("generate.positivePlaceholder")}
           value={form.prompt}
+          onBlur={(event) => {
+            caretRef.current = event.currentTarget.selectionStart
+          }}
           onChange={(event) => update({ prompt: event.target.value })}
         />
         {form.quality && profile.qualityTags && (
