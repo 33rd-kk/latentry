@@ -5,7 +5,7 @@
  * Run with: npm test -- generate-form
  */
 import { check, done, eq } from './assert'
-import { accepted, applySettings, callsLora, CUSTOM_PRESET, DEFAULT, defaultForm, type FormState } from '../lib/generate/form'
+import { accepted, applySettings, callsLora, insertLora, CUSTOM_PRESET, DEFAULT, defaultForm, type FormState } from '../lib/generate/form'
 import { getProfile } from '../lib/profiles'
 
 const sdxl = getProfile('sdxl')
@@ -59,5 +59,14 @@ eq(applySettings(form, { prompt: 'cat', negativePrompt: '' }, true).width, 832, 
 check(callsLora('1girl, <lora:detail:0.8>, smile'), 'a <lora:name:weight> tag is found')
 check(callsLora('<LyCORIS:x>') === false && callsLora('<lyco:style>'), '<lyco:…> counts, other angle brackets do not')
 check(!callsLora('1girl, lora, <lora:>'), 'the word lora and an empty tag do not')
+
+// ── The LoRA picker puts a call where the caret is ──
+eq(insertLora('', 'style'), { prompt: '<lora:style:1>', caret: 14 }, 'into an empty prompt')
+eq(insertLora('1girl, smile', 'style').prompt, '1girl, smile, <lora:style:1>', 'at the end, after a comma')
+eq(insertLora('1girl, ', 'style').prompt, '1girl, <lora:style:1>', 'after a comma already there')
+eq(insertLora('1girl,', 'style').prompt, '1girl, <lora:style:1>', 'after a bare comma')
+const middle = insertLora('1girl, smile', 'style', 7)
+eq(middle, { prompt: '1girl, <lora:style:1>, smile', caret: 21 }, 'in the middle, with commas both sides')
+eq(insertLora('1girl , smile', 'style', 5).prompt, '1girl, <lora:style:1> , smile', 'before a comma, none added after')
 
 done('generate-form')

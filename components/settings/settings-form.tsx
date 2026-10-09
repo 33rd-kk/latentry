@@ -48,6 +48,7 @@ interface Draft {
   saveDir: string
   dirs: string[]
   autoTag: boolean
+  loraHashes: boolean
   profiles: Partial<Record<ProfileId, ProfileDraft>>
 }
 
@@ -89,6 +90,7 @@ function toDraft(view: SettingsView): Draft {
     saveDir: view.gallery.saveDir ?? "",
     dirs: view.gallery.dirs,
     autoTag: view.gallery.autoTag,
+    loraHashes: view.gallery.loraHashes,
     profiles,
   }
 }
@@ -115,7 +117,7 @@ function toInput(draft: Draft, dirty: Set<Part>) {
     }
   }
   if (dirty.has("gallery")) {
-    body.gallery = { saveDir: draft.saveDir.trim() || null, dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean), autoTag: draft.autoTag }
+    body.gallery = { saveDir: draft.saveDir.trim() || null, dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean), autoTag: draft.autoTag, loraHashes: draft.loraHashes }
   }
   if (dirty.has("profiles")) {
     const profiles: Record<string, Record<string, unknown>> = {}
@@ -498,6 +500,13 @@ export function SettingsForm() {
             <Switch checked={draft.autoTag} onCheckedChange={(autoTag) => change("gallery", (current) => ({ ...current, autoTag }))} />
             {t("settings.autoTag")}
           </label>
+          <div className="space-y-1">
+            <label className="flex items-center gap-2 text-sm">
+              <Switch checked={draft.loraHashes} onCheckedChange={(loraHashes) => change("gallery", (current) => ({ ...current, loraHashes }))} />
+              {t("settings.loraHashes")}
+            </label>
+            <p className="text-xs text-muted-foreground">{t("settings.loraHashesHint")}</p>
+          </div>
         </div>
       </Section>
 

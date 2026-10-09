@@ -70,6 +70,8 @@ export interface LatentryRecord {
 export interface LoraUse {
   name: string
   weight: number
+  /** A1111's short hash of the file, when the backend was asked for it. Never kept in the record. */
+  hash?: string
 }
 
 /** A LoRA as it is named across tools: no folder, no model-file extension. */
@@ -167,8 +169,12 @@ export function parseA1111Parameters(text: string): ImageMeta {
   }
 }
 
-/** Writes the A1111 infotext for a record, so other tools can read our files. */
-export function formatA1111Parameters(record: LatentryRecord): string {
+/**
+ * Writes the A1111 infotext for a record, so other tools can read our files.
+ * `loraHashes` adds A1111's "Lora hashes" (only when the user turned it on).
+ */
+export function formatA1111Parameters(record: LatentryRecord, loraHashes: LoraUse[] = []): string {
+  const hashed = loraHashes.filter((lora) => lora.hash)
   const settings: string[] = [
     `Steps: ${record.steps}`,
     `Sampler: ${record.sampler}`,
@@ -178,6 +184,7 @@ export function formatA1111Parameters(record: LatentryRecord): string {
     `Size: ${record.width}x${record.height}`,
     ...(record.model ? [`Model: ${quoteIfNeeded(record.model)}`] : []),
     ...(record.strength !== undefined ? [`Denoising strength: ${record.strength}`] : []),
+    ...(hashed.length ? [`Lora hashes: ${JSON.stringify(hashed.map((lora) => `${lora.name}: ${lora.hash}`).join(', '))}`] : []),
     `Version: Latentry (${record.backend})`,
   ]
   const lines = [record.prompt]

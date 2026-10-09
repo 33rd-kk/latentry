@@ -6,6 +6,7 @@ management for Latentry's engine manager.
     POST /api/generate            Server-Sent Events: start / step / image / done / cancelled / error
     POST /api/cancel              { run_id }
     POST /api/pose                people in a picture and the skeleton to follow (poseorbit)
+    GET  /api/loras               the LoRAs in the models folder's loras folder
     GET  /api/models              the models folder, and what is loaded
     POST /api/models/load         { id }   (returns at once; watch /api/health)
     POST /api/models/download     { repo_id, filename? }
@@ -36,7 +37,7 @@ from pydantic import BaseModel, Field
 import poseorbit
 import poseorbit.api
 
-from . import __version__, models, pose_control, samplers
+from . import __version__, loras, models, pose_control, samplers
 from .core import Cancelled, Engine, EngineError, GenerateRequest, decode_image
 from .gpu import plan as gpu_plan
 
@@ -61,6 +62,9 @@ class GenerateBody(BaseModel):
     pose_image_base64: str | None = None
     pose_is_skeleton: bool = False
     pose_strength: float = Field(1.0, ge=0, le=2)
+    # Say each applied LoRA's hash in the image events. Off unless asked:
+    # a hash identifies the file on this machine.
+    lora_hashes: bool = False
 
 
 class CancelBody(BaseModel):
@@ -205,11 +209,15 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
     def generate(body: GenerateBody):
         if engine.loaded is None:
             raise HTTPException(409, "No model is loaded" if engine.loading is None else "The model is still loading")
+        try:
+            prompt, calls = loras.resolve(body.prompt, models_dir, engine.loaded.family)
+        except loras.LoraError as error:
+            raise HTTPException(400, str(error)) from error
         if not run["lock"].acquire(blocking=False):
             raise HTTPException(409, "A generation is already running")
         try:
             request = GenerateRequest(
-                prompt=body.prompt,
+                prompt=prompt,
                 negative_prompt=body.negative_prompt,
                 width=body.width,
                 height=body.height,
@@ -225,6 +233,8 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 mask_blur=body.mask_blur,
                 pose_skeleton=pose_skeleton(body, (body.width, body.height)),
                 pose_strength=body.pose_strength,
+                loras=calls,
+                lora_hashes=body.lora_hashes,
             )
         except Exception as error:
             run["lock"].release()
@@ -246,7 +256,7 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 emit("cancelled", {})
             except samplers.UnknownSampler as error:
                 emit("error", {"message": str(error)})
-            except EngineError as error:
+            except (EngineError, loras.LoraError) as error:
                 emit("error", {"message": str(error)})
             except Exception as error:  # noqa: BLE001
                 message = str(error)
@@ -293,6 +303,10 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             "loading": engine.loading,
             "load_error": engine.load_error,
         }
+
+    @app.get("/api/loras")
+    def list_loras():
+        return {"loras": [lora.describe() for lora in loras.scan(models_dir)]}
 
     @app.post("/api/models/load")
     def load(body: LoadBody):

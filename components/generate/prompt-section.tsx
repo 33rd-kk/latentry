@@ -1,11 +1,13 @@
 "use client"
 
+import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { callsLora, type FormState } from "@/lib/generate/form"
-import type { BackendKind } from "@/lib/backends/types"
+import { callsLora, insertLora, type FormState } from "@/lib/generate/form"
+import type { EngineLora } from "@/hooks/use-engine-loras"
+import { LoraPicker } from "./lora-picker"
 import type { Profile } from "@/lib/profiles"
 import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import type { PromptScope } from "@/lib/storage"
@@ -17,13 +19,28 @@ interface PromptSectionProps {
   update: (patch: Partial<FormState>) => void
   promptScope: PromptScope
   onPromptScopeChange: (scope: PromptScope) => void
-  /** Which kind of backend the prompt goes to: only A1111 loads `<lora:…>`. */
-  backendKind: BackendKind
+  /** Whether the backend applies `<lora:…>` calls (A1111, Latentry's engine). */
+  appliesLoras: boolean
+  /** Latentry's engine: its LoRAs, to put a call into the prompt from a list. */
+  loraPicker?: { loras: EngineLora[] | null; family: string | null; onOpen: () => void }
 }
 
 /** The words: artist (where the profile has a notation for one), prompt and negative prompt. */
-export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, backendKind }: PromptSectionProps) {
+export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, appliesLoras, loraPicker }: PromptSectionProps) {
   const t = useT()
+  const promptRef = useRef<HTMLTextAreaElement>(null)
+  // Where the caret was when the prompt lost focus: opening the picker takes
+  // the focus, so the caret has to be remembered before that.
+  const caretRef = useRef<number | null>(null)
+  const pickLora = (name: string) => {
+    const { prompt, caret } = insertLora(form.prompt, name, caretRef.current ?? undefined)
+    caretRef.current = caret
+    update({ prompt })
+    requestAnimationFrame(() => {
+      promptRef.current?.focus()
+      promptRef.current?.setSelectionRange(caret, caret)
+    })
+  }
   return (
     <>
       {profile.artistTemplate && (
@@ -41,7 +58,8 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
       <div className="space-y-1.5">
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="prompt">{t("generate.positivePrompt")}</Label>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-4">
+            {loraPicker && <LoraPicker {...loraPicker} onPick={pickLora} />}
             <label className="flex items-center gap-2 text-xs text-muted-foreground" title={t("generate.sharedPromptHint")}>
               <Switch
                 checked={promptScope === "shared"}
@@ -59,16 +77,20 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
         </div>
         <Textarea
           id="prompt"
+          ref={promptRef}
           {...PRIVATE_TEXT}
           rows={6}
           placeholder={t("generate.positivePlaceholder")}
           value={form.prompt}
+          onBlur={(event) => {
+            caretRef.current = event.currentTarget.selectionStart
+          }}
           onChange={(event) => update({ prompt: event.target.value })}
         />
         {form.quality && profile.qualityTags && (
           <p className="text-xs text-muted-foreground">{t("generate.qualityTagsHint", { tags: profile.qualityTags })}</p>
         )}
-        {backendKind !== "a1111" && callsLora(form.prompt) && (
+        {!appliesLoras && callsLora(form.prompt) && (
           <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.loraIgnored")}</p>
         )}
       </div>

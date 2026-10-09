@@ -34,9 +34,13 @@ form, so switching backends and back keeps what you typed.
   spelling too. Score tags, face tags such as `^_^`, LoRA calls, `BREAK` and
   sentences are left as written. Change this per profile on
   [Settings](settings.md).
-- **LoRA calls** such as `<lora:name:0.8>` are loaded only by an A1111 web
-  UI. On other backends, including Latentry's engine, the prompt shows a
-  note: the tag is read as plain words there.
+- **LoRAs**: call one in the prompt as `<lora:name:0.8>`. An A1111 web UI
+  and Latentry's engine apply it. For the engine, put the LoRA files in the
+  `loras` folder inside the models folder; **Add a LoRA** next to the prompt
+  lists them and puts the call in for you (a LoRA made for another model
+  family is greyed out). The engine refuses a run that calls a LoRA it does
+  not have, instead of running without it. Other backends read the tag as
+  plain words, and the prompt shows a note saying so.
 - **Saved characters**: save the tags that make a character, together with
   the artist, negative prompt and seed, and apply them to any form later. In
   [secret mode](secret-mode.md) a new one is only kept until secret mode is

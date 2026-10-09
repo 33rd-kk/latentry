@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
 import { getBackends, hasEnvToken, taggerPreference } from '../lib/backends/config'
-import { autoTagEnabled, parseGalleryDirs } from '../lib/gallery/dirs'
+import { autoTagEnabled, loraHashesEnabled, parseGalleryDirs } from '../lib/gallery/dirs'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
 import { EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
@@ -27,7 +27,7 @@ async function main() {
         { id: 'sdxl', kind: 'a1111', url: 'http://192.168.1.5:7860', profile: 'illustrious' },
       ],
       tagger: 'anima',
-      gallery: { saveDir: ABS, dirs: [ABS + '2', '  '], autoTag: true },
+      gallery: { saveDir: ABS, dirs: [ABS + '2', '  '], autoTag: true, loraHashes: 'yes' },
       profiles: { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', artistTemplate: '-'.replace('-', ''), tagStyle: 'space', keepTags: '' }, nope: { width: 1 } },
     },
     EMPTY_SETTINGS
@@ -35,7 +35,7 @@ async function main() {
   check(ok.ok, 'a sound edit passes')
   if (ok.ok) {
     eq(ok.settings.backends?.map((backend) => [backend.id, backend.token ?? null]), [['anima', 'secret'], ['sdxl', null]], 'ids are lowercased; tokens kept when given')
-    eq(ok.settings.gallery, { saveDir: ABS, dirs: [ABS + '2'], autoTag: true }, 'empty folder rows are dropped')
+    eq(ok.settings.gallery, { saveDir: ABS, dirs: [ABS + '2'], autoTag: true, loraHashes: false }, 'empty folder rows are dropped; only true turns LoRA hashes on')
     eq(ok.settings.profiles, { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', keepTags: '', artistTemplate: null, tagStyle: 'space' } }, 'unknown profiles are ignored; "" hides the artist field; tag spelling kept')
   }
 
@@ -118,6 +118,7 @@ async function main() {
   const dirs = parseGalleryDirs(env, { version: 1, gallery: { saveDir: null } })
   eq(dirs.map((dir) => dir.writable), [false], 'saveDir null turns saving off while GALLERY_DIRS still applies')
   eq(parseGalleryDirs(env, { version: 1, gallery: { dirs: [] } }).map((dir) => dir.writable), [true], 'dirs [] clears the read-only folders')
+  eq([loraHashesEnabled(EMPTY_SETTINGS), loraHashesEnabled({ version: 1, gallery: { loraHashes: true } })], [false, true], 'LoRA hashes: off unless the setting turns them on')
   eq([autoTagEnabled(env, EMPTY_SETTINGS), autoTagEnabled(env, { version: 1, gallery: { autoTag: false } })], [true, false], 'auto-tag: setting over GALLERY_AUTO_TAG')
 
   // ── Profiles ──

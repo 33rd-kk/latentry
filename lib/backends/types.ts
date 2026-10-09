@@ -29,6 +29,8 @@ export interface Capabilities {
   pose: boolean
   /** WD14 tagging of an uploaded picture. */
   tag: boolean
+  /** Applies the prompt's `<lora:name:weight>` calls instead of reading them as words. */
+  lora: boolean
   /** Speed presets served by the backend. */
   presets: boolean
   /** Cancel stops exactly the run that was asked about, never a later one. */
@@ -91,6 +93,11 @@ export interface GenerateRequest {
   pose_image_base64?: string
   pose_is_skeleton?: boolean
   pose_strength?: number
+  /**
+   * Ask for each applied LoRA's hash in the image events. Set by this server
+   * from the settings (gallery.loraHashes), never taken from the browser.
+   */
+  lora_hashes?: boolean
 }
 
 export type BackendEvent =

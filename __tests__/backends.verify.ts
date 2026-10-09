@@ -89,6 +89,11 @@ async function main() {
     { type: 'image', index: 0, seed: 9, imageBase64: 'AA==', loras: [{ name: 'style', weight: 0.6 }, { name: 'bare', weight: 1 }] },
     'image: the LoRAs the backend applied, named as everywhere else'
   )
+  eq(
+    toEvent('image', { index: 0, seed: 9, image_base64: 'AA==', loras: [{ name: 'a', weight: 1, hash: 'ABCDEF012345' }, { name: 'b', weight: 1, hash: '../x' }] }),
+    { type: 'image', index: 0, seed: 9, imageBase64: 'AA==', loras: [{ name: 'a', weight: 1, hash: 'abcdef012345' }, { name: 'b', weight: 1 }] },
+    'image: a hash is kept only when it looks like one'
+  )
   eq('loras' in (toEvent('image', { index: 0, seed: 9, image_base64: 'AA==', loras: [] }) ?? {}), false, 'image: no LoRAs said, none recorded')
   eq(toEvent('error', {}), { type: 'error', message: 'The backend reported an error.' }, 'error without a message')
   eq(toEvent('heartbeat', {}), null, 'unknown events are ignored')
@@ -233,6 +238,8 @@ async function main() {
   eq(loraJob.images[0].loras, [{ name: 'style', weight: 0.6 }], 'the applied LoRAs stay with the image')
   const created = new Date(0)
   eq(recordFor(loraJob, loraJob.images[0], created, null).loras, [{ name: 'style', weight: 0.6 }], 'and go into its record')
+  applyEvent(loraJob, { type: 'image', index: 0, seed: 4, imageBase64: 'AA==', loras: [{ name: 'style', weight: 0.6, hash: 'abcdef012345' }] })
+  eq(recordFor(loraJob, loraJob.images[1], created, null).loras, [{ name: 'style', weight: 0.6 }], 'the record never keeps a hash')
   eq('loras' in recordFor(job, job.images[0], created, null), false, 'a record without applied LoRAs has no loras')
   eq(toSnapshot(job).imageCount, 2, 'the snapshot counts images without carrying them')
 
@@ -270,6 +277,7 @@ async function main() {
     { pose: { reason: 'not-reported' } },
     'a server silent about pose is told to report pose_control; img2img and inpaint stay on'
   )
+  eq(diffusersHints({ pose_control: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
   eq(diffusersHints({ pose_control: true }), {}, 'a server with pose and default img2img/inpaint has no hints')
   eq(
     diffusersHints({ pose_control: false, inpaint: false, unavailable: { pose: 'Needs a 28-layer model.' } }),

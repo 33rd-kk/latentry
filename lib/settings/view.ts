@@ -3,7 +3,7 @@
 // only whether one is set, and where.
 
 import { backendsSource, getBackends, hasEnvToken, taggerPreference } from '@/lib/backends/config'
-import { getGalleryDirs, autoTagEnabled } from '@/lib/gallery/dirs'
+import { getGalleryDirs, autoTagEnabled, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { getBuiltinProfile, PROFILE_IDS, type ProfileId } from '@/lib/profiles'
 import { wd14Config } from '@/lib/tagger'
 import { DEFAULT_THRESHOLDS, hasModel } from '@/lib/tagger/wd14'
@@ -20,7 +20,7 @@ export interface SettingsView {
   backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
-  gallery: { saveDir: string | null; dirs: string[]; autoTag: boolean }
+  gallery: { saveDir: string | null; dirs: string[]; autoTag: boolean; loraHashes: boolean }
   profiles: Partial<Record<ProfileId, ProfileOverride>>
   sources: { backends: Source; tagger: Source; wd14: Source; saveDir: Source; dirs: Source; autoTag: Source }
   builtinProfiles: {
@@ -61,6 +61,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       saveDir: dirs.find((dir) => dir.writable)?.path ?? null,
       dirs: dirs.filter((dir) => !dir.writable).map((dir) => dir.path),
       autoTag: autoTagEnabled(process.env, settings),
+      loraHashes: loraHashesEnabled(settings),
     },
     profiles: settings.profiles ?? {},
     sources: {
