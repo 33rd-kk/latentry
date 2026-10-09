@@ -5,10 +5,12 @@
  *
  * Run with: npm test -- security
  */
+import { execFileSync } from 'node:child_process'
 import { createServer, type IncomingHttpHeaders } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { check, done, eq } from './assert'
 import { POST as testBackend } from '../app/api/settings/test/route'
 import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
@@ -181,6 +183,25 @@ async function stamping(): Promise<void> {
   }
 }
 
+// The preload serve.mjs gives Node stamps the first request of a new process
+// too: stamped any later, `npm run dev` sent this machine's first page load
+// after a start to /pair.
+async function preloadStamping(): Promise<void> {
+  const preload = pathToFileURL(path.resolve(__dirname, '../scripts/peer-stamp-preload.mjs')).href
+  const firstRequest = `
+    const http = require('node:http')
+    const server = http.createServer((request, response) => {
+      response.end(JSON.stringify(request.headers[globalThis.__latentryPeerHeader] ?? null))
+    })
+    server.listen(0, '127.0.0.1', async () => {
+      const response = await fetch('http://127.0.0.1:' + server.address().port + '/')
+      console.log(await response.text())
+      server.close()
+    })`
+  const output = execFileSync(process.execPath, ['--import', preload, '-e', firstRequest], { encoding: 'utf8' }).trim()
+  check(output === '"127.0.0.1"' || output === '"::ffff:127.0.0.1"', `the preload stamps a new process's first request (${output})`)
+}
+
 // F1: "test this backend" may use a saved token only on that backend's own server.
 async function tokenLending(): Promise<void> {
   const seen: IncomingHttpHeaders[] = []
@@ -276,7 +297,7 @@ async function cancelling(): Promise<void> {
   }
 }
 
-stamping().then(tokenLending).then(cancelling).then(
+stamping().then(preloadStamping).then(tokenLending).then(cancelling).then(
   () => done('security'),
   (error: unknown) => {
     check(false, `token lending check threw: ${error instanceof Error ? error.stack : String(error)}`)

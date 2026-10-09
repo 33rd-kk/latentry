@@ -6,27 +6,15 @@
 // the server starts, every request is stamped with its socket's address
 // under a header whose name is random for this process. A client cannot
 // guess the name, and whatever it sends under it is replaced.
+//
+// The stamping itself is in peer-stamp.mjs. serve.mjs loads it before Next.js
+// starts; instrumentation.ts installs it too, for a server started otherwise.
 
-import { randomBytes } from 'node:crypto'
-import http from 'node:http'
-import type { IncomingMessage } from 'node:http'
+import { installPeerStamp } from './peer-stamp.mjs'
+
+export { installPeerStamp }
 
 const globalForPeer = globalThis as typeof globalThis & { __latentryPeerHeader?: string }
-
-/** Starts stamping requests; once per process, before the first request. */
-export function installPeerStamp(): void {
-  if (globalForPeer.__latentryPeerHeader) return
-  const header = `x-latentry-peer-${randomBytes(8).toString('hex')}`
-  const emit = http.Server.prototype.emit
-  http.Server.prototype.emit = function (this: http.Server, event: string | symbol, ...args: unknown[]) {
-    if (event === 'request') {
-      const request = args[0] as IncomingMessage
-      request.headers[header] = request.socket?.remoteAddress ?? ''
-    }
-    return Reflect.apply(emit, this, [event, ...args]) as boolean
-  } as typeof emit
-  globalForPeer.__latentryPeerHeader = header
-}
 
 /** Whether an address (or `localhost`) is this machine's loopback. */
 export function isLoopbackAddress(value: string): boolean {
