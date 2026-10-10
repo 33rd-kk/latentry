@@ -2,9 +2,9 @@
 
 ## Unreleased
 
-- **LoRA filter in the gallery**: **Filters** has a **LoRA** menu listing the
-  folder's LoRAs, and the search takes `lora:name` and `-lora:name`. Both go
-  by the LoRAs a picture was made with.
+## 0.6.0 (2026-10-10)
+
+**LoRAs**
 
 - **LoRAs on Latentry's engine**: put LoRA files in the `loras` folder inside
   the models folder and call them as `<lora:name:0.8>`, as on A1111, or pick
@@ -14,24 +14,34 @@
 - **Write LoRA hashes** (Settings > Gallery folders, off by default): saved
   pictures made with LoRAs carry A1111's "Lora hashes". These identify the
   exact files, so leave it off unless you want sites to link the LoRAs.
-
+- **LoRA filter in the gallery**: **Filters** has a **LoRA** menu listing the
+  folder's LoRAs, and the search takes `lora:name` and `-lora:name`. Both go
+  by the LoRAs a picture was made with.
 - **LoRAs in the viewer**: the gallery lists a picture's LoRAs only when the
   backend applied them. A `<lora:…>` call that Latentry's engine or another
   diffusers server read as plain words is no longer listed, in new pictures
   or old ones. Pictures from A1111 are listed as before.
 
-- **Viewer**: the secret-mode eye and the blur in the picture viewer now come
-  from the viewer library itself (panorail 0.3.0) instead of being added to
-  its page afterwards, so they keep working when the library changes. They
-  look and work as before.
+**Viewer**
 
-- **Fixed:** with `npm run dev`, the first page opened on this machine after a
-  start went to the pairing page. Reloading worked. Requests are now known to
-  come from this machine from the very first one.
+- The secret-mode eye and the blur in the picture viewer now come from the
+  viewer library itself (panorail 0.3.0) instead of being added to its page
+  afterwards, so they keep working when the library changes. They look and
+  work as before.
 
-- **Fixed:** a prompt that names the same tag twice no longer causes an error
-  in the viewer's tag panel, and choosing one of the two opens only its own
-  actions.
+**Engine (0.4.0)**
+
+- Loads LoRAs from the models folder's `loras` folder for a single run,
+  alongside the pose adapter, and lists them at `GET /api/loras`. Its health
+  reports the `lora` capability, which the generate page reads.
+
+**Fixed**
+
+- With `npm run dev`, the first page opened on this machine after a start
+  went to the pairing page. Reloading worked. Requests are now known to come
+  from this machine from the very first one.
+- A prompt that names the same tag twice no longer causes an error in the
+  viewer's tag panel, and choosing one of the two opens only its own actions.
 
 ## 0.5.0 (2026-10-08)
 
