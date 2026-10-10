@@ -7,7 +7,7 @@
 import { check, done, eq } from './assert'
 import { CATALOG, catalogEntry, engineModelId } from '../lib/engine/catalog'
 import { chooseTorch, parseNvidiaSmi, type Gpu } from '../lib/engine/gpus'
-import { uvAsset } from '../lib/engine/install'
+import { uvAsset, uvEnvironment, venvOnOtherPython } from '../lib/engine/install'
 import { profileFor } from '../lib/engine/supervisor'
 import { EMPTY_SETTINGS, validateSettings } from '../lib/settings/schema'
 
@@ -37,6 +37,22 @@ eq(uvAsset('win32', 'x64'), 'uv-x86_64-pc-windows-msvc.zip', 'Windows')
 eq(uvAsset('linux', 'arm64'), 'uv-aarch64-unknown-linux-gnu.tar.gz', 'Linux on ARM')
 eq(uvAsset('darwin', 'arm64'), 'uv-aarch64-apple-darwin.tar.gz', 'macOS')
 eq(uvAsset('freebsd', 'x64'), null, 'no build')
+
+// uv runs apart from the user's own uv setup, on its own Python
+const runtime = { uvCache: 'R:/rt/cache', uvPython: 'R:/rt/python' }
+const uvEnv = uvEnvironment(runtime, { PATH: 'P', HF_TOKEN: 'h', UV_INDEX_URL: 'https://mirror.example', uv_python: '3.9', UV_CACHE_DIR: 'C:/elsewhere' })
+eq(
+  Object.keys(uvEnv).filter((name) => /^uv_/i.test(name)).sort(),
+  ['UV_CACHE_DIR', 'UV_MANAGED_PYTHON', 'UV_NO_CONFIG', 'UV_NO_PROGRESS', 'UV_PYTHON_INSTALL_DIR'],
+  "the user's own UV_* settings (any case) are dropped; only Latentry's are set"
+)
+eq([uvEnv.UV_CACHE_DIR, uvEnv.UV_PYTHON_INSTALL_DIR, uvEnv.UV_MANAGED_PYTHON, uvEnv.UV_NO_CONFIG], ['R:/rt/cache', 'R:/rt/python', '1', '1'], 'cache and Python in the runtime folder; uv-managed Python only; no uv.toml')
+eq([uvEnv.PATH, uvEnv.HF_TOKEN], ['P', 'h'], 'everything else is passed on')
+const cfg = (home: string) => `home = ${home}\nimplementation = CPython\nversion_info = 3.12.10\n`
+check(venvOnOtherPython(cfg('C:\\Users\\me\\AppData\\Local\\Programs\\Python\\Python312'), 'C:/app/.runtime/python', 'win32'), 'a venv on a Python installed elsewhere is made again')
+check(!venvOnOtherPython(cfg('C:\\app\\.runtime\\python\\cpython-3.12.10-windows-x86_64-none'), 'C:/APP/.runtime/python', 'win32'), "one on Latentry's own Python is kept (case-insensitive on Windows)")
+check(venvOnOtherPython(cfg('C:\\app\\.runtime\\python-other\\cpython-3.12'), 'C:/app/.runtime/python', 'win32'), 'a folder that only starts with the same name is not inside it')
+check(venvOnOtherPython('implementation = CPython\n', 'C:/app/.runtime/python', 'win32'), 'a pyvenv.cfg without a home is made again')
 
 // Catalog
 eq(new Set(CATALOG.map((entry) => entry.id)).size, CATALOG.length, 'catalog ids are unique')

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The engine keeps its own Python**: the engine install downloads Python
+  into `.runtime/` instead of building on a Python 3.12 already on this
+  computer, so updating or removing that Python no longer breaks the
+  engine. Your own uv settings (`UV_*` variables, `uv.toml`) no longer
+  change how the engine is installed. An existing engine is moved onto its
+  own Python at its next **Repair / update** (about 20 MB more, and its
+  packages are installed again).
+
 - **Tighter API limits**: network folders (`\\server\share`) are refused
   on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
   an existing settings file without it. A backend's redirect is reported as
