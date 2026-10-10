@@ -1,8 +1,7 @@
-import { readFile } from 'node:fs/promises'
 import { jsonError, readJson } from '@/lib/api'
 import { getTagger } from '@/lib/tagger'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
-import { isSafeName, resolveInDir } from '@/lib/gallery/fs'
+import { isSafeName, readInDir } from '@/lib/gallery/fs'
 import { metaFromText, readPngText } from '@/lib/image-meta'
 import { writeTags } from '@/lib/gallery/save'
 import { tryAcquire } from '@/lib/security/concurrency'
@@ -60,14 +59,14 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[di
       try {
         for (const name of names) {
           if (request.signal.aborted) break
-          const file = await resolveInDir(dir, name)
-          if (!file) {
-            counts.failed += 1
-            send({ name, status: 'failed', error: 'Not found' })
-            continue
-          }
           try {
-            const bytes = await readFile(file)
+            const picture = await readInDir(dir, name)
+            if (!picture) {
+              counts.failed += 1
+              send({ name, status: 'failed', error: 'Not found' })
+              continue
+            }
+            const { file, bytes } = picture
             if (skipTagged && file.toLowerCase().endsWith('.png') && metaFromText(readPngText(bytes))?.tags?.length) {
               counts.skipped += 1
               send({ name, status: 'skipped' })

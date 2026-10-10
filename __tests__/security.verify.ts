@@ -14,14 +14,16 @@ import { pathToFileURL } from 'node:url'
 import { check, done, eq } from './assert'
 import { POST as testBackend } from '../app/api/settings/test/route'
 import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
+import { POST as poseRoute } from '../app/api/gen/[backend]/pose/route'
 import { startJob } from '../lib/diffusion/job-store'
 import { editRefusal } from '../lib/settings/access'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
+import { securityHeaders } from '../lib/security/headers'
 import { checkApiRequest } from '../lib/security/route-guard'
 import { checkRequestBudget, classifyRequest, clientIp, FixedWindow, sseSlot } from '../lib/security/request-budget'
 import { bodyTooLarge } from '../lib/api'
-import { MAX_REQUEST_BODY_BYTES } from '../lib/limits'
+import { MAX_JSON_BODY_BYTES, MAX_REQUEST_BODY_BYTES } from '../lib/limits'
 import nextConfig from '../next.config'
 
 // ── Request body size ──
@@ -75,8 +77,8 @@ running = false
 eq(activeRun('run'), null, 'a finished run frees the slot by itself')
 
 // ── Route guard ──
-const guard = (method: string, headers: Record<string, string>, env: Record<string, string | undefined> = {}) =>
-  checkApiRequest({ method, headers: new Headers(headers) }, env)
+const guard = (method: string, headers: Record<string, string>, env: Record<string, string | undefined> = {}, pathname = '/api/gen/backends') =>
+  checkApiRequest({ method, headers: new Headers(headers), pathname }, env)
 const same = { host: 'localhost:3000', 'sec-fetch-site': 'same-origin' }
 check(guard('GET', same) === null, 'same-origin GET from localhost')
 check(guard('POST', { ...same, 'content-type': 'application/json' }) === null, 'same-origin JSON POST')
@@ -102,6 +104,32 @@ check(
   guard('GET', { host: 'mybox.local:3000', 'sec-fetch-site': 'same-origin' }, { ALLOWED_HOSTS: 'MyBox.local, other' }) === null,
   'ALLOWED_HOSTS opt-in, case-insensitive'
 )
+// Body size by route: only routes that carry a picture take a big body.
+const bodyStatus = (pathname: string, bytes: number) =>
+  guard('POST', { ...same, 'content-type': 'application/json', 'content-length': String(bytes) }, {}, pathname)?.status ?? 200
+eq(
+  ['/api/gen/anima/generate', '/api/gen/anima/pose', '/api/gen/tag'].map((pathname) => bodyStatus(pathname, 30 * 1024 * 1024)),
+  [200, 200, 200],
+  'generate, pose and tag take a picture-sized body'
+)
+eq(
+  ['/api/settings', '/api/pair', '/api/settings/test', '/api/gallery/0/a.png/tags', '/api/gallery/0/autotag', '/api/gen/anima/cancel'].map((pathname) =>
+    [bodyStatus(pathname, MAX_JSON_BODY_BYTES), bodyStatus(pathname, MAX_JSON_BODY_BYTES + 1)]
+  ),
+  Array(6).fill([200, 413]),
+  'every other route takes up to 1MB'
+)
+eq(bodyStatus('/api/gen/anima/generate', MAX_REQUEST_BODY_BYTES + 1), 413, 'a picture route still has the overall limit')
+eq(bodyStatus('/api/gen/a/b/generate', 30 * 1024 * 1024), 413, 'the picture routes are matched exactly')
+
+// ── Response headers ──
+const pageHeaders = securityHeaders('/gallery')
+const apiHeaders = securityHeaders('/api/gallery')
+eq([pageHeaders['Cache-Control'], pageHeaders['X-Frame-Options']], ['no-store', 'DENY'], 'pages are not cached and not framed')
+check(apiHeaders['Cache-Control'] === undefined, 'API routes keep their own Cache-Control')
+check(/camera=\(\)/.test(apiHeaders['Permissions-Policy']) && /microphone=\(\)/.test(pageHeaders['Permissions-Policy']), 'no camera or microphone')
+check(!/clipboard/.test(pageHeaders['Permissions-Policy']), 'copying tags to the clipboard still works')
+check(pageHeaders['Content-Security-Policy'].includes("frame-ancestors 'none'") && !pageHeaders['Content-Security-Policy'].includes('script-src'), 'a CSP that cannot break Next.js scripts')
 
 // ── Budget classes ──
 eq(classifyRequest('/', 'GET'), 'page', 'a page load')
@@ -126,6 +154,12 @@ const refused = window.take('ip', 20)
 check(!refused.ok && refused.reopensAt === 1000, 'the third waits for the window to reopen')
 check(window.take('other', 20).ok, 'windows are per key')
 check(window.take('ip', 1000).ok, 'a new window opens on time')
+// Bounded however many addresses turn up (the pairing window included).
+const crowded = new FixedWindow(5, 1000, 3)
+check(['a', 'b', 'c'].every((key) => crowded.take(key, 0).ok), 'room for three keys')
+check(!crowded.take('d', 10).ok && crowded.size === 3, 'a fourth new key is refused while the windows are open')
+check(crowded.take('a', 20).ok, 'keys already tracked carry on')
+check(crowded.take('d', 2500).ok && crowded.size === 1, 'old windows are swept as time passes, without anyone calling sweep')
 
 const env = { REQUEST_BUDGET_POST_PER_MIN: '2' }
 const post = (ip: string) =>
@@ -297,7 +331,43 @@ async function cancelling(): Promise<void> {
   }
 }
 
-stamping().then(preloadStamping).then(tokenLending).then(cancelling).then(
+// Pose previews hold a backend's GPU: a few at once, not a flood.
+async function heavyRequests(): Promise<void> {
+  const waiting: (() => void)[] = []
+  const server = createServer((request, response) => {
+    request.resume()
+    waiting.push(() => {
+      response.writeHead(200, { 'Content-Type': 'application/json' })
+      response.end('{"pose":null}')
+    })
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  Object.assign(process.env, {
+    LATENTRY_SETTINGS_FILE: path.join(tmpdir(), `latentry-audit-${process.pid}-none.json`),
+    GEN_BACKENDS: `poser|diffusers|http://127.0.0.1:${(server.address() as AddressInfo).port}/|generic`,
+  })
+  try {
+    const pose = () =>
+      poseRoute(
+        new Request('http://localhost:3000/api/gen/poser/pose', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ image_base64: 'iVBORw0KGgo=' }),
+        }),
+        { params: Promise.resolve({ backend: 'poser' }) } as never
+      )
+    const first = [pose(), pose()]
+    while (waiting.length < 2) await new Promise((resolve) => setTimeout(resolve, 10))
+    eq((await pose()).status, 409, 'a third pose preview while two run is refused')
+    waiting.forEach((answer) => answer())
+    await Promise.all(first)
+    eq(holders('gen:pose:poser'), 0, 'finished previews give their places back')
+  } finally {
+    server.close()
+  }
+}
+
+stamping().then(preloadStamping).then(tokenLending).then(cancelling).then(heavyRequests).then(
   () => done('security'),
   (error: unknown) => {
     check(false, `token lending check threw: ${error instanceof Error ? error.stack : String(error)}`)

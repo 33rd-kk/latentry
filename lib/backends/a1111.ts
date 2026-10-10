@@ -20,7 +20,7 @@ import { Agent, fetch as undiciFetch } from 'undici'
 import { loraCallsInPrompt } from '@/lib/image-meta'
 import { fitToImage, getProfile } from '@/lib/profiles'
 import { a1111Hints } from './hints'
-import { errorMessage, isAbortError, stripDataUrl } from './http'
+import { errorMessage, isAbortError, REDIRECT_REFUSED, stripDataUrl } from './http'
 import type {
   BackendAdapter,
   BackendConfig,
@@ -66,12 +66,18 @@ function httpTransport(config: BackendConfig): A1111Transport {
   if (config.token) headers.Authorization = `Basic ${Buffer.from(config.token).toString('base64')}`
 
   const call = async (path: string, init: { method: string; body?: string; timeoutMs: number | null }) => {
+    // Redirects are refused, not followed: see refuseRedirect.
     const response = await undiciFetch(new URL(path, config.url), {
       method: init.method,
       headers,
       body: init.body,
+      redirect: 'manual',
       ...(init.timeoutMs === null ? { dispatcher: longAgent } : { signal: AbortSignal.timeout(init.timeoutMs) }),
     })
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => {})
+      return { status: 502, body: { error: REDIRECT_REFUSED } }
+    }
     const text = await response.text()
     let body: unknown = null
     try {

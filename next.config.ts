@@ -29,6 +29,9 @@ const nextConfig: NextConfig = {
   // `next start`.
   ...(process.env.LATENTRY_DIST_DIR ? { distDir: process.env.LATENTRY_DIST_DIR } : {}),
   allowedDevOrigins: devOrigins(),
+  // Nothing uses next/image: turn its /_next/image endpoint off (it answers
+  // 404) rather than leave a fetch-and-resize service running.
+  images: { unoptimized: true },
   experimental: {
     // proxy.ts makes Next buffer each body, cut off at this size; the
     // default 10MB is smaller than a detailed img2img request.

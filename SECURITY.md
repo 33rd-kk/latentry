@@ -55,10 +55,24 @@ What it does guard against:
   only by headers. `SETTINGS_EDIT` changes that; see the README. With
   `SETTINGS_EDIT=lan`, anyone on the LAN can point a backend at their own
   server and receive the prompts and pictures sent to it from then on.
+- **Network folders**: the Settings page refuses `\\server\share` folders
+  unless `LATENTRY_ALLOW_UNC=1`, since checking one makes Windows sign in to
+  that server as you. Folders set in `.env.local` are not affected.
+- **Gallery files**: only pictures directly inside a configured folder are
+  served, tagged or opened. A link leading out of the folder, or to a file
+  that is not a picture, is refused, and files are read through the handle
+  that was checked.
 - **Backend tokens** are only sent to the server they were set up for (same
-  scheme, host and port), whoever edits the settings. A backend reached over
-  plain `http://` on another machine sends its prompts, pictures and token
-  unencrypted.
+  scheme, host and port), whoever edits the settings. Latentry does not
+  follow a backend's redirects, so prompts, pictures and tokens go only to
+  the address in Settings. A backend reached over plain `http://` on another
+  machine sends its prompts, pictures and token unencrypted.
+- **Request size and load**: requests that carry no picture are capped at
+  1 MB, the others at 48 MB; tagging and pose previews run at most two at a
+  time.
+- **Pages** are sent with `Cache-Control: no-store`, a Content-Security-Policy
+  that forbids framing and plugins, and a Permissions-Policy that turns off
+  the camera, microphone and location.
 - **The engine** listens on 127.0.0.1 with a random token only Latentry
   holds, and answers only requests addressed to a loopback name, so a web
   page that re-resolves its hostname to this machine cannot drive it. Run by

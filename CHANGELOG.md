@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Tighter API limits**: network folders (`\\server\share`) are refused
+  on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
+  an existing settings file without it. A backend's redirect is reported as
+  an error instead of followed. Requests without a picture are capped at
+  1 MB. Tagging and pose previews run at most two at a time. Pages are no
+  longer kept in the browser cache and get stricter security headers. The
+  unused `/_next/image` endpoint is off.
 - **Stricter engine API**: the built-in engine caps request bodies at 64 MB
   and prompts at 20,000 characters, checks `/api/pose` requests field by
   field, takes only `owner/name` repository ids for downloads, keeps a short

@@ -12,10 +12,12 @@
 //
 // Run from proxy.ts.
 
+import { maxBodyBytes } from '@/lib/limits'
+
 const UNSAFE_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 
 export interface RouteRejection {
-  status: 403 | 415
+  status: 403 | 413 | 415
   error: string
 }
 
@@ -49,7 +51,7 @@ function extraAllowedHosts(env: Record<string, string | undefined>): string[] {
 
 /** Returns why an /api request must be refused, or null to let it through. */
 export function checkApiRequest(
-  request: { method: string; headers: Headers },
+  request: { method: string; headers: Headers; pathname: string },
   env: Record<string, string | undefined>
 ): RouteRejection | null {
   // 1. DNS rebinding: only hosts that cannot be rebound (or explicitly listed).
@@ -87,6 +89,13 @@ export function checkApiRequest(
     if (type !== null && type.split(';')[0].trim().toLowerCase() !== 'application/json') {
       return { status: 415, error: 'Content-Type must be application/json' }
     }
+  }
+
+  // 4. A body no larger than the route needs: only pictures are big. Next
+  // still caps a body sent without Content-Length (see lib/limits.ts).
+  const length = Number(request.headers.get('content-length'))
+  if (Number.isFinite(length) && length > maxBodyBytes(request.pathname)) {
+    return { status: 413, error: 'Request body too large' }
   }
 
   return null

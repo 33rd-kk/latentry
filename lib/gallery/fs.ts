@@ -36,21 +36,23 @@ export interface GalleryItem extends GalleryEntry {
 export function isSafeName(name: string): boolean {
   if (!name || name.length > 255) return false
   if (name !== path.basename(name) || name !== path.win32.basename(name) || name !== path.posix.basename(name)) return false
-  if (name.startsWith('.') || name.includes('\0')) return false
+  // ':' names a Windows alternate data stream (a.txt:x.png); control characters have no place in a picture's name.
+  if (name.startsWith('.') || /[\0-\x1f\x7f:]/.test(name)) return false
   return IMAGE_EXTENSIONS.has(path.extname(name).toLowerCase())
 }
 
 /**
  * The real path of `name` inside `dir`, or null. Follows symlinks and then
- * checks that the result is still directly inside the folder, so a link that
- * points elsewhere is refused rather than served.
+ * checks that the result is still directly inside the folder, and still a
+ * picture, so a link that points elsewhere (or at a program) is refused
+ * rather than served or opened.
  */
 export async function resolveInDir(dir: GalleryDir, name: string): Promise<string | null> {
   if (!isSafeName(name)) return null
   try {
     const [realDir, realFile] = await Promise.all([realpath(dir.path), realpath(path.join(dir.path, name))])
     const same = (a: string, b: string) => (process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b)
-    if (!same(path.dirname(realFile), realDir)) return null
+    if (!same(path.dirname(realFile), realDir) || !IMAGE_EXTENSIONS.has(path.extname(realFile).toLowerCase())) return null
     const info = await stat(realFile)
     return info.isFile() ? realFile : null
   } catch {
@@ -86,6 +88,17 @@ export async function openInDir(
   } catch {
     await handle?.close().catch(() => {})
     return null
+  }
+}
+
+/** A picture in `dir`, read whole through openInDir; its real path and bytes, or null. */
+export async function readInDir(dir: GalleryDir, name: string): Promise<{ file: string; bytes: Buffer } | null> {
+  const opened = await openInDir(dir, name)
+  if (!opened) return null
+  try {
+    return { file: opened.file, bytes: await opened.handle.readFile() }
+  } finally {
+    await opened.handle.close()
   }
 }
 
