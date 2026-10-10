@@ -43,7 +43,8 @@ const everyUvBuild = ['win32', 'darwin', 'linux'].flatMap((platform) => ['x64', 
 check(everyUvBuild.every((asset) => isSha256(UV_SHA256[asset])), 'every uv build Latentry may download has a pinned SHA-256')
 eq(Object.keys(UV_SHA256).sort(), [...everyUvBuild].sort(), 'and nothing else is pinned')
 check(uvUrl('uv-x86_64-pc-windows-msvc.zip') === `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-pc-windows-msvc.zip`, 'uv comes from the pinned release, not "latest"')
-check(isPinnedUv(`uv ${UV_VERSION} (46b84fd0b 2026-10-03 x86_64-pc-windows-msvc)`) && !isPinnedUv('uv 0.13.0 (abc)') && !isPinnedUv(''), 'an installed uv is kept only when it is the pinned release')
+check(isPinnedUv(`uv ${UV_VERSION} (46b84fd0b 2026-10-03 x86_64-pc-windows-msvc)`), 'an installed uv of the pinned release is kept')
+check(!isPinnedUv('uv 0.12.23 (46b84fd0b 2026-10-03 x86_64-pc-windows-msvc)') && !isPinnedUv('uv 0.13.1 (abc)') && !isPinnedUv(''), 'any other release is replaced, older or newer')
 
 // Catalog
 eq(new Set(CATALOG.map((entry) => entry.id)).size, CATALOG.length, 'catalog ids are unique')

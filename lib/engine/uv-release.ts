@@ -3,15 +3,15 @@
 // another release, run `node scripts/pin-downloads.mjs uv <version>` and paste
 // what it prints here.
 
-export const UV_VERSION = '0.12.23'
+export const UV_VERSION = '0.13.0'
 
 export const UV_SHA256: Record<string, string> = {
-  'uv-x86_64-pc-windows-msvc.zip': '75d05de6762778c31ee183398de7dd15093fad0ed90b1f236d8205ea5ec00c90',
-  'uv-aarch64-pc-windows-msvc.zip': '13294e232ececbe709c06b74e6ced06f2a225ea5591476685362f22be56a50d5',
-  'uv-x86_64-apple-darwin.tar.gz': '960da44cb4b73685206ddd250b19e0a117fa41095710c1038f081f5cb613efb4',
-  'uv-aarch64-apple-darwin.tar.gz': '50487ae565ccd96e499056b4674d438f4c53170202617b4c759defe0c6a1b544',
-  'uv-x86_64-unknown-linux-gnu.tar.gz': '9167d72b3319674b6303c4cbe071854bba13ebdf3d76b1a7cbdc175471fb66d6',
-  'uv-aarch64-unknown-linux-gnu.tar.gz': '6524bd338177ed50d035d39354e12545e993bbeba2ecbddf0480c5b3a81d313f',
+  'uv-x86_64-pc-windows-msvc.zip': '088962f9e7b7bd9ea740c04c650b2a21c8928c345bd99ac24350dc924dba656c',
+  'uv-aarch64-pc-windows-msvc.zip': 'cb54028b59aa87f11cf6dec293ce000420043a49a8aea522e822a671321f8932',
+  'uv-x86_64-apple-darwin.tar.gz': '5f44dcbde809b632f47c36fadb241cb4d6f9af71d0c8f172b5d2026d3dde742c',
+  'uv-aarch64-apple-darwin.tar.gz': 'a9c1b29002cf3c83f07fa9cd8a887a3be0107d90e23189721221e7257db8e3d6',
+  'uv-x86_64-unknown-linux-gnu.tar.gz': '1468ebd5a5541121837c5a2817b9972ba6090fa6caa3d142620850a47fb75154',
+  'uv-aarch64-unknown-linux-gnu.tar.gz': '3ccfb6af6e242433eb552f7d9676abd5412c6595c497e990d9c8cb7b5bd4d2c3',
 }
 
 /** Where a build of the pinned release is downloaded from. */

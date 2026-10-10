@@ -30,7 +30,7 @@ async function text(url, headers = {}) {
 }
 
 async function uv(version) {
-  if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error('usage: pin-downloads.mjs uv <version>, e.g. 0.12.23')
+  if (!/^\d+\.\d+\.\d+$/.test(version ?? '')) throw new Error('usage: pin-downloads.mjs uv <version>, e.g. 0.13.0')
   console.log(`export const UV_VERSION = '${version}'`)
   console.log('export const UV_SHA256: Record<string, string> = {')
   for (const asset of UV_ASSETS) {
