@@ -20,6 +20,7 @@ falls back to `.env.local`. Restart Latentry after editing `.env.local`.
 | `LATENTRY_HOST` | `127.0.0.1` | `0.0.0.0` to use Latentry from other devices |
 | `SETTINGS_EDIT` | `local` | Who may change settings: `local`, `lan` or `off` |
 | `LATENTRY_SETTINGS_FILE` | `./latentry.settings.json` | Where the Settings page saves |
+| `LATENTRY_ALLOW_UNC` | off | `1`: let the Settings page use network folders (`\\server\share`) |
 | `ALLOWED_HOSTS` | — | Extra hostnames `/api` answers for (behind a reverse proxy) |
 | `REQUEST_BUDGET_*` | see below | Per-device request limits; `REQUEST_BUDGET=off` turns them off |
 | `LATENTRY_ENGINE` | on | `off`: do not start the built-in engine with Latentry |

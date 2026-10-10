@@ -13,7 +13,7 @@ export async function POST(request: Request) {
   if (editRefusal(request.headers)) return jsonError('Only from this computer', 403)
   const body = await readJson(request)
   const id = typeof body?.id === 'string' ? body.id : ''
-  if (!id || id.length > 200 || /[\/]|\.\./.test(id)) return jsonError('A model id from the models folder', 400)
+  if (!id || id.length > 200 || /[\\/]|\.\./.test(id)) return jsonError('A model id from the models folder', 400)
 
   const running = engines().filter((engine) => engine.state === 'running')
   if (!running.length) return jsonError('No engine is running', 409)

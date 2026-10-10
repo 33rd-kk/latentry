@@ -114,7 +114,28 @@ export function sameOrigin(a: string, b: string): boolean {
   }
 }
 
-const isAbsolute =(value: string) => /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value)
+type Env = Record<string, string | undefined>
+
+const isAbsolute = (value: string) => /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(value)
+
+/**
+ * A network share (\\server\share, //server/share) or a \\?\ device path.
+ * Allowed only with LATENTRY_ALLOW_UNC=1: checking such a folder makes Windows
+ * sign in to that server with this user's account, so whoever may edit the
+ * settings could hand that sign-in to a machine of their choosing.
+ */
+export const isNetworkPath = (value: string) => /^(?:\\\\|\/\/)/.test(value)
+
+export function networkPathsAllowed(env: Env = process.env): boolean {
+  return env.LATENTRY_ALLOW_UNC?.trim() === '1'
+}
+
+/** The error for a folder field, or null when the folder may be stored. */
+function folderError(value: string, env: Env): string | null {
+  if (!isAbsolute(value)) return 'settings.errorAbsolute'
+  if (isNetworkPath(value) && !networkPathsAllowed(env)) return 'settings.errorNetworkPath'
+  return null
+}
 
 function numberIn(value: unknown, min: number, max: number): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max ? value : null
@@ -147,10 +168,12 @@ export interface SettingsInput {
  * returns what to store, or the errors by field. `null` for a part means "go
  * back to the environment" and removes it from the file. Directory existence
  * is checked separately (./store.ts), since that needs the file system.
+ * Network folders need LATENTRY_ALLOW_UNC=1 in `env` (see isNetworkPath).
  */
 export function validateSettings(
   input: SettingsInput,
-  current: Settings
+  current: Settings,
+  env: Env = process.env
 ): { ok: true; settings: Settings } | { ok: false; errors: SettingsErrors } {
   const errors: SettingsErrors = {}
   const next: Settings = { version: SETTINGS_VERSION }
@@ -212,8 +235,11 @@ export function validateSettings(
     const wd14: Wd14Settings = {}
     const { modelDir, general, character } = input.wd14
     if (modelDir === null || modelDir === '') wd14.modelDir = null
-    else if (typeof modelDir === 'string' && isAbsolute(modelDir.trim())) wd14.modelDir = modelDir.trim()
-    else if (modelDir !== undefined) errors['wd14.modelDir'] = 'settings.errorAbsolute'
+    else if (typeof modelDir === 'string') {
+      const error = folderError(modelDir.trim(), env)
+      if (error) errors['wd14.modelDir'] = error
+      else wd14.modelDir = modelDir.trim()
+    } else if (modelDir !== undefined) errors['wd14.modelDir'] = 'settings.errorAbsolute'
     for (const [field, value] of [['general', general], ['character', character]] as const) {
       if (value === undefined || value === null || value === '') continue
       const number = numberIn(value, 0.01, 1)
@@ -230,14 +256,18 @@ export function validateSettings(
     const gallery: GallerySettings = {}
     const { saveDir, dirs, autoTag, loraHashes } = input.gallery
     if (saveDir === null || saveDir === '') gallery.saveDir = null
-    else if (typeof saveDir === 'string' && isAbsolute(saveDir.trim())) gallery.saveDir = saveDir.trim()
-    else if (saveDir !== undefined) errors['gallery.saveDir'] = 'settings.errorAbsolute'
+    else if (typeof saveDir === 'string') {
+      const error = folderError(saveDir.trim(), env)
+      if (error) errors['gallery.saveDir'] = error
+      else gallery.saveDir = saveDir.trim()
+    } else if (saveDir !== undefined) errors['gallery.saveDir'] = 'settings.errorAbsolute'
     if (dirs !== undefined) {
       if (!Array.isArray(dirs)) errors['gallery.dirs'] = 'settings.errorList'
       else {
         const cleaned = dirs.map((dir) => (typeof dir === 'string' ? dir.trim() : '')).filter(Boolean)
         cleaned.forEach((dir, index) => {
-          if (!isAbsolute(dir)) errors[`gallery.dirs.${index}`] = 'settings.errorAbsolute'
+          const error = folderError(dir, env)
+          if (error) errors[`gallery.dirs.${index}`] = error
         })
         gallery.dirs = cleaned
       }
@@ -302,8 +332,11 @@ export function validateSettings(
     const { autoStart, modelsDir, basePort, gpus, model } = input.engine
     if (autoStart !== undefined) engine.autoStart = autoStart !== false
     if (modelsDir === null || modelsDir === '') engine.modelsDir = null
-    else if (typeof modelsDir === 'string' && isAbsolute(modelsDir.trim())) engine.modelsDir = modelsDir.trim()
-    else if (modelsDir !== undefined) errors['engine.modelsDir'] = 'settings.errorAbsolute'
+    else if (typeof modelsDir === 'string') {
+      const error = folderError(modelsDir.trim(), env)
+      if (error) errors['engine.modelsDir'] = error
+      else engine.modelsDir = modelsDir.trim()
+    } else if (modelsDir !== undefined) errors['engine.modelsDir'] = 'settings.errorAbsolute'
     if (basePort !== undefined && basePort !== null && basePort !== '') {
       const port = numberIn(basePort, 1024, 65000)
       if (port === null || !Number.isInteger(port)) errors['engine.basePort'] = 'settings.errorPort'
@@ -335,20 +368,20 @@ export function redactSettings(settings: Settings): Omit<Settings, 'backends'> &
 }
 
 /** A settings file as read from disk, with anything malformed dropped rather than trusted. */
-export function parseStoredSettings(raw: unknown): Settings {
+export function parseStoredSettings(raw: unknown, env: Env = process.env): Settings {
   if (!raw || typeof raw !== 'object') return EMPTY_SETTINGS
-  const checked = validateSettings(raw as SettingsInput, EMPTY_SETTINGS)
+  const checked = validateSettings(raw as SettingsInput, EMPTY_SETTINGS, env)
   if (checked.ok) return checked.settings
   // A hand-edited file with one bad field: keep the parts that are fine.
   const parts: SettingsInput = {}
   const record = raw as Record<string, unknown>
   for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine'] as const) {
     if (record[part] === undefined) continue
-    const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS)
+    const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS, env)
     if (one.ok) Object.assign(parts, { [part]: record[part] })
     else console.warn(`[settings] ignoring "${part}" in the settings file:`, one.errors)
   }
-  const salvaged = validateSettings(parts, EMPTY_SETTINGS)
+  const salvaged = validateSettings(parts, EMPTY_SETTINGS, env)
   return salvaged.ok ? salvaged.settings : EMPTY_SETTINGS
 }
 

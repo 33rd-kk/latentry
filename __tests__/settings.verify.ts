@@ -97,7 +97,22 @@ async function main() {
   const reset = validateSettings({ backends: null }, current)
   check(reset.ok && reset.settings.backends === undefined, 'null removes a part')
 
-  eq(redactSettings(current).backends, [{ id: 'a', kind: 'a1111', url: 'http://x/', profile: 'sdxl', hasToken: true }], 'tokens never leave redacted settings')
+  // Network folders only with LATENTRY_ALLOW_UNC=1: checking one signs in to that server.
+  const shares = ['\\\\nas\\pictures', '//nas/pictures', '\\\\?\\UNC\\nas\\pictures', '\\\\?\\C:\\pictures']
+  for (const share of shares) {
+    const refused = validateSettings({ gallery: { saveDir: share, dirs: [share] }, wd14: { modelDir: share }, engine: { modelsDir: share } }, EMPTY_SETTINGS, {})
+    eq(
+      refused.ok ? 'ok' : [refused.errors['gallery.saveDir'], refused.errors['gallery.dirs.0'], refused.errors['wd14.modelDir'], refused.errors['engine.modelsDir']],
+      Array(4).fill('settings.errorNetworkPath'),
+      `a network folder is refused in every folder field: ${share}`
+    )
+  }
+  const allowed = validateSettings({ gallery: { saveDir: shares[0], dirs: [shares[1]] } }, EMPTY_SETTINGS, { LATENTRY_ALLOW_UNC: '1' })
+  check(allowed.ok && allowed.settings.gallery?.saveDir === shares[0], 'LATENTRY_ALLOW_UNC=1 allows network folders')
+  check(validateSettings({ gallery: { saveDir: ABS } }, EMPTY_SETTINGS, {}).ok, 'a local folder needs nothing')
+  eq(parseStoredSettings({ version: 1, gallery: { saveDir: shares[0] } }, {}).gallery, undefined, 'a network folder in the file is ignored without the switch')
+
+  eq(redactSettings(current).backends,[{ id: 'a', kind: 'a1111', url: 'http://x/', profile: 'sdxl', hasToken: true }], 'tokens never leave redacted settings')
 
   // A hand-edited file with one bad part keeps the rest.
   const salvaged = parseStoredSettings({ version: 1, backends: [{ id: 'BAD ID' }], gallery: { saveDir: ABS } })
@@ -137,6 +152,8 @@ async function main() {
   eq(editRefusal(headers('localhost:3000', '192.168.1.30'), {}), 'notLocal', 'a LAN client behind a localhost Host may not')
   eq(editRefusal(headers('192.168.1.20:3000', '192.168.1.30'), { SETTINGS_EDIT: 'lan' }), null, 'SETTINGS_EDIT=lan opens it to the network')
   eq(editRefusal(headers('localhost:3000', '127.0.0.1'), { SETTINGS_EDIT: 'off' }), 'off', 'SETTINGS_EDIT=off closes it everywhere')
+  // No stamping here (no server): a production server in that state trusts no one as local.
+  eq(editRefusal(headers('localhost:3000', '127.0.0.1'), { NODE_ENV: 'production' }), 'notLocal', 'a production server that cannot see the real address does not take headers for it')
 
   // ── Folder checks ──
   const root = await mkdtemp(path.join(tmpdir(), 'latentry-settings-'))

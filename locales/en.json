@@ -448,6 +448,7 @@
     "errorToken": "Not a valid token.",
     "errorTokenMoved": "The address changed: type the token again, or remove it. A saved token is only sent to the server it was saved for.",
     "errorAbsolute": "A full path, e.g. D:\\pictures\\latentry or /home/me/pictures.",
+    "errorNetworkPath": "Network folders (\\\\server\\share) are off: checking one signs in to that server as you. Set LATENTRY_ALLOW_UNC=1 in .env.local to allow them.",
     "errorSize": "256 to 4096, a multiple of 8.",
     "errorSteps": "A whole number from 1 to 200.",
     "errorCfg": "0 to 30.",

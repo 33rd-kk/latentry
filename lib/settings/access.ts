@@ -39,9 +39,14 @@ function hostnameOf(host: string): string {
  * really came from are all loopback. Also used for what only makes sense on
  * this machine, like opening a picture in its file manager.
  */
-export function isFromThisMachine(headers: Headers): boolean {
+export function isFromThisMachine(headers: Headers, env: Env = process.env): boolean {
   const host = hostnameOf(headers.get('host') ?? '')
   const peer = peerAddress(headers)
+  // A server that is not stamping (started some way that skipped
+  // scripts/serve.mjs and instrumentation.ts) cannot tell; a production one
+  // then counts nobody as local rather than trusting the headers alone.
+  // The verify scripts call route code directly, with no server to stamp.
+  if (peer === undefined && env.NODE_ENV === 'production') return false
   return isLoopback(host) && isLoopback(clientIp(headers)) && (peer === undefined || isLoopback(peer))
 }
 
@@ -50,5 +55,5 @@ export function editRefusal(headers: Headers, env: Env = process.env): 'off' | '
   const mode = editMode(env)
   if (mode === 'off') return 'off'
   if (mode === 'lan') return null
-  return isFromThisMachine(headers) ? null : 'notLocal'
+  return isFromThisMachine(headers, env) ? null : 'notLocal'
 }

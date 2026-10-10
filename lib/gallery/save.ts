@@ -7,12 +7,12 @@
 // gallery reads them back, and "generate with these settings" restores them.
 
 import { randomBytes } from 'node:crypto'
-import { access, mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { getTagger } from '@/lib/tagger'
 import { serverMessage } from '@/lib/i18n/core'
 import { autoTagEnabled, getSaveDir, loraHashesEnabled, type GalleryDir } from './dirs'
-import { invalidateListing, resolveInDir } from './fs'
+import { invalidateListing, readInDir } from './fs'
 import {
   formatA1111Parameters,
   isPng,
@@ -148,10 +148,11 @@ async function autoTag(dir: GalleryDir, name: string, imageBase64: string): Prom
  */
 export async function writeTags(dir: GalleryDir, name: string, tags: ImageTag[]): Promise<boolean> {
   if (!dir.writable) return false
-  const file = await resolveInDir(dir, name)
-  if (!file || path.extname(file).toLowerCase() !== '.png') return false
-  const png = await readFile(file)
-  await writeAtomically(file, writePngText(png, { [TAGS_KEY]: JSON.stringify(tags) }))
+  // Read through the opened file, not by name again (see openInDir). The
+  // write replaces the folder's entry, never a file a link points at.
+  const picture = await readInDir(dir, name)
+  if (!picture || path.extname(picture.file).toLowerCase() !== '.png') return false
+  await writeAtomically(picture.file, writePngText(picture.bytes, { [TAGS_KEY]: JSON.stringify(tags) }))
   invalidateListing(dir)
   return true
 }

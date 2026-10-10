@@ -5,6 +5,8 @@
  *
  * Run with: npm test -- backends
  */
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import {
@@ -15,7 +17,8 @@ import {
   toA1111Payload,
   type A1111Transport,
 } from '../lib/backends/a1111'
-import { toEvent } from '../lib/backends/diffusers'
+import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
+import { REDIRECT_REFUSED } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
 import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL } from '../lib/backends/hints'
 import { applyEvent, consumeEvents, getCurrentJob, startJob, toSnapshot } from '../lib/diffusion/job-store'
@@ -299,7 +302,37 @@ async function main() {
   eq(a1111Hints(true), { pose: { reason: 'kind' } }, 'A1111 cannot take a pose, by kind')
   eq(a1111Hints(false), {}, 'an A1111 that is down gets no feature hints')
 
+  // ── Redirects are refused, not followed ──
+  // A backend that answers 307 must not get the prompt or the token sent on.
+  const elsewhere = await listen(() => 200)
+  const redirecting = await listen(() => [307, `${elsewhere.url}/stolen`])
+  const diffusers = new DiffusersAdapter({ id: 'r', kind: 'diffusers', url: redirecting.url, profile: 'generic', token: 'secret' })
+  const redirected = await diffusers.start(REQUEST)
+  check(!redirected.ok && redirected.status === 502 && redirected.error === REDIRECT_REFUSED, 'diffusers: a redirected generate is refused with a clear error')
+  check(!(await diffusers.status()).alive, 'diffusers: a redirected health check is not alive')
+  const a1111 = new A1111Adapter({ id: 'r', kind: 'a1111', url: redirecting.url, profile: 'generic', token: 'secret' })
+  check(!(await a1111.status()).alive, 'A1111: a redirected status is not alive')
+  eq(elsewhere.hits, [], 'nothing reached the address the redirect pointed at')
+  check(redirecting.hits.length > 0, 'the backend itself was asked')
+  elsewhere.server.close()
+  redirecting.server.close()
+
   done('backends')
+}
+
+/** A local server that records each request and answers with `reply`'s status (and Location). */
+async function listen(reply: () => number | [number, string]) {
+  const hits: string[] = []
+  const server = createServer((request, response) => {
+    hits.push(`${request.method} ${request.url}`)
+    request.resume()
+    const answer = reply()
+    const [status, location] = Array.isArray(answer) ? answer : [answer, undefined]
+    response.writeHead(status, { 'Content-Type': 'application/json', ...(location ? { Location: location } : {}) })
+    response.end('{}')
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  return { server, hits, url: `http://127.0.0.1:${(server.address() as AddressInfo).port}` }
 }
 
 void main()
