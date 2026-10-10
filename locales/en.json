@@ -548,6 +548,7 @@
     "accept": "I have read the license and accept it",
     "download": "Download · {size}",
     "downloading": "Downloading {done} of {total}",
+    "verifying": "Checking the files against their published checksums…",
     "downloaded": "Downloaded",
     "downloadFailed": "Download failed: {error}",
     "recommended": "Recommended",

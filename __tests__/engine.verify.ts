@@ -7,7 +7,9 @@
 import { check, done, eq } from './assert'
 import { CATALOG, catalogEntry, engineModelId } from '../lib/engine/catalog'
 import { chooseTorch, parseNvidiaSmi, type Gpu } from '../lib/engine/gpus'
-import { uvAsset } from '../lib/engine/install'
+import { isSha256 } from '../lib/engine/download'
+import { isPinnedUv, uvAsset } from '../lib/engine/install'
+import { UV_SHA256, UV_VERSION, uvUrl } from '../lib/engine/uv-release'
 import { profileFor } from '../lib/engine/supervisor'
 import { EMPTY_SETTINGS, validateSettings } from '../lib/settings/schema'
 
@@ -37,12 +39,23 @@ eq(uvAsset('win32', 'x64'), 'uv-x86_64-pc-windows-msvc.zip', 'Windows')
 eq(uvAsset('linux', 'arm64'), 'uv-aarch64-unknown-linux-gnu.tar.gz', 'Linux on ARM')
 eq(uvAsset('darwin', 'arm64'), 'uv-aarch64-apple-darwin.tar.gz', 'macOS')
 eq(uvAsset('freebsd', 'x64'), null, 'no build')
+const everyUvBuild = ['win32', 'darwin', 'linux'].flatMap((platform) => ['x64', 'arm64'].map((arch) => uvAsset(platform as NodeJS.Platform, arch)!))
+check(everyUvBuild.every((asset) => isSha256(UV_SHA256[asset])), 'every uv build Latentry may download has a pinned SHA-256')
+eq(Object.keys(UV_SHA256).sort(), [...everyUvBuild].sort(), 'and nothing else is pinned')
+check(uvUrl('uv-x86_64-pc-windows-msvc.zip') === `https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-pc-windows-msvc.zip`, 'uv comes from the pinned release, not "latest"')
+check(isPinnedUv(`uv ${UV_VERSION} (46b84fd0b 2026-10-03 x86_64-pc-windows-msvc)`) && !isPinnedUv('uv 0.13.0 (abc)') && !isPinnedUv(''), 'an installed uv is kept only when it is the pinned release')
 
 // Catalog
 eq(new Set(CATALOG.map((entry) => entry.id)).size, CATALOG.length, 'catalog ids are unique')
 check(CATALOG.every((entry) => entry.license && entry.licenseUrl.startsWith('https://') && entry.terms), 'every entry states its license')
 check(CATALOG.filter((entry) => entry.kind === 'checkpoint').every((entry) => entry.family && entry.profile), 'every checkpoint has a family and profile')
 check(CATALOG.filter((entry) => entry.kind === 'tagger').every((entry) => entry.files?.includes('model.onnx') && entry.files.includes('selected_tags.csv')), 'taggers fetch the model and its tags')
+check(CATALOG.every((entry) => /^[0-9a-f]{40}$/.test(entry.revision)), 'every entry downloads a pinned commit')
+check(
+  CATALOG.every((entry) => [...(entry.filename ? [entry.filename] : []), ...(entry.files ?? [])].every((file) => isSha256(entry.sha256?.[file]))),
+  'every single file has a pinned SHA-256'
+)
+check(CATALOG.every((entry) => entry.filename || entry.files || !entry.sha256), 'a whole folder is checked by its commit instead')
 check(!catalogEntry('noobai-xl-1.1')!.commercialOutputs, 'NoobAI is marked non-commercial')
 eq(engineModelId(catalogEntry('illustrious-xl-2.0')!), 'Illustrious-XL-v2.0.safetensors', 'a single file is its file name')
 eq(engineModelId(catalogEntry('anima-base-1.0')!), 'Anima-Base-v1.0-Diffusers', 'a repository is its folder name')

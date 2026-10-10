@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Pinned downloads**: the engine install fetches uv 0.12.23 instead of
+  the latest release, and checks it against its SHA-256 before running it.
+  Models and taggers from the Setup page come from a fixed commit of their
+  repository, and each file is checked against its SHA-256. A file that
+  does not match is not kept, and the page says so.
+
 - **Tighter API limits**: network folders (`\\server\share`) are refused
   on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
   an existing settings file without it. A backend's redirect is reported as

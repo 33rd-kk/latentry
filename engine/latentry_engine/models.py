@@ -13,6 +13,7 @@ files on every start.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
@@ -115,7 +116,10 @@ class Download:
     id: str
     repo_id: str
     filename: str | None
-    state: str = "queued"  # queued | downloading | done | error
+    # The commit downloaded, and the file's SHA-256 (see Downloads).
+    revision: str = ""
+    sha256: str | None = None
+    state: str = "queued"  # queued | downloading | verifying | done | error
     done_bytes: int = 0
     total_bytes: int = 0
     error: str | None = None
@@ -136,6 +140,28 @@ class Download:
 
 
 _REPO_PART = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}")
+_COMMIT = re.compile(r"[0-9a-f]{40}")
+_SHA256 = re.compile(r"[0-9a-f]{64}")
+
+
+def sha256_of(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        for chunk in iter(lambda: file.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def verify_files(folder: Path, expected: dict[str, str]) -> list[str]:
+    """Checks each file under `folder` against its SHA-256; removes and
+    returns the ones that are missing or do not match."""
+    bad = []
+    for name, sha256 in expected.items():
+        path = folder / name
+        if not path.is_file() or sha256_of(path) != sha256:
+            path.unlink(missing_ok=True)
+            bad.append(name)
+    return bad
 
 
 def is_repo_id(repo_id: str) -> bool:
@@ -156,10 +182,14 @@ class Downloads:
         self.items: dict[str, Download] = {}
         self._lock = threading.Lock()
 
-    def start(self, repo_id: str, filename: str | None) -> Download:
+    def start(self, repo_id: str, filename: str | None, revision: str, sha256: str | None = None) -> Download:
         if not is_repo_id(repo_id):
             raise ValueError("repo_id is owner/name")
-        item = Download(uuid.uuid4().hex, repo_id, filename)
+        if not _COMMIT.fullmatch(revision):
+            raise ValueError("revision is a commit hash")
+        if filename is not None and not (sha256 and _SHA256.fullmatch(sha256)):
+            raise ValueError("a single file needs its sha256")
+        item = Download(uuid.uuid4().hex, repo_id, filename, revision, sha256)
         finished = [key for key, old in self.items.items() if old.state in ("done", "error")]
         for key in finished[: max(0, len(finished) - self.KEEP_FINISHED + 1)]:
             del self.items[key]
@@ -186,19 +216,27 @@ class Downloads:
         import requests
         from huggingface_hub import hf_hub_url
 
-        url = hf_hub_url(item.repo_id, item.filename)
+        url = hf_hub_url(item.repo_id, item.filename, revision=item.revision)
         headers = {"Authorization": f"Bearer {os.environ['HF_TOKEN']}"} if os.environ.get("HF_TOKEN") else {}
         target = self.models_dir / Path(item.filename).name
         partial = target.with_name(target.name + ".part")
-        with requests.get(url, headers=headers, stream=True, timeout=60) as response:
-            if response.status_code in (401, 403):
-                raise RuntimeError("This model needs a Hugging Face token or accepting its license on huggingface.co (set HF_TOKEN).")
-            response.raise_for_status()
-            item.total_bytes = int(response.headers.get("content-length") or 0)
-            with partial.open("wb") as file:
-                for chunk in response.iter_content(chunk_size=1 << 20):
-                    file.write(chunk)
-                    item.done_bytes += len(chunk)
+        digest = hashlib.sha256()
+        try:
+            with requests.get(url, headers=headers, stream=True, timeout=60) as response:
+                if response.status_code in (401, 403):
+                    raise RuntimeError("This model needs a Hugging Face token or accepting its license on huggingface.co (set HF_TOKEN).")
+                response.raise_for_status()
+                item.total_bytes = int(response.headers.get("content-length") or 0)
+                with partial.open("wb") as file:
+                    for chunk in response.iter_content(chunk_size=1 << 20):
+                        file.write(chunk)
+                        digest.update(chunk)
+                        item.done_bytes += len(chunk)
+            if digest.hexdigest() != item.sha256:
+                raise RuntimeError(f"{item.filename} did not match its pinned SHA-256; nothing was kept")
+        except BaseException:
+            partial.unlink(missing_ok=True)
+            raise
         partial.replace(target)
         item.model_id = target.name
 
@@ -207,7 +245,7 @@ class Downloads:
         from huggingface_hub import HfApi, snapshot_download
 
         api = HfApi(token=os.environ.get("HF_TOKEN") or None)
-        info = api.model_info(item.repo_id, files_metadata=True)
+        info = api.model_info(item.repo_id, revision=item.revision, files_metadata=True)
         wanted = [
             sibling for sibling in info.siblings or []
             # Skip duplicate weight formats a diffusers load never reads.
@@ -228,9 +266,17 @@ class Downloads:
         threading.Thread(target=progress, daemon=True).start()
         snapshot_download(
             item.repo_id,
+            revision=item.revision,
             local_dir=target,
             allow_patterns=[sibling.rfilename for sibling in wanted],
             token=os.environ.get("HF_TOKEN") or None,
         )
         item.done_bytes = item.total_bytes
+        # The weights (LFS files) against the hashes the pinned commit records.
+        # The small config files are text in the commit itself.
+        item.state = "verifying"
+        expected = {sibling.rfilename: sibling.lfs.sha256 for sibling in wanted if getattr(sibling, "lfs", None)}
+        bad = verify_files(target, expected)
+        if bad:
+            raise RuntimeError(f"{', '.join(bad)} did not match the pinned commit's SHA-256 and were removed")
         item.model_id = target.name

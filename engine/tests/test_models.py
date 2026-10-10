@@ -6,6 +6,7 @@ with no tensors behind them, which is all the scan reads.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import struct
 from pathlib import Path
@@ -76,3 +77,78 @@ def test_find_and_a_missing_folder(tmp_path: Path) -> None:
     assert models.find(tmp_path, "one.safetensors") is not None
     assert models.find(tmp_path, "two.safetensors") is None
     assert models.scan(tmp_path / "missing") == []
+
+
+# ── Downloads are checked against their pins ──
+
+COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+
+class FakeResponse:
+    def __init__(self, body: bytes) -> None:
+        self.body = body
+        self.status_code = 200
+        self.headers = {"content-length": str(len(body))}
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args: object) -> None:
+        return None
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def iter_content(self, chunk_size: int):
+        yield self.body
+
+
+def fetch_one_file(tmp_path: Path, monkeypatch, body: bytes, sha256: str) -> tuple[models.Download, list[str]]:
+    import huggingface_hub
+    import requests
+
+    asked: list[str] = []
+    monkeypatch.setattr(huggingface_hub, "hf_hub_url", lambda repo, filename, revision: f"https://hf.example/{repo}/resolve/{revision}/{filename}")
+    monkeypatch.setattr(requests, "get", lambda url, **kwargs: asked.append(url) or FakeResponse(body))
+    downloads = models.Downloads(tmp_path)
+    item = models.Download("one", "owner/name", "model.safetensors", COMMIT, sha256)
+    downloads._run(item)
+    return item, asked
+
+
+def test_a_single_file_is_kept_only_when_its_hash_matches(tmp_path: Path, monkeypatch) -> None:
+    body = b"weights"
+    item, asked = fetch_one_file(tmp_path, monkeypatch, body, hashlib.sha256(body).hexdigest())
+    assert item.state == "done" and (tmp_path / "model.safetensors").read_bytes() == body
+    assert asked == [f"https://hf.example/owner/name/resolve/{COMMIT}/model.safetensors"], "the pinned commit, not main"
+
+
+def test_a_single_file_with_the_wrong_hash_leaves_nothing(tmp_path: Path, monkeypatch) -> None:
+    item, _ = fetch_one_file(tmp_path, monkeypatch, b"tampered", hashlib.sha256(b"weights").hexdigest())
+    assert item.state == "error" and "SHA-256" in (item.error or "")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_verify_files_removes_what_does_not_match(tmp_path: Path) -> None:
+    (tmp_path / "unet").mkdir()
+    (tmp_path / "unet" / "good.safetensors").write_bytes(b"good")
+    (tmp_path / "unet" / "bad.safetensors").write_bytes(b"bad")
+    expected = {
+        "unet/good.safetensors": hashlib.sha256(b"good").hexdigest(),
+        "unet/bad.safetensors": hashlib.sha256(b"something else").hexdigest(),
+        "unet/missing.safetensors": hashlib.sha256(b"x").hexdigest(),
+    }
+    assert models.verify_files(tmp_path, expected) == ["unet/bad.safetensors", "unet/missing.safetensors"]
+    assert (tmp_path / "unet" / "good.safetensors").exists()
+    assert not (tmp_path / "unet" / "bad.safetensors").exists()
+
+
+def test_start_refuses_a_branch_or_a_file_without_its_hash(tmp_path: Path) -> None:
+    downloads = models.Downloads(tmp_path)
+    for args in [("owner/name", None, "main"), ("owner/name", "model.safetensors", COMMIT), ("owner/name", "model.safetensors", COMMIT, "abc")]:
+        try:
+            downloads.start(*args)
+        except ValueError:
+            continue
+        raise AssertionError(f"started {args}")
+    assert downloads.items == {}
