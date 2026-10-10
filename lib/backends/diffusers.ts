@@ -7,7 +7,7 @@
 
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { loraName, type LoraUse } from '@/lib/image-meta'
-import { errorMessage, fetchWithTimeout, getJson, isAbortError } from './http'
+import { errorMessage, fetchWithTimeout, getJson, isAbortError, refuseRedirect } from './http'
 import { diffusersHints } from './hints'
 import type {
   BackendAdapter,
@@ -128,13 +128,16 @@ export class DiffusersAdapter implements BackendAdapter {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), CONNECT_TIMEOUT_MS)
     try {
-      response = await fetch(this.url('/api/generate'), {
-        method: 'POST',
-        headers: this.headers(true),
-        body: JSON.stringify(request),
-        signal: controller.signal,
-        cache: 'no-store',
-      })
+      response = refuseRedirect(
+        await fetch(this.url('/api/generate'), {
+          method: 'POST',
+          headers: this.headers(true),
+          body: JSON.stringify(request),
+          signal: controller.signal,
+          cache: 'no-store',
+          redirect: 'manual',
+        })
+      )
     } catch (error) {
       return isAbortError(error)
         ? { ok: false, status: 504, error: 'Timed out connecting to the backend' }

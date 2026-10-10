@@ -1,13 +1,28 @@
 // Small fetch helpers shared by the adapters: bounded waits and readable errors.
 
-/** fetch with a deadline on the whole exchange (headers and body). */
+export const REDIRECT_REFUSED =
+  'The backend answered with a redirect. Latentry does not follow redirects, so prompts and pictures only go to the address in Settings.'
+
+/**
+ * A redirect from a backend, turned into a 502 with REDIRECT_REFUSED. Requests
+ * to backends use `redirect: 'manual'`: following a 307 would send the prompt,
+ * the pictures and the token on to wherever it points.
+ */
+export function refuseRedirect(response: Response): Response {
+  if (response.status < 300 || response.status >= 400) return response
+  void response.body?.cancel().catch(() => {})
+  return Response.json({ error: REDIRECT_REFUSED }, { status: 502 })
+}
+
+/** fetch with a deadline on the whole exchange (headers and body); redirects are refused. */
 export async function fetchWithTimeout(
   input: string | URL,
   init: RequestInit & { timeoutMs: number }
 ): Promise<Response> {
   const { timeoutMs, signal, ...rest } = init
   const timeout = AbortSignal.timeout(timeoutMs)
-  return fetch(input, { ...rest, cache: 'no-store', signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
+  const response = await fetch(input, { ...rest, cache: 'no-store', redirect: 'manual', signal: signal ? AbortSignal.any([signal, timeout]) : timeout })
+  return refuseRedirect(response)
 }
 
 /** fetch + JSON with a deadline; null for anything that is not a 2xx JSON body. */

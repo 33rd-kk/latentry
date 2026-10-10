@@ -3,6 +3,7 @@ import type { NextRequest } from 'next/server'
 import { serverMessage } from '@/lib/i18n/core'
 import { checkRequestBudget, type BudgetRejection } from '@/lib/security/request-budget'
 import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
+import { securityHeaders } from '@/lib/security/headers'
 import { checkApiRequest } from '@/lib/security/route-guard'
 import { isFromThisMachine } from '@/lib/settings/access'
 
@@ -42,7 +43,7 @@ export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   if (pathname.startsWith('/api/')) {
-    const rejection = checkApiRequest(request, process.env)
+    const rejection = checkApiRequest({ method: request.method, headers: request.headers, pathname }, process.env)
     if (rejection) {
       return NextResponse.json({ error: rejection.error }, { status: rejection.status, headers: { 'Cache-Control': 'no-store' } })
     }
@@ -70,9 +71,7 @@ export function proxy(request: NextRequest) {
   if (overBudget) return budgetRejection(overBudget)
 
   const response = NextResponse.next()
-  response.headers.set('X-Content-Type-Options', 'nosniff')
-  response.headers.set('Referrer-Policy', 'same-origin')
-  if (!pathname.startsWith('/api/')) response.headers.set('X-Frame-Options', 'DENY')
+  for (const [name, value] of Object.entries(securityHeaders(pathname))) response.headers.set(name, value)
   return response
 }
 

@@ -135,7 +135,7 @@ async function main() {
   eq(metaFromText(readPngText(zPng))?.seed, 1, 'zTXt is inflated')
 
   // ── Names ──
-  for (const bad of ['../x.png', '..\\x.png', 'a/b.png', 'a\\b.png', '.hidden.png', 'x.txt', 'C:x.png'.replace('C:', 'C:\\'), '', 'x\0.png']) {
+  for (const bad of ['../x.png', '..\\x.png', 'a/b.png', 'a\\b.png', '.hidden.png', 'x.txt', 'C:x.png'.replace('C:', 'C:\\'), '', 'x\0.png', 'a.txt:x.png', 'x\n.png', 'x\x7f.png']) {
     check(!isSafeName(bad), `refused name ${JSON.stringify(bad)}`)
   }
   check(isSafeName('20261003-120000_anima_1_0.png') && isSafeName('a b.JPG'), 'plain names pass')
@@ -304,6 +304,12 @@ async function main() {
     if (linked) {
       eq(await resolveInDir(dir, 'link.png'), null, 'a symlink leading out of the folder is refused')
       eq(await openInDir(dir, 'link.png'), null, 'and does not open')
+      // A picture's name on a link to something else in the folder: not a picture.
+      await writeFile(path.join(folder, 'program.exe'), 'MZ')
+      await symlink(path.join(folder, 'program.exe'), path.join(folder, 'disguised.png'))
+      eq(await resolveInDir(dir, 'disguised.png'), null, 'a link named .png to a file that is not a picture is refused')
+      await rm(path.join(folder, 'disguised.png'))
+      await rm(path.join(folder, 'program.exe'))
     } else {
       console.log('  (symlink case skipped: no privilege to create one)')
     }

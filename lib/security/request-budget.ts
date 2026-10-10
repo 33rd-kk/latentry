@@ -41,6 +41,8 @@ export const BUDGET_DEFAULTS = {
 } as const
 
 const WINDOW_MS = 60 * 1000
+// Far more addresses than a home network has in a minute.
+const MAX_KEYS = 10_000
 
 /**
  * Who sent this request. The connection's own address when it comes from
@@ -94,16 +96,31 @@ export function classifyRequest(pathname: string, method: string): BudgetClass |
  */
 export class FixedWindow {
   private readonly windows = new Map<string, { opened: number; used: number }>()
+  private lastSweep: number | null = null
 
+  /**
+   * @param maxKeys How many keys (IPs) it tracks at once. A key it has no room
+   *   for is refused until old windows close, so a flood of new addresses is
+   *   held to a bounded map instead of growing it.
+   */
   constructor(
     readonly max: number,
-    readonly windowMs: number = WINDOW_MS
+    readonly windowMs: number = WINDOW_MS,
+    readonly maxKeys: number = MAX_KEYS
   ) {}
 
   /** Counts one request; returns the epoch ms the window reopens if it is refused. */
   take(key: string, now = Date.now()): { ok: true } | { ok: false; reopensAt: number } {
+    if (this.lastSweep === null || now - this.lastSweep >= this.windowMs) {
+      this.lastSweep = now
+      this.sweep(now)
+    }
     const window = this.windows.get(key)
     if (!window || now - window.opened >= this.windowMs) {
+      if (!window && this.windows.size >= this.maxKeys) {
+        this.sweep(now, 1)
+        if (this.windows.size >= this.maxKeys) return { ok: false, reopensAt: now + this.windowMs }
+      }
       this.windows.set(key, { opened: now, used: 1 })
       return { ok: true }
     }
@@ -111,11 +128,16 @@ export class FixedWindow {
     return window.used <= this.max ? { ok: true } : { ok: false, reopensAt: window.opened + this.windowMs }
   }
 
-  /** Drops windows that closed long ago, so a stream of new IPs cannot grow the map forever. */
-  sweep(now = Date.now()): void {
+  /** Drops windows closed for `windows` window lengths; take() runs it once a window. */
+  sweep(now = Date.now(), windows = 2): void {
     for (const [key, window] of this.windows) {
-      if (now - window.opened >= this.windowMs * 2) this.windows.delete(key)
+      if (now - window.opened >= this.windowMs * windows) this.windows.delete(key)
     }
+  }
+
+  /** How many keys it is tracking. For tests. */
+  get size(): number {
+    return this.windows.size
   }
 }
 
@@ -131,7 +153,6 @@ interface Windows {
   global: FixedWindow
   /** The limits these were built with, so a changed env rebuilds them. */
   signature: string
-  lastSweep: number
 }
 
 // On globalThis so a hot reload of proxy.ts does not hand everyone a fresh window.
@@ -154,7 +175,6 @@ function windowsFor(env: Env): Windows {
     post: new FixedWindow(limits.post),
     global: new FixedWindow(limits.global),
     signature,
-    lastSweep: Date.now(),
   }
   globalForBudget.__requestBudget = created
   return created
@@ -179,10 +199,6 @@ export function checkRequestBudget(
 
   const windows = windowsFor(env)
   const now = Date.now()
-  if (now - windows.lastSweep > WINDOW_MS) {
-    windows.lastSweep = now
-    for (const key of ['page', 'api', 'post', 'global'] as const) windows[key].sweep(now)
-  }
 
   const seconds = (reopensAt: number) => Math.max(1, Math.ceil((reopensAt - now) / 1000))
   const own = windows[kind].take(clientIp(request.headers), now)
