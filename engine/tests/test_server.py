@@ -16,6 +16,8 @@ from latentry_engine.__main__ import open_without_token
 from latentry_engine.server import create_app
 
 TOKEN = "test-token-123"
+COMMIT = "0123456789abcdef0123456789abcdef01234567"
+SHA = "0" * 64
 # As Latentry reaches it; TestClient's own default host would be refused.
 BASE = "http://127.0.0.1:7861"
 
@@ -126,18 +128,34 @@ def test_load_refuses_a_missing_or_unknown_model(client: TestClient) -> None:
     [
         {"repo_id": "no-slash"},
         {"repo_id": "too/many/slashes"},
-        {"repo_id": "owner/name", "filename": "../escape.safetensors"},
-        {"repo_id": "owner/name", "filename": "weights.bin"},
+        {"repo_id": "owner/name", "filename": "../escape.safetensors", "sha256": SHA},
+        {"repo_id": "owner/name", "filename": "weights.bin", "sha256": SHA},
+        # A single file must come with its pinned hash.
+        {"repo_id": "owner/name", "filename": "model.safetensors"},
     ],
 )
 def test_download_refuses_bad_names_before_starting(client: TestClient, body: dict[str, str]) -> None:
-    assert client.post("/api/models/download", json=body, headers=auth()).status_code == 400
+    assert client.post("/api/models/download", json={"revision": COMMIT, **body}, headers=auth()).status_code == 400
     assert client.get("/api/models/downloads", headers=auth()).json() == {"downloads": []}
 
 
-@pytest.mark.parametrize("repo_id", ["a/..", "../b", "a/.", "./b", "a/b.", "a\b/c", "a/b c", "/b", "a/"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"repo_id": "owner/name"},
+        {"repo_id": "owner/name", "revision": "main"},
+        {"repo_id": "owner/name", "revision": COMMIT.upper()},
+        {"repo_id": "owner/name", "revision": COMMIT, "filename": "model.safetensors", "sha256": "abc"},
+    ],
+)
+def test_download_needs_a_commit_and_a_well_formed_hash(client: TestClient, body: dict[str, str]) -> None:
+    assert client.post("/api/models/download", json=body, headers=auth()).status_code == 422
+    assert client.get("/api/models/downloads", headers=auth()).json() == {"downloads": []}
+
+
+@pytest.mark.parametrize("repo_id", ["a/..", "../b", "a/.", "./b", "a/b.", "a\\b/c", "a/b c", "/b", "a/"])
 def test_download_refuses_a_repo_id_that_is_not_two_plain_parts(client: TestClient, repo_id: str) -> None:
-    assert client.post("/api/models/download", json={"repo_id": repo_id}, headers=auth()).status_code == 400
+    assert client.post("/api/models/download", json={"repo_id": repo_id, "revision": COMMIT}, headers=auth()).status_code == 400
     assert client.get("/api/models/downloads", headers=auth()).json() == {"downloads": []}
 
 
@@ -151,7 +169,7 @@ def test_only_the_latest_finished_downloads_are_kept(models_dir: Path) -> None:
     running.state = "downloading"
     downloads.items[running.id] = running
     downloads._run = lambda item: None  # no network
-    downloads.start("owner/next", None)
+    downloads.start("owner/next", None, COMMIT)
     finished = [item for item in downloads.items.values() if item.state in ("done", "error")]
     assert len(finished) == downloads.KEEP_FINISHED - 1
     assert "running" in downloads.items and "old0" not in downloads.items

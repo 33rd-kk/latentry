@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Pinned downloads**: the engine install fetches uv 0.13.0 instead of
+  the latest release, and checks it against its SHA-256 before running it.
+  An engine installed with another uv gets 0.13.0 on its next **Repair /
+  update**, which may download PyTorch again once (uv 0.13 changed its
+  cache format).
+  Models and taggers from the Setup page come from a fixed commit of their
+  repository, and each file is checked against its SHA-256. A file that
+  does not match is not kept, and the page says so.
+
 - **Tighter API limits**: network folders (`\\server\share`) are refused
   on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
   an existing settings file without it. A backend's redirect is reported as

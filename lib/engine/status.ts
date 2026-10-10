@@ -12,7 +12,7 @@ import { DEFAULT_BASE_PORT, engineFetch, engines, modelsDir, type EngineState } 
 import { taggerDir, taggerDownloads } from './tagger-download'
 
 export interface DownloadView {
-  state: 'queued' | 'downloading' | 'done' | 'error'
+  state: 'queued' | 'downloading' | 'verifying' | 'done' | 'error'
   doneBytes: number
   totalBytes: number
   error: string | null
