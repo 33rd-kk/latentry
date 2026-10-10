@@ -109,12 +109,14 @@ export function uvEnvironment(paths: { uvCache: string; uvPython: string }, base
 export function venvOnOtherPython(pyvenvCfg: string, uvPython: string, platform: NodeJS.Platform = process.platform): boolean {
   const home = /^\s*home\s*=\s*(.+?)\s*$/m.exec(pyvenvCfg)?.[1]
   if (!home) return true
+  // Paths of the platform asked about, whatever this one is (so tests run anywhere).
+  const paths = platform === 'win32' ? path.win32 : path.posix
   const fold = (value: string) => {
-    const normal = path.resolve(value)
+    const normal = paths.resolve(value)
     return platform === 'win32' ? normal.toLowerCase() : normal
   }
-  const relative = path.relative(fold(uvPython), fold(home))
-  return relative === '' || relative.startsWith('..') || path.isAbsolute(relative)
+  const relative = paths.relative(fold(uvPython), fold(home))
+  return relative === '' || relative.startsWith('..') || paths.isAbsolute(relative)
 }
 
 /** Runs a program, sending its output to the log; rejects on a non-zero exit. */

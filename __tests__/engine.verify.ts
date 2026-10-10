@@ -53,6 +53,8 @@ check(venvOnOtherPython(cfg('C:\\Users\\me\\AppData\\Local\\Programs\\Python\\Py
 check(!venvOnOtherPython(cfg('C:\\app\\.runtime\\python\\cpython-3.12.10-windows-x86_64-none'), 'C:/APP/.runtime/python', 'win32'), "one on Latentry's own Python is kept (case-insensitive on Windows)")
 check(venvOnOtherPython(cfg('C:\\app\\.runtime\\python-other\\cpython-3.12'), 'C:/app/.runtime/python', 'win32'), 'a folder that only starts with the same name is not inside it')
 check(venvOnOtherPython('implementation = CPython\n', 'C:/app/.runtime/python', 'win32'), 'a pyvenv.cfg without a home is made again')
+check(!venvOnOtherPython(cfg('/app/.runtime/python/cpython-3.12-linux-x86_64-gnu/bin'), '/app/.runtime/python', 'linux'), 'on Linux too')
+check(venvOnOtherPython(cfg('/usr/bin'), '/app/.runtime/python', 'linux') && venvOnOtherPython(cfg('/APP/.runtime/python/x'), '/app/.runtime/python', 'linux'), 'where case counts')
 
 // Catalog
 eq(new Set(CATALOG.map((entry) => entry.id)).size, CATALOG.length, 'catalog ids are unique')
