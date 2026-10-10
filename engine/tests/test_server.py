@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from latentry_engine import __version__
+from latentry_engine import __version__, models, server
 from latentry_engine.__main__ import open_without_token
 from latentry_engine.server import create_app
 
@@ -133,3 +133,68 @@ def test_load_refuses_a_missing_or_unknown_model(client: TestClient) -> None:
 def test_download_refuses_bad_names_before_starting(client: TestClient, body: dict[str, str]) -> None:
     assert client.post("/api/models/download", json=body, headers=auth()).status_code == 400
     assert client.get("/api/models/downloads", headers=auth()).json() == {"downloads": []}
+
+
+@pytest.mark.parametrize("repo_id", ["a/..", "../b", "a/.", "./b", "a/b.", "a\b/c", "a/b c", "/b", "a/"])
+def test_download_refuses_a_repo_id_that_is_not_two_plain_parts(client: TestClient, repo_id: str) -> None:
+    assert client.post("/api/models/download", json={"repo_id": repo_id}, headers=auth()).status_code == 400
+    assert client.get("/api/models/downloads", headers=auth()).json() == {"downloads": []}
+
+
+def test_only_the_latest_finished_downloads_are_kept(models_dir: Path) -> None:
+    downloads = models.Downloads(models_dir)
+    for index in range(downloads.KEEP_FINISHED + 5):
+        item = models.Download(f"old{index}", "owner/name", None)
+        item.state = "done" if index % 2 else "error"
+        downloads.items[item.id] = item
+    running = models.Download("running", "owner/name", None)
+    running.state = "downloading"
+    downloads.items[running.id] = running
+    downloads._run = lambda item: None  # no network
+    downloads.start("owner/next", None)
+    finished = [item for item in downloads.items.values() if item.state in ("done", "error")]
+    assert len(finished) == downloads.KEEP_FINISHED - 1
+    assert "running" in downloads.items and "old0" not in downloads.items
+    assert f"old{downloads.KEEP_FINISHED + 4}" in downloads.items
+
+
+def test_no_live_api_docs(client: TestClient) -> None:
+    for path in ("/docs", "/redoc", "/openapi.json"):
+        assert client.get(path, headers=auth()).status_code == 404
+
+
+def test_a_body_over_the_limit_is_refused_before_it_is_read(client: TestClient) -> None:
+    headers = {**auth(), "Content-Type": "application/json", "Content-Length": str(server.MAX_BODY_BYTES + 1)}
+    assert client.post("/api/cancel", content=b"{}", headers=headers).status_code == 413
+
+
+def test_a_chunked_body_is_refused(client: TestClient) -> None:
+    def chunks():
+        yield b'{"run_id": null}'
+
+    response = client.post("/api/cancel", content=chunks(), headers={**auth(), "Content-Type": "application/json"})
+    assert response.status_code == 411
+
+
+def test_a_bodyless_post_is_fine(client: TestClient) -> None:
+    assert client.post("/api/cancel", json={}, headers=auth()).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {},
+        {"image_base64": ""},
+        {"image_base64": 42},
+        {"image_base64": "x", "person": -2},
+        {"image_base64": "x", "width": 0},
+        {"image_base64": "x", "style": "s" * 33},
+    ],
+)
+def test_pose_checks_its_body(client: TestClient, body: dict[str, object]) -> None:
+    assert client.post("/api/pose", json=body, headers=auth()).status_code == 422
+
+
+def test_generate_caps_the_prompt(client: TestClient) -> None:
+    body = {"prompt": "x" * (server.MAX_PROMPT_CHARS + 1)}
+    assert client.post("/api/generate", json=body, headers=auth()).status_code == 422

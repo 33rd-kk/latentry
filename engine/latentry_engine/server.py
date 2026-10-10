@@ -28,6 +28,7 @@ import threading
 import uuid
 from pathlib import Path
 from queue import Empty, Queue
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
@@ -42,9 +43,16 @@ from .core import Cancelled, Engine, EngineError, GenerateRequest, decode_image
 from .gpu import plan as gpu_plan
 
 
+# What one request may carry. Latentry sends at most 48 MB (lib/limits.ts),
+# with each picture under 32M characters of base64 (lib/api.ts).
+MAX_BODY_BYTES = 64 * 1024 * 1024
+MAX_IMAGE_CHARS = 32 * 1024 * 1024
+MAX_PROMPT_CHARS = 20_000
+
+
 class GenerateBody(BaseModel):
-    prompt: str
-    negative_prompt: str = ""
+    prompt: str = Field(max_length=MAX_PROMPT_CHARS)
+    negative_prompt: str = Field("", max_length=MAX_PROMPT_CHARS)
     width: int = Field(1024, ge=64, le=4096)
     height: int = Field(1024, ge=64, le=4096)
     seed: int = -1
@@ -53,18 +61,30 @@ class GenerateBody(BaseModel):
     scheduler: str = samplers.DEFAULT
     num_inference_steps: int = Field(28, ge=1, le=200)
     guidance_scale: float = Field(6.0, ge=0, le=30)
-    init_image_base64: str | None = None
+    init_image_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
     strength: float = Field(0.6, ge=0.01, le=1)
-    mask_base64: str | None = None
+    mask_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
     mask_blur: float = Field(4, ge=0, le=64)
     # A picture whose pose to follow (detected here), or with pose_is_skeleton
     # a skeleton already drawn by /api/pose.
-    pose_image_base64: str | None = None
+    pose_image_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
     pose_is_skeleton: bool = False
     pose_strength: float = Field(1.0, ge=0, le=2)
     # Say each applied LoRA's hash in the image events. Off unless asked:
     # a hash identifies the file on this machine.
     lora_hashes: bool = False
+
+
+class PoseBody(BaseModel):
+    """What /api/pose reads (poseorbit.api.handle); anything else is dropped."""
+
+    image_base64: str = Field(min_length=1, max_length=MAX_IMAGE_CHARS)
+    width: float | None = Field(None, gt=0, le=8192)
+    height: float | None = Field(None, gt=0, le=8192)
+    person: int | None = Field(None, ge=-1)
+    style: str | None = Field(None, max_length=32)
+    want_3d: bool = False
+    camera: dict[str, Any] | None = None
 
 
 class CancelBody(BaseModel):
@@ -92,7 +112,9 @@ def hostname_of(host: str) -> str:
 
 
 def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts: tuple[str, ...] = ()) -> FastAPI:
-    app = FastAPI(title="Latentry engine", version=__version__)
+    # No /docs, /redoc or /openapi.json: docs/backend-api.md describes the API,
+    # and nothing needs a live map of it.
+    app = FastAPI(title="Latentry engine", version=__version__, docs_url=None, redoc_url=None, openapi_url=None)
     hosts = LOOPBACK_HOSTS | {host.strip().lower() for host in allowed_hosts if host.strip()}
     plan = gpu_plan()
     controls = pose_control.controls_dir(models_dir)
@@ -119,6 +141,17 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 from fastapi.responses import JSONResponse
 
                 return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+        # Bodies are read whole into memory, so their size is bounded up front.
+        # A chunked body has no size to check, and Latentry never sends one.
+        if "chunked" in request.headers.get("transfer-encoding", "").lower():
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse({"detail": "Content-Length is required"}, status_code=411)
+        length = request.headers.get("content-length", "")
+        if length and (not length.isdigit() or int(length) > MAX_BODY_BYTES):
+            from fastapi.responses import JSONResponse
+
+            return JSONResponse({"detail": "Request body too large"}, status_code=413)
         return await call_next(request)
 
     def load_async(model_id: str) -> None:
@@ -179,7 +212,7 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
         return {"status": "cancelling", "run_id": run["id"]}
 
     @app.post("/api/pose")
-    async def pose(request: Request):
+    async def pose(body: PoseBody):
         """The skeleton /api/generate would follow, for the UI's preview.
 
         Outside the run lock: detection is on the CPU and does not touch the
@@ -187,13 +220,7 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
         loaded model's style unless the request names one.
         """
         try:
-            body = await request.json()
-        except Exception as error:  # noqa: BLE001
-            raise HTTPException(400, "Invalid JSON body") from error
-        if not isinstance(body, dict):
-            raise HTTPException(400, "Invalid JSON body")
-        try:
-            return await run_in_threadpool(poseorbit.api.handle, detector, body, engine.pose_style())
+            return await run_in_threadpool(poseorbit.api.handle, detector, body.model_dump(exclude_none=True), engine.pose_style())
         except ValueError as error:  # BadRequest, NoPersonError
             raise HTTPException(400, str(error)) from error
 
@@ -315,7 +342,7 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
 
     @app.post("/api/models/download")
     def download(body: DownloadBody):
-        if "/" not in body.repo_id or body.repo_id.count("/") != 1:
+        if not models.is_repo_id(body.repo_id):
             raise HTTPException(400, "repo_id is owner/name")
         if body.filename is not None and (".." in body.filename or not body.filename.endswith(".safetensors")):
             raise HTTPException(400, "filename must be a .safetensors file in the repository")

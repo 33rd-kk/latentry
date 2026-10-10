@@ -111,6 +111,13 @@ web page cannot reach it by re-resolving its own name to this machine. Set
 `POST /api/models/load` `{ id }`, `POST /api/models/download`
 `{ repo_id, filename? }` and `GET /api/models/downloads`.
 
+Request bodies are capped at 64 MB and must say their size (no chunked
+bodies). Prompts are capped at 20,000 characters and pictures at 32M
+characters of base64, and `/api/pose` takes only the fields it reads. A
+`repo_id` must be two plain parts (`owner/name`). The download list keeps the
+latest 20 finished downloads. FastAPI's `/docs`, `/redoc` and
+`/openapi.json` are off.
+
 ## Tests
 
 `engine/tests` checks what needs no GPU or model: telling models apart from
