@@ -78,12 +78,53 @@ export function uvAsset(platform: NodeJS.Platform, arch: string): string | null 
   return null
 }
 
+type Env = Record<string, string | undefined>
+
+/**
+ * The environment uv runs in: this process's, without any uv settings the
+ * user has made for their own projects (UV_* variables, and uv.toml through
+ * UV_NO_CONFIG), and with uv's cache and Python kept in the runtime folder.
+ * UV_MANAGED_PYTHON makes uv download its own Python there rather than build
+ * the engine on a Python installed elsewhere on this machine, which could be
+ * updated or removed from under it. Pure.
+ */
+export function uvEnvironment(paths: { uvCache: string; uvPython: string }, base: Env = process.env): Env {
+  const env: Env = {}
+  for (const [name, value] of Object.entries(base)) if (!/^UV_/i.test(name)) env[name] = value
+  return {
+    ...env,
+    UV_CACHE_DIR: paths.uvCache,
+    UV_PYTHON_INSTALL_DIR: paths.uvPython,
+    UV_MANAGED_PYTHON: '1',
+    UV_NO_CONFIG: '1',
+    UV_NO_PROGRESS: '1',
+  }
+}
+
+/**
+ * Whether a virtual environment (its pyvenv.cfg) was built on a Python outside
+ * `uvPython`, as installs before Latentry kept its own Python were. Such an
+ * environment is made again. Pure.
+ */
+export function venvOnOtherPython(pyvenvCfg: string, uvPython: string, platform: NodeJS.Platform = process.platform): boolean {
+  const home = /^\s*home\s*=\s*(.+?)\s*$/m.exec(pyvenvCfg)?.[1]
+  if (!home) return true
+  // Paths of the platform asked about, whatever this one is (so tests run anywhere).
+  const paths = platform === 'win32' ? path.win32 : path.posix
+  const fold = (value: string) => {
+    const normal = paths.resolve(value)
+    return platform === 'win32' ? normal.toLowerCase() : normal
+  }
+  const relative = paths.relative(fold(uvPython), fold(home))
+  return relative === '' || relative.startsWith('..') || paths.isAbsolute(relative)
+}
+
 /** Runs a program, sending its output to the log; rejects on a non-zero exit. */
-function run(command: string, args: string[], env: Record<string, string> = {}): Promise<string> {
+function run(command: string, args: string[], env: Env = process.env): Promise<string> {
   log(`> ${path.basename(command)} ${args.join(' ')}`)
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
-      env: { ...process.env, ...env },
+      env: env as NodeJS.ProcessEnv,
       windowsHide: true,
       stdio: ['ignore', 'pipe', 'pipe'],
     })
@@ -156,16 +197,30 @@ async function ensureUv(): Promise<string> {
   return paths.uv
 }
 
+/**
+ * The engine's virtual environment, on a Python uv downloaded into the runtime
+ * folder. One built on another Python (installs before this) is made again.
+ */
+export async function ensureVenv(uv: string): Promise<void> {
+  const paths = enginePaths()
+  const cfg = await fs.readFile(path.join(paths.venv, 'pyvenv.cfg'), 'utf8').catch(() => null)
+  if (cfg !== null && venvOnOtherPython(cfg, paths.uvPython)) {
+    log("The engine's environment was built on a Python installed elsewhere on this computer; making it again with Latentry's own Python.")
+    await fs.rm(paths.venv, { recursive: true, force: true })
+  }
+  await run(uv, ['venv', '--python', PYTHON_VERSION, '--allow-existing', paths.venv], uvEnvironment(paths))
+}
+
 async function steps(torch: TorchChoice): Promise<InstallRecord> {
   const paths = enginePaths()
   await fs.mkdir(paths.root, { recursive: true })
-  const uvEnv = { UV_CACHE_DIR: paths.uvCache, UV_PYTHON_INSTALL_DIR: paths.uvPython, UV_NO_PROGRESS: '1' }
+  const uvEnv = uvEnvironment(paths)
 
   job.step = 'uv'
   const uv = await ensureUv()
 
   job.step = 'python'
-  await run(uv, ['venv', '--python', PYTHON_VERSION, '--allow-existing', paths.venv], uvEnv)
+  await ensureVenv(uv)
 
   job.step = 'torch'
   await run(
