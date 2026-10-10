@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import struct
 import threading
 import time
@@ -134,8 +135,21 @@ class Download:
         }
 
 
+_REPO_PART = re.compile(r"[A-Za-z0-9][A-Za-z0-9_.-]{0,95}")
+
+
+def is_repo_id(repo_id: str) -> bool:
+    """A Hugging Face "owner/name": two plain parts, neither "." nor "..", so
+    the name is safe to use as a folder inside the models folder."""
+    parts = repo_id.split("/")
+    return len(parts) == 2 and all(_REPO_PART.fullmatch(part) and part not in (".", "..") and not part.endswith(".") for part in parts)
+
+
 class Downloads:
     """Hugging Face downloads into the models folder, one at a time, with progress."""
+
+    # Finished downloads are listed for the page to show; only the latest are kept.
+    KEEP_FINISHED = 20
 
     def __init__(self, models_dir: Path):
         self.models_dir = models_dir
@@ -143,7 +157,12 @@ class Downloads:
         self._lock = threading.Lock()
 
     def start(self, repo_id: str, filename: str | None) -> Download:
+        if not is_repo_id(repo_id):
+            raise ValueError("repo_id is owner/name")
         item = Download(uuid.uuid4().hex, repo_id, filename)
+        finished = [key for key, old in self.items.items() if old.state in ("done", "error")]
+        for key in finished[: max(0, len(finished) - self.KEEP_FINISHED + 1)]:
+            del self.items[key]
         self.items[item.id] = item
         threading.Thread(target=self._run, args=(item,), daemon=True).start()
         return item
@@ -197,6 +216,8 @@ class Downloads:
         ]
         item.total_bytes = sum(sibling.size or 0 for sibling in wanted)
         target = self.models_dir / item.repo_id.split("/")[-1]
+        if target.resolve().parent != self.models_dir.resolve():
+            raise RuntimeError(f"{item.repo_id} does not name a folder inside the models folder")
 
         def progress() -> None:
             while item.state == "downloading":

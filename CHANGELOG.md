@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Stricter engine API**: the built-in engine caps request bodies at 64 MB
+  and prompts at 20,000 characters, checks `/api/pose` requests field by
+  field, takes only `owner/name` repository ids for downloads, keeps a short
+  download list, and no longer serves FastAPI's `/docs` pages.
+
 ## 0.6.0 (2026-10-10)
 
 **LoRAs**
