@@ -63,3 +63,7 @@ __pycache__/
 
 # notes for the wiki / Pages, kept local
 /notes/
+
+# browser tests (playwright.config.ts): CI report and traces
+/playwright-report/
+/test-results/
