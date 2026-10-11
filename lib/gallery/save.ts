@@ -61,6 +61,7 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     ...(request.strength !== undefined ? { strength: request.strength } : {}),
     // Names and weights only: a hash says which file, and is written only where asked.
     ...(image.loras?.length ? { loras: image.loras.map(({ name, weight }) => ({ name, weight })) } : {}),
+    ...(request.workflow ? { workflow: request.workflow } : {}),
     created: created.toISOString(),
   }
 }

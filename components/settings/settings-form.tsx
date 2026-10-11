@@ -38,6 +38,9 @@ interface BackendDraft {
   tokenSource: Source | null
   /** comfyui: the checkpoint, "" for ComfyUI's first. */
   model: string
+  /** comfyui: a folder of workflows, "" for none; and whether paired devices see them. */
+  workflowsDir: string
+  shareWorkflows: boolean
 }
 
 type ProfileDraft = Record<"width" | "height" | "steps" | "cfg" | "negativePrompt" | "qualityTags" | "artistTemplate" | "tagStyle" | "keepTags", string>
@@ -100,6 +103,8 @@ function toDraft(view: SettingsView): Draft {
       clearToken: false,
       tokenSource: backend.token,
       model: backend.model ?? "",
+      workflowsDir: backend.workflowsDir ?? "",
+      shareWorkflows: backend.shareWorkflows,
     })),
     tagger: view.tagger ?? AUTO,
     wd14Dir: view.wd14.modelDir ?? "",
@@ -128,6 +133,7 @@ function toInput(draft: Draft, dirty: Set<Part>) {
       // Write-only: a typed value sets it, "clear" empties it, nothing keeps it.
       ...(backend.clearToken ? { token: "" } : backend.token ? { token: backend.token } : {}),
       ...(backend.kind === "comfyui" && backend.model.trim() ? { model: backend.model.trim() } : {}),
+      ...(backend.kind === "comfyui" && backend.workflowsDir.trim() ? { workflowsDir: backend.workflowsDir.trim(), shareWorkflows: backend.shareWorkflows } : {}),
     }))
   }
   if (dirty.has("tagger")) body.tagger = draft.tagger === AUTO ? null : draft.tagger
@@ -385,6 +391,23 @@ export function SettingsForm() {
                     {error(`backends.${index}.model`)}
                   </Field>
                 )}
+                {backend.kind === "comfyui" && (
+                  <Field label={t("settings.backendWorkflowsDir")} hint={t("settings.backendWorkflowsDirHint")}>
+                    <Input
+                      value={backend.workflowsDir}
+                      onChange={(event) => update({ workflowsDir: event.target.value })}
+                      placeholder="D:\ComfyUI\workflows"
+                      autoComplete="off"
+                    />
+                    {error(`backends.${index}.workflowsDir`)}
+                    {backend.workflowsDir.trim() && (
+                      <label className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+                        <Switch checked={backend.shareWorkflows} onCheckedChange={(shareWorkflows) => update({ shareWorkflows })} />
+                        {t("settings.shareWorkflows")}
+                      </label>
+                    )}
+                  </Field>
+                )}
                 <div className="flex flex-wrap items-end gap-2">
                   <Field label={t("settings.backendToken")} className="min-w-56 flex-1">
                     <Input
@@ -454,7 +477,7 @@ export function SettingsForm() {
                 ...current,
                 backends: [
                   ...current.backends,
-                  { key: newKey(), id: "", kind: "a1111", url: "", profile: "sdxl", token: "", clearToken: false, tokenSource: null, model: "" },
+                  { key: newKey(), id: "", kind: "a1111", url: "", profile: "sdxl", token: "", clearToken: false, tokenSource: null, model: "", workflowsDir: "", shareWorkflows: false },
                 ],
               }))
             }

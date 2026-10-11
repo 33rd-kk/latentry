@@ -2,7 +2,7 @@
 
 import { NextResponse } from 'next/server'
 import { getAdapter } from '@/lib/backends'
-import type { BackendAdapter, BackendStatus, GenerateRequest } from '@/lib/backends/types'
+import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
@@ -96,6 +96,8 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
       if (typeof body.mask_blur === 'number') request.mask_blur = num(body.mask_blur, 4, 0, 64)
     }
   }
+  // A file name only; the backend resolves it inside its own folder (lib/backends/comfy-workflows.ts).
+  if (typeof body.workflow === 'string' && WORKFLOW_NAME.test(body.workflow)) request.workflow = body.workflow
   const pose = image(body.pose_image_base64)
   if (pose) {
     request.pose_image_base64 = pose

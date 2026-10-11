@@ -73,9 +73,12 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
       if (history) {
         const id = decodeURIComponent(history[1])
         if (!finished.has(id)) return reply(200, {})
+        // The picture comes out of the graph's own preview (or save) node, as in ComfyUI.
+        const graph = graphs[Number(/mock-(\d+)$/.exec(id)?.[1]) - 1] ?? {}
+        const output = Object.keys(graph).find((node) => /^(PreviewImage|SaveImage)$/.test(graph[node].class_type)) ?? '7'
         return reply(200, {
           [id]: {
-            outputs: { '7': { images: [{ filename: `${id}.png`, subfolder: '', type: 'temp' }] } },
+            outputs: { [output]: { images: [{ filename: `${id}.png`, subfolder: '', type: 'temp' }] } },
             status: { status_str: 'success', completed: true, messages: [] },
           },
         })

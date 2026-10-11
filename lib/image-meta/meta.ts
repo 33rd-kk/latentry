@@ -63,6 +63,8 @@ export interface LatentryRecord {
    * cannot say: a `<lora:…>` call in the prompt alone proves nothing.
    */
   loras?: LoraUse[]
+  /** The ComfyUI workflow (its file name) the picture was drawn with, instead of a built-in graph. */
+  workflow?: string
   created: string
 }
 
@@ -237,80 +239,181 @@ export function parseComfyPrompt(text: string): ImageMeta | null {
   }
   if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return null
 
-  const nodes = Object.values(graph)
-  const nodeAt = (link: unknown) => (isComfyLink(link) ? graph[String(link[0])] : undefined)
-  const classOf = (node: ComfyNode | undefined) => (typeof node?.class_type === 'string' ? node.class_type : '')
-  const inputsAt = (link: unknown) => nodeAt(link)?.inputs ?? {}
-
-  // A number given in place, or by a link to the node holding it.
-  const num = (value: unknown, depth = 0): number | undefined => {
-    if (typeof value === 'number' && Number.isFinite(value)) return value
-    if (!isComfyLink(value) || depth >= MAX_LINK_DEPTH) return undefined
-    const inputs = inputsAt(value)
-    for (const key of ['value', 'seed', 'noise_seed', 'int', 'number']) {
-      const found = num(inputs[key], depth + 1)
-      if (found !== undefined) return found
-    }
-    return undefined
+  const roles = comfyGraphRoles(graph)
+  const at = (slot: ComfySlot | undefined) => (slot ? graph[slot.node]?.inputs?.[slot.input] : undefined)
+  const num = (slot: ComfySlot | undefined) => {
+    const value = at(slot)
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined
   }
-  const str = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
-
-  const textOf = (link: unknown, depth = 0): string => {
-    if (!isComfyLink(link) || depth > MAX_LINK_DEPTH) return ''
-    const inputs = inputsAt(link)
-    for (const key of ['text', 'text_g', 'prompt']) {
-      if (typeof inputs[key] === 'string') return inputs[key] as string
-      if (isComfyLink(inputs[key])) return textOf(inputs[key], depth + 1)
-    }
-    // A conditioning passthrough (e.g. a combine node): follow its first link.
-    const next = Object.values(inputs).find(isComfyLink)
-    return next ? textOf(next, depth + 1) : ''
+  const str = (slot: ComfySlot | undefined) => {
+    const value = at(slot)
+    return typeof value === 'string' && value ? value : undefined
   }
 
-  const samplers = nodes.filter((node) => SAMPLER_CLASS.test(classOf(node)))
-  const sampler = samplers.find((node) => EMPTY_LATENT_CLASS.test(classOf(nodeAt(node.inputs?.latent_image)))) ?? samplers[0]
-  const inputs = sampler?.inputs ?? {}
-  // SamplerCustom(Advanced) spreads its settings over the nodes it links to.
-  const guider = inputsAt(inputs.guider)
-  const sigmas = inputsAt(inputs.sigmas)
-  const chosen = inputsAt(inputs.sampler)
-  const noise = inputsAt(inputs.noise)
-  const latent = inputsAt(inputs.latent_image)
-
-  const prompt = textOf(inputs.positive ?? guider.positive ?? guider.conditioning)
-  if (!prompt && !sampler) return null
-  const denoise = num(inputs.denoise) ?? num(sigmas.denoise)
-  const model = comfyModel(nodes)
+  const prompt = str(roles.positive) ?? ''
+  if (!prompt && !roles.sampler) return null
+  const denoise = num(roles.denoise)
+  const model = str(roles.model)
   return {
     source: 'comfyui',
     prompt,
-    negativePrompt: textOf(inputs.negative ?? guider.negative),
-    seed: num(inputs.seed) ?? num(inputs.noise_seed) ?? num(noise.noise_seed),
-    steps: num(inputs.steps) ?? num(sigmas.steps),
-    cfg: num(inputs.cfg) ?? num(guider.cfg),
-    sampler: str(inputs.sampler_name) ?? str(chosen.sampler_name),
-    scheduler: str(inputs.scheduler) ?? str(sigmas.scheduler),
+    negativePrompt: str(roles.negative) ?? '',
+    seed: num(roles.seed),
+    steps: num(roles.steps),
+    cfg: num(roles.cfg),
+    sampler: str(roles.samplerName),
+    scheduler: str(roles.scheduler),
     strength: denoise !== undefined && denoise < 1 ? denoise : undefined,
-    model,
-    width: num(latent.width),
-    height: num(latent.height),
-    loras: uniqueLoras([...lorasInPrompt(prompt), ...comfyLoras(nodes)]),
+    model: model && model !== 'None' ? modelFileName(model) : undefined,
+    width: num(roles.width),
+    height: num(roles.height),
+    loras: uniqueLoras([...lorasInPrompt(prompt), ...comfyLoras(Object.values(graph))]),
   }
 }
 
+/** Where one value of a ComfyUI graph lives: a node id and one of its inputs. */
+export interface ComfySlot {
+  node: string
+  input: string
+}
+
 /**
- * The model file of a graph, by name only: a checkpoint loader's `ckpt_name`
- * first, else any loader's `ckpt_name` / `unet_name` (UNETLoader, the
- * Efficiency and custom checkpoint loaders).
+ * Which node of a ComfyUI graph (API format) holds what, for reading a
+ * picture's settings and for filling a workflow with new ones.
  */
-function comfyModel(nodes: ComfyNode[]): string | undefined {
-  const fileOf = (node: ComfyNode) => {
-    const value = node?.inputs?.ckpt_name ?? node?.inputs?.unet_name
-    return typeof value === 'string' && value && value !== 'None' ? modelFileName(value) : undefined
+export interface ComfyRoles {
+  /** The base pass's sampler (see parseComfyPrompt). */
+  sampler?: string
+  positive?: ComfySlot
+  negative?: ComfySlot
+  seed?: ComfySlot
+  steps?: ComfySlot
+  cfg?: ComfySlot
+  denoise?: ComfySlot
+  samplerName?: ComfySlot
+  scheduler?: ComfySlot
+  width?: ComfySlot
+  height?: ComfySlot
+  batch?: ComfySlot
+  /** The model file: a checkpoint loader's ckpt_name, else any loader's ckpt_name / unet_name. */
+  model?: ComfySlot
+  /** A CheckpointLoader* node, whose outputs 0 and 1 are MODEL and CLIP: where LoRA loaders go. */
+  checkpointLoader?: string
+  /** SaveImage / PreviewImage nodes, a `latentry:output` one first. */
+  outputs: string[]
+}
+
+/** The roles a node's title can claim, as `latentry:<role>` (e.g. "Prompt latentry:prompt"). */
+export const COMFY_MARKERS = ['prompt', 'negative', 'seed', 'size', 'steps', 'cfg', 'sampler', 'output'] as const
+
+const NUMBER_KEYS = ['value', 'seed', 'noise_seed', 'int', 'number']
+const TEXT_KEYS = ['text', 'text_g', 'prompt', 'value', 'string']
+const OUTPUT_CLASS = /^(SaveImage|PreviewImage)$/
+
+/**
+ * Finds the roles in a graph: from the base sampler, following links to the
+ * nodes that hold each value (text encoders through passthroughs, seed and
+ * primitive nodes, SamplerCustomAdvanced's noise, guider, sampler and sigmas).
+ * A node titled with a `latentry:<role>` marker takes that role instead.
+ */
+export function comfyGraphRoles(graph: Record<string, ComfyNode & { _meta?: { title?: unknown } }>): ComfyRoles {
+  const ids = Object.keys(graph)
+  const idOf = (link: unknown) => (isComfyLink(link) && graph[String(link[0])] ? String(link[0]) : undefined)
+  const classOf = (id: string | undefined) => {
+    const type = id ? graph[id]?.class_type : undefined
+    return typeof type === 'string' ? type : ''
   }
-  const loaders = nodes.filter((node) => typeof node?.class_type === 'string' && /Loader/i.test(node.class_type) && fileOf(node))
-  const loader = loaders.find((node) => /^CheckpointLoader/.test(node.class_type as string)) ?? loaders[0]
-  return loader ? fileOf(loader) : undefined
+  const inputsOf = (id: string | undefined) => (id ? (graph[id]?.inputs ?? {}) : {})
+
+  // Where a number is held: in place, or on the node a link leads to.
+  const numberSlot = (id: string | undefined, input: string, depth = 0): ComfySlot | undefined => {
+    if (!id) return undefined
+    const value = inputsOf(id)[input]
+    if (typeof value === 'number' && Number.isFinite(value)) return { node: id, input }
+    if (!isComfyLink(value) || depth >= MAX_LINK_DEPTH) return undefined
+    const next = idOf(value)
+    for (const key of NUMBER_KEYS) {
+      const found = numberSlot(next, key, depth + 1)
+      if (found) return found
+    }
+    return undefined
+  }
+  const stringSlot = (id: string | undefined, input: string): ComfySlot | undefined =>
+    id && typeof inputsOf(id)[input] === 'string' ? { node: id, input } : undefined
+  // Where a prompt's text is held, from a conditioning link.
+  const textSlot = (link: unknown, depth = 0): ComfySlot | undefined => {
+    const id = idOf(link)
+    if (!id || depth > MAX_LINK_DEPTH) return undefined
+    const inputs = inputsOf(id)
+    for (const key of TEXT_KEYS) {
+      if (typeof inputs[key] === 'string') return { node: id, input: key }
+      if (isComfyLink(inputs[key])) return textSlot(inputs[key], depth + 1)
+    }
+    // A conditioning passthrough (e.g. a combine node): follow its first link.
+    const next = Object.values(inputs).find(isComfyLink)
+    return next ? textSlot(next, depth + 1) : undefined
+  }
+
+  const samplers = ids.filter((id) => SAMPLER_CLASS.test(classOf(id)))
+  const sampler = samplers.find((id) => EMPTY_LATENT_CLASS.test(classOf(idOf(inputsOf(id).latent_image)))) ?? samplers[0]
+  const inputs = inputsOf(sampler)
+  // SamplerCustom(Advanced) spreads its settings over the nodes it links to.
+  const guider = idOf(inputs.guider)
+  const sigmas = idOf(inputs.sigmas)
+  const chosen = idOf(inputs.sampler)
+  const noise = idOf(inputs.noise)
+  const latent = idOf(inputs.latent_image)
+
+  const loaders = ids.filter((id) => /Loader/i.test(classOf(id)) && ['ckpt_name', 'unet_name'].some((key) => typeof inputsOf(id)[key] === 'string'))
+  const loader = loaders.find((id) => /^CheckpointLoader/.test(classOf(id))) ?? loaders[0]
+
+  const roles: ComfyRoles = {
+    sampler,
+    positive: textSlot(inputs.positive ?? inputsOf(guider).positive ?? inputsOf(guider).conditioning),
+    negative: textSlot(inputs.negative ?? inputsOf(guider).negative),
+    seed: numberSlot(sampler, 'seed') ?? numberSlot(sampler, 'noise_seed') ?? numberSlot(noise, 'noise_seed'),
+    steps: numberSlot(sampler, 'steps') ?? numberSlot(sigmas, 'steps'),
+    cfg: numberSlot(sampler, 'cfg') ?? numberSlot(guider, 'cfg'),
+    denoise: numberSlot(sampler, 'denoise') ?? numberSlot(sigmas, 'denoise'),
+    samplerName: stringSlot(sampler, 'sampler_name') ?? stringSlot(chosen, 'sampler_name'),
+    scheduler: stringSlot(sampler, 'scheduler') ?? stringSlot(sigmas, 'scheduler'),
+    width: numberSlot(latent, 'width'),
+    height: numberSlot(latent, 'height'),
+    batch: numberSlot(latent, 'batch_size'),
+    model: loader ? (stringSlot(loader, 'ckpt_name') ?? stringSlot(loader, 'unet_name')) : undefined,
+    checkpointLoader: ids.find((id) => /^CheckpointLoader/.test(classOf(id))),
+    outputs: ids.filter((id) => OUTPUT_CLASS.test(classOf(id))),
+  }
+
+  // Markers win over what was found.
+  for (const id of ids) {
+    const title = graph[id]?._meta?.title
+    if (typeof title !== 'string') continue
+    for (const marker of COMFY_MARKERS) {
+      if (!title.includes(`latentry:${marker}`)) continue
+      const own = inputsOf(id)
+      const firstOf = (keys: string[], type: 'string' | 'number') => keys.find((key) => typeof own[key] === type)
+      if (marker === 'prompt' || marker === 'negative') {
+        const key = firstOf(TEXT_KEYS, 'string')
+        if (key) roles[marker === 'prompt' ? 'positive' : 'negative'] = { node: id, input: key }
+      } else if (marker === 'seed') {
+        const key = firstOf(['seed', 'noise_seed', ...NUMBER_KEYS], 'number')
+        if (key) roles.seed = { node: id, input: key }
+      } else if (marker === 'steps' || marker === 'cfg') {
+        if (typeof own[marker] === 'number') roles[marker] = { node: id, input: marker }
+      } else if (marker === 'sampler') {
+        if (typeof own.sampler_name === 'string') roles.samplerName = { node: id, input: 'sampler_name' }
+        if (typeof own.scheduler === 'string') roles.scheduler = { node: id, input: 'scheduler' }
+      } else if (marker === 'size') {
+        if (typeof own.width === 'number') roles.width = { node: id, input: 'width' }
+        if (typeof own.height === 'number') roles.height = { node: id, input: 'height' }
+        if (typeof own.batch_size === 'number') roles.batch = { node: id, input: 'batch_size' }
+      } else if (marker === 'output') {
+        roles.outputs = [id, ...roles.outputs.filter((other) => other !== id)]
+      }
+    }
+  }
+  return roles
 }
 
 type WorkflowNode = {

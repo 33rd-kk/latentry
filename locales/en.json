@@ -30,6 +30,18 @@
       "unreachable": "Nothing answers at that address."
     },
     "backendDefault": "Default",
+    "workflow": "Workflow",
+    "workflowBuiltIn": "Built-in graph",
+    "workflowMissing": "Not found in this workflow, so left as in the file: {items}.",
+    "workflowPromptOnly": "A workflow draws from the prompt only: no source image or mask.",
+    "workflowRole": {
+      "negative": "negative prompt",
+      "seed": "seed",
+      "size": "size",
+      "steps": "steps",
+      "cfg": "CFG",
+      "sampler": "sampler"
+    },
     "model": "Model",
     "modelLoading": "loading…",
     "modelPick": "Choose a model",
@@ -397,6 +409,9 @@
     "backendModel": "Model",
     "backendModelFirst": "The first checkpoint ComfyUI lists",
     "backendModelHint": "The checkpoint ComfyUI draws with. Test lists the ones it has.",
+    "backendWorkflowsDir": "Workflows folder",
+    "backendWorkflowsDirHint": "Optional: a folder on this computer with workflows saved from ComfyUI with Export (API). The Generate page offers them next to the built-in graph. Read only.",
+    "shareWorkflows": "Show workflow names on paired devices",
     "backendToken": "Token",
     "tokenKept": "Saved (type to replace)",
     "tokenFromEnv": "From {name} (type to replace)",

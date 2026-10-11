@@ -22,6 +22,11 @@ The servers that generate images. Each has:
 - **Profile**: the model profile its form starts from.
 - **Model** (`comfyui` only): the checkpoint ComfyUI draws with. **Test**
   fills the list with the ones it has; left empty, it is the first.
+- **Workflows folder** (`comfyui` only, optional): a folder of workflows
+  saved with ComfyUI's **Export (API)**, offered on the Generate page (see
+  [Backends](../reference/backends.md#your-own-workflows)). **Show workflow
+  names on paired devices** lets paired phones see and use them; it is off
+  by default.
 - **Token**: a Bearer token for `diffusers` and `comfyui` (for a proxy in
   front of it), `user:password` for `a1111` started with `--api-auth`. Saved tokens are never shown again; type to
   replace one. A token is only sent to the server it was saved for: changing

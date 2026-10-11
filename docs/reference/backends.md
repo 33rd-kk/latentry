@@ -74,7 +74,41 @@ login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
 something Latentry can get past: **Test** and the Generate page then say that
 it asks for a login, with ComfyUI's own message.
 
-Not yet: pose, and running your own workflow.
+### Your own workflows
+
+Give a ComfyUI backend a **Workflows folder** on Settings: a folder on this
+computer with workflows saved from ComfyUI with **Export (API)** (the
+editor's own format is refused, with that hint). The Generate page then
+offers them under **Workflow**, next to the built-in graph.
+
+Latentry fills a workflow in on this computer before it is queued:
+
+- **What goes in**: the prompt and negative prompt, the seed (the next one
+  for each picture), the size (one picture per prompt), steps and CFG, and
+  the sampler and scheduler unless they are *Default*. The **Model** set for
+  the backend replaces the workflow's checkpoint; otherwise the workflow's
+  own is used.
+- **Where**: found from the first-pass sampler, the same way the gallery
+  reads ComfyUI pictures: its prompts through the text encoders (and string
+  or primitive nodes), the seed on the sampler or a seed node, the size on
+  the empty latent. A node whose title contains a marker takes that role:
+  `latentry:prompt`, `latentry:negative`, `latentry:seed`, `latentry:size`,
+  `latentry:steps`, `latentry:cfg`, `latentry:sampler`, `latentry:output`.
+  What is not found is left as in the file, and the page says which.
+- **LoRAs**: each `<lora:name:weight>` adds a LoRA loader after the
+  checkpoint loader. A workflow without one (a UNET loader, say) refuses
+  LoRA calls.
+- **Output**: `SaveImage` becomes `PreviewImage`, so nothing lands in
+  ComfyUI's output folder; the picture is read from the `latentry:output`
+  node, else the first.
+
+A workflow draws from the prompt only: for a source picture or a mask, use
+the built-in graph. The folder is only read, never written, and only its
+own `*.json` files (no subfolders, at most 200, 1 MB each). Workflow names
+are shown to paired devices only with **Show workflow names on paired
+devices** on for that backend.
+
+Not yet: pose.
 
 ## Your own server
 
