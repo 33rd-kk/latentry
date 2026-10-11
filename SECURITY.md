@@ -80,9 +80,9 @@ What it does guard against:
 - **Downloads** are pinned. The engine install uses a fixed uv release,
   checked against its SHA-256 before it runs. Models and taggers from the
   Setup page come from a fixed commit of their repository, and each file is
-  checked against its SHA-256 before it is kept. So are the engine's pose
-  weights (the SDXL ControlNet and the Anima pose adapter) fetched on first
-  use. poseorbit's pose detectors and the Python packages are not pinned yet.
+  checked against its SHA-256 before it is kept. So are the pose models
+  fetched on first use: the engine's SDXL ControlNet and Anima pose adapter,
+  and poseorbit's pose detectors. The Python packages are not pinned yet.
 - **Secret mode** is a privacy aid for this browser, not a security
   boundary: it keeps typed text out of browser storage, gallery pictures out
   of the browser cache, and secret runs from other pages. By design, saved

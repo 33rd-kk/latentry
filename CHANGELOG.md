@@ -6,6 +6,10 @@
   ControlNet and the Anima pose adapter from a fixed commit and checks each
   file against its SHA-256 before using it. A file fetched before this
   that does not match is fetched again once.
+- **Pinned pose detectors**: the engine needs poseorbit 0.1.2, which does
+  the same for its three detector models and no longer leaves a second copy
+  in Hugging Face's shared cache. Run **Repair / update** for the engine on
+  **Setup** once to get it.
 
 ## 0.7.0 (2026-10-11)
 
