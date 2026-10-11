@@ -13,9 +13,12 @@ paired phone.
 
 The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
 infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and
-Latentry's own record, including the LoRAs a picture used. It reads only the
-file's headers, never the whole picture. From EXIF it reads only the fields
-that hold settings, never location or camera data.
+Latentry's own record, including the LoRAs a picture used. From ComfyUI it
+reads the graph that ran, or else the editor's workflow, and takes the base
+pass when there is a second (hires) one. Models are shown by their file name,
+without the folders they sit in. It reads only the file's headers, never the
+whole picture. From EXIF it reads only the fields that hold settings, never
+location or camera data.
 
 Pictures load newest first as you scroll (see [Order and
 filters](#order-and-filters) for other orders); what is on screen stays in
