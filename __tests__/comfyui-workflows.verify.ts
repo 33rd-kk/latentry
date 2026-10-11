@@ -83,6 +83,8 @@ async function main() {
   eq([g['9'].class_type, g['9'].inputs, filled.output], ['PreviewImage', { images: ['8', 0] }, '9'], 'SaveImage becomes PreviewImage, so nothing lands in ComfyUI\'s output folder')
   eq([TXT2IMG['6'].inputs.text, TXT2IMG['9'].class_type], ['old prompt', 'SaveImage'], 'the workflow itself is left as it was')
   const unet: ComfyGraph = { ...TXT2IMG, '4': { class_type: 'UNETLoader', inputs: { unet_name: 'flux.safetensors' } } }
+  const unetFilled = fillWorkflow(unet, REQUEST, { seed: 1, prompt: 'x', sizeMultiple: 8, checkpoint: 'other.safetensors', loras: [] })
+  eq('error' in unetFilled ? null : unetFilled.graph['4'].inputs.unet_name, 'flux.safetensors', 'a UNET loader keeps its own file: the backend\'s checkpoint is not put there')
   const noLoader = fillWorkflow(unet, REQUEST, { seed: 1, prompt: 'x', sizeMultiple: 8, loras })
   check('error' in noLoader && noLoader.error.includes('ink'), 'a LoRA without a checkpoint loader to hang it on is refused, by name')
   const sdxl: ComfyGraph = { ...TXT2IMG, '6': { class_type: 'CLIPTextEncodeSDXL', inputs: { text_g: 'g', text_l: 'l', clip: ['4', 1], width: 1024, height: 1024 } } }
