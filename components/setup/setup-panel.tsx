@@ -57,7 +57,7 @@ function CatalogItem({
   const t = useT()
   const [accepted, setAccepted] = useState(false)
   const download = entry.download
-  const busy = download?.state === "downloading" || download?.state === "queued"
+  const busy = download?.state === "downloading" || download?.state === "queued" || download?.state === "verifying"
   const percent = download && download.totalBytes ? (download.doneBytes / download.totalBytes) * 100 : 0
 
   return (
@@ -84,7 +84,9 @@ function CatalogItem({
         <div className="space-y-1">
           <Progress value={percent} indeterminate={!download.totalBytes} />
           <p className="text-xs text-muted-foreground">
-            {t("setup.downloading", { done: gb(download.doneBytes), total: gb(download.totalBytes || entry.bytes) })}
+            {download.state === "verifying"
+              ? t("setup.verifying")
+              : t("setup.downloading", { done: gb(download.doneBytes), total: gb(download.totalBytes || entry.bytes) })}
           </p>
         </div>
       ) : entry.installed ? (
@@ -199,7 +201,7 @@ export function SetupPanel() {
     engineStatus &&
       (engineStatus.install.state === "running" ||
         engineStatus.engines.some((engine) => engine.state === "starting" || engine.loading) ||
-        engineStatus.catalog.some((entry) => entry.download?.state === "downloading" || entry.download?.state === "queued"))
+        engineStatus.catalog.some((entry) => ["queued", "downloading", "verifying"].includes(entry.download?.state ?? "")))
   )
 
   useEffect(() => {

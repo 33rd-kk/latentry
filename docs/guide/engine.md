@@ -22,6 +22,8 @@ picture.
   own uv settings (`UV_*` variables, `uv.toml`). Deleting `.runtime/` removes
   the engine. An engine installed before this used a Python 3.12 from this
   computer when it found one; **Repair / update** moves it onto its own.
+  uv is a fixed release, checked against its published SHA-256 before it is
+  run.
 - **Repair / update**: run it after updating Latentry, or when the engine
   will not start.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
@@ -46,7 +48,10 @@ Face, under its own licence, into the **models folder**:
 - **In the models folder**: what is there now; **Load** one, or see which is
   loaded. Single `.safetensors` files and diffusers folders are listed.
 - **Available to download**: the licence, whether outputs may be used
-  commercially, and a box to accept the licence before **Download**.
+  commercially, and a box to accept the licence before **Download**. Each
+  download is a fixed version of the repository, and its files are checked
+  against their SHA-256 before they are kept, so a repository that changes
+  later cannot change what you get.
 - **Models folder**: point it at models you already have, such as a web UI's
   `models/Stable-diffusion` folder.
 

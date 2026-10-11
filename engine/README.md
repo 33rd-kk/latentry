@@ -109,7 +109,11 @@ web page cannot reach it by re-resolving its own name to this machine. Set
 `LATENTRY_ENGINE_TOKEN` to require a Bearer token; listening anywhere else
 (`--host 0.0.0.0`) is refused without one. Besides the backend API it has `GET /api/loras` (names, family and licence, no paths), `GET /api/models`,
 `POST /api/models/load` `{ id }`, `POST /api/models/download`
-`{ repo_id, filename? }` and `GET /api/models/downloads`.
+`{ repo_id, revision, filename?, sha256? }` and `GET /api/models/downloads`.
+A download names a commit (`revision`, 40 hex characters), never a branch.
+A single file also names its SHA-256 and is kept only if it matches. A
+whole repository is checked file by file against the hashes its commit
+records, and files that do not match are removed.
 
 Request bodies are capped at 64 MB and must say their size (no chunked
 bodies). Prompts are capped at 20,000 characters and pictures at 32M
