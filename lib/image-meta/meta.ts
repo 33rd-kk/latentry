@@ -200,9 +200,33 @@ function quoteIfNeeded(value: string): string {
 type ComfyNode = { class_type?: unknown; inputs?: Record<string, unknown> }
 
 /**
+ * A model file as it is shown to people: its file name, without the folders
+ * it sits in on someone's disk (ComfyUI names models by their path under its
+ * models folder, e.g. "sdxl\anime\x.safetensors").
+ */
+export function modelFileName(raw: string): string {
+  return (raw.trim().split(/[\\/]/).pop() ?? '').trim()
+}
+
+/** How far a link is followed: past this, a graph is more likely a loop than a chain. */
+const MAX_LINK_DEPTH = 4
+
+/** The samplers in a graph: KSampler and its variants, SamplerCustom(Advanced); not KSamplerSelect. */
+const SAMPLER_CLASS = /KSampler(?!Select)|SamplerCustom/
+/** Where a first pass starts: EmptyLatentImage, EmptySD3LatentImage and the like. */
+const EMPTY_LATENT_CLASS = /^Empty.*Latent/i
+
+const isComfyLink = (value: unknown): value is [string | number, number] =>
+  Array.isArray(value) && value.length === 2 && (typeof value[0] === 'string' || typeof value[0] === 'number') && typeof value[1] === 'number'
+
+/**
  * ComfyUI's `prompt` chunk is the executed graph: node id -> { class_type, inputs },
  * with links as [node id, output index]. The sampler's `positive` / `negative`
  * links lead to the text encoders, which is how the two prompts are told apart.
+ * With two samplers (a hires or refiner pass), the one that starts from an
+ * empty latent is the picture's base. SamplerCustomAdvanced keeps its settings
+ * on the nodes it links to (noise, guider, sampler, sigmas), and any number may
+ * come from a primitive or seed node by a link.
  */
 export function parseComfyPrompt(text: string): ImageMeta | null {
   let graph: Record<string, ComfyNode>
@@ -211,44 +235,179 @@ export function parseComfyPrompt(text: string): ImageMeta | null {
   } catch {
     return null
   }
-  if (!graph || typeof graph !== 'object') return null
+  if (!graph || typeof graph !== 'object' || Array.isArray(graph)) return null
 
   const nodes = Object.values(graph)
-  const sampler = nodes.find((node) => typeof node?.class_type === 'string' && /KSampler/.test(node.class_type))
+  const nodeAt = (link: unknown) => (isComfyLink(link) ? graph[String(link[0])] : undefined)
+  const classOf = (node: ComfyNode | undefined) => (typeof node?.class_type === 'string' ? node.class_type : '')
+  const inputsAt = (link: unknown) => nodeAt(link)?.inputs ?? {}
+
+  // A number given in place, or by a link to the node holding it.
+  const num = (value: unknown, depth = 0): number | undefined => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+    if (!isComfyLink(value) || depth >= MAX_LINK_DEPTH) return undefined
+    const inputs = inputsAt(value)
+    for (const key of ['value', 'seed', 'noise_seed', 'int', 'number']) {
+      const found = num(inputs[key], depth + 1)
+      if (found !== undefined) return found
+    }
+    return undefined
+  }
+  const str = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
+
   const textOf = (link: unknown, depth = 0): string => {
-    if (!Array.isArray(link) || depth > 4) return ''
-    const node = graph[String(link[0])]
-    const inputs = node?.inputs ?? {}
+    if (!isComfyLink(link) || depth > MAX_LINK_DEPTH) return ''
+    const inputs = inputsAt(link)
     for (const key of ['text', 'text_g', 'prompt']) {
       if (typeof inputs[key] === 'string') return inputs[key] as string
-      if (Array.isArray(inputs[key])) return textOf(inputs[key], depth + 1)
+      if (isComfyLink(inputs[key])) return textOf(inputs[key], depth + 1)
     }
     // A conditioning passthrough (e.g. a combine node): follow its first link.
-    const next = Object.values(inputs).find(Array.isArray)
+    const next = Object.values(inputs).find(isComfyLink)
     return next ? textOf(next, depth + 1) : ''
   }
 
+  const samplers = nodes.filter((node) => SAMPLER_CLASS.test(classOf(node)))
+  const sampler = samplers.find((node) => EMPTY_LATENT_CLASS.test(classOf(nodeAt(node.inputs?.latent_image)))) ?? samplers[0]
   const inputs = sampler?.inputs ?? {}
-  const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
-  const checkpoint = nodes.find((node) => node?.class_type === 'CheckpointLoaderSimple')?.inputs?.ckpt_name
-  const latent = Array.isArray(inputs.latent_image) ? graph[String(inputs.latent_image[0])]?.inputs : undefined
+  // SamplerCustom(Advanced) spreads its settings over the nodes it links to.
+  const guider = inputsAt(inputs.guider)
+  const sigmas = inputsAt(inputs.sigmas)
+  const chosen = inputsAt(inputs.sampler)
+  const noise = inputsAt(inputs.noise)
+  const latent = inputsAt(inputs.latent_image)
 
-  const prompt = textOf(inputs.positive)
+  const prompt = textOf(inputs.positive ?? guider.positive ?? guider.conditioning)
   if (!prompt && !sampler) return null
+  const denoise = num(inputs.denoise) ?? num(sigmas.denoise)
+  const model = comfyModel(nodes)
   return {
     source: 'comfyui',
     prompt,
-    negativePrompt: textOf(inputs.negative),
-    seed: num(inputs.seed) ?? num(inputs.noise_seed),
-    steps: num(inputs.steps),
-    cfg: num(inputs.cfg),
-    sampler: typeof inputs.sampler_name === 'string' ? inputs.sampler_name : undefined,
-    scheduler: typeof inputs.scheduler === 'string' ? inputs.scheduler : undefined,
-    strength: num(inputs.denoise) !== undefined && num(inputs.denoise)! < 1 ? num(inputs.denoise) : undefined,
-    model: typeof checkpoint === 'string' ? checkpoint : undefined,
-    width: num(latent?.width),
-    height: num(latent?.height),
+    negativePrompt: textOf(inputs.negative ?? guider.negative),
+    seed: num(inputs.seed) ?? num(inputs.noise_seed) ?? num(noise.noise_seed),
+    steps: num(inputs.steps) ?? num(sigmas.steps),
+    cfg: num(inputs.cfg) ?? num(guider.cfg),
+    sampler: str(inputs.sampler_name) ?? str(chosen.sampler_name),
+    scheduler: str(inputs.scheduler) ?? str(sigmas.scheduler),
+    strength: denoise !== undefined && denoise < 1 ? denoise : undefined,
+    model,
+    width: num(latent.width),
+    height: num(latent.height),
     loras: uniqueLoras([...lorasInPrompt(prompt), ...comfyLoras(nodes)]),
+  }
+}
+
+/**
+ * The model file of a graph, by name only: a checkpoint loader's `ckpt_name`
+ * first, else any loader's `ckpt_name` / `unet_name` (UNETLoader, the
+ * Efficiency and custom checkpoint loaders).
+ */
+function comfyModel(nodes: ComfyNode[]): string | undefined {
+  const fileOf = (node: ComfyNode) => {
+    const value = node?.inputs?.ckpt_name ?? node?.inputs?.unet_name
+    return typeof value === 'string' && value && value !== 'None' ? modelFileName(value) : undefined
+  }
+  const loaders = nodes.filter((node) => typeof node?.class_type === 'string' && /Loader/i.test(node.class_type) && fileOf(node))
+  const loader = loaders.find((node) => /^CheckpointLoader/.test(node.class_type as string)) ?? loaders[0]
+  return loader ? fileOf(loader) : undefined
+}
+
+type WorkflowNode = {
+  id?: unknown
+  type?: unknown
+  mode?: unknown
+  inputs?: { name?: unknown; link?: unknown }[]
+  widgets_values?: unknown
+}
+
+/** ComfyUI's frontend values for a sampler's seed widget's "control after generate". */
+const SEED_CONTROLS = new Set(['fixed', 'increment', 'decrement', 'randomize'])
+
+/**
+ * ComfyUI's `workflow` chunk, for pictures that carry only that: the editor's
+ * graph, with nodes in an array, settings as each node's `widgets_values` in
+ * widget order, and links as [id, from node, from slot, to node, to slot, type].
+ * Only the stock nodes are read (KSampler, KSamplerAdvanced, CLIPTextEncode,
+ * the checkpoint and LoRA loaders, EmptyLatentImage), whose widget order is
+ * known; muted and bypassed nodes are left out.
+ */
+export function parseComfyWorkflow(text: string): ImageMeta | null {
+  let workflow: { nodes?: unknown; links?: unknown }
+  try {
+    workflow = JSON.parse(text)
+  } catch {
+    return null
+  }
+  if (!workflow || !Array.isArray(workflow.nodes)) return null
+
+  // Mode 2 is muted and 4 is bypassed: neither ran.
+  const nodes = (workflow.nodes as WorkflowNode[]).filter((node) => node && typeof node === 'object' && node.mode !== 2 && node.mode !== 4)
+  const byId = new Map(nodes.map((node) => [String(node.id), node]))
+  const sources = new Map<string, string>()
+  for (const link of Array.isArray(workflow.links) ? workflow.links : []) {
+    if (Array.isArray(link) && link.length >= 2) sources.set(String(link[0]), String(link[1]))
+  }
+  const typeOf = (node: WorkflowNode | undefined) => (typeof node?.type === 'string' ? node.type : '')
+  const widgets = (node: WorkflowNode | undefined): unknown[] => (Array.isArray(node?.widgets_values) ? node.widgets_values : [])
+  // The node feeding one of this node's inputs, by the input's name.
+  const feeding = (node: WorkflowNode | undefined, name: string) => {
+    const link = node?.inputs?.find((input) => input?.name === name)?.link
+    return link === null || link === undefined ? undefined : byId.get(sources.get(String(link)) ?? '')
+  }
+  const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+  const str = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
+
+  const textOf = (node: WorkflowNode | undefined, depth = 0): string => {
+    if (!node || depth > MAX_LINK_DEPTH) return ''
+    // Only the plain encoder: the SDXL one has its size widgets first.
+    if (typeOf(node) === 'CLIPTextEncode') {
+      // The text may come from another node (a primitive or a string node).
+      const from = feeding(node, 'text')
+      if (from) return str(widgets(from)[0]) ?? ''
+      return str(widgets(node)[0]) ?? ''
+    }
+    // A conditioning passthrough (e.g. a combine node): follow its first input.
+    const first = node.inputs?.find((input) => input?.link !== null && input?.link !== undefined)
+    return first ? textOf(feeding(node, String(first.name)), depth + 1) : ''
+  }
+
+  const samplers = nodes.filter((node) => typeOf(node) === 'KSampler' || typeOf(node) === 'KSamplerAdvanced')
+  const sampler = samplers.find((node) => EMPTY_LATENT_CLASS.test(typeOf(feeding(node, 'latent_image')))) ?? samplers[0]
+  if (!sampler) return null
+
+  // KSampler: seed, control, steps, cfg, sampler, scheduler, denoise.
+  // KSamplerAdvanced: add_noise, seed, control, steps, cfg, sampler, scheduler, start, end, leftover.
+  // The control widget is missing from some older files; it is told apart by its values.
+  let values = widgets(sampler)
+  if (typeOf(sampler) === 'KSamplerAdvanced') values = values.slice(1)
+  const [seed, ...rest] = values
+  const [steps, cfg, samplerName, scheduler, denoise] = SEED_CONTROLS.has(rest[0] as string) ? rest.slice(1) : rest
+  const latent = feeding(sampler, 'latent_image')
+  const [width, height] = EMPTY_LATENT_CLASS.test(typeOf(latent)) ? widgets(latent) : []
+  const checkpoint = nodes.find((node) => /^CheckpointLoader/.test(typeOf(node)))
+  const loras = nodes.filter((node) => /^LoraLoader/.test(typeOf(node))).map((node) => str(widgets(node)[0]))
+
+  const prompt = textOf(feeding(sampler, 'positive'))
+  const strength = typeOf(sampler) === 'KSampler' ? num(denoise) : undefined
+  const model = str(widgets(checkpoint)[0])
+  return {
+    source: 'comfyui',
+    prompt,
+    negativePrompt: textOf(feeding(sampler, 'negative')),
+    seed: num(seed),
+    steps: num(steps),
+    cfg: num(cfg),
+    sampler: str(samplerName),
+    scheduler: str(scheduler),
+    strength: strength !== undefined && strength < 1 ? strength : undefined,
+    model: model ? modelFileName(model) : undefined,
+    width: num(width),
+    height: num(height),
+    loras: uniqueLoras([
+      ...lorasInPrompt(prompt),
+      ...loras.flatMap((name) => (name && name !== 'None' ? [loraName(name)] : [])),
+    ]),
   }
 }
 
@@ -334,15 +493,17 @@ export function parseTags(text: string | undefined): ImageTag[] | null {
 
 /**
  * The settings in a picture's text chunks, preferring the most structured
- * source: our own record, then A1111's infotext, then ComfyUI's graph. WD14
- * tags written back by the gallery join whichever source supplies the rest.
+ * source: our own record, then A1111's infotext, then ComfyUI's executed
+ * graph, then its editor graph. WD14 tags written back by the gallery join
+ * whichever source supplies the rest.
  */
 export function metaFromText(text: Record<string, string>): ImageMeta | null {
   const tags = parseTags(text[TAGS_KEY])
   const meta =
     (text[LATENTRY_KEY] ? parseLatentryRecord(text[LATENTRY_KEY]) : null) ??
     (text[PARAMETERS_KEY] ? parseA1111Parameters(text[PARAMETERS_KEY]) : null) ??
-    (text.prompt ? parseComfyPrompt(text.prompt) : null)
+    (text.prompt ? parseComfyPrompt(text.prompt) : null) ??
+    (text.workflow ? parseComfyWorkflow(text.workflow) : null)
   if (!meta && !tags) return null
   return { ...(meta ?? { source: 'unknown', prompt: '', negativePrompt: '' }), ...(tags ? { tags } : {}) }
 }

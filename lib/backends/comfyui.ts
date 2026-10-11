@@ -21,7 +21,7 @@
 
 import { randomInt, randomUUID } from 'node:crypto'
 import { fetch as undiciFetch, WebSocket } from 'undici'
-import { isPng, loraCallsInPrompt, loraName, removePngText, type LoraUse } from '@/lib/image-meta'
+import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { getProfile } from '@/lib/profiles'
 import { comfyHints } from './hints'
@@ -184,11 +184,6 @@ export function comboOptions(body: unknown, node: string, input: string): string
   return Array.isArray(list) ? list.filter((item): item is string => typeof item === 'string') : null
 }
 
-/** A model file by name only, without the folders under ComfyUI's models folder. */
-function fileName(path: string): string {
-  return path.split(/[\\/]/).pop() ?? path
-}
-
 /** The prompt without its `<lora:…>` calls, which ComfyUI's text encoder would read as words. */
 export function withoutLoraCalls(prompt: string): string {
   return prompt
@@ -346,7 +341,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       alive,
       busy: running.length + pending.length > 0 || inflightRuns.has(this.config.id),
       // The file's name only: the folders under ComfyUI's models folder stay here.
-      model: checkpoint ? fileName(checkpoint) : null,
+      model: checkpoint ? modelFileName(checkpoint) : null,
       capabilities: {
         img2img: false,
         inpaint: false,
@@ -383,7 +378,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     const checkpoint = this.checkpointFrom(info)
     if (!checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
     if (this.config.model && info.checkpoints.length && !info.checkpoints.includes(this.config.model)) {
-      return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${fileName(this.config.model)}` }
+      return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${modelFileName(this.config.model)}` }
     }
     const calls = loraCallsInPrompt(request.prompt)
     const { found, missing } = resolveLoras(calls, info.loras ?? [])
