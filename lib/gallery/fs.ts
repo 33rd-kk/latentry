@@ -77,7 +77,8 @@ export async function openInDir(
   if (!file) return null
   let handle: FileHandle | null = null
   try {
-    handle = await open(file, 'r')
+    // A picture in a gallery folder, never a source file: not for Turbopack to trace.
+    handle = await open(/*turbopackIgnore: true*/ file, 'r')
     const [info, again] = await Promise.all([handle.stat({ bigint: true }), resolveInDir(dir, name)])
     const there = again ? await stat(again, { bigint: true }) : null
     if (!there || !info.isFile() || info.dev !== there.dev || info.ino !== there.ino) {
