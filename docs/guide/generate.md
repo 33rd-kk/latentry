@@ -15,6 +15,11 @@ form, so switching backends and back keeps what you typed.
   defaults per profile are set on [Settings](settings.md).
 - **Model** (built-in engine): which downloaded model the engine has loaded.
   Picking another loads it; get more on [Setup](engine.md).
+- **Workflow** (a ComfyUI backend with a workflows folder): the built-in
+  graph, or one of your own workflows. Under it, the page says what the
+  workflow lacks (left as in the file). A workflow draws from the prompt
+  only, so the source image is hidden while one is chosen. See
+  [Backends](../reference/backends.md#your-own-workflows).
 
 ## Prompts
 

@@ -22,6 +22,10 @@ export interface StoredBackend {
   token?: string
   /** comfyui only: the checkpoint, as ComfyUI lists it (folders included). */
   model?: string
+  /** comfyui only: a folder of API-format workflows (absolute; read only). */
+  workflowsDir?: string
+  /** comfyui only: paired devices may see and pick those workflows by name. */
+  shareWorkflows?: boolean
 }
 
 /** Longest checkpoint name kept for a ComfyUI backend. */
@@ -172,6 +176,8 @@ export interface BackendInput {
   profile: unknown
   token?: unknown
   model?: unknown
+  workflowsDir?: unknown
+  shareWorkflows?: unknown
 }
 
 export interface SettingsInput {
@@ -228,6 +234,14 @@ export function validateSettings(
         ) {
           errors[`${at}.model`] = 'settings.errorBackendModel'
         }
+        const workflowsDir = typeof raw?.workflowsDir === 'string' ? raw.workflowsDir.trim() : ''
+        if (raw?.workflowsDir !== undefined && raw.workflowsDir !== null && typeof raw.workflowsDir !== 'string') {
+          errors[`${at}.workflowsDir`] = 'settings.errorAbsolute'
+        } else if (workflowsDir) {
+          const problem = folderError(workflowsDir, env)
+          if (problem) errors[`${at}.workflowsDir`] = problem
+        }
+        if (raw?.shareWorkflows !== undefined && typeof raw.shareWorkflows !== 'boolean') errors[`${at}.shareWorkflows`] = 'settings.errorList'
         seen.add(id)
         if (Object.keys(errors).some((key) => key.startsWith(`${at}.`))) return
         const previous = current.backends?.find((backend) => backend.id === id)
@@ -240,14 +254,17 @@ export function validateSettings(
         }
         const token = typed ?? previous?.token
         // Only ComfyUI is told which checkpoint to load; the others draw with what they have.
-        const keepModel = raw.kind === 'comfyui' && model
+        const comfy = raw.kind === 'comfyui'
         stored.push({
           id,
           kind: raw.kind as BackendKind,
           url: url!,
           profile: raw.profile as ProfileId,
           ...(token ? { token } : {}),
-          ...(keepModel ? { model } : {}),
+          ...(comfy && model ? { model } : {}),
+          ...(comfy && workflowsDir ? { workflowsDir } : {}),
+          // Off unless turned on, and only meaningful with a folder.
+          ...(comfy && workflowsDir && raw.shareWorkflows === true ? { shareWorkflows: true } : {}),
         })
       })
       next.backends = stored

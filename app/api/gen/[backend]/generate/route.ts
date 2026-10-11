@@ -7,6 +7,7 @@ import { saveToGallery } from '@/lib/gallery/save'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
+import { workflowAccess } from '@/lib/backends/workflow-access'
 
 export const runtime = 'nodejs'
 
@@ -29,6 +30,10 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   if (adapter.config.kind === 'diffusers' && loraHashesEnabled() && getSaveDir()) generate.lora_hashes = true
   // A backend that keeps traces of a run (ComfyUI) wipes them for a secret one.
   if (body.secret === true) generate.secret = true
+  // Naming a workflow takes the same right as seeing the list of them.
+  if (generate.workflow && !workflowAccess(request.headers, adapter.config)) {
+    return jsonError('Workflows are not available to this device', 403)
+  }
 
   const id = adapter.config.id
   // A backend does one run at a time, so a second request would only queue
@@ -69,7 +74,8 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
         request: { ...generate, init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
         profile,
         kind: adapter.config.kind,
-        model: status?.model ?? null,
+        // A workflow loads its own model unless one is set for the backend; status cannot say which.
+        model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
         mode: modeOf(generate),
       },
     })

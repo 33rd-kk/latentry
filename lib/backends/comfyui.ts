@@ -31,6 +31,7 @@ import { SECRET_GRACE_MS } from '@/lib/diffusion/job-store'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { getProfile } from '@/lib/profiles'
 import { comfyHints, problemOf } from './hints'
+import { fillWorkflow, readWorkflow, type ComfyGraph } from './comfy-workflows'
 import { blankPng, preparedImages } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
 import type { BackendAdapter, BackendConfig, BackendEvent, BackendProblem, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
@@ -442,8 +443,6 @@ export class ComfyUIAdapter implements BackendAdapter {
     if (running.length + pending.length > 0) return { ok: false, status: 409, error: 'Another client is generating on this backend' }
 
     const info = await this.staticInfo()
-    const checkpoint = this.checkpointFrom(info)
-    if (!checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
     if (this.config.model && info.checkpoints.length && !info.checkpoints.includes(this.config.model)) {
       return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${modelFileName(this.config.model)}` }
     }
@@ -451,6 +450,23 @@ export class ComfyUIAdapter implements BackendAdapter {
     if (calls.length > MAX_LORAS) return { ok: false, status: 400, error: `At most ${MAX_LORAS} LoRAs in one prompt` }
     const { found, missing } = resolveLoras(calls, info.loras ?? [])
     if (missing.length) return { ok: false, status: 400, error: `LoRA not found on this backend: ${missing.join(', ')}` }
+
+    // Your own workflow, from this backend's folder, in place of the built-in graph.
+    let workflow: ComfyGraph | undefined
+    if (request.workflow) {
+      if (request.init_image_base64) {
+        return { ok: false, status: 400, error: 'A workflow draws from a prompt only. Choose the built-in graph for a source image.' }
+      }
+      if (!this.config.workflowsDir) return { ok: false, status: 400, error: 'This backend has no workflows folder' }
+      const read = await readWorkflow(this.config.workflowsDir, request.workflow)
+      if ('error' in read) return { ok: false, status: 400, error: read.error }
+      // Filled once here, so a workflow Latentry cannot fill is refused before anything is queued.
+      const trial = fillWorkflow(read.graph, request, { seed: 0, prompt: withoutLoraCalls(request.prompt), sizeMultiple: 8, loras: found })
+      if ('error' in trial) return { ok: false, status: 400, error: trial.error }
+      workflow = read.graph
+    }
+    const checkpoint = workflow ? (this.config.model ?? '') : this.checkpointFrom(info)
+    if (!workflow && !checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
 
     const inflight: Inflight = { runId: null, cancelRequested: false, secret: request.secret === true, promptIds: [], uploads: [] }
     let drawn = request
@@ -477,7 +493,7 @@ export class ComfyUIAdapter implements BackendAdapter {
 
     inflightRuns.set(this.config.id, inflight)
     const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
-    return { ok: true, value: this.run(drawn, checkpoint, found, seed, inflight, images) }
+    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, images, workflow) }
   }
 
   /** Uploads one picture into ComfyUI's input folder; the name LoadImage takes, or why not. */
@@ -535,7 +551,8 @@ export class ComfyUIAdapter implements BackendAdapter {
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
     inflight: Inflight,
-    images?: { source: string; mask?: string; strength: number }
+    images?: { source: string; mask?: string; strength: number },
+    workflow?: ComfyGraph
   ): AsyncGenerator<BackendEvent> {
     const total = request.image_count
     const clientId = randomUUID()
@@ -573,13 +590,31 @@ export class ComfyUIAdapter implements BackendAdapter {
           return
         }
         const seed = firstSeed + index
-        const graph = buildComfyGraph(request, {
-          checkpoint,
-          loras: loras.map(({ file, use }) => ({ file, weight: use.weight })),
-          seed,
-          sizeMultiple,
-          ...(images ? { images } : {}),
-        })
+        let graph: Record<string, unknown>
+        let output = OUTPUT_NODE
+        if (workflow) {
+          const filled = fillWorkflow(workflow, request, {
+            seed,
+            prompt: withoutLoraCalls(request.prompt),
+            sizeMultiple,
+            ...(this.config.model ? { checkpoint: this.config.model } : {}),
+            loras,
+          })
+          if ('error' in filled) {
+            yield { type: 'error', message: filled.error }
+            return
+          }
+          graph = filled.graph
+          output = filled.output
+        } else {
+          graph = buildComfyGraph(request, {
+            checkpoint,
+            loras: loras.map(({ file, use }) => ({ file, weight: use.weight })),
+            seed,
+            sizeMultiple,
+            ...(images ? { images } : {}),
+          })
+        }
         let queued: { status: number; body: unknown }
         try {
           queued = await this.http.post('/prompt', { prompt: graph, client_id: clientId }, QUEUE_TIMEOUT_MS)
@@ -646,7 +681,7 @@ export class ComfyUIAdapter implements BackendAdapter {
           yield { type: 'error', message: ended.error }
           return
         }
-        const picture = await this.picture(promptId)
+        const picture = await this.picture(promptId, output)
         if ('error' in picture) {
           yield { type: 'error', message: picture.error }
           return
@@ -676,9 +711,9 @@ export class ComfyUIAdapter implements BackendAdapter {
   }
 
   /** The finished prompt's picture, from PreviewImage, without ComfyUI's graph chunks. */
-  private async picture(promptId: string): Promise<{ png: Buffer } | { error: string }> {
+  private async picture(promptId: string, output: string): Promise<{ png: Buffer } | { error: string }> {
     const history = await this.getOrNull(`/history/${encodeURIComponent(promptId)}`)
-    const image = (history as Record<string, HistoryEntry> | null)?.[promptId]?.outputs?.[OUTPUT_NODE]?.images?.[0]
+    const image = (history as Record<string, HistoryEntry> | null)?.[promptId]?.outputs?.[output]?.images?.[0]
     if (!image || typeof image.filename !== 'string') return { error: 'The backend finished without a picture' }
     const query = new URLSearchParams({
       filename: image.filename,

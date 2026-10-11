@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Loader2, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -17,12 +17,14 @@ import { problemText, UnavailableFeatures } from "@/components/generate/unavaila
 import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
 import { ResultsPanel } from "@/components/generate/results-panel"
+import { WorkflowPicker } from "@/components/generate/workflow-picker"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
+import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, DEFAULT } from "@/lib/generate/form"
 import { isSecretMode } from "@/lib/secret-mode"
@@ -155,7 +157,14 @@ export function GenerateClient() {
   }, [secret, runId, backendRef])
 
   // ── Generate and cancel ──────────────────────────────────────────────────
-  const capabilities = status?.capabilities
+  // A ComfyUI workflow from the backend's folder draws from a prompt only.
+  const workflows = useComfyWorkflows(status)
+  const workflow = form && workflows.some((item) => item.name === form.workflow && !item.problem) ? form.workflow : ""
+  const statusCapabilities = status?.capabilities
+  const capabilities = useMemo(
+    () => (statusCapabilities && workflow ? { ...statusCapabilities, img2img: false, inpaint: false } : statusCapabilities),
+    [statusCapabilities, workflow]
+  )
   const sampler = form ? accepted(form.sampler, status?.samplers ?? []) : DEFAULT
   const scheduler = form ? accepted(form.scheduler, status?.schedulers ?? []) : DEFAULT
 
@@ -180,6 +189,7 @@ export function GenerateClient() {
       profile: form.profile,
       // Secret mode: the server keeps this run to this page only.
       secret: isSecretMode(),
+      ...(workflow ? { workflow } : {}),
       ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
       ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
       ...(capabilities?.pose && poseSkeleton
@@ -233,7 +243,7 @@ export function GenerateClient() {
       abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -295,6 +305,9 @@ export function GenerateClient() {
                   : undefined
               }
             />
+            {workflows.length > 0 && (
+              <WorkflowPicker workflows={workflows} value={workflow} onChange={(name) => update({ workflow: name })} disabled={isGenerating} />
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <CharacterPresets

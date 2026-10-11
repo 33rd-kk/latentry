@@ -33,6 +33,8 @@ export interface FormState {
   steps: number
   cfg: number
   presetName: string
+  /** A ComfyUI backend's workflow from its folder, by name; "" for the built-in graph. */
+  workflow: string
 }
 
 export function defaultForm(profile: Profile): FormState {
@@ -51,6 +53,7 @@ export function defaultForm(profile: Profile): FormState {
     steps: profile.defaults.steps,
     cfg: profile.defaults.cfg,
     presetName: CUSTOM_PRESET,
+    workflow: '',
   }
 }
 
@@ -78,6 +81,7 @@ export function readStoredForm(backendId: string, fallbackProfile: ProfileId): F
     steps: number(raw.steps, base.steps),
     cfg: number(raw.cfg, base.cfg),
     presetName: text(raw.presetName, base.presetName),
+    workflow: text(raw.workflow, base.workflow),
   }
 }
 

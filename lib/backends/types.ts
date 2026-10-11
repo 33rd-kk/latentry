@@ -10,6 +10,9 @@ import type { LoraUse } from '@/lib/image-meta'
 import type { ProfileId } from '@/lib/profiles'
 
 export const BACKEND_KINDS = ['diffusers', 'a1111', 'comfyui'] as const
+
+/** A ComfyUI workflow's name: its file name without `.json`; nothing that could leave its folder. */
+export const WORKFLOW_NAME = /^(?!\.{1,2}$)[^\\/:*?"<>|\u0000-\u001f]{1,128}$/
 export type BackendKind = (typeof BACKEND_KINDS)[number]
 
 /** One entry of GEN_BACKENDS, with its token. Server-side only. */
@@ -22,6 +25,10 @@ export interface BackendConfig {
   token?: string
   /** comfyui: the checkpoint to draw with, as ComfyUI lists it; else its first. */
   model?: string
+  /** comfyui: a folder of API-format workflows to pick from on the Generate page. */
+  workflowsDir?: string
+  /** comfyui: whether paired devices see (and may pick) those workflows by name. */
+  shareWorkflows?: boolean
 }
 
 export interface Capabilities {
@@ -120,6 +127,8 @@ export interface GenerateRequest {
    * run's own flag, not parsed by toGenerateRequest.
    */
   secret?: boolean
+  /** comfyui: run this workflow from the backend's folder (its file name, without .json) instead of the built-in graph. */
+  workflow?: string
 }
 
 export type BackendEvent =

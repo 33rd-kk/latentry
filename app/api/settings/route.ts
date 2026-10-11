@@ -50,6 +50,13 @@ export async function PUT(request: Request) {
     const result = await checkDir(modelsDir)
     if (result !== 'ok') errors['engine.modelsDir'] = `settings.dir.${result}`
   }
+  // A ComfyUI backend's workflows folder must exist; checked when the backends are saved.
+  const backendsSent = (body as SettingsInput).backends !== undefined
+  for (const [index, backend] of (backendsSent ? (checked.settings.backends ?? []) : []).entries()) {
+    if (!backend.workflowsDir) continue
+    const result = await checkDir(backend.workflowsDir)
+    if (result !== 'ok') errors[`backends.${index}.workflowsDir`] = `settings.dir.${result}`
+  }
   const modelDir = checked.settings.wd14?.modelDir
   if (modelDir && !hasModel(modelDir)) errors['wd14.modelDir'] = 'settings.wd14Missing'
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })

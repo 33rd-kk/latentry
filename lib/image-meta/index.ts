@@ -22,6 +22,8 @@ export {
   type PngChunk,
 } from './png'
 export {
+  comfyGraphRoles,
+  COMFY_MARKERS,
   formatA1111Parameters,
   loraCallsInPrompt,
   loraName,
@@ -33,6 +35,8 @@ export {
   parseComfyWorkflow,
   parseLatentryRecord,
   parseTags,
+  type ComfyRoles,
+  type ComfySlot,
   type ImageMeta,
   type ImageTag,
   type LatentryRecord,
