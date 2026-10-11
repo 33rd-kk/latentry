@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { UnavailableFeatures } from "@/components/generate/unavailable-features"
+import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { BACKEND_KINDS, type BackendKind, type BackendStatus } from "@/lib/backends/types"
 import { setProfileOverrides, type ProfileId } from "@/lib/profiles"
 import { TAG_STYLES } from "@/lib/tags"
@@ -180,7 +180,10 @@ export function SettingsForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
   const [tests, setTests] = useState<
-    Record<string, { state: "testing" | "ok" | "fail"; model?: string | null; hints?: BackendStatus["hints"]; checkpoints?: string[] }>
+    Record<
+      string,
+      { state: "testing" | "ok" | "fail"; model?: string | null; hints?: BackendStatus["hints"]; checkpoints?: string[]; problem?: BackendStatus["problem"] }
+    >
   >({})
 
   const load = useCallback(async () => {
@@ -263,7 +266,10 @@ export function SettingsForm() {
         })
         const data = await response.json().catch(() => null)
         const checkpoints = Array.isArray(data?.checkpoints) ? (data.checkpoints as unknown[]).filter((name): name is string => typeof name === "string") : undefined
-        setTests((current) => ({ ...current, [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints } }))
+        setTests((current) => ({
+          ...current,
+          [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, problem: data?.problem },
+        }))
       } catch {
         setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))
       }
@@ -428,7 +434,11 @@ export function SettingsForm() {
                 {test && test.state !== "testing" && (
                   <p className={cn("flex items-center gap-1 text-xs", test.state === "ok" ? "text-emerald-600 dark:text-emerald-500" : "text-destructive")}>
                     {test.state === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
-                    {test.state === "ok" ? t("settings.testOk", { model: test.model ?? "?" }) : t("settings.testFail")}
+                    {test.state === "ok"
+                      ? t("settings.testOk", { model: test.model ?? "?" })
+                      : test.problem
+                        ? problemText(t, test.problem)
+                        : t("settings.testFail")}
                   </p>
                 )}
                 {test?.state === "ok" && test.hints && <UnavailableFeatures hints={test.hints} kind={backend.kind} />}

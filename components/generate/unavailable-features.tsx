@@ -2,7 +2,7 @@
 
 import { ChevronDown, Info } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { HINTED_FEATURES, type BackendKind, type FeatureHint, type HintedFeature } from "@/lib/backends/types"
+import { HINTED_FEATURES, type BackendKind, type BackendProblem, type FeatureHint, type HintedFeature } from "@/lib/backends/types"
 import { useT, type MessageKey } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
@@ -43,6 +43,15 @@ export function UnavailableFeatures({ hints, kind, className }: UnavailableFeatu
       </CollapsibleContent>
     </Collapsible>
   )
+}
+
+/** Why a backend is not answering, with the server's own words when it gave some. */
+export function problemText(t: ReturnType<typeof useT>, problem: BackendProblem): string {
+  const reason = t(`generate.backendProblem.${problem.reason}` as MessageKey, { status: problem.status ?? "?" })
+  // A redirect's detail is Latentry's own message, already said by the reason.
+  return problem.detail && problem.reason !== "redirect"
+    ? `${reason} ${t("generate.unavailable.declinedBecause", { detail: problem.detail })}`
+    : reason
 }
 
 function hintText(t: ReturnType<typeof useT>, feature: HintedFeature, hint: FeatureHint, kind: BackendKind): string {

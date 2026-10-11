@@ -45,6 +45,7 @@ export async function POST(request: Request) {
     model: status.model,
     capabilities: status.capabilities,
     hints: status.hints,
+    ...(status.problem ? { problem: status.problem } : {}),
     ...(checkpoints ? { checkpoints } : {}),
   })
 }
