@@ -2,8 +2,9 @@
 // offers pose control, for browser tests of the pose slot without a GPU or a
 // detector: /api/health says pose_control, and /api/pose answers three people
 // left to right with a small skeleton PNG, turning limits and, when asked, flat
-// 3D points. Every /api/pose body is recorded, so a test can check what the
-// page asked for.
+// 3D points. With `subsets` (the default) it takes a list of people and says
+// so with person_subsets, as poseorbit 0.2 does; without, one or everyone.
+// Every /api/pose body is recorded, so a test can check what the page asked for.
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -41,7 +42,8 @@ function figure(x: number): { points_3d: number[][]; scores: number[] } {
 }
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockDiffusers(options: { port?: number } = {}): Promise<MockDiffusers> {
+export async function startMockDiffusers(options: { port?: number; subsets?: boolean } = {}): Promise<MockDiffusers> {
+  const subsets = options.subsets ?? true
   // Without this sharp keeps what it read open on Windows, and a test cannot delete its folder.
   sharp.cache(false)
   const skeleton = (await sharp({ create: { width: 64, height: 96, channels: 3, background: '#000000' } }).png().toBuffer()).toString('base64')
@@ -70,7 +72,7 @@ export async function startMockDiffusers(options: { port?: number } = {}): Promi
         }
         const { image_base64: _picture, ...asked } = body
         poses.push(asked)
-        const person = typeof body.person === 'number' ? body.person : MOCK_MOST_CONFIDENT
+        const person = typeof body.person === 'number' || (subsets && Array.isArray(body.person)) ? body.person : MOCK_MOST_CONFIDENT
         const want3d = body.want_3d === true
         const camera = (body.camera as Record<string, unknown> | undefined) ?? { yaw: 0, pitch: 0 }
         return reply(200, {
@@ -78,6 +80,7 @@ export async function startMockDiffusers(options: { port?: number } = {}): Promi
           width: typeof body.width === 'number' ? body.width : 832,
           height: typeof body.height === 'number' ? body.height : 1216,
           person,
+          ...(subsets ? { person_subsets: true } : {}),
           style: 'dwpose',
           joints_in_frame: 17,
           camera: { yaw: camera.yaw ?? 0, pitch: camera.pitch ?? 0, framing: camera.framing ?? { zoom: 1, x: 0.5, y: 0.5 } },

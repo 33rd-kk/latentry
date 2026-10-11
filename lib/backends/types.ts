@@ -169,7 +169,8 @@ export interface PoseRequest {
   image_base64: string
   width?: number
   height?: number
-  person?: number
+  /** An index, -1 for everyone, or some of them by index (backends that answer `person_subsets`). */
+  person?: number | number[]
   /** Answer with each person's 3D points too (backends that can turn a pose). */
   want_3d?: boolean
   /** Draw the pose seen from here, in degrees, framed on the canvas (see lib/pose.ts for the limits). */

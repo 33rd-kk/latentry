@@ -175,6 +175,16 @@ for. `people` lists everyone detected, with boxes as fractions of the
 picture. `person` picks one by index, or `-1` for everyone; absent means the
 most confident.
 
+#### Some of the people (optional)
+
+A backend that can draw any few of the people answers
+`"person_subsets": true`. Latentry then lets each person be switched on or
+off, and sends `"person": [0, 2]` (1–64 indices, sorted, without repeats)
+when more than one but not everyone is chosen; one person is still sent as
+an index, and everyone as `-1`. Answer `person` as it was asked, the list
+included. Without `person_subsets`, Latentry offers one person or everyone,
+as before. Latentry's engine does this from poseorbit 0.2.
+
 #### Turning the pose (optional)
 
 A backend that can estimate depth (Latentry's engine, through

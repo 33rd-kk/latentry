@@ -5,14 +5,15 @@ import {
   createPoseViewer,
   type PosePerson3d,
   type PoseViewer,
+  type ShownPeople,
   type ViewerCamera,
   type ViewerFrame,
 } from "@/components/pose3d/viewer"
 
 interface Pose3dViewProps {
   people: PosePerson3d[]
-  /** Which person is shown, or -1 for everyone. */
-  person: number
+  /** Which people are shown: an index, -1 for everyone, or some of them by index. */
+  person: ShownPeople
   limits: { yaw: number; pitch: number; zoom: readonly [number, number] }
   frame: ViewerFrame
   /** Where the camera stands and what it frames; changing it moves the view. */

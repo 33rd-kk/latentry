@@ -4,7 +4,7 @@ import dynamic from "next/dynamic"
 import { Loader2, Rotate3d } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useT } from "@/lib/i18n"
-import { FRONT, isPlainView, sameView, type DetectedPerson, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
+import { FRONT, isPlainView, sameView, type DetectedPerson, type PersonChoice, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
 
 // WebGL exists only in the browser, and three.js is big: load it when the 3D view opens.
 const Pose3dView = dynamic(() => import("./pose-3d-view"), { ssr: false })
@@ -12,7 +12,7 @@ const Pose3dView = dynamic(() => import("./pose-3d-view"), { ssr: false })
 interface Pose3dPanelProps {
   /** Everyone's 3D points, or null while they are still being fetched. */
   people: Required<DetectedPerson>[] | null
-  person: number | null
+  person: PersonChoice | null
   limits: PoseTurnLimits
   frame: { aspect: number; output: { width: number; height: number } }
   outputSize: { width: number; height: number }

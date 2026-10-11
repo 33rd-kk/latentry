@@ -28,7 +28,7 @@ import threading
 import uuid
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Any
+from typing import Annotated, Any
 
 import poseorbit
 import poseorbit.api
@@ -79,7 +79,8 @@ class PoseBody(BaseModel):
     image_base64: str = Field(min_length=1, max_length=MAX_IMAGE_CHARS)
     width: float | None = Field(None, gt=0, le=8192)
     height: float | None = Field(None, gt=0, le=8192)
-    person: int | None = Field(None, ge=-1)
+    # One index, -1 for everyone, or some of them by a list (poseorbit 0.2).
+    person: Annotated[int, Field(ge=-1)] | Annotated[list[Annotated[int, Field(ge=0)]], Field(min_length=1, max_length=64)] | None = None
     style: str | None = Field(None, max_length=32)
     want_3d: bool = False
     camera: dict[str, Any] | None = None

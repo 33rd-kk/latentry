@@ -10,7 +10,18 @@
  */
 import * as THREE from 'three'
 import { check, done, eq } from './assert'
-import { ALL_PEOPLE, FRONT, POSE_LIMITS, WHOLE_FRAME, readPoseAnswer, sameView, toPoseRequest } from '../lib/pose'
+import {
+  ALL_PEOPLE,
+  FRONT,
+  MAX_CHOSEN,
+  POSE_LIMITS,
+  WHOLE_FRAME,
+  chosenIndices,
+  readPoseAnswer,
+  sameView,
+  toggledChoice,
+  toPoseRequest,
+} from '../lib/pose'
 import { aimCamera, frustumFor, toThree } from '../components/pose3d/projection'
 import fixtures from './fixtures/pose-view.json'
 
@@ -23,6 +34,10 @@ eq(
   'size, everyone, 3D points'
 )
 eq(toPoseRequest({ image_base64: 'x', person: -2, want_3d: 'yes' }), { image_base64: 'x' }, 'a bad person and a non-boolean want_3d are dropped')
+eq(toPoseRequest({ image_base64: 'x', person: [2, 0, 2] }), { image_base64: 'x', person: [0, 2] }, 'some people: sorted, without repeats')
+for (const person of [[], [0, -1], [0, 1.5], ['0'], [true], Array.from({ length: MAX_CHOSEN + 1 }, (_, index) => index)]) {
+  eq(toPoseRequest({ image_base64: 'x', person }), `person as a list must hold 1-${MAX_CHOSEN} indices`, `a bad list is refused: ${JSON.stringify(person).slice(0, 20)}`)
+}
 eq(
   toPoseRequest({ image_base64: 'x', camera: { yaw: 30, pitch: -10 } }),
   { image_base64: 'x', camera: { yaw: 30, pitch: -10 } },
@@ -78,12 +93,13 @@ eq(
     skeleton: { dataUrl: 'data:image/png;base64,AAA', width: 832, height: 1216 },
     people: [],
     person: null,
+    subsets: false,
     limits: null,
     style: null,
     jointsInFrame: null,
     camera: FRONT,
   },
-  'answer: a backend that sends only the skeleton cannot turn it and drew it from the front'
+  'answer: a backend that sends only the skeleton cannot turn it, picks one or everyone, and drew it from the front'
 )
 const full = readPoseAnswer({
   skeleton_base64: 'AAA',
@@ -109,5 +125,21 @@ eq(
 )
 check(sameView(FRONT, { yaw: 0, pitch: 0, framing: { zoom: 1, x: 0.5, y: 0.5 } }), 'sameView: the front equals itself')
 check(!sameView(FRONT, { yaw: 0, pitch: 0, framing: { zoom: 2, x: 0.5, y: 0.5 } }), 'sameView: a zoom is another view')
+
+// Some of the people (person_subsets).
+const some = readPoseAnswer({ skeleton_base64: 'AAA', person: [0, 2], person_subsets: true })
+eq(some?.person, [0, 2], 'answer: some people')
+eq(some?.subsets, true, 'answer: the backend takes a list')
+eq(readPoseAnswer({ skeleton_base64: 'AAA', person: ['a'] })?.person, null, 'answer: a list that is not indices is nobody said')
+eq([...chosenIndices(null, 3)], [], 'chosen: nobody')
+eq([...chosenIndices(ALL_PEOPLE, 3)], [0, 1, 2], 'chosen: everyone')
+eq([...chosenIndices(1, 3)], [1], 'chosen: one')
+eq([...chosenIndices([0, 2], 3)], [0, 2], 'chosen: some')
+eq(toggledChoice(1, 0, 3), [0, 1], 'toggle: adding a second person makes a list')
+eq(toggledChoice([0, 1], 1, 3), 0, 'toggle: back to one person is a plain index')
+eq(toggledChoice([0, 1], 2, 3), ALL_PEOPLE, 'toggle: all of them is everyone')
+eq(toggledChoice(ALL_PEOPLE, 1, 3), [0, 2], 'toggle: leaving one out of everyone')
+eq(toggledChoice(1, 1, 3), null, 'toggle: the last one cannot be left out')
+eq(toggledChoice(null, 2, 3), 2, 'toggle: from nobody said, one person')
 
 done('pose')

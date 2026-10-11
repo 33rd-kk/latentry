@@ -30,10 +30,12 @@ export interface ViewerCamera {
   framing: ViewerFraming
 }
 
+/** Which people are shown: an index, -1 for everyone, or some of them by index. */
+export type ShownPeople = number | readonly number[]
+
 export interface PoseViewerOptions {
   people: PosePerson3d[]
-  /** Which person is shown, or -1 for everyone. */
-  person: number
+  person: ShownPeople
   /** How far the camera may swing (degrees) and zoom. */
   limits: { yaw: number; pitch: number; zoom: readonly [number, number] }
   frame: ViewerFrame
@@ -43,7 +45,7 @@ export interface PoseViewerOptions {
 }
 
 export interface PoseViewer {
-  setPeople(people: PosePerson3d[], person: number): void
+  setPeople(people: PosePerson3d[], person: ShownPeople): void
   setFrame(frame: ViewerFrame): void
   getCamera(): ViewerCamera
   setCamera(camera: ViewerCamera): void
@@ -179,8 +181,11 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
     setFraming(next)
   }
 
-  const setPeople = (people: PosePerson3d[], person: number) => {
-    const shown = person >= 0 && person < people.length ? [people[person]] : people
+  const setPeople = (people: PosePerson3d[], person: ShownPeople) => {
+    const picked = typeof person === "number" ? (person >= 0 ? [person] : []) : person
+    const inRange = picked.filter((index) => index >= 0 && index < people.length).map((index) => people[index])
+    // Everyone for -1, and for a choice that names nobody who is there.
+    const shown = inRange.length ? inRange : people
     if (figure) {
       scene.remove(figure)
       disposeGroup(figure)

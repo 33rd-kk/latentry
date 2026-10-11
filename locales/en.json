@@ -170,6 +170,8 @@
     "poseSkeletonHint": "1.0 is what the pose model was trained at; higher follows more closely but can cost quality. Busy or dynamic poses (running, jumping) are followed least reliably.",
     "poseSizeChanged": "The output size changed since this skeleton was drawn; it will be fitted inside. Detect again to line it up.",
     "posePeople": "Found {count} people. Pick whose pose to follow.",
+    "posePeopleToggle": "Found {count} people. Click each one to follow or leave out; at least one stays.",
+    "posePeopleOneOrAll": "This backend follows one person or everyone. To pick several, its /api/pose takes a list for \"person\" and answers \"person_subsets\": true (see docs/backend-api.md).",
     "posePerson": "Person {n}",
     "posePeopleAll": "Everyone",
     "poseRedetect": "Detect again",
