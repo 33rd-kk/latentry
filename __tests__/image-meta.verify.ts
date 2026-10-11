@@ -278,6 +278,13 @@ async function comfyGraphs(): Promise<void> {
   eq(settings(metaFromText({ workflow: JSON.stringify(workflow) })), fromWorkflow, 'a picture with only a workflow chunk has settings')
   eq(metaFromText({ prompt: 'not a graph', workflow: JSON.stringify(workflow) })?.prompt, fromWorkflow.prompt, 'and so does one whose prompt chunk cannot be read')
   eq(parseComfyWorkflow('{"nodes": "x"}'), null, 'a workflow without nodes is nothing')
+  const sdxl = {
+    ...workflow,
+    nodes: workflow.nodes.map((node) =>
+      node.id === 6 ? { ...node, type: 'CLIPTextEncodeSDXL', widgets_values: [1024, 1024, 0, 0, 1024, 1024, 'a castle, sdxl', 'a castle, l'] } : node
+    ),
+  }
+  eq(parseComfyWorkflow(JSON.stringify(sdxl))?.prompt, 'a castle, sdxl', "the SDXL encoder's text_g, after its six size widgets")
 
   // Through a real PNG: ComfyUI writes its graph as a tEXt chunk named "prompt".
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer(), { prompt: JSON.stringify(txt2img) })

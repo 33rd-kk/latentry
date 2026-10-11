@@ -20,7 +20,7 @@ import {
 import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
 import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
-import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL } from '../lib/backends/hints'
+import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL, problemOf } from '../lib/backends/hints'
 import { applyEvent, consumeEvents, getCurrentJob, startJob, toSnapshot } from '../lib/diffusion/job-store'
 import type { BackendEvent, GenerateRequest } from '../lib/backends/types'
 
@@ -321,6 +321,35 @@ async function main() {
   eq(a1111Hints(true), { pose: { reason: 'kind' } }, 'A1111 cannot take a pose, by kind')
   eq(a1111Hints(false), {}, 'an A1111 that is down gets no feature hints')
 
+  // ── Why a backend is down ──
+  eq(problemOf(null), { reason: 'unreachable' }, 'no answer at all')
+  eq(problemOf({ status: 200, body: {} }), null, 'a 2xx is no problem')
+  eq(problemOf({ status: 401, body: { detail: 'Not authenticated' } }), { reason: 'auth', status: 401, detail: 'Not authenticated' }, 'a 401 is a login, with its words')
+  eq(problemOf({ status: 403, body: null }), { reason: 'auth', status: 403 }, 'so is a 403')
+  eq(problemOf({ status: 502, body: { error: REDIRECT_REFUSED } }), { reason: 'redirect' }, 'a refused redirect')
+  const broken500 = problemOf({ status: 500, body: { error: 'failed in C:\\Users\\someone\\x.py' } })
+  check(broken500?.reason === 'http' && broken500.status === 500 && !broken500.detail?.includes('someone'), 'another status, its words without paths')
+  const locked = ({ status, body }: { status: number; body: unknown }): A1111Transport => ({
+    get: async (path) => (path.startsWith('/sdapi/v1/progress') ? { status, body } : { status: 404, body: null }),
+    post: async () => ({ status: 404, body: null }),
+    sleep: async () => {},
+  })
+  const lockedUi = await new A1111Adapter({ id: 'locked', kind: 'a1111', url: 'http://web.ui', profile: 'generic' }, locked({ status: 401, body: { detail: 'Not authenticated' } })).status()
+  eq([lockedUi.alive, lockedUi.problem], [false, { reason: 'auth', status: 401, detail: 'Not authenticated' }], 'A1111 started with --api-auth and no token: down, as a login')
+  const upUi = await new A1111Adapter({ id: 'up', kind: 'a1111', url: 'http://web.ui', profile: 'generic' }, scriptedWebUi({ progress: [{}], pollsBeforeDone: 0, result: { status: 200, body: {} } }).transport).status()
+  eq([upUi.alive, upUi.problem], [true, undefined], 'an A1111 that answers has no problem')
+
+  // ── A1111's lists are per server ──
+  const served = (name: string): A1111Transport => ({
+    get: async (path) =>
+      path.startsWith('/sdapi/v1/progress') ? { status: 200, body: { state: {} } } : path === '/sdapi/v1/samplers' ? { status: 200, body: [{ name }] } : { status: 404, body: null },
+    post: async () => ({ status: 404, body: null }),
+    sleep: async () => {},
+  })
+  const first = await new A1111Adapter({ id: 'moved', kind: 'a1111', url: 'http://one.test', profile: 'generic' }, served('Euler a')).status()
+  const moved = await new A1111Adapter({ id: 'moved', kind: 'a1111', url: 'http://two.test', profile: 'generic' }, served('DDIM')).status()
+  eq([first.samplers, moved.samplers], [['Default', 'Euler a'], ['Default', 'DDIM']], 'a backend moved to another server lists that server\'s samplers at once')
+
   // ── Redirects are refused, not followed ──
   // A backend that answers 307 must not get the prompt or the token sent on.
   const elsewhere = await listen(() => 200)
@@ -328,7 +357,15 @@ async function main() {
   const diffusers = new DiffusersAdapter({ id: 'r', kind: 'diffusers', url: redirecting.url, profile: 'generic', token: 'secret' })
   const redirected = await diffusers.start(REQUEST)
   check(!redirected.ok && redirected.status === 502 && redirected.error === REDIRECT_REFUSED, 'diffusers: a redirected generate is refused with a clear error')
-  check(!(await diffusers.status()).alive, 'diffusers: a redirected health check is not alive')
+  const redirectedHealth = await diffusers.status()
+  check(!redirectedHealth.alive, 'diffusers: a redirected health check is not alive')
+  eq(redirectedHealth.problem, { reason: 'redirect' }, 'diffusers: and the page is told it redirected')
+  const lockedServer = await listen(() => 401)
+  eq((await new DiffusersAdapter({ id: 'l', kind: 'diffusers', url: lockedServer.url, profile: 'generic' }).status()).problem, { reason: 'auth', status: 401 }, 'diffusers: a real 401 reads as a login')
+  lockedServer.server.close()
+  const nobody = await listen(() => 200)
+  nobody.server.close()
+  eq((await new DiffusersAdapter({ id: 'n', kind: 'diffusers', url: nobody.url, profile: 'generic' }).status()).problem, { reason: 'unreachable' }, 'diffusers: nothing listening is unreachable')
   const a1111 = new A1111Adapter({ id: 'r', kind: 'a1111', url: redirecting.url, profile: 'generic', token: 'secret' })
   check(!(await a1111.status()).alive, 'A1111: a redirected status is not alive')
   eq(elsewhere.hits, [], 'nothing reached the address the redirect pointed at')

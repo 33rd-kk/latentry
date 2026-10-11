@@ -37,6 +37,17 @@ const broken = parseBackends({
 eq(broken.backends.map((backend) => backend.id), ['ok'], 'only the valid entry survives')
 eq(broken.problems.length, 6, 'each bad entry is reported')
 eq(parseBackends({ GEN_BACKENDS: 'p|a1111|http://e:5' }).backends[0].profile, 'generic', 'profile defaults to generic')
+const models = parseBackends({
+  GEN_BACKENDS: 'comfy-1|comfyui|http://c:1;web|a1111|http://w:2;bare|comfyui|http://c:3;odd|comfyui|http://c:4',
+  GEN_MODEL_COMFY_1: ' sdxl\\base.safetensors ',
+  GEN_MODEL_WEB: 'ignored.safetensors',
+  GEN_MODEL_ODD: 'two\nlines',
+})
+eq(
+  models.backends.map((backend) => [backend.id, backend.model]),
+  [['comfy-1', 'sdxl\\base.safetensors'], ['web', undefined], ['bare', undefined], ['odd', undefined]],
+  'GEN_MODEL_<ID> sets a comfyui backend\'s checkpoint; other kinds, an unset one and a multi-line one have none'
+)
 
 const legacy = parseBackends({ DIFFUSION_SERVER_URL: 'http://localhost:7865', DIFFUSION_API_TOKEN: 't' })
 eq(

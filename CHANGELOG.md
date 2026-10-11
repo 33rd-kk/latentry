@@ -2,10 +2,17 @@
 
 ## Unreleased
 
-- **Why a ComfyUI backend does not answer**: **Test** on Settings and the
-  Generate page now say whether ComfyUI asked for a login (for example a
-  login custom node), answered an error, redirected, or did not answer at
-  all, with ComfyUI's own message, instead of only "No answer".
+- **Why a backend does not answer**: **Test** on Settings and the Generate
+  page now say whether a backend asked for a login (for example a ComfyUI
+  login custom node, or a web UI started with `--api-auth` and no token),
+  answered an error, redirected, or did not answer at all, with its own
+  message, instead of only "No answer". For every kind of backend.
+- **`GEN_MODEL_<ID>`**: sets a `comfyui` backend's checkpoint from
+  `.env.local`.
+- **Fixes**: a web UI backend moved to another address on Settings shows
+  that server's samplers at once, not the old one's for a minute. Pictures
+  from ComfyUI that carry only the editor's workflow are read with an SDXL
+  text encoder too.
 - **ComfyUI as a backend**: add a ComfyUI server on Settings with the kind
   `comfyui`. Latentry builds a txt2img graph itself (checkpoint, LoRAs from
   `<lora:…>` in the prompt, KSampler) and shows progress, and **Cancel**

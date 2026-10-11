@@ -1,7 +1,8 @@
 // Why a backend cannot use a feature, worked out from what it reports, so the
 // page can say what to change instead of only hiding the control.
 
-import type { FeatureHint, HintedFeature } from './types'
+import { errorMessage, REDIRECT_REFUSED } from './http'
+import type { BackendProblem, FeatureHint, HintedFeature } from './types'
 
 /** Longest server-given reason kept; a reason is one sentence, not a log. */
 export const MAX_HINT_DETAIL = 200
@@ -42,6 +43,21 @@ export function diffusersHints(health: Record<string, unknown> | null): Hints {
     hints[feature] = flag === false || detail ? { reason: 'declined', ...(detail ? { detail } : {}) } : { reason: 'not-reported' }
   }
   return hints
+}
+
+/**
+ * Why a backend's health call failed, from its answer (null: nothing
+ * answered); null while it answers 2xx. A login in front of it (401 / 403)
+ * is told apart, and the server's own words come along, on one line and
+ * without paths.
+ */
+export function problemOf(answer: { status: number; body: unknown } | null): BackendProblem | null {
+  if (!answer) return { reason: 'unreachable' }
+  const { status, body } = answer
+  if (status >= 200 && status < 300) return null
+  if ((body as { error?: unknown } | null)?.error === REDIRECT_REFUSED) return { reason: 'redirect' }
+  const detail = hintDetail(errorMessage(body, ''))
+  return { reason: status === 401 || status === 403 ? 'auth' : 'http', status, ...(detail ? { detail } : {}) }
 }
 
 /** An A1111 web UI: pose is not something Latentry can drive there. */

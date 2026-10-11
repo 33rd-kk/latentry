@@ -36,6 +36,25 @@ export async function getJson<T>(url: URL, headers: HeadersInit, timeoutMs: numb
   }
 }
 
+/**
+ * fetch + JSON with a deadline, keeping the status: for a health check that
+ * should say why it failed. `body` is null when it is not JSON; the whole
+ * answer is null when nothing answered (refused, timed out).
+ */
+export async function probeJson(url: URL, headers: HeadersInit, timeoutMs: number): Promise<{ status: number; body: unknown } | null> {
+  try {
+    const response = await fetchWithTimeout(url, { headers, timeoutMs })
+    const text = await response.text()
+    try {
+      return { status: response.status, body: text ? JSON.parse(text) : null }
+    } catch {
+      return { status: response.status, body: null }
+    }
+  } catch {
+    return null
+  }
+}
+
 export function isAbortError(error: unknown): boolean {
   return error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')
 }

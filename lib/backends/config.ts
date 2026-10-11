@@ -7,8 +7,9 @@
 //
 //   GEN_BACKENDS=anima|diffusers|http://localhost:7865|anima;sdxl|a1111|http://localhost:7860|illustrious
 //
-// A comfyui backend draws with the first checkpoint ComfyUI lists; another is
-// chosen on the settings page.
+// A comfyui backend draws with the first checkpoint ComfyUI lists, or the one
+// in GEN_MODEL_<ID> (as ComfyUI lists it, e.g. sdxl\base.safetensors), or the
+// one chosen on the settings page.
 //
 // The ids are what the browser sees (in /api/gen/<id>/...), so they are the
 // only part of an entry that ever leaves the server. A single
@@ -23,7 +24,7 @@
 
 import { BACKEND_KINDS, type BackendConfig, type BackendKind } from './types'
 import { isProfileId } from '@/lib/profiles'
-import { sameOrigin, type Settings } from '@/lib/settings/schema'
+import { MAX_BACKEND_MODEL_LENGTH, sameOrigin, type Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
 import { engineBackends } from '@/lib/engine/supervisor'
 
@@ -41,6 +42,12 @@ function tokenFor(id: string, env: Env): string | undefined {
   const key = `GEN_TOKEN_${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`
   const value = env[key]?.trim()
   return value ? value : undefined
+}
+
+/** GEN_MODEL_<ID>: a comfyui backend's checkpoint, as ComfyUI lists it; one line, as the settings page allows. */
+function modelFor(id: string, env: Env): string | undefined {
+  const value = env[`GEN_MODEL_${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]?.trim()
+  return value && value.length <= MAX_BACKEND_MODEL_LENGTH && !/[\u0000-\u001f\u007f]/.test(value) ? value : undefined
 }
 
 function isKind(value: string): value is BackendKind {
@@ -98,7 +105,9 @@ export function parseBackends(env: Env): BackendConfigResult {
 
     seen.add(normalizedId)
     const token = tokenFor(normalizedId, env)
-    backends.push({ id: normalizedId, kind, url: parsed.toString(), profile, ...(token ? { token } : {}) })
+    // Only ComfyUI is told which checkpoint to load; the others draw with what they have.
+    const model = kind === 'comfyui' ? modelFor(normalizedId, env) : undefined
+    backends.push({ id: normalizedId, kind, url: parsed.toString(), profile, ...(token ? { token } : {}), ...(model ? { model } : {}) })
   }
 
   return { backends, problems }

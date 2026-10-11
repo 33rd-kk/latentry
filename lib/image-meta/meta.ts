@@ -360,12 +360,14 @@ export function parseComfyWorkflow(text: string): ImageMeta | null {
 
   const textOf = (node: WorkflowNode | undefined, depth = 0): string => {
     if (!node || depth > MAX_LINK_DEPTH) return ''
-    // Only the plain encoder: the SDXL one has its size widgets first.
-    if (typeOf(node) === 'CLIPTextEncode') {
+    // The text widget's place: first on the plain encoder, after six size
+    // widgets (width, height, crop and target) as text_g on the SDXL one.
+    const textAt = typeOf(node) === 'CLIPTextEncode' ? { input: 'text', index: 0 } : typeOf(node) === 'CLIPTextEncodeSDXL' ? { input: 'text_g', index: 6 } : null
+    if (textAt) {
       // The text may come from another node (a primitive or a string node).
-      const from = feeding(node, 'text')
+      const from = feeding(node, textAt.input)
       if (from) return str(widgets(from)[0]) ?? ''
-      return str(widgets(node)[0]) ?? ''
+      return str(widgets(node)[textAt.index]) ?? ''
     }
     // A conditioning passthrough (e.g. a combine node): follow its first input.
     const first = node.inputs?.find((input) => input?.link !== null && input?.link !== undefined)

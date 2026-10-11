@@ -7,8 +7,8 @@
 
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { loraName, type LoraUse } from '@/lib/image-meta'
-import { errorMessage, fetchWithTimeout, getJson, isAbortError, redactPaths, refuseRedirect } from './http'
-import { diffusersHints } from './hints'
+import { errorMessage, fetchWithTimeout, getJson, isAbortError, probeJson, redactPaths, refuseRedirect } from './http'
+import { diffusersHints, problemOf } from './hints'
 import type {
   BackendAdapter,
   BackendConfig,
@@ -80,7 +80,11 @@ export class DiffusersAdapter implements BackendAdapter {
   }
 
   async status(): Promise<BackendStatus> {
-    const health = await getJson<HealthBody>(this.url('/api/health'), this.headers(), HEALTH_TIMEOUT_MS)
+    const answer = await probeJson(this.url('/api/health'), this.headers(), HEALTH_TIMEOUT_MS)
+    const ok = answer !== null && answer.status >= 200 && answer.status < 300 && answer.body !== null && typeof answer.body === 'object'
+    const health = ok ? (answer.body as HealthBody) : null
+    // Down: why, when it said. A 2xx that is not JSON is down too, for no reason it gave.
+    const problem = health ? null : problemOf(answer)
     const model = typeof health?.model === 'string' ? shortModelName(health.model) : null
     const transformer = typeof health?.transformer === 'string' ? shortModelName(health.transformer) : null
     const layers = finite(health?.num_layers)
@@ -110,6 +114,7 @@ export class DiffusersAdapter implements BackendAdapter {
       hints: diffusersHints(health as Record<string, unknown> | null),
       samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
       schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
+      ...(problem ? { problem } : {}),
     }
   }
 

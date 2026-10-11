@@ -19,12 +19,13 @@ import sharp from 'sharp'
 import { Agent, fetch as undiciFetch } from 'undici'
 import { loraCallsInPrompt } from '@/lib/image-meta'
 import { fitToImage, getProfile } from '@/lib/profiles'
-import { a1111Hints } from './hints'
+import { a1111Hints, problemOf } from './hints'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, stripDataUrl } from './http'
 import type {
   BackendAdapter,
   BackendConfig,
   BackendEvent,
+  BackendProblem,
   BackendStatus,
   GenerateRequest,
   Outcome,
@@ -248,18 +249,21 @@ export class A1111Adapter implements BackendAdapter {
     this.http = transport ?? httpTransport(config)
   }
 
+  /** The web UI's progress, or why it did not answer. */
+  private async probe(): Promise<{ state: ProgressState | null; problem: BackendProblem | null }> {
+    const answer = await this.http.get('/sdapi/v1/progress?skip_current_image=true', STATUS_TIMEOUT_MS).catch(() => null)
+    if (answer?.status === 200) return { state: ((answer.body as { state?: ProgressState })?.state ?? {}) as ProgressState, problem: null }
+    return { state: null, problem: problemOf(answer) ?? { reason: 'http', status: answer?.status } }
+  }
+
   private async progress(): Promise<ProgressState | null> {
-    try {
-      const { status, body } = await this.http.get('/sdapi/v1/progress?skip_current_image=true', STATUS_TIMEOUT_MS)
-      if (status !== 200) return null
-      return ((body as { state?: ProgressState })?.state ?? {}) as ProgressState
-    } catch {
-      return null
-    }
+    return (await this.probe()).state
   }
 
   private async staticInfo(): Promise<StaticInfo> {
-    const cached = staticInfo.get(this.config.id)
+    // By address as well as id: a backend moved to another server lists that server's samplers at once.
+    const key = `${this.config.id}|${this.config.url}`
+    const cached = staticInfo.get(key)
     if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
 
     const get = async (path: string) => {
@@ -286,13 +290,13 @@ export class A1111Adapter implements BackendAdapter {
       taggerModel: chooseTaggerModel(models, process.env.A1111_TAGGER_MODEL?.trim()),
     }
     // Only a complete answer is cached; a web UI still starting up is asked again.
-    if (samplers !== null) staticInfo.set(this.config.id, info)
+    if (samplers !== null) staticInfo.set(key, info)
     return info
   }
 
   async status(): Promise<BackendStatus> {
-    const [progress, options, info] = await Promise.all([
-      this.progress(),
+    const [{ state: progress, problem }, options, info] = await Promise.all([
+      this.probe(),
       this.http.get('/sdapi/v1/options', STATUS_TIMEOUT_MS).catch(() => null),
       this.staticInfo(),
     ])
@@ -318,6 +322,7 @@ export class A1111Adapter implements BackendAdapter {
       hints: a1111Hints(progress !== null),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
+      ...(problem ? { problem } : {}),
     }
   }
 

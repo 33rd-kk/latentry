@@ -24,7 +24,7 @@ import { fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { getProfile } from '@/lib/profiles'
-import { comfyHints, hintDetail } from './hints'
+import { comfyHints, problemOf } from './hints'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
 import type { BackendAdapter, BackendConfig, BackendEvent, BackendProblem, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
 
@@ -331,16 +331,8 @@ export class ComfyUIAdapter implements BackendAdapter {
 
   /** Null while /system_stats answers; else why it does not. */
   private async problem(): Promise<BackendProblem | null> {
-    try {
-      const { status, body } = await this.http.get('/system_stats', STATUS_TIMEOUT_MS)
-      if (status === 200) return null
-      if ((body as { error?: unknown } | null)?.error === REDIRECT_REFUSED) return { reason: 'redirect' }
-      // The server's words, on one line and without paths: a login node says what it wants.
-      const detail = hintDetail(errorMessage(body, ''))
-      return { reason: status === 401 || status === 403 ? 'auth' : 'http', status, ...(detail ? { detail } : {}) }
-    } catch {
-      return { reason: 'unreachable' }
-    }
+    // A login node says what it wants; problemOf keeps its words.
+    return problemOf(await this.http.get('/system_stats', STATUS_TIMEOUT_MS).catch(() => null))
   }
 
   async status(): Promise<BackendStatus> {
