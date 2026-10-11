@@ -7,9 +7,10 @@
   there (ComfyUI's Export (API)) next to the built-in graph. Latentry fills
   in the prompts, seed, size, steps, CFG, sampler and LoRAs where it finds
   them, or where a node's title says `latentry:prompt` and the like, and
-  says what it could not find. Saving goes to ComfyUI's temp folder, not
-  its output folder. Workflow names reach paired devices only when you turn
-  that on.
+  says what it could not find. The backend's **Model**, if set, replaces a
+  workflow's checkpoint; a workflow with a UNET loader keeps its own model.
+  Saving goes to ComfyUI's temp folder, not its output folder. Workflow
+  names reach paired devices only when you turn that on.
 - **img2img and inpainting on ComfyUI**: a ComfyUI backend takes a source
   picture and a mask. They are uploaded into ComfyUI's input folder under
   two names per backend that each run reuses.

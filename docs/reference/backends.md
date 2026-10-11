@@ -87,7 +87,8 @@ Latentry fills a workflow in on this computer before it is queued:
   for each picture), the size (one picture per prompt), steps and CFG, and
   the sampler and scheduler unless they are *Default*. The **Model** set for
   the backend replaces the workflow's checkpoint; otherwise the workflow's
-  own is used.
+  own is used. A workflow that loads a diffusion model with a UNET loader
+  (Flux, Anima and the like) always keeps its own.
 - **Where**: found from the first-pass sampler, the same way the gallery
   reads ComfyUI pictures: its prompts through the text encoders (and string
   or primitive nodes), the seed on the sampler or a seed node, the size on

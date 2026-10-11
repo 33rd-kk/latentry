@@ -160,7 +160,8 @@ export function fillWorkflow(
   set(roles.cfg, request.guidance_scale)
   if (request.sampler && request.sampler !== 'Default') set(roles.samplerName, request.sampler)
   if (request.scheduler && request.scheduler !== 'Default') set(roles.scheduler, request.scheduler)
-  if (options.checkpoint && roles.model) set(roles.model, options.checkpoint)
+  // A checkpoint goes only where a checkpoint is loaded: a UNET (diffusion model) loader keeps its own file.
+  if (options.checkpoint && roles.model?.input === 'ckpt_name') set(roles.model, options.checkpoint)
 
   if (options.loras.length) {
     const loader = roles.checkpointLoader
