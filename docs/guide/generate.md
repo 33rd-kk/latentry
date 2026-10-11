@@ -38,7 +38,9 @@ form, so switching backends and back keeps what you typed.
   and Latentry's engine apply it. For the engine, put the LoRA files in the
   `loras` folder inside the models folder; **Add a LoRA** next to the prompt
   lists them and puts the call in for you (a LoRA made for another model
-  family is greyed out). The engine refuses a run that calls a LoRA it does
+  family is greyed out). **Add a LoRA** is on this computer only, unless
+  **Show the LoRA list on paired devices** is on (Setup > Engine): the list
+  is the names of your LoRA files. The engine refuses a run that calls a LoRA it does
   not have, instead of running without it. Other backends read the tag as
   plain words, and the prompt shows a note saying so.
 - **Saved characters**: save the tags that make a character, together with

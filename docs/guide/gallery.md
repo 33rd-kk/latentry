@@ -6,6 +6,10 @@ Every finished picture is saved to the **save folder** with its settings
 embedded in the PNG (A1111's PNG Info reads them too). Other folders, such as
 ComfyUI's or a web UI's output, can be browsed **read-only**. Choose the
 folders on [Settings](settings.md); with several, tabs switch between them.
+A tab shows the folder's **display name**, set next to the folder on
+Settings, or else a made-up name such as "Amber Fox" that stays the same for
+that folder. The folder's own name and path are never shown, here or on a
+paired phone.
 
 The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
 infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and

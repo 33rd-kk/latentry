@@ -38,7 +38,15 @@ export interface GallerySettings {
    * hash identifies the LoRA file on this machine, wherever the picture goes.
    */
   loraHashes?: boolean
+  /**
+   * A display name for a folder, by the folder as written (saveDir, a dirs
+   * entry, or a GALLERY_* folder). Shown instead of the folder's own name,
+   * here and on paired devices, which otherwise see only "Folder 2".
+   */
+  labels?: Record<string, string>
 }
+
+export const MAX_FOLDER_LABEL = 40
 
 /** Latentry's own WD14 tagger (lib/tagger/wd14.ts). */
 export interface Wd14Settings {
@@ -60,6 +68,12 @@ export interface EngineSettings {
   gpus?: number[] | null
   /** The model each engine loads when it starts (the last one loaded). */
   model?: string | null
+  /**
+   * Offer the LoRA picker on paired devices too, not only to clients that may
+   * change settings. Off unless turned on: the list is this computer's LoRA
+   * file names.
+   */
+  shareLoras?: boolean
 }
 
 export interface Settings {
@@ -158,9 +172,9 @@ export interface SettingsInput {
   backends?: BackendInput[] | null
   tagger?: unknown
   wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
-  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown } | null
+  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown; labels?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
-  engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown } | null
+  engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown; shareLoras?: unknown } | null
 }
 
 /**
@@ -254,7 +268,7 @@ export function validateSettings(
     if (current.gallery) next.gallery = current.gallery
   } else if (input.gallery !== null) {
     const gallery: GallerySettings = {}
-    const { saveDir, dirs, autoTag, loraHashes } = input.gallery
+    const { saveDir, dirs, autoTag, loraHashes, labels } = input.gallery
     if (saveDir === null || saveDir === '') gallery.saveDir = null
     else if (typeof saveDir === 'string') {
       const error = folderError(saveDir.trim(), env)
@@ -274,6 +288,20 @@ export function validateSettings(
     }
     if (autoTag !== undefined) gallery.autoTag = autoTag === true
     if (loraHashes !== undefined) gallery.loraHashes = loraHashes === true
+    if (labels !== undefined && labels !== null) {
+      if (typeof labels !== 'object' || Array.isArray(labels)) errors['gallery.labels'] = 'settings.errorList'
+      else {
+        const kept: Record<string, string> = {}
+        for (const [folder, raw] of Object.entries(labels as Record<string, unknown>)) {
+          if (typeof raw !== 'string' || !folder.trim()) continue
+          const name = raw.trim()
+          if (!name) continue
+          if (name.length > MAX_FOLDER_LABEL) errors[`gallery.labels.${folder.trim()}`] = 'settings.errorFolderLabel'
+          else kept[folder.trim()] = name
+        }
+        if (Object.keys(kept).length) gallery.labels = kept
+      }
+    }
     next.gallery = gallery
   }
 
@@ -329,8 +357,9 @@ export function validateSettings(
     // Field by field: the Setup page saves one switch or folder at a time, and
     // the rest (the model to load, say) must survive it.
     const engine: EngineSettings = { ...current.engine }
-    const { autoStart, modelsDir, basePort, gpus, model } = input.engine
+    const { autoStart, modelsDir, basePort, gpus, model, shareLoras } = input.engine
     if (autoStart !== undefined) engine.autoStart = autoStart !== false
+    if (shareLoras !== undefined) engine.shareLoras = shareLoras === true
     if (modelsDir === null || modelsDir === '') engine.modelsDir = null
     else if (typeof modelsDir === 'string') {
       const error = folderError(modelsDir.trim(), env)

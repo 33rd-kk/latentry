@@ -46,18 +46,32 @@ export function errorMessage(payload: unknown, fallback: string): string {
     const record = payload as Record<string, unknown>
     for (const key of ['detail', 'error', 'message', 'errors']) {
       const value = record[key]
-      if (typeof value === 'string' && value) return value
+      if (typeof value === 'string' && value) return redactPaths(value)
       // FastAPI's 422: a list of { loc, msg }.
       if (Array.isArray(value) && value.length) {
         const first = value[0] as { msg?: unknown; loc?: unknown }
         if (typeof first?.msg === 'string') {
           const where = Array.isArray(first.loc) ? first.loc.join('.') : ''
-          return where ? `${where}: ${first.msg}` : first.msg
+          return redactPaths(where ? `${where}: ${first.msg}` : first.msg)
         }
       }
     }
   }
   return fallback
+}
+
+// A Windows path (C:\… or C:/…), a network one (\\server\…), or an absolute
+// POSIX path of two parts or more (/home/me/…), but not the path of a URL.
+const PATHS = /(?<![A-Za-z0-9])[A-Za-z]:[\\/][^\s'"<>|*?]*|\\\\[^\s'"<>|*?]+|(?<![\w.:/~-])\/(?:[^\s/'"<>]+\/)+[^\s/'"<>]*/g
+
+/**
+ * A backend's text with anything that looks like a file path replaced by
+ * "<path>". Backends' errors are shown to whoever ran the generation, a
+ * paired phone included, and their wording ("No such file: C:\Users\…")
+ * can name folders on the computer they run on.
+ */
+export function redactPaths(text: string): string {
+  return text.replace(PATHS, '<path>')
 }
 
 /** The base64 payload of a data: URL, or the string itself when it is bare base64. */

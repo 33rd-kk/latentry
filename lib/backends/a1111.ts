@@ -303,7 +303,9 @@ export class A1111Adapter implements BackendAdapter {
       profile: this.config.profile,
       alive: progress !== null,
       busy: (progress?.job_count ?? 0) > 0 || inflightRuns.has(this.config.id),
-      model: typeof checkpoint === 'string' ? checkpoint : null,
+      // The file's name only: A1111 names it by its path under its models
+      // folder ("sdxl\anime\x.safetensors [hash]"), and folder names stay here.
+      model: typeof checkpoint === 'string' ? (checkpoint.split(/[\\/]/).pop() ?? checkpoint) : null,
       capabilities: {
         img2img: true,
         inpaint: true,

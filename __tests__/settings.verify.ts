@@ -5,12 +5,13 @@
  *
  * Run with: npm test -- settings
  */
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
 import { getBackends, hasEnvToken, taggerPreference } from '../lib/backends/config'
 import { autoTagEnabled, loraHashesEnabled, parseGalleryDirs } from '../lib/gallery/dirs'
+import { folderNamesKey } from '../lib/gallery/folder-names'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
 import { EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
@@ -97,6 +98,12 @@ async function main() {
   const reset = validateSettings({ backends: null }, current)
   check(reset.ok && reset.settings.backends === undefined, 'null removes a part')
 
+  // Display names for folders: trimmed, empty ones dropped, at most 40 characters.
+  const labelled = validateSettings({ gallery: { saveDir: ABS, labels: { [ABS]: '  Mine ', [ABS + '2']: '  ', [ABS + '3']: 5 } } }, EMPTY_SETTINGS, {})
+  eq(labelled.ok ? labelled.settings.gallery?.labels : 'error', { [ABS]: 'Mine' }, 'display names are trimmed; blank and non-text ones dropped')
+  const tooLong = validateSettings({ gallery: { labels: { [ABS]: 'x'.repeat(41) } } }, EMPTY_SETTINGS, {})
+  check(!tooLong.ok && tooLong.errors[`gallery.labels.${ABS}`] === 'settings.errorFolderLabel', 'a display name over 40 characters is refused')
+
   // Network folders only with LATENTRY_ALLOW_UNC=1: checking one signs in to that server.
   const shares = ['\\\\nas\\pictures', '//nas/pictures', '\\\\?\\UNC\\nas\\pictures', '\\\\?\\C:\\pictures']
   for (const share of shares) {
@@ -164,6 +171,15 @@ async function main() {
     eq(await checkDir(path.join(root, 'nope')), 'missing', 'a missing folder')
     eq(await checkDir(file), 'notDirectory', 'a file')
     eq(await checkDir(path.join(root, 'new', 'deep'), { writable: true, create: true }), 'created', 'a missing save folder is created')
+
+    // The key for made-up folder names: its own file next to the settings, made once.
+    const keyEnv = { LATENTRY_SETTINGS_FILE: path.join(root, 'latentry.settings.json') }
+    const first = folderNamesKey(keyEnv)
+    const keyFile = path.join(root, 'latentry.folder-names-key')
+    check(/^[0-9a-f]{64}\n$/.test(await readFile(keyFile, 'utf8')), 'the key is made the first time, next to the settings file')
+    ;(globalThis as { __folderNamesKey?: unknown }).__folderNamesKey = undefined
+    check(folderNamesKey(keyEnv).equals(first), 'and read back the same afterwards, so names stay put')
+    check(!(await readdir(root)).includes('latentry.pairing-key'), 'it does not need, or make, the pairing key')
   } finally {
     await rm(root, { recursive: true, force: true })
   }
