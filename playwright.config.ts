@@ -50,6 +50,12 @@ export default defineConfig({
         LATENTRY_ENGINE: 'off',
         LATENTRY_HOST: '127.0.0.1',
         LATENTRY_NO_LOGO: '1',
+        // The tests open pages and click far faster than a person, all from one
+        // address: the per-minute budget stays on, with room for a whole run.
+        REQUEST_BUDGET_PAGE_PER_MIN: '1200',
+        REQUEST_BUDGET_API_PER_MIN: '3000',
+        REQUEST_BUDGET_POST_PER_MIN: '300',
+        REQUEST_BUDGET_GLOBAL_PER_MIN: '6000',
       },
       // Never a server already on the port: it would be someone's real one.
       reuseExistingServer: false,

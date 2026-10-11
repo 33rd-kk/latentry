@@ -222,9 +222,11 @@ CI runs these on every pull request (Ubuntu and Windows on Node.js 22,
 Ubuntu on Node.js 24), plus a production build and the engine's tests.
 macOS runs after each merge to main and once a week.
 
-The browser tests generate a picture on a mock A1111 web UI, then find it in
-the gallery and open it. They build Latentry into `.next-e2e/` and serve it on
-port 3137 (the mock on 3138), with settings and a save folder in a temp
+The browser tests run against mock backends: they generate a picture on a
+mock A1111 web UI and find it in the gallery, draw with a workflow on a mock
+ComfyUI, and pick whose pose to follow on a mock diffusers-compatible server.
+They build Latentry into `.next-e2e/` and serve it on port 3137 (the mocks on
+3138–3140), with settings and a save folder in a temp
 folder that is deleted afterwards, so your own settings, backends and
 pictures are never used. The page may not reach any other host. Install a
 browser once with `npx playwright install chromium`, or use one you have:
