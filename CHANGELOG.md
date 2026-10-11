@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Pinned pose weights**: the engine now fetches the SDXL OpenPose
+  ControlNet and the Anima pose adapter from a fixed commit and checks each
+  file against its SHA-256 before using it. A file fetched before this
+  that does not match is fetched again once.
+
 ## 0.7.0 (2026-10-11)
 
 **Upgrading from 0.6.0**: open **Setup** and run **Repair / update** for the
