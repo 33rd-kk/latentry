@@ -78,6 +78,21 @@ reloaded, the run carries on and its pictures are still saved, but the page
 does not pick it up again. The server forgets the run, images and prompt,
 a minute after it ends.
 
+**Turning it on during a run makes that run secret.** Turned on while a
+run is going, or within a minute of its end, the run becomes a secret one
+from then on: a reload, another tab or another device no longer picks it
+up, and it is forgotten a minute after it ends. Turning secret mode off
+again does not make a secret run ordinary. Pictures another tab or device
+already received stay received, and the pictures are saved to the gallery
+folder as always.
+
+**A ComfyUI backend is tidied up after a secret run.** When a secret run on
+a [ComfyUI backend](../reference/backends.md#comfyui) ends (or is marked
+secret within a minute of its end), Latentry deletes its prompts from
+ComfyUI's history and overwrites the source and mask it uploaded with an
+empty picture. Ordinary runs leave ComfyUI's history as it is, and the
+next img2img replaces the upload.
+
 **Pictures are not kept in the browser's cache.** This is true in either
 mode: gallery pictures and thumbnails are fetched again each time instead
 of being stored on disk by the browser.
@@ -94,7 +109,10 @@ These are by design:
   [open to the network](network.md). The server cannot tell who is asking
   for the gallery.
 - **The backend sees everything it is sent.** What an A1111 / Forge or
-  other server does with prompts and pictures is up to that server.
+  other server does with prompts and pictures is up to that server. Only
+  a ComfyUI backend's history and uploads are taken back (above); its own
+  logs, and a ComfyUI shared with other people, are out of Latentry's
+  reach.
 - The page you are on shows what you are doing: the form, your mask
   strokes, and any picture you choose to show.
 - **Download** in the viewer saves the picture as any download does: it is

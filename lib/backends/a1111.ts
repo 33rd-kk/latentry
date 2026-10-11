@@ -15,11 +15,11 @@
 // - No pose control (that would mean driving the ControlNet extension).
 // - Tagging needs the WD14 tagger extension (/tagger/v1/*).
 
-import sharp from 'sharp'
 import { Agent, fetch as undiciFetch } from 'undici'
 import { loraCallsInPrompt } from '@/lib/image-meta'
 import { fitToImage, getProfile } from '@/lib/profiles'
 import { a1111Hints, problemOf } from './hints'
+import { alphaToMask, imageSize } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, stripDataUrl } from './http'
 import type {
   BackendAdapter,
@@ -170,28 +170,6 @@ export function seedsFromInfo(info: unknown): number[] {
   return Array.isArray(seeds) ? seeds.filter((seed): seed is number => typeof seed === 'number') : []
 }
 
-/**
- * The web UI's mask: white is redrawn, black is kept. Ours is a transparent
- * PNG with the painted strokes opaque, so its alpha channel is exactly that.
- */
-async function alphaToMask(maskBase64: string): Promise<string> {
-  const png = await sharp(Buffer.from(stripDataUrl(maskBase64), 'base64'))
-    .ensureAlpha()
-    .extractChannel(3)
-    .png()
-    .toBuffer()
-  return png.toString('base64')
-}
-
-async function imageSize(base64: string): Promise<{ width: number; height: number } | null> {
-  try {
-    const meta = await sharp(Buffer.from(stripDataUrl(base64), 'base64')).metadata()
-    return meta.width && meta.height ? { width: meta.width, height: meta.height } : null
-  } catch {
-    return null
-  }
-}
-
 /** Our request in the web UI's field names; `null` when the source cannot be read. */
 export async function toA1111Payload(
   request: GenerateRequest,
@@ -229,7 +207,7 @@ export async function toA1111Payload(
   body.denoising_strength = request.strength ?? 0.6
   body.resize_mode = 0
   if (request.mask_base64) {
-    body.mask = await alphaToMask(request.mask_base64)
+    body.mask = (await alphaToMask(request.mask_base64)).toString('base64')
     body.mask_blur = request.mask_blur ?? 4
     // 1 = start from the source's own pixels under the mask.
     body.inpainting_fill = 1

@@ -40,6 +40,7 @@ unless you set `LATENTRY_HOST`; see
 | This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, and display preferences such as tags under cards | Kept between visits. Clear the site's data to remove it |
 | The engine's memory | A hash of each LoRA file a run asked hashes for (only with **Write LoRA hashes** on) | When the engine stops |
 | Latentry's memory | Runs in progress; each backend's last run, pictures and prompt, for an hour after it ends (a minute for a secret run); thumbnails, and the gallery's index of a folder (date made, size, model, LoRAs, a hash of each prompt, the seed) | The last run after that time; the rest when Latentry stops |
+| A ComfyUI backend's computer | Its history of the prompts Latentry ran; the last source and mask uploaded for img2img (`input/latentry/<id>-source.png`, `-mask.png`); pictures in its temp folder | History and uploads: right after a secret run; otherwise the next upload replaces them and ComfyUI keeps its history. The temp folder: when ComfyUI restarts |
 
 Not kept anywhere: the gallery's search, order and filters (they last only
 as long as the page), and pictures from other folders, which are only read.

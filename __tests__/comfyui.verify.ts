@@ -25,6 +25,8 @@ import {
 } from '../lib/backends/comfyui'
 import { comfyHints } from '../lib/backends/hints'
 import { REDIRECT_REFUSED } from '../lib/backends/http'
+import { isResumable, keptFor, markSecret, SECRET_GRACE_MS, startJob } from '../lib/diffusion/job-store'
+import { fitToImage } from '../lib/profiles'
 import { isPng, readPngText, writePngText } from '../lib/image-meta'
 import type { BackendConfig, BackendEvent, GenerateRequest } from '../lib/backends/types'
 
@@ -65,6 +67,9 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
   const clients: string[] = []
   const running = new Set<string>()
   const history = new Map<string, unknown>()
+  const uploads: { name: string; subfolder: string; png: Buffer }[] = []
+  const deleted: string[] = []
+  const state = { hold: options.hold === true }
   let send: ((message: unknown) => void) | null = null
 
   const finish = (id: string, how: 'success' | 'interrupted' | 'error') => {
@@ -112,7 +117,7 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
         clients.push(client_id)
         const id = `p${graphs.length}`
         running.add(id)
-        if (!options.hold) {
+        if (!state.hold) {
           setTimeout(() => {
             send?.({ type: 'progress', data: { value: 1, max: 2, prompt_id: id } })
             send?.({ type: 'progress', data: { value: 2, max: 2, prompt_id: id } })
@@ -126,7 +131,18 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
         const id = (body as { prompt_id: string }).prompt_id
         if (running.has(id)) finish(id, 'interrupted')
       }
+      if (path === '/history') {
+        for (const id of (body as { delete?: string[] }).delete ?? []) {
+          deleted.push(id)
+          history.delete(id)
+        }
+      }
       return { status: 200, body: {} }
+    },
+    async upload(name, subfolder, png) {
+      calls.push(`UPLOAD ${subfolder}/${name}`)
+      uploads.push({ name, subfolder, png })
+      return { status: 200, body: { name, subfolder, type: 'input' } }
     },
     async getBytes(path, _timeout, maxBytes) {
       calls.push(`GET ${path}`)
@@ -139,7 +155,12 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
     },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, Math.min(ms, 2))),
   }
-  return { transport, calls, graphs, clients, running }
+  /** Lets held prompts (and any queued later) finish. */
+  const release = () => {
+    state.hold = false
+    for (const id of [...running]) finish(id, 'success')
+  }
+  return { transport, calls, graphs, clients, running, uploads, deleted, release }
 }
 
 async function main() {
@@ -177,7 +198,7 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: false, inpaint: false, pose: false, lora: true, tag: false, presets: false, preciseCancel: true }, 'capabilities: txt2img with LoRAs, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
   eq(status.hints, comfyHints(true), 'source image, inpaint and pose are explained as not available on this kind')
   eq(comfyHints(false), {}, 'no hints while it is down')
   eq((await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-2', model: 'other.safetensors' }, quiet.transport).status()).model, 'other.safetensors', 'the model set for the backend is the one shown')
@@ -188,6 +209,7 @@ async function main() {
     get: (path) => (path === '/system_stats' ? stats() : Promise.resolve({ status: 404, body: null })),
     post: async () => ({ status: 404, body: null }),
     getBytes: async () => ({ status: 404, bytes: null }),
+    upload: async () => ({ status: 404, body: null }),
     listen: async () => null,
     sleep: async () => {},
   })
@@ -240,8 +262,10 @@ async function main() {
   const adapter = new ComfyUIAdapter({ ...CONFIG, id: 'refusals' }, quiet.transport)
   const missing = await adapter.start({ ...REQUEST, prompt: 'x <lora:gone:1>' })
   check(!missing.ok && missing.status === 400 && missing.error.includes('gone'), 'a LoRA ComfyUI does not have is refused, by name')
-  const source = await adapter.start({ ...REQUEST, init_image_base64: 'iVBORw0KGgo=' })
-  check(!source.ok && source.status === 400, 'a source image is refused for now')
+  const unreadable = await adapter.start({ ...REQUEST, init_image_base64: 'iVBORw0KGgo=' })
+  check(!unreadable.ok && unreadable.status === 400, 'a source image that cannot be read is refused')
+  const maskOnly = await adapter.start({ ...REQUEST, mask_base64: 'iVBORw0KGgo=' })
+  check(!maskOnly.ok && maskOnly.status === 400, 'a mask without a source is refused')
   const unknown = await new ComfyUIAdapter({ ...CONFIG, id: 'model', model: 'not-there.safetensors' }, quiet.transport).start(REQUEST)
   check(!unknown.ok && unknown.status === 400 && unknown.error.includes('not-there'), 'a set model that ComfyUI does not list is refused')
   const graphError = await scriptedComfy({
@@ -258,6 +282,114 @@ async function main() {
   const crash = await new ComfyUIAdapter({ ...CONFIG, id: 'crash' }, crashing.transport).start({ ...REQUEST, image_count: 1 })
   const crashed = crash.ok ? (await collect(crash.value)).at(-1) : null
   check(crashed?.type === 'error' && crashed.message.includes('CUDA out of memory') && !crashed.message.includes('someone'), 'an error while running ends the run, paths taken out')
+
+  // ── img2img and inpaint ──
+  const i2iGraph = buildComfyGraph(REQUEST, {
+    checkpoint: 'c.safetensors',
+    loras: [],
+    seed: 1,
+    sizeMultiple: 8,
+    images: { source: 'latentry/x-source.png', mask: 'latentry/x-mask.png', strength: 0.4 },
+  })
+  eq(
+    [i2iGraph['8']?.inputs, i2iGraph['9']?.inputs, i2iGraph['30']?.inputs, i2iGraph['31']?.inputs],
+    [
+      { image: 'latentry/x-source.png' },
+      { pixels: ['8', 0], vae: ['1', 2] },
+      { image: 'latentry/x-mask.png', channel: 'red' },
+      { samples: ['9', 0], mask: ['30', 0] },
+    ],
+    'inpaint graph: the source is loaded and encoded by the checkpoint\'s VAE, the mask (white = redraw) set on its latent'
+  )
+  eq([i2iGraph['5'].inputs.latent_image, i2iGraph['5'].inputs.denoise, '4' in i2iGraph], [['31', 0], 0.4, false], 'the sampler starts from it, with denoise as strength, and no empty latent')
+  const plainI2i = buildComfyGraph(REQUEST, { checkpoint: 'c', loras: [], seed: 1, sizeMultiple: 8, images: { source: 's.png', strength: 0.6 } })
+  eq([plainI2i['5'].inputs.latent_image, '30' in plainI2i], [['9', 0], false], 'img2img without a mask: the encoded source as it is')
+
+  const sourcePng = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#468' } }).png().toBuffer()
+  // Opaque (redraw) on the left half, transparent on the right.
+  const maskPng = await sharp({ create: { width: 300, height: 200, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } })
+    .composite([{ input: { create: { width: 150, height: 200, channels: 4, background: { r: 255, g: 0, b: 255, alpha: 1 } } }, left: 0, top: 0 }])
+    .png()
+    .toBuffer()
+  const painter = await scriptedComfy({ socket: true })
+  const inpaint = await new ComfyUIAdapter({ ...CONFIG, id: 'painter' }, painter.transport).start({
+    ...REQUEST,
+    image_count: 1,
+    init_image_base64: sourcePng.toString('base64'),
+    mask_base64: maskPng.toString('base64'),
+    mask_blur: 0,
+    strength: 0.5,
+  })
+  check(inpaint.ok, 'an inpaint run starts')
+  const inpaintEvents = inpaint.ok ? await collect(inpaint.value) : []
+  eq(inpaintEvents.map((event) => event.type), ['start', 'step', 'step', 'image', 'done'], 'and ends with its picture')
+  eq(painter.uploads.map(({ subfolder, name }) => `${subfolder}/${name}`), ['latentry/painter-source.png', 'latentry/painter-mask.png'], 'the source and mask go up under two fixed names for this backend')
+  const fitted = fitToImage({ width: 300, height: 200 }, REQUEST.width, REQUEST.height, 8)
+  const upSource = await sharp(painter.uploads[0].png).metadata()
+  eq([upSource.width, upSource.height], [fitted.width, fitted.height], 'the source is sent at the size fitted to its aspect')
+  eq([painter.graphs[0]['8'].inputs.image, painter.graphs[0]['30'].inputs.image, painter.graphs[0]['5'].inputs.denoise], ['latentry/painter-source.png', 'latentry/painter-mask.png', 0.5], 'the graph loads what went up, at the strength asked for')
+  const maskPixels = await sharp(painter.uploads[1].png).removeAlpha().raw().toBuffer({ resolveWithObject: true })
+  const at = (x: number) => maskPixels.data[(Math.floor(maskPixels.info.height / 2) * maskPixels.info.width + x) * maskPixels.info.channels]
+  eq([at(10), at(maskPixels.info.width - 10)], [255, 0], 'the mask goes up white where the page painted, black elsewhere')
+  eq(painter.deleted, [], 'an ordinary run leaves its history on ComfyUI')
+  eq(painter.uploads.length, 2, 'and its uploads as they are')
+
+  // ── Secret runs take back their traces ──
+  const hidden = await scriptedComfy({ socket: true })
+  const secretRun = await new ComfyUIAdapter({ ...CONFIG, id: 'hidden' }, hidden.transport).start({ ...REQUEST, init_image_base64: sourcePng.toString('base64'), secret: true })
+  if (secretRun.ok) await collect(secretRun.value)
+  eq(hidden.deleted, ['p1', 'p2'], 'a secret run deletes both its prompts from ComfyUI\'s history')
+  const blanks = hidden.uploads.slice(1)
+  eq(blanks.map(({ name }) => name), ['hidden-source.png'], 'and overwrites its upload')
+  const blankMeta = blanks[0] ? await sharp(blanks[0].png).metadata() : null
+  eq([blankMeta?.width, blankMeta?.height], [1, 1], 'with an empty 1×1 picture')
+
+  const midway = await scriptedComfy({ socket: true, hold: true })
+  const midAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'midway' }, midway.transport)
+  const midRun = await midAdapter.start(REQUEST)
+  const midSeen: BackendEvent[] = []
+  const midDone = midRun.ok
+    ? (async () => {
+        for await (const event of midRun.value) midSeen.push(event)
+      })()
+    : Promise.resolve()
+  while (!midSeen.some((event) => event.type === 'start')) await new Promise((resolve) => setTimeout(resolve, 2))
+  await midAdapter.markSecret()
+  midway.release()
+  await midDone
+  eq(midSeen.at(-1)?.type, 'done', 'a run marked secret midway still finishes')
+  eq(midway.deleted, ['p1', 'p2'], 'and then deletes every prompt it queued, the one before the mark too')
+
+  const late = await scriptedComfy({ socket: true })
+  const lateAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'late' }, late.transport)
+  const lateRun = await lateAdapter.start({ ...REQUEST, image_count: 1 })
+  if (lateRun.ok) await collect(lateRun.value)
+  eq(late.deleted, [], 'an ordinary run, just ended, has not been wiped')
+  await lateAdapter.markSecret()
+  eq(late.deleted, ['p1'], 'marked secret within the grace, it is wiped at once')
+  await lateAdapter.markSecret()
+  eq(late.deleted, ['p1'], 'and only once')
+  const stale = await scriptedComfy({ socket: true })
+  const staleAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'stale' }, stale.transport)
+  const staleRun = await staleAdapter.start({ ...REQUEST, image_count: 1 })
+  if (staleRun.ok) await collect(staleRun.value)
+  const realNow = Date.now
+  Date.now = () => realNow() + SECRET_GRACE_MS + 1000
+  try {
+    await staleAdapter.markSecret()
+  } finally {
+    Date.now = realNow
+  }
+  eq(stale.deleted, [], 'past the grace there is nothing left to mark')
+
+  // ── The job store's side of a mark ──
+  const marked = startJob({ backend: 'mark-test', total: 1, steps: 1, context: { request: {} as never, profile: 'generic', kind: 'comfyui', model: null, mode: 'txt2img' } })
+  check(isResumable(marked), 'an ordinary run can be picked up after a reload')
+  markSecret(marked)
+  check(!isResumable(marked) && marked.secret, 'marked secret, it no longer can')
+  eq(keptFor(marked), SECRET_GRACE_MS, 'and is kept only for the secret grace once it ends')
+  markSecret(marked)
+  check(marked.secret, 'marking twice changes nothing, and nothing makes it ordinary again')
 
   // ── Cancel: only our own prompt ──
   const held = await scriptedComfy({ socket: true, hold: true })
@@ -353,6 +485,45 @@ async function throughRoutes(): Promise<void> {
     check(!JSON.stringify(text).includes('private-folder'), 'nor the folders of the model')
     const record = JSON.parse(text.latentry ?? '{}') as { kind?: string; model?: string; loras?: { name: string }[] }
     eq([record.kind, record.model, record.loras?.map((lora) => lora.name)], ['comfyui', 'base.safetensors', ['ink']], "Latentry's record: kind, model by file name, the LoRA applied")
+    eq(mock.deleted, [], 'an ordinary run leaves ComfyUI\'s history alone')
+
+    const generate = async (body: Record<string, unknown>) => {
+      const response = await generateRoute(
+        new Request('http://127.0.0.1:3000/api/gen/comfy/generate', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+        params({ backend: 'comfy' })
+      )
+      return ((await response.json()) as { job?: { id?: string } }).job?.id ?? ''
+    }
+    const settled = async (id: string) => {
+      const end = Date.now() + 15_000
+      while (Date.now() < end) {
+        const job = getJob('comfy', id)
+        if (job && job.status !== 'running' && job.pendingSaves === 0) return job
+        await new Promise((resolve) => setTimeout(resolve, 20))
+      }
+      return getJob('comfy', id)
+    }
+
+    // img2img in secret mode: the source goes up, and is taken back with the history.
+    const source = (await sharp({ create: { width: 96, height: 64, channels: 3, background: '#357' } }).png().toBuffer()).toString('base64')
+    const secretJob = await settled(await generate({ prompt: 'a harbour', init_image_base64: source, strength: 0.5, secret: true }))
+    eq([secretJob?.status, secretJob?.secret], ['done', true], 'a secret img2img run ends done')
+    eq(mock.uploads, ['comfy-source.png', 'comfy-source.png'], 'its source went up, then was overwritten')
+    eq(mock.deleted, ['mock-2'], 'and its prompt was deleted from ComfyUI\'s history')
+    eq(mock.graphs[1]?.['8']?.inputs.image, 'latentry/comfy-source.png', 'the graph loaded the uploaded source')
+
+    // Secret mode turned on after an ordinary run: the route makes it secret and wipes it.
+    const { POST: secretRoute } = await import('../app/api/gen/[backend]/job/secret/route')
+    const ordinary = await settled(await generate({ prompt: 'a pier' }))
+    const mark = (job: unknown) =>
+      secretRoute(
+        new Request('http://127.0.0.1:3000/api/gen/comfy/job/secret', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job }) }),
+        params({ backend: 'comfy' })
+      )
+    eq((await mark('someone-else')).status, 409, 'a mark must name the run on screen')
+    eq([ordinary?.secret, mock.deleted.length], [false, 1], 'and a refused one changes nothing')
+    eq((await mark(ordinary?.id)).status, 200, 'naming it, the run is made secret')
+    eq([ordinary?.secret, mock.deleted], [true, ['mock-2', 'mock-3']], 'and its prompt is taken back from ComfyUI')
   } finally {
     await mock.close()
     rmSync(scratch, { recursive: true, force: true })

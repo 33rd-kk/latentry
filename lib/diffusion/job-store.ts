@@ -215,6 +215,23 @@ function finish(job: Job, status: Exclude<JobStatus, 'running'>, error?: string)
 }
 
 /**
+ * Makes a run secret from now on, as when secret mode is turned on while it
+ * runs: /job stops handing out its id, a reload does not bring it back, and
+ * once it has ended it is kept only for the secret grace. One way: nothing
+ * makes a secret run ordinary again. What a page already received stays
+ * received.
+ */
+export function markSecret(job: Job, now = Date.now()): void {
+  if (job.secret) return
+  job.secret = true
+  // Already ended: its forget timer was set for the long window; this one is shorter.
+  if (job.status !== 'running') {
+    const left = Math.max(0, (job.endedAt ?? now) + SECRET_GRACE_MS - now)
+    setTimeout(() => forget(job), left).unref?.()
+  }
+}
+
+/**
  * How long a run stays in memory after it ends. Past that no page may read it
  * (isWatchable), so its images and prompt are dropped instead of waiting for
  * the backend's next run to replace them.

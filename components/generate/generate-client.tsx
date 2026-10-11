@@ -1,11 +1,12 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
 import { Loader2, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import { useSecretMode } from "@/components/app-header"
 import { BackendPicker } from "@/components/generate/backend-picker"
 import { SetupNotice } from "@/components/setup-notice"
 import { SourceImageSlot, type SourceImage, type SourceMode } from "@/components/generate/source-image-slot"
@@ -137,6 +138,21 @@ export function GenerateClient() {
   const job = useJobWatch(selectedId, refreshBackends, t)
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   useGalleryHandoff({ ready, editForm, backendRef, changeSource, changeSourceMode, t })
+
+  // Secret mode turned on while a run is on screen makes that run secret on
+  // the server too (one way: turning it off again changes nothing there).
+  const secret = useSecretMode()
+  const markedSecret = useRef<string | null>(null)
+  useEffect(() => {
+    const backend = backendRef.current
+    if (!secret || !runId || !backend || markedSecret.current === runId) return
+    markedSecret.current = runId
+    void fetch(`/api/gen/${encodeURIComponent(backend)}/job/secret`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ job: runId }),
+    }).catch(() => {})
+  }, [secret, runId, backendRef])
 
   // ── Generate and cancel ──────────────────────────────────────────────────
   const capabilities = status?.capabilities

@@ -1,30 +1,37 @@
 // Adapter for a ComfyUI server (its HTTP API: /prompt, /queue, /history,
 // /view, /object_info, and the /ws socket for progress).
 //
-// ComfyUI runs graphs, not requests. Latentry builds a small txt2img graph on
-// this server (buildComfyGraph) from the page's settings: never a graph from
-// the browser. Each picture is one queued prompt, run one after another, so a
-// cancel stops the rest. Progress comes over the WebSocket; if that cannot be
-// opened, /history is polled until the prompt is done.
+// ComfyUI runs graphs, not requests. Latentry builds a small graph on this
+// server (buildComfyGraph) from the page's settings: never a graph from the
+// browser. txt2img starts from an empty latent; img2img and inpaint upload
+// the source (and mask) into ComfyUI's input folder first. Each picture is one
+// queued prompt, run one after another, so a cancel stops the rest. Progress
+// comes over the WebSocket; if that cannot be opened, /history is polled
+// until the prompt is done.
 //
 // What stays on the ComfyUI machine: the graph ends in PreviewImage, so the
 // picture goes to ComfyUI's temp folder (emptied when it restarts), not its
 // output folder. Latentry saves its own copy, with ComfyUI's graph chunks
-// taken out: they name the model and LoRA files with their folders.
+// taken out: they name the model and LoRA files with their folders. Uploads
+// reuse two names per backend (latentry/<id>-source.png, -mask.png), so they
+// never pile up. A secret run (from the start, or marked while it ran) also
+// takes back its history entries and blanks its uploads when it ends.
 //
 // Known limits, compared with the diffusers-compatible API:
-// - txt2img only: no source image, mask or pose yet.
+// - No pose control yet.
 // - The model is the one chosen for this backend in Settings, else the first
 //   checkpoint ComfyUI lists.
 // - ComfyUI has no login. A token is sent as a Bearer token, for a proxy in
 //   front of it.
 
 import { randomInt, randomUUID } from 'node:crypto'
-import { fetch as undiciFetch, WebSocket } from 'undici'
+import { FormData, fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
+import { SECRET_GRACE_MS } from '@/lib/diffusion/job-store'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { getProfile } from '@/lib/profiles'
 import { comfyHints, problemOf } from './hints'
+import { blankPng, preparedImages } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
 import type { BackendAdapter, BackendConfig, BackendEvent, BackendProblem, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
 
@@ -54,6 +61,8 @@ export interface ComfyTransport {
   getBytes(path: string, timeoutMs: number, maxBytes: number): Promise<{ status: number; bytes: Buffer | null }>
   /** Opens /ws for this client; null when it cannot. Text frames arrive parsed. */
   listen(clientId: string, onMessage: (message: unknown) => void, onClose: () => void): Promise<{ close(): void } | null>
+  /** POST /upload/image: a PNG into ComfyUI's input folder, under `subfolder/name`, replacing one of that name. */
+  upload(name: string, subfolder: string, png: Buffer, timeoutMs: number): Promise<{ status: number; body: unknown }>
   sleep(ms: number): Promise<void>
 }
 
@@ -61,11 +70,12 @@ function httpTransport(config: BackendConfig): ComfyTransport {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (config.token) headers.Authorization = `Bearer ${config.token}`
 
-  const call = async (path: string, init: { method: string; body?: string; timeoutMs: number }) => {
+  const call = async (path: string, init: { method: string; body?: string | FormData; timeoutMs: number }) => {
     // Redirects are refused, not followed: they would send the prompt elsewhere.
     const response = await undiciFetch(new URL(path, config.url), {
       method: init.method,
-      headers,
+      // A form sets its own multipart Content-Type.
+      headers: init.body instanceof FormData ? { ...(config.token ? { Authorization: headers.Authorization } : {}) } : headers,
       body: init.body,
       redirect: 'manual',
       signal: AbortSignal.timeout(init.timeoutMs),
@@ -77,7 +87,7 @@ function httpTransport(config: BackendConfig): ComfyTransport {
     return { status: response.status, body: null, response }
   }
 
-  const json = async (path: string, init: { method: string; body?: string; timeoutMs: number }) => {
+  const json = async (path: string, init: { method: string; body?: string | FormData; timeoutMs: number }) => {
     const { status, body, response } = await call(path, init)
     if (!response) return { status, body }
     const text = await response.text()
@@ -150,6 +160,14 @@ function httpTransport(config: BackendConfig): ComfyTransport {
         })
       })
     },
+    upload(name, subfolder, png, timeoutMs) {
+      const form = new FormData()
+      form.append('image', new Blob([new Uint8Array(png)], { type: 'image/png' }), name)
+      form.append('subfolder', subfolder)
+      form.append('type', 'input')
+      form.append('overwrite', 'true')
+      return json('/upload/image', { method: 'POST', body: form, timeoutMs })
+    },
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   }
 }
@@ -158,7 +176,25 @@ interface Inflight {
   /** The prompt id ComfyUI gave the picture being drawn now. */
   runId: string | null
   cancelRequested: boolean
+  /** A secret run (from the start, or marked while it ran): its traces are wiped at the end. */
+  secret: boolean
+  /** Every prompt this run queued, and the pictures it uploaded, for that wipe. */
+  promptIds: string[]
+  uploads: string[]
 }
+
+/** What a run left on ComfyUI, kept briefly after it ends for a late "secret" mark. */
+interface EndedRun {
+  endedAt: number
+  promptIds: string[]
+  uploads: string[]
+  wiped: boolean
+}
+
+/** Where uploads go in ComfyUI's input folder; each backend reuses its own two names. */
+const UPLOAD_FOLDER = 'latentry'
+/** At most this many LoRA calls in one prompt (node ids 10…29). */
+const MAX_LORAS = 20
 
 interface StaticInfo {
   at: number
@@ -172,9 +208,11 @@ interface StaticInfo {
 const globalForComfy = globalThis as typeof globalThis & {
   __comfyInflight?: Map<string, Inflight>
   __comfyStatic?: Map<string, StaticInfo>
+  __comfyEnded?: Map<string, EndedRun>
 }
 const inflightRuns = (globalForComfy.__comfyInflight ??= new Map())
 const staticInfo = (globalForComfy.__comfyStatic ??= new Map())
+const endedRuns = (globalForComfy.__comfyEnded ??= new Map())
 
 /** The choices of one input in an /object_info answer: `[[...names]]`, or the newer `["COMBO", { options }]`. */
 export function comboOptions(body: unknown, node: string, input: string): string[] | null {
@@ -209,13 +247,23 @@ export function resolveLoras(calls: LoraUse[], files: string[]): { found: { file
 type GraphNode = { class_type: string; inputs: Record<string, unknown> }
 
 /**
- * The txt2img graph for one picture, in ComfyUI's API format: checkpoint →
- * LoRA loaders → the two prompts → empty latent → KSampler → decode →
- * PreviewImage (node OUTPUT_NODE). Pure, so the verify script can read it.
+ * The graph for one picture, in ComfyUI's API format: checkpoint → LoRA
+ * loaders → the two prompts → a latent → KSampler → decode → PreviewImage
+ * (node OUTPUT_NODE). The latent is empty for txt2img; with `images`, it is
+ * the uploaded source encoded by the checkpoint's VAE (denoise = strength),
+ * and with a mask too, only the mask's white is redrawn (SetLatentNoiseMask).
+ * Pure, so the verify script can read it.
  */
 export function buildComfyGraph(
   request: GenerateRequest,
-  options: { checkpoint: string; loras: { file: string; weight: number }[]; seed: number; sizeMultiple: number }
+  options: {
+    checkpoint: string
+    loras: { file: string; weight: number }[]
+    seed: number
+    sizeMultiple: number
+    /** Uploaded pictures, as LoadImage names them ("latentry/x.png"). */
+    images?: { source: string; mask?: string; strength: number }
+  }
 ): Record<string, GraphNode> {
   const snap = (value: number) => Math.max(options.sizeMultiple, Math.round(value / options.sizeMultiple) * options.sizeMultiple)
   const graph: Record<string, GraphNode> = {
@@ -234,7 +282,21 @@ export function buildComfyGraph(
   })
   graph['2'] = { class_type: 'CLIPTextEncode', inputs: { text: withoutLoraCalls(request.prompt), clip } }
   graph['3'] = { class_type: 'CLIPTextEncode', inputs: { text: request.negative_prompt, clip } }
-  graph['4'] = { class_type: 'EmptyLatentImage', inputs: { width: snap(request.width), height: snap(request.height), batch_size: 1 } }
+  let latent: [string, number] = ['4', 0]
+  const images = options.images
+  if (images) {
+    graph['8'] = { class_type: 'LoadImage', inputs: { image: images.source } }
+    graph['9'] = { class_type: 'VAEEncode', inputs: { pixels: ['8', 0], vae: ['1', 2] } }
+    latent = ['9', 0]
+    if (images.mask) {
+      // The mask is white (redraw) on black (keep); its red channel is the mask.
+      graph['30'] = { class_type: 'LoadImageMask', inputs: { image: images.mask, channel: 'red' } }
+      graph['31'] = { class_type: 'SetLatentNoiseMask', inputs: { samples: ['9', 0], mask: ['30', 0] } }
+      latent = ['31', 0]
+    }
+  } else {
+    graph['4'] = { class_type: 'EmptyLatentImage', inputs: { width: snap(request.width), height: snap(request.height), batch_size: 1 } }
+  }
   graph['5'] = {
     class_type: 'KSampler',
     inputs: {
@@ -243,11 +305,11 @@ export function buildComfyGraph(
       cfg: request.guidance_scale,
       sampler_name: request.sampler && request.sampler !== DEFAULT ? request.sampler : DEFAULT_SAMPLER,
       scheduler: request.scheduler && request.scheduler !== DEFAULT ? request.scheduler : DEFAULT_SCHEDULER,
-      denoise: 1,
+      denoise: images ? images.strength : 1,
       model,
       positive: ['2', 0],
       negative: ['3', 0],
-      latent_image: ['4', 0],
+      latent_image: latent,
     },
   }
   graph['6'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
@@ -349,8 +411,8 @@ export class ComfyUIAdapter implements BackendAdapter {
       // The file's name only: the folders under ComfyUI's models folder stay here.
       model: checkpoint ? modelFileName(checkpoint) : null,
       capabilities: {
-        img2img: false,
-        inpaint: false,
+        img2img: true,
+        inpaint: true,
         pose: false,
         lora: info.loras !== null,
         tag: false,
@@ -369,10 +431,8 @@ export class ComfyUIAdapter implements BackendAdapter {
   }
 
   async start(request: GenerateRequest): Promise<Outcome<AsyncIterable<BackendEvent>>> {
-    if (request.init_image_base64 || request.mask_base64) {
-      return { ok: false, status: 400, error: 'A source image is not available on a ComfyUI backend yet' }
-    }
     if (request.pose_image_base64) return { ok: false, status: 400, error: 'Pose control is not available on this backend' }
+    if (request.mask_base64 && !request.init_image_base64) return { ok: false, status: 400, error: 'An inpaint mask needs a source image' }
     if (inflightRuns.has(this.config.id)) return { ok: false, status: 409, error: 'This backend is already generating for Latentry' }
 
     const queue = await this.getOrNull('/queue')
@@ -388,13 +448,85 @@ export class ComfyUIAdapter implements BackendAdapter {
       return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${modelFileName(this.config.model)}` }
     }
     const calls = loraCallsInPrompt(request.prompt)
+    if (calls.length > MAX_LORAS) return { ok: false, status: 400, error: `At most ${MAX_LORAS} LoRAs in one prompt` }
     const { found, missing } = resolveLoras(calls, info.loras ?? [])
     if (missing.length) return { ok: false, status: 400, error: `LoRA not found on this backend: ${missing.join(', ')}` }
 
-    const inflight: Inflight = { runId: null, cancelRequested: false }
+    const inflight: Inflight = { runId: null, cancelRequested: false, secret: request.secret === true, promptIds: [], uploads: [] }
+    let drawn = request
+    let images: { source: string; mask?: string; strength: number } | undefined
+    if (request.init_image_base64) {
+      const prepared = await preparedImages(request, getProfile(this.config.profile).sizeMultiple)
+      if (!prepared) return { ok: false, status: 400, error: 'Could not read the source image' }
+      // Fixed names per backend: the next run overwrites them, so they never pile up.
+      const source = await this.uploadPicture(`${this.config.id}-source.png`, prepared.source, inflight)
+      if ('error' in source) return { ok: false, status: 502, error: source.error }
+      let mask: string | undefined
+      if (prepared.mask) {
+        const uploaded = await this.uploadPicture(`${this.config.id}-mask.png`, prepared.mask, inflight)
+        if ('error' in uploaded) {
+          // The source went up already; a secret run takes it back.
+          if (inflight.secret) await this.wipe([], inflight.uploads)
+          return { ok: false, status: 502, error: uploaded.error }
+        }
+        mask = uploaded.name
+      }
+      images = { source: source.name, ...(mask ? { mask } : {}), strength: request.strength ?? 0.6 }
+      drawn = { ...request, width: prepared.width, height: prepared.height }
+    }
+
     inflightRuns.set(this.config.id, inflight)
     const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
-    return { ok: true, value: this.run(request, checkpoint, found, seed, inflight) }
+    return { ok: true, value: this.run(drawn, checkpoint, found, seed, inflight, images) }
+  }
+
+  /** Uploads one picture into ComfyUI's input folder; the name LoadImage takes, or why not. */
+  private async uploadPicture(name: string, png: Buffer, inflight: Inflight): Promise<{ name: string } | { error: string }> {
+    let answer: { status: number; body: unknown }
+    try {
+      answer = await this.http.upload(name, UPLOAD_FOLDER, png, QUEUE_TIMEOUT_MS)
+    } catch {
+      return { error: 'Could not upload the source image to the backend' }
+    }
+    if (answer.status !== 200) return { error: errorMessage(answer.body, `Backend error: ${answer.status}`) }
+    const body = answer.body as { name?: unknown; subfolder?: unknown } | null
+    const stored = typeof body?.name === 'string' && body.name ? body.name : name
+    const folder = typeof body?.subfolder === 'string' ? body.subfolder : UPLOAD_FOLDER
+    inflight.uploads.push(stored)
+    return { name: folder ? `${folder}/${stored}` : stored }
+  }
+
+  /**
+   * What a secret run leaves on ComfyUI, taken back: its prompts' history
+   * entries (prompt text and all), and the uploaded pictures overwritten with
+   * an empty one. Best effort: ComfyUI may be gone by now.
+   */
+  private async wipe(promptIds: string[], uploads: string[]): Promise<void> {
+    try {
+      if (promptIds.length) await this.http.post('/history', { delete: promptIds }, STATUS_TIMEOUT_MS)
+      if (uploads.length) {
+        const blank = await blankPng()
+        for (const name of uploads) await this.http.upload(name, UPLOAD_FOLDER, blank, STATUS_TIMEOUT_MS)
+      }
+    } catch (error) {
+      console.error(`[${this.config.id}] could not wipe a secret run from ComfyUI:`, error instanceof Error ? error.message : error)
+    }
+  }
+
+  /**
+   * Secret mode turned on during the run: from now on it is a secret one. A
+   * run that ended within the secret grace is wiped at once.
+   */
+  async markSecret(): Promise<void> {
+    const inflight = inflightRuns.get(this.config.id)
+    if (inflight) {
+      inflight.secret = true
+      return
+    }
+    const ended = endedRuns.get(this.config.id)
+    if (!ended || ended.wiped || Date.now() - ended.endedAt > SECRET_GRACE_MS) return
+    ended.wiped = true
+    await this.wipe(ended.promptIds, ended.uploads)
   }
 
   private async *run(
@@ -402,7 +534,8 @@ export class ComfyUIAdapter implements BackendAdapter {
     checkpoint: string,
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
-    inflight: Inflight
+    inflight: Inflight,
+    images?: { source: string; mask?: string; strength: number }
   ): AsyncGenerator<BackendEvent> {
     const total = request.image_count
     const clientId = randomUUID()
@@ -445,6 +578,7 @@ export class ComfyUIAdapter implements BackendAdapter {
           loras: loras.map(({ file, use }) => ({ file, weight: use.weight })),
           seed,
           sizeMultiple,
+          ...(images ? { images } : {}),
         })
         let queued: { status: number; body: unknown }
         try {
@@ -459,6 +593,7 @@ export class ComfyUIAdapter implements BackendAdapter {
           return
         }
         inflight.runId = promptId
+        inflight.promptIds.push(promptId)
         yield { type: 'start', index, total, steps: request.num_inference_steps, runId: promptId }
 
         // Wait for the prompt to finish: the socket says so first, /history in any case.
@@ -530,6 +665,13 @@ export class ComfyUIAdapter implements BackendAdapter {
     } finally {
       socket?.close()
       if (inflightRuns.get(this.config.id) === inflight) inflightRuns.delete(this.config.id)
+      // Kept for a "secret" mark that arrives just after the end.
+      const ended: EndedRun = { endedAt: Date.now(), promptIds: inflight.promptIds, uploads: inflight.uploads, wiped: inflight.secret }
+      endedRuns.set(this.config.id, ended)
+      setTimeout(() => {
+        if (endedRuns.get(this.config.id) === ended) endedRuns.delete(this.config.id)
+      }, SECRET_GRACE_MS).unref?.()
+      if (inflight.secret) await this.wipe(inflight.promptIds, inflight.uploads)
     }
   }
 
