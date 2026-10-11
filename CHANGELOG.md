@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **More from ComfyUI pictures**: the gallery reads the settings of more
+  ComfyUI graphs: hires and refiner graphs (the base pass), SamplerCustom
+  and Flux-style graphs, other model loaders, seeds from a seed node, and
+  pictures that carry only the editor's workflow. Model names show the file
+  name only, not the folders it sits in.
 - **Less of this computer on paired devices**:
   - Gallery folders are shown by a display name you set next to each
     folder on Settings, or else by a made-up name such as "Amber Fox".

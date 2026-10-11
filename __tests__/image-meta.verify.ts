@@ -16,13 +16,17 @@ import {
   lorasInPrompt,
   formatA1111Parameters,
   metaFromText,
+  modelFileName,
   parseA1111Parameters,
   parseComfyPrompt,
+  parseComfyWorkflow,
   parseLatentryRecord,
   readExifText,
   readImageInfo,
+  readPngText,
   writePngText,
   PARAMETERS_KEY,
+  type ImageMeta,
 } from '../lib/image-meta'
 
 const INFOTEXT =
@@ -194,7 +198,90 @@ async function main() {
   eq(record({ kind: 'diffusers' }), undefined, "Latentry's record, older: a prompt call alone is not a LoRA used")
   eq(record({ kind: 'a1111' }), ['mine'], "Latentry's record, older, from A1111: it applied the prompt's calls")
 
+  await comfyGraphs()
+
   done('image-meta')
+}
+
+// ── ComfyUI's graphs: made up here, shaped like what ComfyUI writes ──
+async function comfyGraphs(): Promise<void> {
+  const settings = (meta: ImageMeta | null | undefined) =>
+    meta && { prompt: meta.prompt, negativePrompt: meta.negativePrompt, seed: meta.seed, steps: meta.steps, cfg: meta.cfg, sampler: meta.sampler, scheduler: meta.scheduler, strength: meta.strength, model: meta.model, width: meta.width, height: meta.height }
+
+  eq([modelFileName('sdxl\\anime\\base.safetensors'), modelFileName('flux/dev.gguf'), modelFileName(' plain.ckpt ')], ['base.safetensors', 'dev.gguf', 'plain.ckpt'], 'a model is shown by its file name, without folders')
+
+  const txt2img = {
+    '4': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'sdxl\\anime\\base.safetensors' } },
+    '6': { class_type: 'CLIPTextEncode', inputs: { text: 'a lighthouse at dusk', clip: ['4', 1] } },
+    '7': { class_type: 'CLIPTextEncode', inputs: { text: 'blurry', clip: ['4', 1] } },
+    '5': { class_type: 'EmptyLatentImage', inputs: { width: 832, height: 1216, batch_size: 1 } },
+    '10': { class_type: 'Seed (rgthree)', inputs: { seed: 42 } },
+    '3': {
+      class_type: 'KSampler',
+      inputs: { seed: ['10', 0], steps: 30, cfg: 5.5, sampler_name: 'euler_ancestral', scheduler: 'karras', denoise: 1, model: ['4', 0], positive: ['6', 0], negative: ['7', 0], latent_image: ['5', 0] },
+    },
+  }
+  const expected = { prompt: 'a lighthouse at dusk', negativePrompt: 'blurry', seed: 42, steps: 30, cfg: 5.5, sampler: 'euler_ancestral', scheduler: 'karras', strength: undefined, model: 'base.safetensors', width: 832, height: 1216 }
+  eq(settings(parseComfyPrompt(JSON.stringify(txt2img))), expected, 'ComfyUI: prompts, settings, a seed from a seed node, size, and the model by file name')
+
+  // A hires pass met first (keys like these iterate in numeric order): the
+  // base is the sampler that starts from an empty latent.
+  const hires = {
+    ...txt2img,
+    '2': { class_type: 'KSampler', inputs: { ...txt2img['3'].inputs, seed: 2, denoise: 0.5, latent_image: ['1', 0] } },
+    '1': { class_type: 'LatentUpscale', inputs: { samples: ['3', 0], width: 1664, height: 2432 } },
+  }
+  eq(settings(parseComfyPrompt(JSON.stringify(hires))), expected, 'ComfyUI: with a second pass, the base pass is read')
+
+  const custom = {
+    '1': { class_type: 'UNETLoader', inputs: { unet_name: 'flux/flux1-dev.safetensors', weight_dtype: 'default' } },
+    '2': { class_type: 'CLIPTextEncode', inputs: { text: 'a red fox' } },
+    '8': { class_type: 'CLIPTextEncode', inputs: { text: 'ugly' } },
+    '3': { class_type: 'RandomNoise', inputs: { noise_seed: 99 } },
+    '4': { class_type: 'CFGGuider', inputs: { cfg: 3.5, positive: ['2', 0], negative: ['8', 0], model: ['1', 0] } },
+    '5': { class_type: 'KSamplerSelect', inputs: { sampler_name: 'dpmpp_2m' } },
+    '6': { class_type: 'BasicScheduler', inputs: { scheduler: 'simple', steps: 20, denoise: 1, model: ['1', 0] } },
+    '7': { class_type: 'EmptySD3LatentImage', inputs: { width: 1024, height: 768, batch_size: 1 } },
+    '9': { class_type: 'SamplerCustomAdvanced', inputs: { noise: ['3', 0], guider: ['4', 0], sampler: ['5', 0], sigmas: ['6', 0], latent_image: ['7', 0] } },
+  }
+  eq(
+    settings(parseComfyPrompt(JSON.stringify(custom))),
+    { prompt: 'a red fox', negativePrompt: 'ugly', seed: 99, steps: 20, cfg: 3.5, sampler: 'dpmpp_2m', scheduler: 'simple', strength: undefined, model: 'flux1-dev.safetensors', width: 1024, height: 768 },
+    'ComfyUI: SamplerCustomAdvanced, from its noise, guider, sampler and sigmas nodes, with a UNET loader'
+  )
+
+  // The editor's graph, for a picture that carries only that.
+  const workflow = {
+    nodes: [
+      { id: 4, type: 'CheckpointLoaderSimple', mode: 0, widgets_values: ['pony\\v6.safetensors'] },
+      { id: 6, type: 'CLIPTextEncode', mode: 0, inputs: [{ name: 'clip', link: 3 }], widgets_values: ['a castle <lora:glow:0.5>'] },
+      { id: 7, type: 'CLIPTextEncode', mode: 0, inputs: [{ name: 'clip', link: 5 }], widgets_values: ['lowres'] },
+      { id: 5, type: 'EmptyLatentImage', mode: 0, widgets_values: [512, 768, 1] },
+      { id: 8, type: 'LoraLoader', mode: 0, widgets_values: ['styles/ink.safetensors', 0.8, 0.8] },
+      { id: 9, type: 'LoraLoader', mode: 4, widgets_values: ['bypassed.safetensors', 1, 1] },
+      {
+        id: 3,
+        type: 'KSampler',
+        mode: 0,
+        inputs: [{ name: 'model', link: 1 }, { name: 'positive', link: 4 }, { name: 'negative', link: 6 }, { name: 'latent_image', link: 2 }],
+        widgets_values: [7, 'randomize', 25, 6, 'euler', 'normal', 1],
+      },
+    ],
+    links: [[1, 4, 0, 3, 0, 'MODEL'], [2, 5, 0, 3, 3, 'LATENT'], [3, 4, 1, 6, 0, 'CLIP'], [4, 6, 0, 3, 1, 'CONDITIONING'], [5, 4, 1, 7, 0, 'CLIP'], [6, 7, 0, 3, 2, 'CONDITIONING']],
+  }
+  const fromWorkflow = { prompt: 'a castle <lora:glow:0.5>', negativePrompt: 'lowres', seed: 7, steps: 25, cfg: 6, sampler: 'euler', scheduler: 'normal', strength: undefined, model: 'v6.safetensors', width: 512, height: 768 }
+  const read = parseComfyWorkflow(JSON.stringify(workflow))
+  eq(settings(read), fromWorkflow, "ComfyUI's editor graph: the sampler's widgets, its prompts through the links, size and model")
+  eq([read?.source, read?.loras], ['comfyui', ['glow', 'ink']], 'with the LoRAs of loaders that ran and of the prompt')
+  const older = { ...workflow, nodes: workflow.nodes.map((node) => (node.type === 'KSampler' ? { ...node, widgets_values: [7, 25, 6, 'euler', 'normal', 1] } : node)) }
+  eq(settings(parseComfyWorkflow(JSON.stringify(older))), fromWorkflow, 'also without the seed control widget')
+  eq(settings(metaFromText({ workflow: JSON.stringify(workflow) })), fromWorkflow, 'a picture with only a workflow chunk has settings')
+  eq(metaFromText({ prompt: 'not a graph', workflow: JSON.stringify(workflow) })?.prompt, fromWorkflow.prompt, 'and so does one whose prompt chunk cannot be read')
+  eq(parseComfyWorkflow('{"nodes": "x"}'), null, 'a workflow without nodes is nothing')
+
+  // Through a real PNG: ComfyUI writes its graph as a tEXt chunk named "prompt".
+  const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer(), { prompt: JSON.stringify(txt2img) })
+  eq(settings(metaFromText(readPngText(png))), expected, 'a PNG with a ComfyUI prompt chunk reads back the same')
 }
 
 main().catch((error) => {

@@ -8,8 +8,17 @@ own package.
 - **Formats**: PNG text chunks (`tEXt`, `zTXt`, `iTXt`), and EXIF in JPEG
   (APP1) and WebP (`EXIF` chunk).
 - **Tools**: AUTOMATIC1111 / Forge infotext (`parameters`, or EXIF
-  UserComment), ComfyUI's executed graph (`prompt`), Latentry's own record
-  (`latentry`) and WD14 tags (`latentry:tags`).
+  UserComment), ComfyUI's graphs (`prompt`, or else `workflow`), Latentry's
+  own record (`latentry`) and WD14 tags (`latentry:tags`).
+- **ComfyUI**: from the executed graph (`prompt`), the sampler that starts
+  from an empty latent (so a hires or refiner pass is not taken for the
+  base), with KSampler, KSamplerAdvanced and SamplerCustom(Advanced) and
+  their noise, guider, sampler and sigmas nodes. Numbers given by a link to
+  a seed or primitive node are followed. The model comes from any checkpoint
+  or UNET loader. From the editor's graph (`workflow`), used only when there
+  is no `prompt`, the stock nodes whose widget order is known. Model names
+  are file names only (`modelFileName`): the folders under ComfyUI's models
+  folder are someone's own.
 - **Without loading the image**: it reads chunk and segment headers, and
   skips the pixel data by its length. A large picture costs a few small
   reads.
