@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 0.7.0 (2026-10-11)
+
+**Upgrading from 0.6.0**: open **Setup** and run **Repair / update** for the
+engine once. It moves the engine onto its own Python and the pinned uv
+(about 20 MB more, and PyTorch may download again). Network folders
+(`\\server\share`) in the settings file are dropped unless
+`LATENTRY_ALLOW_UNC=1` is set.
+
+**ComfyUI**
+
+- **ComfyUI as a backend**: add a ComfyUI server on Settings with the kind
+  `comfyui`. Latentry builds the graph itself (checkpoint, LoRAs from
+  `<lora:…>` in the prompt, KSampler), shows progress, and **Cancel** stops
+  only its own prompt. Choose the checkpoint under **Model** after **Test**,
+  or with `GEN_MODEL_<ID>` in `.env.local`; without one, ComfyUI's first is
+  used. Pose is not available on ComfyUI yet.
+- **img2img and inpainting on ComfyUI**: a ComfyUI backend takes a source
+  picture and a mask. They are uploaded into ComfyUI's input folder under
+  two names per backend that each run reuses.
 - **Your own ComfyUI workflows**: give a ComfyUI backend a **Workflows
   folder** on Settings, and the Generate page offers the workflows saved
   there (ComfyUI's Export (API)) next to the built-in graph. Latentry fills
@@ -9,41 +28,24 @@
   them, or where a node's title says `latentry:prompt` and the like, and
   says what it could not find. The backend's **Model**, if set, replaces a
   workflow's checkpoint; a workflow with a UNET loader keeps its own model.
-  Saving goes to ComfyUI's temp folder, not its output folder. Workflow
-  names reach paired devices only when you turn that on.
-- **img2img and inpainting on ComfyUI**: a ComfyUI backend takes a source
-  picture and a mask. They are uploaded into ComfyUI's input folder under
-  two names per backend that each run reuses.
-- **Secret mode turned on during a run**: the run becomes secret from then
-  on (within a minute of its end too): a reload or another device no longer
-  picks it up, and it is forgotten a minute after it ends. Turning secret
-  mode off again does not undo that. After a secret run on ComfyUI,
+  Workflow names reach paired devices only when you turn that on.
+- **What stays on the ComfyUI computer**: pictures go to ComfyUI's temp
+  folder rather than its output folder, and the copy Latentry saves leaves
+  out ComfyUI's graph, which names your model folders. After a secret run,
   Latentry deletes its prompts from ComfyUI's history and overwrites its
   uploads with an empty picture.
-- **Why a backend does not answer**: **Test** on Settings and the Generate
-  page now say whether a backend asked for a login (for example a ComfyUI
-  login custom node, or a web UI started with `--api-auth` and no token),
-  answered an error, redirected, or did not answer at all, with its own
-  message, instead of only "No answer". For every kind of backend.
-- **`GEN_MODEL_<ID>`**: sets a `comfyui` backend's checkpoint from
-  `.env.local`.
-- **Fixes**: a web UI backend moved to another address on Settings shows
-  that server's samplers at once, not the old one's for a minute. Pictures
-  from ComfyUI that carry only the editor's workflow are read with an SDXL
-  text encoder too.
-- **ComfyUI as a backend**: add a ComfyUI server on Settings with the kind
-  `comfyui`. Latentry builds a txt2img graph itself (checkpoint, LoRAs from
-  `<lora:…>` in the prompt, KSampler) and shows progress, and **Cancel**
-  stops only its own prompt. Choose the checkpoint under **Model** after
-  **Test**; without one, ComfyUI's first is used. Pictures go to ComfyUI's
-  temp folder rather than its output folder, and the copy Latentry saves
-  leaves out ComfyUI's graph, which names your model folders. A source
-  image, inpainting and pose are not available on ComfyUI yet.
 - **More from ComfyUI pictures**: the gallery reads the settings of more
   ComfyUI graphs: hires and refiner graphs (the base pass), SamplerCustom
   and Flux-style graphs, other model loaders, seeds from a seed node, and
   pictures that carry only the editor's workflow. Model names show the file
   name only, not the folders it sits in.
+
+**Secret mode, privacy and security**
+
+- **Secret mode turned on during a run**: the run becomes secret from then
+  on (within a minute of its end too): a reload or another device no longer
+  picks it up, and it is forgotten a minute after it ends. Turning secret
+  mode off again does not undo that.
 - **Less of this computer on paired devices**:
   - Gallery folders are shown by a display name you set next to each
     folder on Settings, or else by a made-up name such as "Amber Fox".
@@ -58,6 +60,23 @@
 - **LoRA list on paired devices**: **Show the LoRA list on paired devices**
   (Setup > Engine, off by default) gives phones and other paired devices
   **Add a LoRA** too.
+- **Tighter API limits**: network folders (`\\server\share`) are refused
+  on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
+  an existing settings file without it. A backend's redirect is reported as
+  an error instead of followed. Requests without a picture are capped at
+  1 MB. Tagging and pose previews run at most two at a time. Pages are no
+  longer kept in the browser cache and get stricter security headers. The
+  unused `/_next/image` endpoint is off.
+
+**Backends**
+
+- **Why a backend does not answer**: **Test** on Settings and the Generate
+  page now say whether a backend asked for a login (for example a ComfyUI
+  login custom node, or a web UI started with `--api-auth` and no token),
+  answered an error, redirected, or did not answer at all, with its own
+  message, instead of only "No answer". For every kind of backend.
+
+**Engine install**
 
 - **Pinned downloads**: the engine install fetches uv 0.13.0 instead of
   the latest release, and checks it against its SHA-256 before running it.
@@ -75,17 +94,22 @@
   own Python at its next **Repair / update** (about 20 MB more, and its
   packages are installed again).
 
-- **Tighter API limits**: network folders (`\\server\share`) are refused
-  on the Settings page unless `LATENTRY_ALLOW_UNC=1`, and are dropped from
-  an existing settings file without it. A backend's redirect is reported as
-  an error instead of followed. Requests without a picture are capped at
-  1 MB. Tagging and pose previews run at most two at a time. Pages are no
-  longer kept in the browser cache and get stricter security headers. The
-  unused `/_next/image` endpoint is off.
-- **Stricter engine API**: the built-in engine caps request bodies at 64 MB
-  and prompts at 20,000 characters, checks `/api/pose` requests field by
+**Engine (0.5.0)**
+
+- **Stricter API**: the built-in engine caps request bodies at 64 MB and
+  prompts at 20,000 characters, checks `/api/pose` requests field by
   field, takes only `owner/name` repository ids for downloads, keeps a short
   download list, and no longer serves FastAPI's `/docs` pages.
+- Model folders downloaded from the Setup catalog are checked against their
+  pinned hashes, and unexpected errors go to its log instead of to the
+  client.
+
+**Fixed**
+
+- A web UI backend moved to another address on Settings shows that
+  server's samplers at once, not the old one's for a minute.
+- Pictures from ComfyUI that carry only the editor's workflow are read with
+  an SDXL text encoder too.
 
 ## 0.6.0 (2026-10-10)
 
