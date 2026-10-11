@@ -214,11 +214,21 @@ npm test          # verify scripts in __tests__/, no test framework needed
 npm test -- gallery   # just the ones whose name contains "gallery"
 npm run i18n:check
 ruff check engine # the version in .github/requirements-lint.txt
+npm run test:e2e  # browser tests in e2e/ (see below)
 ```
 
 CI runs these on every pull request (Ubuntu and Windows on Node.js 22,
 Ubuntu on Node.js 24), plus a production build and the engine's tests.
 macOS runs after each merge to main and once a week.
+
+The browser tests generate a picture on a mock A1111 web UI, then find it in
+the gallery and open it. They build Latentry into `.next-e2e/` and serve it on
+port 3137 (the mock on 3138), with settings and a save folder in a temp
+folder that is deleted afterwards, so your own settings, backends and
+pictures are never used. The page may not reach any other host. Install a
+browser once with `npx playwright install chromium`, or use one you have:
+`E2E_CHANNEL=msedge npm run test:e2e`. `E2E_KEEP=1` keeps the temp folder,
+with the traces of failed tests in it.
 
 Layout:
 

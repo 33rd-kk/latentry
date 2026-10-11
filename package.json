@@ -11,7 +11,8 @@
     "test": "node scripts/run-verify.mjs",
     "i18n:translate": "node scripts/i18n-translate.mjs",
     "i18n:check": "node scripts/i18n-translate.mjs --check",
-    "banner": "node scripts/make-banner.mjs"
+    "banner": "node scripts/make-banner.mjs",
+    "test:e2e": "node scripts/e2e.mjs"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -32,6 +33,7 @@
     "undici": "^8.11.2"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.19.1",
     "@types/react": "^19",
