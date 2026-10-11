@@ -97,7 +97,11 @@ class LoadBody(BaseModel):
 
 class DownloadBody(BaseModel):
     repo_id: str
+    # A commit, never a branch, and for a single file its SHA-256: what
+    # arrives is what Latentry's catalog checked (lib/engine/catalog.ts).
+    revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     filename: str | None = None
+    sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
 
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -346,7 +350,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             raise HTTPException(400, "repo_id is owner/name")
         if body.filename is not None and (".." in body.filename or not body.filename.endswith(".safetensors")):
             raise HTTPException(400, "filename must be a .safetensors file in the repository")
-        return downloads.start(body.repo_id, body.filename).describe()
+        if body.filename is not None and body.sha256 is None:
+            raise HTTPException(400, "a single file needs its sha256")
+        return downloads.start(body.repo_id, body.filename, body.revision, body.sha256).describe()
 
     @app.get("/api/models/downloads")
     def list_downloads():

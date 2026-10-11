@@ -77,6 +77,11 @@ What it does guard against:
   holds, and answers only requests addressed to a loopback name, so a web
   page that re-resolves its hostname to this machine cannot drive it. Run by
   hand, it refuses to listen beyond loopback without `LATENTRY_ENGINE_TOKEN`.
+- **Downloads** are pinned. The engine install uses a fixed uv release,
+  checked against its SHA-256 before it runs. Models and taggers from the
+  Setup page come from a fixed commit of their repository, and each file is
+  checked against its SHA-256 before it is kept. The pose models fetched on
+  first use, and the Python packages, are not pinned yet.
 - **Secret mode** is a privacy aid for this browser, not a security
   boundary: it keeps typed text out of browser storage, gallery pictures out
   of the browser cache, and secret runs from other pages. By design, saved

@@ -23,7 +23,12 @@ export async function POST(request: Request) {
   if (!engine) return jsonError('Start the engine first: it downloads the models', 409)
   const response = await engineFetch(engine, '/api/models/download', {
     method: 'POST',
-    body: JSON.stringify({ repo_id: entry.repo, filename: entry.filename ?? null }),
+    body: JSON.stringify({
+      repo_id: entry.repo,
+      revision: entry.revision,
+      filename: entry.filename ?? null,
+      sha256: entry.filename ? (entry.sha256?.[entry.filename] ?? null) : null,
+    }),
   })
   const payload = await response.json().catch(() => null)
   return response.ok ? json(payload, { status: 202 }) : jsonError(payload?.detail ?? 'The engine refused the download', response.status)

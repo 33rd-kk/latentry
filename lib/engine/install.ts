@@ -1,6 +1,7 @@
 // Installs the engine's Python side, with nothing asked of the user:
 //
-//   1. uv, Astral's Python package manager, as one downloaded binary
+//   1. uv, Astral's Python package manager, as one downloaded binary of a
+//      pinned release, checked against its SHA-256 (./uv-release.ts)
 //   2. Python 3.12, fetched by uv, in a virtual environment
 //   3. PyTorch built for this machine's GPU (see ./gpus.ts)
 //   4. the engine (./engine) and its dependencies: stock diffusers, FastAPI
@@ -10,15 +11,13 @@
 // Running it again repairs or updates an install; it is safe to repeat.
 
 import { spawn } from 'node:child_process'
-import { createWriteStream } from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { Readable } from 'node:stream'
-import { pipeline } from 'node:stream/promises'
-import type { ReadableStream as WebReadableStream } from 'node:stream/web'
+import { downloadVerified } from './download'
 import { chooseTorch, detectGpus, type TorchChoice } from './gpus'
 import { lineSplitter } from './lines'
 import { enginePaths } from './paths'
+import { UV_SHA256, UV_VERSION, uvUrl } from './uv-release'
 
 const PYTHON_VERSION = '3.12'
 
@@ -124,21 +123,38 @@ async function findFile(dir: string, name: string): Promise<string | null> {
   return null
 }
 
-async function ensureUv(): Promise<string> {
-  const paths = enginePaths()
-  if (await exists(paths.uv)) return paths.uv
-  const asset = uvAsset(process.platform, process.arch)
-  if (!asset) throw new Error(`No uv build for ${process.platform}/${process.arch}`)
+/** Whether `uv --version` output is the pinned release. Pure. */
+export function isPinnedUv(versionOutput: string, version: string = UV_VERSION): boolean {
+  return versionOutput.trim().split(/\s+/)[1] === version
+}
 
-  const url = `https://github.com/astral-sh/uv/releases/latest/download/${asset}`
+/** The uv already installed, if it is the pinned release. */
+async function installedUv(file: string): Promise<boolean> {
+  if (!(await exists(file))) return false
+  try {
+    return isPinnedUv(await run(file, ['--version']))
+  } catch {
+    return false
+  }
+}
+
+/** The pinned uv in the runtime folder, downloaded and checked when it is missing or another release. */
+export async function ensureUv(): Promise<string> {
+  const paths = enginePaths()
+  if (await installedUv(paths.uv)) return paths.uv
+  const asset = uvAsset(process.platform, process.arch)
+  const sha256 = asset ? UV_SHA256[asset] : undefined
+  if (!asset || !sha256) throw new Error(`No uv build for ${process.platform}/${process.arch}`)
+
+  // A fixed release, checked against its pinned SHA-256 before it is unpacked or run.
+  const url = uvUrl(asset)
   const dir = path.dirname(paths.uv)
   const archive = path.join(paths.root, asset)
   const unpacked = path.join(paths.root, 'uv-unpacked')
   await fs.mkdir(dir, { recursive: true })
   log(`Downloading ${url}`)
-  const response = await fetch(url)
-  if (!response.ok || !response.body) throw new Error(`Downloading uv failed: HTTP ${response.status}`)
-  await pipeline(Readable.fromWeb(response.body as WebReadableStream), createWriteStream(archive))
+  await downloadVerified(url, archive, { sha256 })
+  log(`uv ${UV_VERSION}: SHA-256 matches`)
 
   // tar reads both .tar.gz and (on Windows 10 and later, bsdtar) .zip. On
   // Windows, the system's own: a GNU tar from Git earlier on PATH reads
@@ -149,6 +165,7 @@ async function ensureUv(): Promise<string> {
   await run(tar, ['-xf', archive, '-C', unpacked])
   const binary = await findFile(unpacked, path.basename(paths.uv))
   if (!binary) throw new Error('The uv download did not contain uv')
+  await fs.rm(paths.uv, { force: true })
   await fs.rename(binary, paths.uv)
   if (process.platform !== 'win32') await fs.chmod(paths.uv, 0o755)
   await fs.rm(unpacked, { recursive: true, force: true })
