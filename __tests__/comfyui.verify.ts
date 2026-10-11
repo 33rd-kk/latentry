@@ -182,6 +182,29 @@ async function main() {
   eq(comfyHints(false), {}, 'no hints while it is down')
   eq((await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-2', model: 'other.safetensors' }, quiet.transport).status()).model, 'other.safetensors', 'the model set for the backend is the one shown')
 
+  // ── Why it is down ──
+  eq(status.problem, undefined, 'no problem while it answers')
+  const answering = (stats: () => Promise<{ status: number; body: unknown }>): ComfyTransport => ({
+    get: (path) => (path === '/system_stats' ? stats() : Promise.resolve({ status: 404, body: null })),
+    post: async () => ({ status: 404, body: null }),
+    getBytes: async () => ({ status: 404, bytes: null }),
+    listen: async () => null,
+    sleep: async () => {},
+  })
+  const problemOf = async (stats: () => Promise<{ status: number; body: unknown }>) => {
+    const down = await new ComfyUIAdapter({ ...CONFIG, id: 'down' }, answering(stats)).status()
+    return { alive: down.alive, problem: down.problem }
+  }
+  eq(
+    await problemOf(async () => ({ status: 401, body: { error: 'Authentication required.' } })),
+    { alive: false, problem: { reason: 'auth', status: 401, detail: 'Authentication required.' } },
+    'a login in front of ComfyUI (a login node, a proxy) is said, with its own words'
+  )
+  const failing500 = await problemOf(async () => ({ status: 500, body: { error: 'broke at C:\\Users\\someone\\ComfyUI\\x.py\nline 2' } }))
+  eq([failing500.problem?.reason, failing500.problem?.status], ['http', 500], 'another error status is said with its code')
+  check(!!failing500.problem?.detail && !failing500.problem.detail.includes('someone') && !failing500.problem.detail.includes('\n'), 'its words on one line, without paths')
+  eq(await problemOf(async () => Promise.reject(new Error('connect ECONNREFUSED'))), { alive: false, problem: { reason: 'unreachable' } }, 'no answer at all is said as such')
+
   // ── A run, with the progress socket ──
   const live = await scriptedComfy({ socket: true })
   const started = await new ComfyUIAdapter({ ...CONFIG, id: 'live' }, live.transport).start(REQUEST)
@@ -263,7 +286,12 @@ async function main() {
   const elsewhere = await listen(() => 200)
   const redirecting = await listen(() => [307, `${elsewhere.url}/stolen`])
   const redirected = new ComfyUIAdapter({ ...CONFIG, id: 'redirect', url: redirecting.url, token: 'secret' })
-  check(!(await redirected.status()).alive, 'a redirected ComfyUI is not alive')
+  const redirectedStatus = await redirected.status()
+  check(!redirectedStatus.alive, 'a redirected ComfyUI is not alive')
+  eq(redirectedStatus.problem, { reason: 'redirect' }, 'and the page is told it redirected')
+  const locked = await listen(() => 401)
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'locked', url: locked.url }).status()).problem, { reason: 'auth', status: 401 }, 'a real 401 over HTTP reads as a login')
+  locked.server.close()
   const tried = await redirected.start(REQUEST)
   check(!tried.ok && tried.status === 502, 'and a run on it is refused')
   eq(elsewhere.hits, [], 'nothing reached the address the redirect pointed at')

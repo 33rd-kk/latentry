@@ -24,9 +24,9 @@ import { fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { getProfile } from '@/lib/profiles'
-import { comfyHints } from './hints'
+import { comfyHints, hintDetail } from './hints'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
-import type { BackendAdapter, BackendConfig, BackendEvent, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
+import type { BackendAdapter, BackendConfig, BackendEvent, BackendProblem, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
 
 const DEFAULT = 'Default'
 const DEFAULT_SAMPLER = 'euler'
@@ -329,9 +329,23 @@ export class ComfyUIAdapter implements BackendAdapter {
     return this.config.model?.trim() || info.checkpoints[0] || null
   }
 
+  /** Null while /system_stats answers; else why it does not. */
+  private async problem(): Promise<BackendProblem | null> {
+    try {
+      const { status, body } = await this.http.get('/system_stats', STATUS_TIMEOUT_MS)
+      if (status === 200) return null
+      if ((body as { error?: unknown } | null)?.error === REDIRECT_REFUSED) return { reason: 'redirect' }
+      // The server's words, on one line and without paths: a login node says what it wants.
+      const detail = hintDetail(errorMessage(body, ''))
+      return { reason: status === 401 || status === 403 ? 'auth' : 'http', status, ...(detail ? { detail } : {}) }
+    } catch {
+      return { reason: 'unreachable' }
+    }
+  }
+
   async status(): Promise<BackendStatus> {
-    const [stats, queue, info] = await Promise.all([this.getOrNull('/system_stats'), this.getOrNull('/queue'), this.staticInfo()])
-    const alive = stats !== null
+    const [problem, queue, info] = await Promise.all([this.problem(), this.getOrNull('/queue'), this.staticInfo()])
+    const alive = problem === null
     const { running, pending } = queueIds(queue)
     const checkpoint = alive ? this.checkpointFrom(info) : null
     return {
@@ -354,6 +368,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       hints: comfyHints(alive),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
+      ...(problem ? { problem } : {}),
     }
   }
 

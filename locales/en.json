@@ -23,6 +23,12 @@
     "stateBusy": "Busy",
     "stateOffline": "Offline",
     "backendOffline": "Backend “{backend}” is not answering. Check that it is running.",
+    "backendProblem": {
+      "auth": "It asks for a login (HTTP {status}). Latentry sends only the token set for this backend; it cannot get past a login page in front of the server.",
+      "http": "It answered with an error (HTTP {status}).",
+      "redirect": "It answered with a redirect, which Latentry does not follow.",
+      "unreachable": "Nothing answers at that address."
+    },
     "backendDefault": "Default",
     "model": "Model",
     "modelLoading": "loading…",

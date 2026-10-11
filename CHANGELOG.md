@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Why a ComfyUI backend does not answer**: **Test** on Settings and the
+  Generate page now say whether ComfyUI asked for a login (for example a
+  login custom node), answered an error, redirected, or did not answer at
+  all, with ComfyUI's own message, instead of only "No answer".
 - **ComfyUI as a backend**: add a ComfyUI server on Settings with the kind
   `comfyui`. Latentry builds a txt2img graph itself (checkpoint, LoRAs from
   `<lora:…>` in the prompt, KSampler) and shows progress, and **Cancel**

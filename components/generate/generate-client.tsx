@@ -12,7 +12,7 @@ import { SourceImageSlot, type SourceImage, type SourceMode } from "@/components
 import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
-import { UnavailableFeatures } from "@/components/generate/unavailable-features"
+import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
 import { ResultsPanel } from "@/components/generate/results-panel"
@@ -391,7 +391,12 @@ export function GenerateClient() {
                 <TooltipContent>{t("generate.reset")}</TooltipContent>
               </Tooltip>
             </div>
-            {!status.alive && <p className="text-xs text-destructive">{t("generate.backendOffline", { backend: status.id })}</p>}
+            {!status.alive && (
+              <p className="text-xs text-destructive">
+                {t("generate.backendOffline", { backend: status.id })}
+                {status.problem && ` ${problemText(t, status.problem)}`}
+              </p>
+            )}
           </CardContent>
         </Card>
 

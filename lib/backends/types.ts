@@ -71,6 +71,20 @@ export interface BackendStatus {
   /** The values its sampler / scheduler fields accept; empty hides the field. */
   samplers: string[]
   schedulers: string[]
+  /** While it is down: why, when that is known. */
+  problem?: BackendProblem
+}
+
+/**
+ * Why a backend did not answer, shown in place of a bare "not answering":
+ * it asked for a login (401 / 403), answered another error status, answered
+ * with a redirect (never followed), or did not answer at all.
+ */
+export interface BackendProblem {
+  reason: 'auth' | 'http' | 'redirect' | 'unreachable'
+  status?: number
+  /** The server's own words, on one line and without paths (see hintDetail). */
+  detail?: string
 }
 
 /** A generation request, in the diffusers-compatible API's field names. */

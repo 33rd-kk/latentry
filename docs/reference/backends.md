@@ -62,7 +62,10 @@ ComfyUI as a workflow; it keeps Latentry's settings and an A1111-style
 `parameters` text instead.
 
 ComfyUI has no login. Keep it on this computer or your own network; a token,
-if you give one, is sent as a Bearer token for a proxy in front of it.
+if you give one, is sent as a Bearer token for a proxy in front of it. A
+login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
+something Latentry can get past: **Test** and the Generate page then say that
+it asks for a login, with ComfyUI's own message.
 
 Not yet: a source image, inpainting, pose, and running your own workflow.
 
