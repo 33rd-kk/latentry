@@ -36,6 +36,8 @@ interface BackendDraft {
   token: string
   clearToken: boolean
   tokenSource: Source | null
+  /** comfyui: the checkpoint, "" for ComfyUI's first. */
+  model: string
 }
 
 type ProfileDraft = Record<"width" | "height" | "steps" | "cfg" | "negativePrompt" | "qualityTags" | "artistTemplate" | "tagStyle" | "keepTags", string>
@@ -97,6 +99,7 @@ function toDraft(view: SettingsView): Draft {
       token: "",
       clearToken: false,
       tokenSource: backend.token,
+      model: backend.model ?? "",
     })),
     tagger: view.tagger ?? AUTO,
     wd14Dir: view.wd14.modelDir ?? "",
@@ -124,6 +127,7 @@ function toInput(draft: Draft, dirty: Set<Part>) {
       profile: backend.profile,
       // Write-only: a typed value sets it, "clear" empties it, nothing keeps it.
       ...(backend.clearToken ? { token: "" } : backend.token ? { token: backend.token } : {}),
+      ...(backend.kind === "comfyui" && backend.model.trim() ? { model: backend.model.trim() } : {}),
     }))
   }
   if (dirty.has("tagger")) body.tagger = draft.tagger === AUTO ? null : draft.tagger
@@ -175,7 +179,9 @@ export function SettingsForm() {
   const [dirty, setDirty] = useState<Set<Part>>(new Set())
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
-  const [tests, setTests] = useState<Record<string, { state: "testing" | "ok" | "fail"; model?: string | null; hints?: BackendStatus["hints"] }>>({})
+  const [tests, setTests] = useState<
+    Record<string, { state: "testing" | "ok" | "fail"; model?: string | null; hints?: BackendStatus["hints"]; checkpoints?: string[] }>
+  >({})
 
   const load = useCallback(async () => {
     const response = await fetch("/api/settings", { cache: "no-store" })
@@ -246,10 +252,18 @@ export function SettingsForm() {
         const response = await fetch("/api/settings/test", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ id: backend.id, kind: backend.kind, url: backend.url, token: backend.token || undefined, profile: backend.profile }),
+          body: JSON.stringify({
+            id: backend.id,
+            kind: backend.kind,
+            url: backend.url,
+            token: backend.token || undefined,
+            profile: backend.profile,
+            model: backend.kind === "comfyui" ? backend.model.trim() || undefined : undefined,
+          }),
         })
         const data = await response.json().catch(() => null)
-        setTests((current) => ({ ...current, [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints } }))
+        const checkpoints = Array.isArray(data?.checkpoints) ? (data.checkpoints as unknown[]).filter((name): name is string => typeof name === "string") : undefined
+        setTests((current) => ({ ...current, [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints } }))
       } catch {
         setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))
       }
@@ -348,6 +362,23 @@ export function SettingsForm() {
                     </Select>
                   </Field>
                 </div>
+                {backend.kind === "comfyui" && (
+                  <Field label={t("settings.backendModel")} hint={t("settings.backendModelHint")}>
+                    <Input
+                      value={backend.model}
+                      onChange={(event) => update({ model: event.target.value })}
+                      placeholder={t("settings.backendModelFirst")}
+                      list={`checkpoints-${backend.key}`}
+                      autoComplete="off"
+                    />
+                    <datalist id={`checkpoints-${backend.key}`}>
+                      {(test?.checkpoints ?? []).map((name) => (
+                        <option key={name} value={name} />
+                      ))}
+                    </datalist>
+                    {error(`backends.${index}.model`)}
+                  </Field>
+                )}
                 <div className="flex flex-wrap items-end gap-2">
                   <Field label={t("settings.backendToken")} className="min-w-56 flex-1">
                     <Input
@@ -363,7 +394,13 @@ export function SettingsForm() {
                             ? t("settings.tokenKept")
                             : backend.tokenSource === "env"
                               ? t("settings.tokenFromEnv", { name: `GEN_TOKEN_${backend.id.toUpperCase().replace(/[^A-Z0-9]/g, "_")}` })
-                              : t(backend.kind === "a1111" ? "settings.tokenNoneA1111" : "settings.tokenNone")
+                              : t(
+                                  backend.kind === "a1111"
+                                    ? "settings.tokenNoneA1111"
+                                    : backend.kind === "comfyui"
+                                      ? "settings.tokenNoneComfyui"
+                                      : "settings.tokenNone"
+                                )
                       }
                     />
                   </Field>
@@ -394,7 +431,7 @@ export function SettingsForm() {
                     {test.state === "ok" ? t("settings.testOk", { model: test.model ?? "?" }) : t("settings.testFail")}
                   </p>
                 )}
-                {test?.state === "ok" && test.hints && <UnavailableFeatures hints={test.hints} />}
+                {test?.state === "ok" && test.hints && <UnavailableFeatures hints={test.hints} kind={backend.kind} />}
               </div>
             )
           })}
@@ -407,7 +444,7 @@ export function SettingsForm() {
                 ...current,
                 backends: [
                   ...current.backends,
-                  { key: newKey(), id: "", kind: "a1111", url: "", profile: "sdxl", token: "", clearToken: false, tokenSource: null },
+                  { key: newKey(), id: "", kind: "a1111", url: "", profile: "sdxl", token: "", clearToken: false, tokenSource: null, model: "" },
                 ],
               }))
             }

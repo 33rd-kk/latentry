@@ -34,8 +34,9 @@ form, so switching backends and back keeps what you typed.
   spelling too. Score tags, face tags such as `^_^`, LoRA calls, `BREAK` and
   sentences are left as written. Change this per profile on
   [Settings](settings.md).
-- **LoRAs**: call one in the prompt as `<lora:name:0.8>`. An A1111 web UI
-  and Latentry's engine apply it. For the engine, put the LoRA files in the
+- **LoRAs**: call one in the prompt as `<lora:name:0.8>`. An A1111 web UI,
+  ComfyUI (which loads the file of that name from its LoRA list) and
+  Latentry's engine apply it. For the engine, put the LoRA files in the
   `loras` folder inside the models folder; **Add a LoRA** next to the prompt
   lists them and puts the call in for you (a LoRA made for another model
   family is greyed out). **Add a LoRA** is on this computer only, unless

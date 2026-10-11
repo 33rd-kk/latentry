@@ -284,6 +284,14 @@ async function tokenLending(): Promise<void> {
     check(seen.length > 0 && !seen.some((headers) => headers.authorization), 'F1: nor as Basic auth with kind a1111')
 
     seen.length = 0
+    await ask({ kind: 'comfyui', url: elsewhere, id: 'victim' })
+    check(seen.length > 0 && !seen.some((headers) => headers.authorization), 'F1: nor with kind comfyui')
+
+    seen.length = 0
+    await ask({ kind: 'comfyui', url: home, id: 'victim' })
+    check(leaked('Bearer victim-secret-token'), 'a comfyui backend at its own address sends its token as Bearer')
+
+    seen.length = 0
     process.env.SETTINGS_EDIT = 'off'
     eq((await ask({ kind: 'diffusers', url: elsewhere, id: 'victim' })).status, 403, 'SETTINGS_EDIT=off closes the route')
     check(seen.length === 0, 'and nothing is sent')

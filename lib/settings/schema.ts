@@ -20,7 +20,12 @@ export interface StoredBackend {
   profile: ProfileId
   /** Kept in the file; never sent to the browser. */
   token?: string
+  /** comfyui only: the checkpoint, as ComfyUI lists it (folders included). */
+  model?: string
 }
+
+/** Longest checkpoint name kept for a ComfyUI backend. */
+export const MAX_BACKEND_MODEL_LENGTH = 512
 
 /** The fields of a profile the settings page can change (see lib/profiles). */
 export type ProfileOverride = ProfileChanges
@@ -166,6 +171,7 @@ export interface BackendInput {
   url: unknown
   profile: unknown
   token?: unknown
+  model?: unknown
 }
 
 export interface SettingsInput {
@@ -214,6 +220,14 @@ export function validateSettings(
         if (raw?.token !== undefined && raw.token !== null && typeof raw.token !== 'string') {
           errors[`${at}.token`] = 'settings.errorToken'
         }
+        const model = typeof raw?.model === 'string' ? raw.model.trim() : ''
+        if (
+          (raw?.model !== undefined && raw.model !== null && typeof raw.model !== 'string') ||
+          model.length > MAX_BACKEND_MODEL_LENGTH ||
+          /[\u0000-\u001f\u007f]/.test(model)
+        ) {
+          errors[`${at}.model`] = 'settings.errorBackendModel'
+        }
         seen.add(id)
         if (Object.keys(errors).some((key) => key.startsWith(`${at}.`))) return
         const previous = current.backends?.find((backend) => backend.id === id)
@@ -225,7 +239,16 @@ export function validateSettings(
           return
         }
         const token = typed ?? previous?.token
-        stored.push({ id, kind: raw.kind as BackendKind, url: url!, profile: raw.profile as ProfileId, ...(token ? { token } : {}) })
+        // Only ComfyUI is told which checkpoint to load; the others draw with what they have.
+        const keepModel = raw.kind === 'comfyui' && model
+        stored.push({
+          id,
+          kind: raw.kind as BackendKind,
+          url: url!,
+          profile: raw.profile as ProfileId,
+          ...(token ? { token } : {}),
+          ...(keepModel ? { model } : {}),
+        })
       })
       next.backends = stored
     }

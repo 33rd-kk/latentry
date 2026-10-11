@@ -9,7 +9,7 @@
 import type { LoraUse } from '@/lib/image-meta'
 import type { ProfileId } from '@/lib/profiles'
 
-export const BACKEND_KINDS = ['diffusers', 'a1111'] as const
+export const BACKEND_KINDS = ['diffusers', 'a1111', 'comfyui'] as const
 export type BackendKind = (typeof BACKEND_KINDS)[number]
 
 /** One entry of GEN_BACKENDS, with its token. Server-side only. */
@@ -18,8 +18,10 @@ export interface BackendConfig {
   kind: BackendKind
   url: string
   profile: ProfileId
-  /** diffusers: a Bearer token. a1111: `user:pass` for --api-auth. */
+  /** diffusers and comfyui: a Bearer token. a1111: `user:pass` for --api-auth. */
   token?: string
+  /** comfyui: the checkpoint to draw with, as ComfyUI lists it; else its first. */
+  model?: string
 }
 
 export interface Capabilities {

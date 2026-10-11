@@ -7,6 +7,9 @@
 //
 //   GEN_BACKENDS=anima|diffusers|http://localhost:7865|anima;sdxl|a1111|http://localhost:7860|illustrious
 //
+// A comfyui backend draws with the first checkpoint ComfyUI lists; another is
+// chosen on the settings page.
+//
 // The ids are what the browser sees (in /api/gen/<id>/...), so they are the
 // only part of an entry that ever leaves the server. A single
 // DIFFUSION_SERVER_URL (+ DIFFUSION_API_TOKEN) is still read when
@@ -74,7 +77,7 @@ export function parseBackends(env: Env): BackendConfigResult {
       continue
     }
     if (!isKind(kind)) {
-      problems.push(`"${id}": unknown kind "${kind}" (expected ${BACKEND_KINDS.join(' or ')})`)
+      problems.push(`"${id}": unknown kind "${kind}" (expected ${BACKEND_KINDS.slice(0, -1).join(', ')} or ${BACKEND_KINDS.at(-1)})`)
       continue
     }
     let parsed: URL

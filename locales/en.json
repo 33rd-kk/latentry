@@ -175,9 +175,16 @@
       "declined": "The server says it cannot do this with what it has loaded.",
       "declinedBecause": "The server says: {detail}",
       "kind": {
-        "img2img": "Latentry cannot send a source image to this kind of backend.",
-        "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
-        "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
+        "a1111": {
+          "img2img": "Latentry cannot send a source image to this kind of backend.",
+          "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
+          "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
+        },
+        "comfyui": {
+          "img2img": "Latentry's ComfyUI graph draws from a prompt only, for now. Use another backend or Latentry's engine for a source image.",
+          "inpaint": "Latentry's ComfyUI graph draws from a prompt only, for now. Use another backend or Latentry's engine to inpaint.",
+          "pose": "Latentry cannot drive pose control on ComfyUI yet. Use a diffusers-compatible server or Latentry's engine for pose."
+        }
       },
       "notReported": {
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
@@ -383,11 +390,15 @@
     "backendKind": "Kind",
     "backendUrl": "URL",
     "backendProfile": "Profile",
+    "backendModel": "Model",
+    "backendModelFirst": "The first checkpoint ComfyUI lists",
+    "backendModelHint": "The checkpoint ComfyUI draws with. Test lists the ones it has.",
     "backendToken": "Token",
     "tokenKept": "Saved (type to replace)",
     "tokenFromEnv": "From {name} (type to replace)",
     "tokenNone": "None (Bearer token, if the server needs one)",
     "tokenNoneA1111": "None (user:password, if started with --api-auth)",
+    "tokenNoneComfyui": "None (ComfyUI has no login; a Bearer token for a proxy in front of it)",
     "tokenWillClear": "Will be removed on save",
     "tokenClear": "Remove saved token",
     "test": "Test",
@@ -444,6 +455,7 @@
     "errorList": "Expected a list.",
     "errorBackendId": "1-32 characters: a-z, 0-9, \"-\" and \"_\".",
     "errorBackendDuplicate": "Another backend has this id.",
+    "errorBackendModel": "A checkpoint name of up to 512 characters, on one line.",
     "errorKind": "Choose a kind.",
     "errorUrl": "An http:// or https:// address.",
     "errorProfile": "Choose a profile.",

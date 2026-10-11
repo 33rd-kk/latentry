@@ -89,6 +89,7 @@ page lists what is kept where.
 | Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). 3D pose turning. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpaint. No pose control. |
+| `comfyui` | A ComfyUI server | txt2img with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. No img2img, inpaint or pose yet. Precise cancel. |
 
 Use the built-in engine, the servers you already run, or both.
 
@@ -232,7 +233,7 @@ with the traces of failed tests in it.
 
 Layout:
 
-- `lib/backends/`: adapters (`diffusers.ts`, `a1111.ts`) behind one interface
+- `lib/backends/`: adapters (`diffusers.ts`, `a1111.ts`, `comfyui.ts`) behind one interface
 - `lib/profiles/`: model profiles and prompt composition
 - `lib/diffusion/job-store.ts`: one live run per backend
 - `lib/gallery/`: PNG metadata, saving, folder access

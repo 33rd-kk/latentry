@@ -1,10 +1,11 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { adapterFor } from '@/lib/backends'
+import { ComfyUIAdapter } from '@/lib/backends/comfyui'
 import { getBackendConfig } from '@/lib/backends/config'
 import { BACKEND_KINDS, type BackendKind } from '@/lib/backends/types'
 import { isProfileId } from '@/lib/profiles'
 import { editRefusal } from '@/lib/settings/access'
-import { normalizeUrl, sameOrigin } from '@/lib/settings/schema'
+import { MAX_BACKEND_MODEL_LENGTH, normalizeUrl, sameOrigin } from '@/lib/settings/schema'
 
 export const runtime = 'nodejs'
 
@@ -26,13 +27,24 @@ export async function POST(request: Request) {
   const id = typeof body?.id === 'string' ? body.id : ''
   const saved = getBackendConfig(id)
   const token = typeof body?.token === 'string' && body.token ? body.token : saved && sameOrigin(saved.url, url) ? saved.token : undefined
+  const model = typeof body?.model === 'string' && body.model.trim() ? body.model.trim().slice(0, MAX_BACKEND_MODEL_LENGTH) : undefined
   const adapter = adapterFor({
     id: `test-${Date.now()}`,
     kind: kind as BackendKind,
     url,
     profile: isProfileId(body?.profile) ? body.profile : 'generic',
     ...(token ? { token } : {}),
+    ...(model ? { model } : {}),
   })
   const status = await adapter.status()
-  return json({ alive: status.alive, model: status.model, capabilities: status.capabilities, hints: status.hints })
+  // ComfyUI's checkpoints, folders included, to choose from: only this
+  // settings page sees them (the route is for clients that may edit settings).
+  const checkpoints = adapter instanceof ComfyUIAdapter && status.alive ? await adapter.checkpoints() : null
+  return json({
+    alive: status.alive,
+    model: status.model,
+    capabilities: status.capabilities,
+    hints: status.hints,
+    ...(checkpoints ? { checkpoints } : {}),
+  })
 }

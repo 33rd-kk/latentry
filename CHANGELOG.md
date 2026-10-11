@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **ComfyUI as a backend**: add a ComfyUI server on Settings with the kind
+  `comfyui`. Latentry builds a txt2img graph itself (checkpoint, LoRAs from
+  `<lora:…>` in the prompt, KSampler) and shows progress, and **Cancel**
+  stops only its own prompt. Choose the checkpoint under **Model** after
+  **Test**; without one, ComfyUI's first is used. Pictures go to ComfyUI's
+  temp folder rather than its output folder, and the copy Latentry saves
+  leaves out ComfyUI's graph, which names your model folders. A source
+  image, inpainting and pose are not available on ComfyUI yet.
 - **More from ComfyUI pictures**: the gallery reads the settings of more
   ComfyUI graphs: hires and refiner graphs (the base pass), SamplerCustom
   and Flux-style graphs, other model loaders, seeds from a seed node, and

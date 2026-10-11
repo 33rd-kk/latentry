@@ -16,6 +16,7 @@ export {
   pngSize,
   readChunks,
   readPngText,
+  removePngText,
   TAGS_KEY,
   writePngText,
   type PngChunk,
