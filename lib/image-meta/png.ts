@@ -115,6 +115,24 @@ export function encodeTextChunk(keyword: string, text: string, options: { compre
 }
 
 /**
+ * The PNG without the text chunks named in `keywords`, whatever their type.
+ * The keyword is read from the chunk's head, so a compressed chunk that would
+ * not inflate goes too. Every other chunk is kept as it was.
+ */
+export function removePngText(png: Buffer, keywords: string[]): Buffer {
+  const removing = new Set(keywords)
+  const parts: Buffer[] = [PNG_SIGNATURE]
+  for (const chunk of readChunks(png)) {
+    if (chunk.type === 'tEXt' || chunk.type === 'zTXt' || chunk.type === 'iTXt') {
+      const nul = chunk.data.indexOf(0)
+      if (nul > 0 && removing.has(chunk.data.toString('latin1', 0, nul))) continue
+    }
+    parts.push(encodeChunk(chunk.type, chunk.data))
+  }
+  return Buffer.concat(parts)
+}
+
+/**
  * The PNG with `entries` written as text chunks right after IHDR. A chunk
  * already carrying one of these keywords is replaced; every other chunk —
  * including other tools' metadata — is kept as it was.

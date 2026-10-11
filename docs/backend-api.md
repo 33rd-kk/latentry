@@ -3,12 +3,13 @@
 Latentry talks to its backends over HTTP only. This page describes what it
 expects of them, so you can point it at an existing server or write one.
 
-Two kinds are supported:
+Three kinds are supported:
 
 - **`diffusers`**: a server speaking the API below. It is small enough to
   wrap any Python pipeline (Hugging Face `diffusers`, or anything else).
 - **`a1111`**: AUTOMATIC1111 or Forge started with `--api`. Nothing is
   needed beyond that; see [AUTOMATIC1111 / Forge](#automatic1111--forge).
+- **`comfyui`**: a ComfyUI server, as it comes; see [ComfyUI](#comfyui).
 
 Images are base64-encoded PNG / JPEG / WebP, bare or as a `data:` URL.
 
@@ -240,6 +241,49 @@ Differences from the diffusers-compatible API:
 - **No pose control.** ControlNet is not driven (yet).
 - **Masks are converted.** Latentry's alpha mask becomes the web UI's white
   (redraw) on black (keep).
+
+---
+
+<a id="comfyui"></a>
+
+## ComfyUI
+
+Nothing to install on the ComfyUI side. Latentry uses:
+
+| Endpoint | For |
+|---|---|
+| `GET /system_stats` | Health |
+| `GET /queue` | Busy state; which prompt is running, for cancel |
+| `GET /object_info/CheckpointLoaderSimple`, `/KSampler`, `/LoraLoader` | The checkpoints, samplers, schedulers and LoRA files |
+| `POST /prompt` | One graph per picture, built by Latentry |
+| `GET /ws?clientId=…` | Progress (`progress`, `executing`, `execution_success`, `execution_error`, `execution_interrupted`) |
+| `GET /history/{prompt_id}` | When the prompt is done (polled when the socket cannot be opened), and its output |
+| `GET /view?filename=…&subfolder=…&type=temp` | The picture |
+| `POST /interrupt` with `prompt_id`, `POST /queue` with `delete` | Cancel |
+
+The graph is fixed: `CheckpointLoaderSimple` → one `LoraLoader` per
+`<lora:name:weight>` call (the calls are taken out of the prompt text) →
+two `CLIPTextEncode` → `EmptyLatentImage` → `KSampler` → `VAEDecode` →
+`PreviewImage`. The sampler and scheduler named `Default` are `euler` and
+`normal`; a random seed is picked by Latentry, so the saved picture says
+which one was used.
+
+Differences from the diffusers-compatible API:
+
+- **txt2img only, for now.** A source image, mask or pose is refused, and the
+  page says so.
+- **The checkpoint is chosen by Latentry.** ComfyUI has no "loaded model": the
+  backend's **Model** setting names it, else the first in ComfyUI's list.
+- **Busy means busy.** With another client's prompt running or queued,
+  Latentry refuses instead of queueing behind it.
+- **Cancel is precise.** Only Latentry's own prompt is interrupted (or taken
+  off the queue), never another client's.
+- **What stays on the ComfyUI machine.** `PreviewImage` writes to ComfyUI's
+  temp folder (emptied when it restarts), not its output folder. Latentry
+  removes ComfyUI's `prompt` and `workflow` chunks from the picture before
+  saving it, since they name model and LoRA folders.
+- **No login.** A token, if set, is sent as `Authorization: Bearer` on both
+  HTTP and the socket, for a proxy in front of ComfyUI. Redirects are refused.
 
 ---
 

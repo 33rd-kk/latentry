@@ -348,7 +348,7 @@ export function GenerateClient() {
             {!capabilities?.pose && poseSkeleton && (
               <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseDropped")}</p>
             )}
-            {status.alive && <UnavailableFeatures hints={status.hints ?? {}} />}
+            {status.alive && <UnavailableFeatures hints={status.hints ?? {}} kind={status.kind} />}
 
             <SettingsSection
               form={form}

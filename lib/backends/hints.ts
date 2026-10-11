@@ -48,3 +48,8 @@ export function diffusersHints(health: Record<string, unknown> | null): Hints {
 export function a1111Hints(alive: boolean): Hints {
   return alive ? { pose: { reason: 'kind' } } : {}
 }
+
+/** A ComfyUI server: Latentry's built-in graph draws from a prompt only, for now. */
+export function comfyHints(alive: boolean): Hints {
+  return alive ? { img2img: { reason: 'kind' }, inpaint: { reason: 'kind' }, pose: { reason: 'kind' } } : {}
+}

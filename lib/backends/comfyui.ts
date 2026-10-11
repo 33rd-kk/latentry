@@ -1,0 +1,596 @@
+// Adapter for a ComfyUI server (its HTTP API: /prompt, /queue, /history,
+// /view, /object_info, and the /ws socket for progress).
+//
+// ComfyUI runs graphs, not requests. Latentry builds a small txt2img graph on
+// this server (buildComfyGraph) from the page's settings: never a graph from
+// the browser. Each picture is one queued prompt, run one after another, so a
+// cancel stops the rest. Progress comes over the WebSocket; if that cannot be
+// opened, /history is polled until the prompt is done.
+//
+// What stays on the ComfyUI machine: the graph ends in PreviewImage, so the
+// picture goes to ComfyUI's temp folder (emptied when it restarts), not its
+// output folder. Latentry saves its own copy, with ComfyUI's graph chunks
+// taken out: they name the model and LoRA files with their folders.
+//
+// Known limits, compared with the diffusers-compatible API:
+// - txt2img only: no source image, mask or pose yet.
+// - The model is the one chosen for this backend in Settings, else the first
+//   checkpoint ComfyUI lists.
+// - ComfyUI has no login. A token is sent as a Bearer token, for a proxy in
+//   front of it.
+
+import { randomInt, randomUUID } from 'node:crypto'
+import { fetch as undiciFetch, WebSocket } from 'undici'
+import { isPng, loraCallsInPrompt, loraName, removePngText, type LoraUse } from '@/lib/image-meta'
+import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
+import { getProfile } from '@/lib/profiles'
+import { comfyHints } from './hints'
+import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
+import type { BackendAdapter, BackendConfig, BackendEvent, BackendStatus, GenerateRequest, Outcome, Preset } from './types'
+
+const DEFAULT = 'Default'
+const DEFAULT_SAMPLER = 'euler'
+const DEFAULT_SCHEDULER = 'normal'
+const POLL_MS = 500
+const STATUS_TIMEOUT_MS = 4 * 1000
+const QUEUE_TIMEOUT_MS = 30 * 1000
+const VIEW_TIMEOUT_MS = 60 * 1000
+const SOCKET_OPEN_MS = 4 * 1000
+const STATIC_CACHE_MS = 60 * 1000
+/** How long the backend may stop answering mid-run before the run is given up. */
+const LOST_AFTER_MS = 30 * 1000
+/** A picture larger than this is not read: the same bound as a request to this server. */
+export const MAX_PICTURE_BYTES = MAX_REQUEST_BODY_BYTES
+/** ComfyUI's own metadata chunks, removed from what Latentry keeps. */
+const GRAPH_CHUNKS = ['prompt', 'workflow']
+/** The node the picture is read from. */
+export const OUTPUT_NODE = '7'
+
+/** The HTTP and socket the adapter needs, separable so the verify script can play a ComfyUI. */
+export interface ComfyTransport {
+  get(path: string, timeoutMs: number): Promise<{ status: number; body: unknown }>
+  post(path: string, body: unknown, timeoutMs: number): Promise<{ status: number; body: unknown }>
+  /** At most `maxBytes`; `bytes` is null for a larger answer. */
+  getBytes(path: string, timeoutMs: number, maxBytes: number): Promise<{ status: number; bytes: Buffer | null }>
+  /** Opens /ws for this client; null when it cannot. Text frames arrive parsed. */
+  listen(clientId: string, onMessage: (message: unknown) => void, onClose: () => void): Promise<{ close(): void } | null>
+  sleep(ms: number): Promise<void>
+}
+
+function httpTransport(config: BackendConfig): ComfyTransport {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  if (config.token) headers.Authorization = `Bearer ${config.token}`
+
+  const call = async (path: string, init: { method: string; body?: string; timeoutMs: number }) => {
+    // Redirects are refused, not followed: they would send the prompt elsewhere.
+    const response = await undiciFetch(new URL(path, config.url), {
+      method: init.method,
+      headers,
+      body: init.body,
+      redirect: 'manual',
+      signal: AbortSignal.timeout(init.timeoutMs),
+    })
+    if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel().catch(() => {})
+      return { status: 502, body: { error: REDIRECT_REFUSED }, response: null }
+    }
+    return { status: response.status, body: null, response }
+  }
+
+  const json = async (path: string, init: { method: string; body?: string; timeoutMs: number }) => {
+    const { status, body, response } = await call(path, init)
+    if (!response) return { status, body }
+    const text = await response.text()
+    try {
+      return { status, body: text ? JSON.parse(text) : null }
+    } catch {
+      return { status, body: { error: text.slice(0, 300) } }
+    }
+  }
+
+  return {
+    get: (path, timeoutMs) => json(path, { method: 'GET', timeoutMs }),
+    post: (path, body, timeoutMs) => json(path, { method: 'POST', body: JSON.stringify(body), timeoutMs }),
+    async getBytes(path, timeoutMs, maxBytes) {
+      const { status, response } = await call(path, { method: 'GET', timeoutMs })
+      if (!response) return { status, bytes: null }
+      const declared = Number(response.headers.get('content-length'))
+      if (Number.isFinite(declared) && declared > maxBytes) {
+        await response.body?.cancel().catch(() => {})
+        return { status, bytes: null }
+      }
+      const parts: Buffer[] = []
+      let size = 0
+      for await (const chunk of response.body ?? []) {
+        size += chunk.length
+        if (size > maxBytes) return { status, bytes: null }
+        parts.push(Buffer.from(chunk))
+      }
+      return { status, bytes: Buffer.concat(parts) }
+    },
+    listen(clientId, onMessage, onClose) {
+      const url = new URL(`/ws?clientId=${encodeURIComponent(clientId)}`, config.url)
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:'
+      return new Promise((resolve) => {
+        let opened = false
+        let socket: WebSocket
+        try {
+          socket = new WebSocket(url, { headers: config.token ? { Authorization: `Bearer ${config.token}` } : {} })
+        } catch {
+          resolve(null)
+          return
+        }
+        socket.binaryType = 'arraybuffer'
+        const timer = setTimeout(() => {
+          if (opened) return
+          socket.close()
+          resolve(null)
+        }, SOCKET_OPEN_MS)
+        socket.addEventListener('open', () => {
+          opened = true
+          clearTimeout(timer)
+          resolve({ close: () => socket.close() })
+        })
+        // Binary frames are live previews; only the JSON status messages matter here.
+        socket.addEventListener('message', (event) => {
+          if (typeof event.data !== 'string') return
+          try {
+            onMessage(JSON.parse(event.data))
+          } catch {
+            // Not JSON: nothing to act on.
+          }
+        })
+        socket.addEventListener('close', () => {
+          clearTimeout(timer)
+          if (opened) onClose()
+          else resolve(null)
+        })
+        socket.addEventListener('error', () => {
+          // A 'close' follows; that is where both cases are handled.
+        })
+      })
+    },
+    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+  }
+}
+
+interface Inflight {
+  /** The prompt id ComfyUI gave the picture being drawn now. */
+  runId: string | null
+  cancelRequested: boolean
+}
+
+interface StaticInfo {
+  at: number
+  checkpoints: string[]
+  samplers: string[]
+  schedulers: string[]
+  loras: string[] | null
+}
+
+// Per backend id, so separate requests (each builds its own adapter) share them.
+const globalForComfy = globalThis as typeof globalThis & {
+  __comfyInflight?: Map<string, Inflight>
+  __comfyStatic?: Map<string, StaticInfo>
+}
+const inflightRuns = (globalForComfy.__comfyInflight ??= new Map())
+const staticInfo = (globalForComfy.__comfyStatic ??= new Map())
+
+/** The choices of one input in an /object_info answer: `[[...names]]`, or the newer `["COMBO", { options }]`. */
+export function comboOptions(body: unknown, node: string, input: string): string[] | null {
+  const spec = (body as Record<string, { input?: { required?: Record<string, unknown> } }> | null)?.[node]?.input?.required?.[input]
+  if (!Array.isArray(spec)) return null
+  const list = Array.isArray(spec[0]) ? spec[0] : spec[0] === 'COMBO' ? (spec[1] as { options?: unknown })?.options : null
+  return Array.isArray(list) ? list.filter((item): item is string => typeof item === 'string') : null
+}
+
+/** A model file by name only, without the folders under ComfyUI's models folder. */
+function fileName(path: string): string {
+  return path.split(/[\\/]/).pop() ?? path
+}
+
+/** The prompt without its `<lora:…>` calls, which ComfyUI's text encoder would read as words. */
+export function withoutLoraCalls(prompt: string): string {
+  return prompt
+    .replace(/<(?:lora|lyco):[^<>]*>/gi, '')
+    .replace(/\s*,(\s*,)+/g, ',')
+    .replace(/^[\s,]+|[\s,]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+}
+
+/** Matches the prompt's LoRA calls to ComfyUI's LoRA files, by name without folder or extension. */
+export function resolveLoras(calls: LoraUse[], files: string[]): { found: { file: string; use: LoraUse }[]; missing: string[] } {
+  const byName = new Map(files.map((file) => [loraName(file).toLowerCase(), file]))
+  const found: { file: string; use: LoraUse }[] = []
+  const missing: string[] = []
+  for (const use of calls) {
+    const file = byName.get(use.name.toLowerCase())
+    if (file) found.push({ file, use })
+    else missing.push(use.name)
+  }
+  return { found, missing }
+}
+
+type GraphNode = { class_type: string; inputs: Record<string, unknown> }
+
+/**
+ * The txt2img graph for one picture, in ComfyUI's API format: checkpoint →
+ * LoRA loaders → the two prompts → empty latent → KSampler → decode →
+ * PreviewImage (node OUTPUT_NODE). Pure, so the verify script can read it.
+ */
+export function buildComfyGraph(
+  request: GenerateRequest,
+  options: { checkpoint: string; loras: { file: string; weight: number }[]; seed: number; sizeMultiple: number }
+): Record<string, GraphNode> {
+  const snap = (value: number) => Math.max(options.sizeMultiple, Math.round(value / options.sizeMultiple) * options.sizeMultiple)
+  const graph: Record<string, GraphNode> = {
+    '1': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: options.checkpoint } },
+  }
+  let model: [string, number] = ['1', 0]
+  let clip: [string, number] = ['1', 1]
+  options.loras.forEach((lora, index) => {
+    const id = String(10 + index)
+    graph[id] = {
+      class_type: 'LoraLoader',
+      inputs: { model, clip, lora_name: lora.file, strength_model: lora.weight, strength_clip: lora.weight },
+    }
+    model = [id, 0]
+    clip = [id, 1]
+  })
+  graph['2'] = { class_type: 'CLIPTextEncode', inputs: { text: withoutLoraCalls(request.prompt), clip } }
+  graph['3'] = { class_type: 'CLIPTextEncode', inputs: { text: request.negative_prompt, clip } }
+  graph['4'] = { class_type: 'EmptyLatentImage', inputs: { width: snap(request.width), height: snap(request.height), batch_size: 1 } }
+  graph['5'] = {
+    class_type: 'KSampler',
+    inputs: {
+      seed: options.seed,
+      steps: request.num_inference_steps,
+      cfg: request.guidance_scale,
+      sampler_name: request.sampler && request.sampler !== DEFAULT ? request.sampler : DEFAULT_SAMPLER,
+      scheduler: request.scheduler && request.scheduler !== DEFAULT ? request.scheduler : DEFAULT_SCHEDULER,
+      denoise: 1,
+      model,
+      positive: ['2', 0],
+      negative: ['3', 0],
+      latent_image: ['4', 0],
+    },
+  }
+  graph['6'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
+  graph[OUTPUT_NODE] = { class_type: 'PreviewImage', inputs: { images: ['6', 0] } }
+  return graph
+}
+
+/** ComfyUI's refusal of a graph: its message, and the first node error's details. */
+function promptError(body: unknown, status: number): string {
+  const nodeErrors = (body as { node_errors?: Record<string, { errors?: { message?: unknown; details?: unknown }[] }> } | null)?.node_errors
+  const first = nodeErrors ? Object.values(nodeErrors)[0]?.errors?.[0] : undefined
+  const base = errorMessage((body as { error?: unknown } | null)?.error ?? body, `Backend error: ${status}`)
+  const detail = typeof first?.details === 'string' && first.details ? first.details : typeof first?.message === 'string' ? first.message : ''
+  return detail ? `${base} (${redactPaths(detail)})` : base
+}
+
+type QueueItem = [number, string, ...unknown[]]
+
+function queueIds(body: unknown): { running: string[]; pending: string[] } {
+  const ids = (list: unknown) => (Array.isArray(list) ? (list as QueueItem[]).map((item) => item?.[1]).filter((id): id is string => typeof id === 'string') : [])
+  const queue = body as { queue_running?: unknown; queue_pending?: unknown } | null
+  return { running: ids(queue?.queue_running), pending: ids(queue?.queue_pending) }
+}
+
+interface HistoryEntry {
+  outputs?: Record<string, { images?: { filename?: unknown; subfolder?: unknown; type?: unknown }[] }>
+  status?: { status_str?: unknown; messages?: [string, Record<string, unknown>][] }
+}
+
+export class ComfyUIAdapter implements BackendAdapter {
+  private readonly http: ComfyTransport
+
+  constructor(
+    readonly config: BackendConfig,
+    transport?: ComfyTransport
+  ) {
+    this.http = transport ?? httpTransport(config)
+  }
+
+  private async getOrNull(path: string, timeoutMs = STATUS_TIMEOUT_MS): Promise<unknown | null> {
+    try {
+      const response = await this.http.get(path, timeoutMs)
+      return response.status === 200 ? response.body : null
+    } catch {
+      return null
+    }
+  }
+
+  private async staticInfo(): Promise<StaticInfo> {
+    // By address as well as id: a backend moved to another server lists that server's files at once.
+    const key = `${this.config.id}|${this.config.url}`
+    const cached = staticInfo.get(key)
+    if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
+    const [checkpoints, sampler, loras] = await Promise.all([
+      this.getOrNull('/object_info/CheckpointLoaderSimple'),
+      this.getOrNull('/object_info/KSampler'),
+      this.getOrNull('/object_info/LoraLoader'),
+    ])
+    const info: StaticInfo = {
+      at: Date.now(),
+      checkpoints: comboOptions(checkpoints, 'CheckpointLoaderSimple', 'ckpt_name') ?? [],
+      samplers: comboOptions(sampler, 'KSampler', 'sampler_name') ?? [],
+      schedulers: comboOptions(sampler, 'KSampler', 'scheduler') ?? [],
+      loras: comboOptions(loras, 'LoraLoader', 'lora_name'),
+    }
+    // Only a complete answer is cached; a ComfyUI still starting is asked again.
+    if (checkpoints !== null && sampler !== null) staticInfo.set(key, info)
+    return info
+  }
+
+  /** The checkpoint files ComfyUI lists, folders included, for the settings page; null when it does not answer. */
+  async checkpoints(): Promise<string[] | null> {
+    const body = await this.getOrNull('/object_info/CheckpointLoaderSimple')
+    return body === null ? null : (comboOptions(body, 'CheckpointLoaderSimple', 'ckpt_name') ?? [])
+  }
+
+  /** The checkpoint a run uses: the configured one, else the first listed. */
+  private checkpointFrom(info: StaticInfo): string | null {
+    return this.config.model?.trim() || info.checkpoints[0] || null
+  }
+
+  async status(): Promise<BackendStatus> {
+    const [stats, queue, info] = await Promise.all([this.getOrNull('/system_stats'), this.getOrNull('/queue'), this.staticInfo()])
+    const alive = stats !== null
+    const { running, pending } = queueIds(queue)
+    const checkpoint = alive ? this.checkpointFrom(info) : null
+    return {
+      id: this.config.id,
+      kind: this.config.kind,
+      profile: this.config.profile,
+      alive,
+      busy: running.length + pending.length > 0 || inflightRuns.has(this.config.id),
+      // The file's name only: the folders under ComfyUI's models folder stay here.
+      model: checkpoint ? fileName(checkpoint) : null,
+      capabilities: {
+        img2img: false,
+        inpaint: false,
+        pose: false,
+        lora: info.loras !== null,
+        tag: false,
+        presets: false,
+        preciseCancel: true,
+      },
+      hints: comfyHints(alive),
+      samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
+      schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
+    }
+  }
+
+  async presets(): Promise<{ default: string | null; presets: Preset[] }> {
+    return { default: null, presets: [] }
+  }
+
+  async start(request: GenerateRequest): Promise<Outcome<AsyncIterable<BackendEvent>>> {
+    if (request.init_image_base64 || request.mask_base64) {
+      return { ok: false, status: 400, error: 'A source image is not available on a ComfyUI backend yet' }
+    }
+    if (request.pose_image_base64) return { ok: false, status: 400, error: 'Pose control is not available on this backend' }
+    if (inflightRuns.has(this.config.id)) return { ok: false, status: 409, error: 'This backend is already generating for Latentry' }
+
+    const queue = await this.getOrNull('/queue')
+    if (queue === null) return { ok: false, status: 502, error: 'Could not reach the backend' }
+    const { running, pending } = queueIds(queue)
+    // A prompt queued now would wait behind someone else's, its progress unseen.
+    if (running.length + pending.length > 0) return { ok: false, status: 409, error: 'Another client is generating on this backend' }
+
+    const info = await this.staticInfo()
+    const checkpoint = this.checkpointFrom(info)
+    if (!checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
+    if (this.config.model && info.checkpoints.length && !info.checkpoints.includes(this.config.model)) {
+      return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${fileName(this.config.model)}` }
+    }
+    const calls = loraCallsInPrompt(request.prompt)
+    const { found, missing } = resolveLoras(calls, info.loras ?? [])
+    if (missing.length) return { ok: false, status: 400, error: `LoRA not found on this backend: ${missing.join(', ')}` }
+
+    const inflight: Inflight = { runId: null, cancelRequested: false }
+    inflightRuns.set(this.config.id, inflight)
+    const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
+    return { ok: true, value: this.run(request, checkpoint, found, seed, inflight) }
+  }
+
+  private async *run(
+    request: GenerateRequest,
+    checkpoint: string,
+    loras: { file: string; use: LoraUse }[],
+    firstSeed: number,
+    inflight: Inflight
+  ): AsyncGenerator<BackendEvent> {
+    const total = request.image_count
+    const clientId = randomUUID()
+    const inbox: unknown[] = []
+    let wake: (() => void) | null = null
+    let socketOpen = false
+    const socket = await this.http
+      .listen(
+        clientId,
+        (message) => {
+          inbox.push(message)
+          wake?.()
+        },
+        () => {
+          socketOpen = false
+          wake?.()
+        }
+      )
+      .catch(() => null)
+    socketOpen = socket !== null
+    const nextMessage = () =>
+      inbox.length
+        ? Promise.resolve()
+        : new Promise<void>((resolve) => {
+            wake = resolve
+            void this.http.sleep(POLL_MS).then(resolve)
+          })
+    const sizeMultiple = getProfile(this.config.profile).sizeMultiple
+    const applied = loras.map(({ use }) => use)
+
+    try {
+      for (let index = 0; index < total; index += 1) {
+        if (inflight.cancelRequested) {
+          yield { type: 'cancelled' }
+          return
+        }
+        const seed = firstSeed + index
+        const graph = buildComfyGraph(request, {
+          checkpoint,
+          loras: loras.map(({ file, use }) => ({ file, weight: use.weight })),
+          seed,
+          sizeMultiple,
+        })
+        let queued: { status: number; body: unknown }
+        try {
+          queued = await this.http.post('/prompt', { prompt: graph, client_id: clientId }, QUEUE_TIMEOUT_MS)
+        } catch (error) {
+          yield { type: 'error', message: isAbortError(error) ? 'Timed out waiting for the backend' : 'Could not reach the backend' }
+          return
+        }
+        const promptId = (queued.body as { prompt_id?: unknown } | null)?.prompt_id
+        if (queued.status !== 200 || typeof promptId !== 'string') {
+          yield { type: 'error', message: promptError(queued.body, queued.status) }
+          return
+        }
+        inflight.runId = promptId
+        yield { type: 'start', index, total, steps: request.num_inference_steps, runId: promptId }
+
+        // Wait for the prompt to finish: the socket says so first, /history in any case.
+        let ended: 'done' | 'cancelled' | { error: string } | null = null
+        let lastStep = 0
+        let lastAnswer = Date.now()
+        let polls = 0
+        while (ended === null) {
+          await nextMessage()
+          while (inbox.length) {
+            const message = inbox.shift() as { type?: unknown; data?: Record<string, unknown> } | null
+            const data = message?.data ?? {}
+            if (data.prompt_id !== promptId) continue
+            if (message?.type === 'progress' && typeof data.value === 'number' && data.value > lastStep) {
+              lastStep = data.value
+              yield { type: 'step', index, step: data.value }
+            } else if (message?.type === 'execution_interrupted') {
+              ended = 'cancelled'
+            } else if (message?.type === 'execution_error') {
+              ended = { error: redactPaths(String(data.exception_message ?? 'The backend could not run the graph')).slice(0, 300) }
+            } else if (message?.type === 'execution_success' || (message?.type === 'executing' && data.node === null)) {
+              ended = 'done'
+            }
+          }
+          if (ended !== null) break
+          // With the socket, /history is only a backstop; without it, the only way to know.
+          polls += 1
+          if (socketOpen && polls % 8 !== 0) continue
+          const history = await this.getOrNull(`/history/${encodeURIComponent(promptId)}`)
+          if (history === null) {
+            if (Date.now() - lastAnswer > LOST_AFTER_MS) ended = { error: 'Lost the connection to the backend mid-generation.' }
+            continue
+          }
+          lastAnswer = Date.now()
+          const entry = (history as Record<string, HistoryEntry>)[promptId]
+          if (entry) ended = endOf(entry)
+          else if (inflight.cancelRequested) {
+            // Taken off the queue before it started: it will never have a history.
+            const queue = await this.getOrNull('/queue')
+            const { running, pending } = queueIds(queue)
+            if (queue !== null && !running.includes(promptId) && !pending.includes(promptId)) ended = 'cancelled'
+          }
+        }
+
+        if (ended === 'cancelled') {
+          yield { type: 'cancelled' }
+          return
+        }
+        if (typeof ended === 'object') {
+          yield { type: 'error', message: ended.error }
+          return
+        }
+        const picture = await this.picture(promptId)
+        if ('error' in picture) {
+          yield { type: 'error', message: picture.error }
+          return
+        }
+        yield {
+          type: 'image',
+          index,
+          total,
+          seed,
+          imageBase64: picture.png.toString('base64'),
+          stepsObserved: lastStep || undefined,
+          ...(applied.length ? { loras: applied } : {}),
+        }
+      }
+      yield inflight.cancelRequested ? { type: 'cancelled' } : { type: 'done' }
+    } finally {
+      socket?.close()
+      if (inflightRuns.get(this.config.id) === inflight) inflightRuns.delete(this.config.id)
+    }
+  }
+
+  /** The finished prompt's picture, from PreviewImage, without ComfyUI's graph chunks. */
+  private async picture(promptId: string): Promise<{ png: Buffer } | { error: string }> {
+    const history = await this.getOrNull(`/history/${encodeURIComponent(promptId)}`)
+    const image = (history as Record<string, HistoryEntry> | null)?.[promptId]?.outputs?.[OUTPUT_NODE]?.images?.[0]
+    if (!image || typeof image.filename !== 'string') return { error: 'The backend finished without a picture' }
+    const query = new URLSearchParams({
+      filename: image.filename,
+      subfolder: typeof image.subfolder === 'string' ? image.subfolder : '',
+      type: typeof image.type === 'string' ? image.type : 'temp',
+    })
+    let answer: { status: number; bytes: Buffer | null }
+    try {
+      answer = await this.http.getBytes(`/view?${query}`, VIEW_TIMEOUT_MS, MAX_PICTURE_BYTES)
+    } catch {
+      return { error: 'Could not fetch the picture from the backend' }
+    }
+    if (answer.status !== 200) return { error: `Backend error: ${answer.status}` }
+    if (!answer.bytes) return { error: 'The picture from the backend is too large' }
+    if (!isPng(answer.bytes)) return { error: 'The backend answered with something that is not a PNG' }
+    return { png: removePngText(answer.bytes, GRAPH_CHUNKS) }
+  }
+
+  async cancel(runId: string | null): Promise<Outcome<{ status: string }>> {
+    const inflight = inflightRuns.get(this.config.id)
+    if (!inflight) return { ok: true, value: { status: 'idle' } }
+    if (runId !== null && inflight.runId !== null && inflight.runId !== runId) {
+      return { ok: false, status: 409, error: 'That run has already ended' }
+    }
+    inflight.cancelRequested = true
+    const ours = inflight.runId
+    if (!ours) return { ok: true, value: { status: 'cancelling' } }
+
+    const queue = await this.getOrNull('/queue')
+    if (queue === null) return { ok: false, status: 502, error: 'Could not reach the backend' }
+    const { running, pending } = queueIds(queue)
+    try {
+      // Only our own prompt: interrupting or deleting by id leaves other clients' work alone.
+      const response = pending.includes(ours)
+        ? await this.http.post('/queue', { delete: [ours] }, STATUS_TIMEOUT_MS)
+        : running.includes(ours)
+          ? await this.http.post('/interrupt', { prompt_id: ours }, STATUS_TIMEOUT_MS)
+          : null
+      if (response && response.status !== 200) {
+        return { ok: false, status: response.status, error: errorMessage(response.body, `Backend error: ${response.status}`) }
+      }
+      return { ok: true, value: { status: 'cancelling' } }
+    } catch {
+      return { ok: false, status: 502, error: 'Could not reach the backend' }
+    }
+  }
+}
+
+/** How a finished prompt ended, from its /history entry. */
+function endOf(entry: HistoryEntry): 'done' | 'cancelled' | { error: string } {
+  const messages = Array.isArray(entry.status?.messages) ? entry.status.messages : []
+  if (messages.some((message) => message?.[0] === 'execution_interrupted')) return 'cancelled'
+  const failed = messages.find((message) => message?.[0] === 'execution_error')
+  if (failed || entry.status?.status_str === 'error') {
+    const text = failed?.[1]?.exception_message
+    return { error: redactPaths(typeof text === 'string' && text ? text : 'The backend could not run the graph').slice(0, 300) }
+  }
+  return 'done'
+}

@@ -2,12 +2,14 @@
 
 import { ChevronDown, Info } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
-import { HINTED_FEATURES, type FeatureHint, type HintedFeature } from "@/lib/backends/types"
+import { HINTED_FEATURES, type BackendKind, type FeatureHint, type HintedFeature } from "@/lib/backends/types"
 import { useT, type MessageKey } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
 
 interface UnavailableFeaturesProps {
   hints: Partial<Record<HintedFeature, FeatureHint>>
+  /** Which kind of backend: a feature off for its kind is explained for that kind. */
+  kind: BackendKind
   className?: string
 }
 
@@ -15,7 +17,7 @@ interface UnavailableFeaturesProps {
  * The features this backend cannot use, folded into one line: opening it says
  * why each is off and what would turn it on. Nothing when all of them work.
  */
-export function UnavailableFeatures({ hints, className }: UnavailableFeaturesProps) {
+export function UnavailableFeatures({ hints, kind, className }: UnavailableFeaturesProps) {
   const t = useT()
   const missing = HINTED_FEATURES.filter((feature) => hints[feature])
   if (!missing.length) return null
@@ -34,7 +36,7 @@ export function UnavailableFeatures({ hints, className }: UnavailableFeaturesPro
             <li key={feature}>
               <span className="font-medium text-foreground">{t(`generate.unavailable.feature.${feature}` as MessageKey)}</span>
               {": "}
-              {hintText(t, feature, hints[feature]!)}
+              {hintText(t, feature, hints[feature]!, kind)}
             </li>
           ))}
         </ul>
@@ -43,10 +45,11 @@ export function UnavailableFeatures({ hints, className }: UnavailableFeaturesPro
   )
 }
 
-function hintText(t: ReturnType<typeof useT>, feature: HintedFeature, hint: FeatureHint): string {
+function hintText(t: ReturnType<typeof useT>, feature: HintedFeature, hint: FeatureHint, kind: BackendKind): string {
   if (hint.reason === "declined") {
     // The server's own words come first: it knows what it has loaded.
     return hint.detail ? t("generate.unavailable.declinedBecause", { detail: hint.detail }) : t("generate.unavailable.declined")
   }
-  return t(`generate.unavailable.${hint.reason === "kind" ? "kind" : "notReported"}.${feature}` as MessageKey)
+  if (hint.reason === "kind") return t(`generate.unavailable.kind.${kind}.${feature}` as MessageKey)
+  return t(`generate.unavailable.notReported.${feature}` as MessageKey)
 }

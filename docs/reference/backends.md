@@ -5,6 +5,7 @@
 | Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU | SDXL family: txt2img, img2img, inpainting, pose. Anima: txt2img, img2img, pose (v1.0). 3D pose turning |
 | `diffusers` | Any server speaking the [backend API](../backend-api.md) | img2img, inpainting and pose if the server offers them; precise cancel |
 | `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpainting. No pose control |
+| `comfyui` | A ComfyUI server | txt2img with LoRAs, from a graph Latentry builds. No img2img, inpainting or pose yet; precise cancel |
 
 Use the built-in engine, servers you already run, or both: different
 backends run in parallel, one run each.
@@ -38,6 +39,32 @@ Start the web UI with `--api` (and `--api-auth user:password` if you give the
 backend a token). Latentry generates one image per iteration so progress
 counts images, and saves its own copy: turn the web UI's saving off if you do
 not want two. Its WD14 tagger extension can serve as Latentry's tagger.
+
+## ComfyUI
+
+Add it with the kind `comfyui` and ComfyUI's address (by default
+`http://127.0.0.1:8188`). After **Test** on Settings, **Model** lists the
+checkpoints ComfyUI has; without one chosen, it draws with the first. LoRAs
+work as everywhere else, with `<lora:name:weight>` in the prompt: Latentry
+finds the file in ComfyUI's LoRA list by its name.
+
+Latentry builds the graph itself (checkpoint, LoRA loaders, the two prompts,
+KSampler, decode) and queues one prompt per picture, so **Cancel** stops the
+picture being drawn and skips the rest. It never sends a graph from the page,
+and it never cancels another client's prompt. While someone else's prompt is
+queued, a run is refused rather than queued behind it.
+
+What stays on the ComfyUI computer: the graph ends in a preview, so pictures
+go to ComfyUI's temp folder (emptied when ComfyUI restarts), not its output
+folder. Latentry saves its own copy, without ComfyUI's graph in it (that
+names your model folders), so the saved picture cannot be dropped back into
+ComfyUI as a workflow; it keeps Latentry's settings and an A1111-style
+`parameters` text instead.
+
+ComfyUI has no login. Keep it on this computer or your own network; a token,
+if you give one, is sent as a Bearer token for a proxy in front of it.
+
+Not yet: a source image, inpainting, pose, and running your own workflow.
 
 ## Your own server
 

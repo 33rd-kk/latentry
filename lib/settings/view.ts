@@ -17,7 +17,7 @@ type Source = 'settings' | 'env'
 export interface SettingsView {
   editable: true
   file: string
-  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null }[]
+  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
   gallery: {
@@ -52,11 +52,12 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
   return {
     editable: true,
     file: settingsPath(),
-    backends: getBackends(process.env, settings).map(({ id, kind, url, profile }) => ({
+    backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model }) => ({
       id,
       kind,
       url,
       profile,
+      model: model ?? null,
       token: stored.get(id)?.token ? 'settings' : hasEnvToken(id, url) ? 'env' : null,
     })),
     tagger: taggerPreference(process.env, settings),
