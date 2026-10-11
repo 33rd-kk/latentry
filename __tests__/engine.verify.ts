@@ -10,7 +10,9 @@ import { chooseTorch, parseNvidiaSmi, type Gpu } from '../lib/engine/gpus'
 import { isSha256 } from '../lib/engine/download'
 import { isPinnedUv, uvAsset, uvEnvironment, venvOnOtherPython } from '../lib/engine/install'
 import { UV_SHA256, UV_VERSION, uvUrl } from '../lib/engine/uv-release'
+import { LOCKED_BACKENDS, LOCKED_ON, lockAgeDays, lockFailure, lockIsStale, lockName, torchRunsOn, wantsLatest } from '../lib/engine/locks'
 import { loraAccess } from '../lib/engine/lora-access'
+import { readdirSync, readFileSync } from 'node:fs'
 import { profileFor } from '../lib/engine/supervisor'
 import { EMPTY_SETTINGS, validateSettings } from '../lib/settings/schema'
 
@@ -28,12 +30,69 @@ eq(parseNvidiaSmi('0, Old Card, 4096, 470.1, [N/A]')[0].computeCap, null, 'an ol
 const gpu = (driver: string, computeCap: string | null): Gpu => ({ index: 0, vendor: 'nvidia', name: 'x', vramMiB: 8192, driver, computeCap })
 eq(chooseTorch([gpu('581.29', '12.0')]).indexUrl, 'https://download.pytorch.org/whl/cu130', 'driver 580+: CUDA 13.0')
 eq(chooseTorch([gpu('572.16', '12.0')]).indexUrl, 'https://download.pytorch.org/whl/cu128', 'driver 570: CUDA 12.8, enough for Blackwell')
+eq(chooseTorch([gpu('572.16', '8.9')]).backend, 'cu126', 'driver 570 without Blackwell: CUDA 12.6, which PyTorch still publishes')
+eq(chooseTorch([gpu('572.16', '10.0')]).backend, 'cu128', 'a data-centre Blackwell (10.0) needs CUDA 12.8 too')
+check(chooseTorch([gpu('572.16', '12.0')]).outdated === true, 'CUDA 12.8 is marked outdated')
+check(chooseTorch([gpu('536.0', '8.6')]).outdated === true, 'CUDA 11.8 is marked outdated')
+check(!chooseTorch([gpu('581.29', '12.0')]).outdated && !chooseTorch([gpu('561.09', '8.9')]).outdated, 'CUDA 13.0 and 12.6 are current')
 eq(chooseTorch([gpu('561.09', '8.9')]).indexUrl, 'https://download.pytorch.org/whl/cu126', 'driver 560: CUDA 12.6')
 eq(chooseTorch([gpu('536.0', '8.6')]).indexUrl, 'https://download.pytorch.org/whl/cu118', 'an older driver: CUDA 11.8')
 check(chooseTorch([gpu('561.09', '12.0')]).label.startsWith('unsupported'), 'Blackwell on a driver too old for it is refused, not installed broken')
 eq(chooseTorch([gpu('581.29', '8.9'), gpu('561.09', '8.6')]).indexUrl, 'https://download.pytorch.org/whl/cu126', 'the oldest driver decides')
 eq(chooseTorch([]).indexUrl, 'https://download.pytorch.org/whl/cpu', 'no GPU: the CPU build')
 eq(chooseTorch([{ index: 0, vendor: 'apple', name: 'Apple GPU', vramMiB: 0, driver: null, computeCap: null }]).indexUrl, null, 'Apple: the default index (MPS)')
+eq(chooseTorch([gpu('581.29', '12.0')]).backend, 'cu130', 'the backend names the CUDA build')
+eq(chooseTorch([]).backend, 'cpu', 'no GPU: the cpu backend')
+eq(chooseTorch([{ index: 0, vendor: 'apple', name: 'Apple GPU', vramMiB: 0, driver: null, computeCap: null }]).backend, null, 'Apple: no backend (PyPI build)')
+
+// The pinned packages (lib/engine/locks.ts, engine/locks/)
+eq(lockName('win32', 'x64', 'cu130'), 'windows-x86_64-cu130', 'lock: Windows with CUDA 13.0')
+eq(lockName('linux', 'x64', 'cpu'), 'linux-x86_64-cpu', 'lock: Linux on the CPU')
+eq(lockName('darwin', 'arm64', null, '23.6.0'), 'macos-arm64', 'lock: Apple silicon on macOS 14 (Darwin 23)')
+eq(lockName('darwin', 'arm64', null, '25.0.0'), 'macos-arm64', 'lock: Apple silicon on a later macOS')
+eq(lockName('darwin', 'arm64', null, '22.6.0'), null, "no lock: macOS 13, older than the lock's PyTorch")
+eq(lockName('darwin', 'arm64', null), null, 'no lock: a macOS version not known')
+eq(lockName('darwin', 'x64', null, '23.6.0'), null, 'no lock: Intel Mac')
+eq(lockName('linux', 'arm64', 'cu130'), null, 'no lock: Linux on ARM')
+eq(lockName('win32', 'x64', 'cu132'), null, 'no lock: a CUDA build without one')
+eq(lockName('win32', 'x64', null), null, 'no lock: Windows without a backend')
+const lockFiles = readdirSync('engine/locks').filter((file) => file.endsWith('.txt'))
+eq(
+  lockFiles.sort(),
+  [...LOCKED_BACKENDS.flatMap((backend) => [`linux-x86_64-${backend}.txt`, `windows-x86_64-${backend}.txt`]), 'macos-arm64.txt'].sort(),
+  'a lock file for every name lockName gives, and no other'
+)
+for (const file of lockFiles) {
+  const text = readFileSync(`engine/locks/${file}`, 'utf8')
+  const pins = text.split('\n').filter((line) => /^[A-Za-z0-9]/.test(line))
+  check(pins.length > 40, `${file}: holds the packages (${pins.length})`)
+  check(pins.every((line) => /^[A-Za-z0-9._-]+==[^ ]+ \\$/.test(line)), `${file}: every package at one version, with hashes after it`)
+  const blocks = text.split(/\n(?=[A-Za-z0-9])/).filter((block) => /^[A-Za-z0-9]/.test(block))
+  check(blocks.every((block) => /--hash=sha256:[0-9a-f]{64}/.test(block)), `${file}: every package has a SHA-256`)
+  check(text.includes(`resolved for ${LOCKED_ON}.`), `${file}: resolved for LOCKED_ON (run npm run engine:lock)`)
+  check(!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(text), `${file}: no control characters`)
+  check(/^torch==/m.test(text) && /^poseorbit==/m.test(text), `${file}: holds torch and poseorbit`)
+}
+check(readFileSync('engine/locks/windows-x86_64-cu130.txt', 'utf8').includes('+cu130 \\'), 'the CUDA lock holds the CUDA build of torch')
+check(!readFileSync('engine/locks/macos-arm64.txt', 'utf8').includes('+cpu'), "macOS's lock holds PyPI's torch")
+
+// Ways out of the lock
+check(wantsLatest({ LATENTRY_ENGINE_PACKAGES: 'latest' }), 'LATENTRY_ENGINE_PACKAGES=latest')
+check(wantsLatest({ LATENTRY_ENGINE_PACKAGES: ' Latest ' }), 'latest, any case')
+check(!wantsLatest({}), 'pinned unless asked')
+check(!wantsLatest({ LATENTRY_ENGINE_PACKAGES: 'newest' }), 'only "latest" turns it off')
+eq(lockAgeDays(new Date('2026-10-22T12:00:00Z'), '2026-10-12'), 10, 'lock age in days')
+check(!lockIsStale(new Date('2027-04-10T00:00:00Z'), '2026-10-12'), 'under 180 days: not stale')
+check(lockIsStale(new Date('2027-04-11T00:00:00Z'), '2026-10-12'), 'over 180 days: stale')
+eq(lockFailure('error: No solution found\n  cause: Because there is no version of zipp==999.0.0 and you require it'), 'missing', 'a version no longer offered: retry unpinned')
+eq(lockFailure('Failed to download `torch==2.14.1+cu130`\n  HTTP status client error (404 Not Found)'), 'missing', 'a file gone (404): retry unpinned')
+eq(lockFailure('  cause: Hash mismatch for `zipp==4.1.1`\n  Expected: ...'), 'stop', 'a hash mismatch: stop')
+eq(lockFailure('Hash mismatch for `torch`, and 404 Not Found elsewhere'), 'stop', 'a hash mismatch stops even beside a 404')
+eq(lockFailure('error: Failed to fetch: connection reset'), 'stop', 'anything not recognised: stop')
+check(torchRunsOn(['sm_75', 'sm_80', 'sm_86', 'sm_90', 'sm_120'], [12, 0]), 'a kernel for the GPU')
+check(!torchRunsOn(['sm_75', 'sm_80', 'sm_86', 'sm_90'], [12, 0]), 'no kernel for a newer GPU')
+check(torchRunsOn(['sm_80', 'sm_90', 'compute_90'], [12, 0]), 'PTX for an earlier one the driver can compile')
+check(!torchRunsOn(['sm_80', 'compute_120'], [9, 0]), 'PTX only for a later one does not run')
 
 // uv
 eq(uvAsset('win32', 'x64'), 'uv-x86_64-pc-windows-msvc.zip', 'Windows')

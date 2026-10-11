@@ -39,6 +39,9 @@ updates:
     groups:
       lint:
         patterns: ["*"]
+    ignore:
+      # uv follows lib/engine/uv-release.ts (scripts/pin-downloads.mjs uv), together.
+      - dependency-name: uv
   - package-ecosystem: github-actions
     directory: /
     schedule:

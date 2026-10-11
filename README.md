@@ -216,6 +216,7 @@ npm test -- gallery   # just the ones whose name contains "gallery"
 npm run i18n:check
 ruff check engine # the version in .github/requirements-lint.txt
 npm run test:e2e  # browser tests in e2e/ (see below)
+npm run engine:lock -- --check   # engine/locks/ match engine/pyproject.toml (needs the pinned uv)
 ```
 
 CI runs these on every pull request (Ubuntu and Windows on Node.js 22,
@@ -245,6 +246,9 @@ Layout:
 - `components/generate/`, `components/gallery/`: the two pages
 - `components/pose3d/`: the 3D pose viewer (three.js only)
 - `engine/`: the bundled generation server
+- `engine/locks/`: its Python packages pinned per machine and PyTorch build, with hashes;
+  made by `npm run engine:lock` (`-- --upgrade` after moving `LOCKED_ON` in
+  `lib/engine/locks.ts`; a workflow proposes that monthly)
 - The engine's pose detection is [poseorbit](https://github.com/33rd-kk/poseorbit)
   (on PyPI), which finds people, turns their pose in 3D and draws skeletons.
 - `locales/`, `scripts/i18n-translate.mjs`: UI text and the translation tool

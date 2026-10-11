@@ -538,6 +538,7 @@
     "noGpu": "No NVIDIA GPU found. The engine will run on the CPU, which takes minutes per picture.",
     "gpu": "GPU {index}: {name} · {vram} GB · driver {driver}",
     "torch": "PyTorch build: {label}",
+    "torchOutdated": "PyTorch no longer publishes current releases for this CUDA, so this build is older and has known vulnerabilities. Update the NVIDIA driver to 580 or newer, then run Repair / update, to get a current one.",
     "engine": "Engine",
     "engineBody": "Stock diffusers and PyTorch in a Python environment of their own. The first install downloads about 3–4 GB and takes a few minutes.",
     "install": "Install the engine",
@@ -547,12 +548,22 @@
       "detect": "Looking at the GPU",
       "uv": "Getting uv",
       "python": "Getting Python 3.12",
+      "packages": "Installing PyTorch and the pinned packages, each checked against its hash (the large part)",
       "torch": "Installing PyTorch (the large part)",
       "engine": "Installing diffusers and the engine",
       "check": "Checking the GPU from Python"
     },
     "installFailed": "The install failed: {error}",
     "installed": "PyTorch {torch} and diffusers {diffusers}, running on {device}.",
+    "pinned": "Python packages pinned as of {date} and checked against their hashes.",
+    "pinnedStale": "These pinned packages are from {date}, over six months ago, and may have known vulnerabilities. Check for a Latentry update, or set LATENTRY_ENGINE_PACKAGES=latest and run Repair / update to take the newest.",
+    "unpinned": {
+      "latest": "Python packages are the newest ones, not pinned (LATENTRY_ENGINE_PACKAGES=latest). They are not checked against hashes.",
+      "no-lock": "Latentry has no pinned package set for this computer, so the Python packages are not pinned or checked against hashes.",
+      "missing": "A pinned package was no longer offered, so the Python packages were installed unpinned and are not checked against hashes. Run Repair / update after the next Latentry update.",
+      "new-gpu": "The pinned PyTorch does not support this GPU, so the newest PyTorch was installed unpinned and is not checked against hashes."
+    },
+    "unpinnedOld": "Installed before Latentry pinned its Python packages. Run Repair / update to install the pinned ones.",
     "start": "Start",
     "stop": "Stop",
     "states": {

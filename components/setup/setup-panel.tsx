@@ -13,6 +13,7 @@ import { Switch } from "@/components/ui/switch"
 import type { CatalogView, EngineStatus } from "@/lib/engine/status"
 import { useT, type MessageKey } from "@/lib/i18n"
 import { cn } from "@/lib/utils"
+import { PinnedNote } from "./pinned-note"
 
 type Refused = { editable: false; reason: "off" | "notLocal" }
 
@@ -292,6 +293,7 @@ export function SetupPanel() {
             <p className="text-muted-foreground">{t("setup.noGpu")}</p>
           )}
           <p className={cn(s.torch.label.startsWith("unsupported") && "text-destructive")}>{t("setup.torch", { label: s.torch.label })}</p>
+          {s.torch.outdated && <p className="text-xs text-amber-600 dark:text-amber-500">{t("setup.torchOutdated")}</p>}
         </CardContent>
       </Card>
 
@@ -305,13 +307,16 @@ export function SetupPanel() {
         </CardHeader>
         <CardContent className="space-y-4 text-sm">
           {s.installed && !installing && (
-            <p>
-              {t("setup.installed", {
-                torch: s.installed.check.torch,
-                diffusers: s.installed.check.diffusers,
-                device: s.installed.check.gpu ?? s.installed.check.device,
-              })}
-            </p>
+            <div className="space-y-1">
+              <p>
+                {t("setup.installed", {
+                  torch: s.installed.check.torch,
+                  diffusers: s.installed.check.diffusers,
+                  device: s.installed.check.gpu ?? s.installed.check.device,
+                })}
+              </p>
+              <PinnedNote installed={s.installed} />
+            </div>
           )}
 
           {installing && (

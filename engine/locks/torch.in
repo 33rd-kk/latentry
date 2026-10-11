@@ -1,0 +1,5 @@
+# PyTorch for the engine, from the build (backend) this machine needs; the
+# rest of the engine's packages come from engine/pyproject.toml.
+# torchvision too: Anima's transformer (Cosmos) needs it to resize its padding mask.
+torch
+torchvision

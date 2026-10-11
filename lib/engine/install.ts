@@ -3,19 +3,24 @@
 //   1. uv, Astral's Python package manager, as one downloaded binary of a
 //      pinned release, checked against its SHA-256 (./uv-release.ts)
 //   2. Python 3.12, fetched by uv, in a virtual environment
-//   3. PyTorch built for this machine's GPU (see ./gpus.ts)
-//   4. the engine (./engine) and its dependencies: stock diffusers, FastAPI
+//   3. PyTorch built for this machine's GPU (see ./gpus.ts) and the engine's
+//      dependencies (stock diffusers, FastAPI), exactly as pinned in the
+//      lock for this machine (engine/locks/, see ./locks.ts), every file
+//      checked against its SHA-256; then the engine (./engine) itself
 //
 // All of it goes under the runtime folder (./paths.ts), never into the
 // system Python or the user's home, so deleting that folder uninstalls it.
-// Running it again repairs or updates an install; it is safe to repeat.
+// Running it again repairs or updates an install; it is safe to repeat, and
+// it leaves the environment holding the lock's packages and nothing else.
 
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 import { downloadVerified } from './download'
 import { chooseTorch, detectGpus, type TorchChoice } from './gpus'
 import { lineSplitter } from './lines'
+import { LOCKED_ON, lockFailure, lockName, torchRunsOn, wantsLatest, type UnpinnedReason } from './locks'
 import { enginePaths } from './paths'
 import { UV_SHA256, UV_VERSION, uvUrl } from './uv-release'
 
@@ -27,6 +32,10 @@ export interface InstallRecord {
   torch: string
   indexUrl: string | null
   installedAt: string
+  /** The lock installed from (engine/locks/<lock>.txt) and the day it was resolved for; null when unpinned. */
+  lock?: { name: string; lockedOn: string } | null
+  /** Why the packages are not pinned, when they are not. Absent in records from before the locks. */
+  unpinned?: UnpinnedReason | null
   /** What the check at the end printed: torch version, whether the GPU answers. */
   check: { torch: string; diffusers: string; device: string; gpu: string | null }
 }
@@ -118,7 +127,17 @@ export function venvOnOtherPython(pyvenvCfg: string, uvPython: string, platform:
   return relative === '' || relative.startsWith('..') || paths.isAbsolute(relative)
 }
 
-/** Runs a program, sending its output to the log; rejects on a non-zero exit. */
+/** A program that exited non-zero, with the end of what it printed to stderr. */
+class RunError extends Error {
+  constructor(
+    message: string,
+    readonly output: string
+  ) {
+    super(message)
+  }
+}
+
+/** Runs a program, sending its output to the log; rejects with a RunError on a non-zero exit. */
 function run(command: string, args: string[], env: Env = process.env): Promise<string> {
   log(`> ${path.basename(command)} ${args.join(' ')}`)
   return new Promise((resolve, reject) => {
@@ -128,19 +147,24 @@ function run(command: string, args: string[], env: Env = process.env): Promise<s
       stdio: ['ignore', 'pipe', 'pipe'],
     })
     let stdout = ''
+    let stderr = ''
     const out = lineSplitter(log)
     const err = lineSplitter(log)
     child.stdout.on('data', (chunk: Buffer) => {
       stdout += chunk.toString()
       out.write(chunk)
     })
-    child.stderr.on('data', (chunk: Buffer) => err.write(chunk))
+    child.stderr.on('data', (chunk: Buffer) => {
+      // The end says why it failed; that much is kept.
+      stderr = (stderr + chunk.toString()).slice(-20_000)
+      err.write(chunk)
+    })
     child.on('error', reject)
     child.on('close', (code) => {
       out.flush()
       err.flush()
       if (code === 0) resolve(stdout)
-      else reject(new Error(`${path.basename(command)} exited with ${code}`))
+      else reject(new RunError(`${path.basename(command)} exited with ${code}`, stderr))
     })
   })
 }
@@ -239,19 +263,97 @@ async function steps(torch: TorchChoice): Promise<InstallRecord> {
   job.step = 'python'
   await ensureVenv(uv)
 
+  const name = lockName(process.platform, process.arch, torch.backend, os.release())
+  const lockFile = name ? path.join(paths.engineSource, 'locks', `${name}.txt`) : null
+  let unpinned: UnpinnedReason | null = wantsLatest() ? 'latest' : lockFile && (await exists(lockFile)) ? null : 'no-lock'
+
+  if (lockFile && unpinned === null) {
+    try {
+      job.step = 'packages'
+      // sync, not install: the environment ends up holding the lock's
+      // packages and nothing else, each file checked against its hash.
+      await run(
+        uv,
+        ['pip', 'sync', '--require-hashes', '--python', paths.python, ...(torch.backend ? ['--torch-backend', torch.backend] : []), lockFile],
+        uvEnv
+      )
+      job.step = 'engine'
+      await run(uv, ['pip', 'install', '--no-deps', '--python', paths.python, '-e', paths.engineSource], uvEnv)
+    } catch (error) {
+      // Only a pinned file no longer offered is retried unpinned; a hash that
+      // does not match, or anything not recognised, stops here.
+      if (!(error instanceof RunError) || lockFailure(error.output) !== 'missing') throw error
+      unpinned = 'missing'
+    }
+  }
+  if (unpinned) {
+    log(UNPINNED_NOTES[unpinned](`${process.platform}/${process.arch}, ${torch.label}`))
+    await installUnpinned(uv, torch, uvEnv)
+  }
+
+  job.step = 'check'
+  let check = await checkTorch(paths.python)
+  if (!unpinned && check.capability && !torchRunsOn(check.arch, check.capability)) {
+    unpinned = 'new-gpu'
+    log(UNPINNED_NOTES[unpinned](check.capability.join('.')))
+    await installUnpinned(uv, torch, uvEnv, true)
+    job.step = 'check'
+    check = await checkTorch(paths.python)
+  }
+  if (torch.indexUrl?.includes('/cu') && check.device !== 'cuda') {
+    // Installed, but the GPU is not usable from it; say so rather than run on the CPU unnoticed.
+    log('Warning: PyTorch does not see the GPU. The engine will run on the CPU.')
+  }
+  const { arch: _arch, capability: _capability, ...shown } = check
+  return {
+    torch: torch.label,
+    indexUrl: torch.indexUrl,
+    installedAt: new Date().toISOString(),
+    lock: unpinned || !name ? null : { name, lockedOn: LOCKED_ON },
+    unpinned,
+    check: shown,
+  }
+}
+
+/** What the log says when the packages are installed unpinned, and why. */
+const UNPINNED_NOTES: Record<UnpinnedReason, (detail: string) => string> = {
+  latest: () =>
+    'LATENTRY_ENGINE_PACKAGES=latest: installing the newest packages within engine/pyproject.toml, not the pinned ones. They are not checked against hashes.',
+  'no-lock': (machine) => `No pinned package set for this machine (${machine}): installing unpinned. The packages are not checked against hashes.`,
+  missing: () => 'A pinned package is no longer offered by its index: installing unpinned instead. The packages are not checked against hashes.',
+  'new-gpu': (capability) =>
+    `The pinned PyTorch has no kernels for this GPU (compute ${capability}): installing the newest PyTorch unpinned. It is not checked against hashes.`,
+}
+
+/**
+ * PyTorch and the engine, newest within engine/pyproject.toml: what every
+ * install did before the locks, and still does where a lock cannot be used.
+ */
+async function installUnpinned(uv: string, torch: TorchChoice, uvEnv: Env, upgradeTorch = false): Promise<void> {
+  const paths = enginePaths()
   job.step = 'torch'
   await run(
     uv,
-    // torchvision too: Anima's transformer (Cosmos) needs it to resize its padding mask.
-    ['pip', 'install', '--python', paths.python, 'torch', 'torchvision', ...(torch.indexUrl ? ['--index-url', torch.indexUrl] : [])],
+    [
+      'pip',
+      'install',
+      '--python',
+      paths.python,
+      // torchvision too: Anima's transformer (Cosmos) needs it to resize its padding mask.
+      'torch',
+      'torchvision',
+      ...(upgradeTorch ? ['--upgrade-package', 'torch', '--upgrade-package', 'torchvision'] : []),
+      ...(torch.indexUrl ? ['--index-url', torch.indexUrl] : []),
+    ],
     uvEnv
   )
-
   job.step = 'engine'
   await run(uv, ['pip', 'install', '--python', paths.python, '-e', paths.engineSource], uvEnv)
+}
 
-  job.step = 'check'
-  const output = await run(paths.python, [
+/** Asks the installed PyTorch what it runs on, and which GPUs it has kernels for. */
+async function checkTorch(python: string): Promise<InstallRecord['check'] & { arch: string[]; capability: [number, number] | null }> {
+  const output = await run(python, [
     '-c',
     [
       'import json, torch, diffusers',
@@ -259,15 +361,12 @@ async function steps(torch: TorchChoice): Promise<InstallRecord> {
       'mps = getattr(torch.backends, "mps", None) is not None and torch.backends.mps.is_available()',
       'print(json.dumps({"torch": torch.__version__, "diffusers": diffusers.__version__,',
       ' "device": "cuda" if cuda else "mps" if mps else "cpu",',
-      ' "gpu": torch.cuda.get_device_name(0) if cuda else None}))',
+      ' "gpu": torch.cuda.get_device_name(0) if cuda else None,',
+      ' "arch": torch.cuda.get_arch_list() if cuda else [],',
+      ' "capability": list(torch.cuda.get_device_capability(0)) if cuda else None}))',
     ].join('\n'),
   ])
-  const check = JSON.parse(output.trim().split(/\r?\n/).pop() ?? '{}') as InstallRecord['check']
-  if (torch.indexUrl?.includes('/cu') && check.device !== 'cuda') {
-    // Installed, but the GPU is not usable from it; say so rather than run on the CPU unnoticed.
-    log('Warning: PyTorch does not see the GPU. The engine will run on the CPU.')
-  }
-  return { torch: torch.label, indexUrl: torch.indexUrl, installedAt: new Date().toISOString(), check }
+  return JSON.parse(output.trim().split(/\r?\n/).pop() ?? '{}')
 }
 
 /** Starts an install in the background; false when one is already running. */
