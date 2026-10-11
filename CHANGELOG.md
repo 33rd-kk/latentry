@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **img2img and inpainting on ComfyUI**: a ComfyUI backend takes a source
+  picture and a mask. They are uploaded into ComfyUI's input folder under
+  two names per backend that each run reuses.
+- **Secret mode turned on during a run**: the run becomes secret from then
+  on (within a minute of its end too): a reload or another device no longer
+  picks it up, and it is forgotten a minute after it ends. Turning secret
+  mode off again does not undo that. After a secret run on ComfyUI,
+  Latentry deletes its prompts from ComfyUI's history and overwrites its
+  uploads with an empty picture.
 - **Why a backend does not answer**: **Test** on Settings and the Generate
   page now say whether a backend asked for a login (for example a ComfyUI
   login custom node, or a web UI started with `--api-auth` and no token),

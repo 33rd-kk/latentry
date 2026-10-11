@@ -187,8 +187,6 @@
           "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
         },
         "comfyui": {
-          "img2img": "Latentry's ComfyUI graph draws from a prompt only, for now. Use another backend or Latentry's engine for a source image.",
-          "inpaint": "Latentry's ComfyUI graph draws from a prompt only, for now. Use another backend or Latentry's engine to inpaint.",
           "pose": "Latentry cannot drive pose control on ComfyUI yet. Use a diffusers-compatible server or Latentry's engine for pose."
         }
       },

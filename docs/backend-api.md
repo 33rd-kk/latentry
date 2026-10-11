@@ -259,19 +259,24 @@ Nothing to install on the ComfyUI side. Latentry uses:
 | `GET /ws?clientId=…` | Progress (`progress`, `executing`, `execution_success`, `execution_error`, `execution_interrupted`) |
 | `GET /history/{prompt_id}` | When the prompt is done (polled when the socket cannot be opened), and its output |
 | `GET /view?filename=…&subfolder=…&type=temp` | The picture |
+| `POST /upload/image` (`subfolder: latentry`, `type: input`, `overwrite: true`) | The source and mask for img2img and inpaint |
 | `POST /interrupt` with `prompt_id`, `POST /queue` with `delete` | Cancel |
+| `POST /history` with `delete` | After a secret run: its prompts taken out of the history |
 
 The graph is fixed: `CheckpointLoaderSimple` → one `LoraLoader` per
 `<lora:name:weight>` call (the calls are taken out of the prompt text) →
 two `CLIPTextEncode` → `EmptyLatentImage` → `KSampler` → `VAEDecode` →
-`PreviewImage`. The sampler and scheduler named `Default` are `euler` and
+`PreviewImage`. For img2img, `LoadImage` → `VAEEncode` replaces the empty
+latent and the sampler's `denoise` is the strength; to inpaint,
+`LoadImageMask` (red channel: Latentry's mask as white on black, blurred by
+`mask_blur`) → `SetLatentNoiseMask` on top. The source is uploaded at the
+size the run draws, fitted to its aspect. The sampler and scheduler named `Default` are `euler` and
 `normal`; a random seed is picked by Latentry, so the saved picture says
 which one was used.
 
 Differences from the diffusers-compatible API:
 
-- **txt2img only, for now.** A source image, mask or pose is refused, and the
-  page says so.
+- **No pose, for now.** A pose is refused, and the page says so.
 - **The checkpoint is chosen by Latentry.** ComfyUI has no "loaded model": the
   backend's **Model** setting names it, else the first in ComfyUI's list.
 - **Busy means busy.** With another client's prompt running or queued,
@@ -281,7 +286,11 @@ Differences from the diffusers-compatible API:
 - **What stays on the ComfyUI machine.** `PreviewImage` writes to ComfyUI's
   temp folder (emptied when it restarts), not its output folder. Latentry
   removes ComfyUI's `prompt` and `workflow` chunks from the picture before
-  saving it, since they name model and LoRA folders.
+  saving it, since they name model and LoRA folders. Uploads reuse two names
+  per backend. A secret run (from the start, or marked so while it runs or
+  within a minute of its end, through `POST /api/gen/<id>/job/secret`) has its
+  prompts deleted from the history and its uploads overwritten with an empty
+  picture.
 - **No login.** A token, if set, is sent as `Authorization: Bearer` on both
   HTTP and the socket, for a proxy in front of ComfyUI. Redirects are refused.
 

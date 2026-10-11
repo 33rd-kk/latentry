@@ -1,8 +1,9 @@
 // A stand-in for a ComfyUI server, for tests that run a whole generation
 // without a GPU: the HTTP calls lib/backends/comfyui.ts makes, answered with a
 // small real PNG that carries ComfyUI-style `prompt` and `workflow` chunks
-// (naming a model in a folder, as ComfyUI's do). It has no WebSocket: the
-// upgrade is refused, so the adapter's /history polling is what runs.
+// (naming a model in a folder, as ComfyUI's do), and it records uploads and
+// history deletes. It has no WebSocket: the upgrade is refused, so the
+// adapter's /history polling is what runs.
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -16,6 +17,10 @@ export interface MockComfyUI {
   graphs: Record<string, { class_type: string; inputs: Record<string, unknown> }>[]
   /** The model path its pictures' graph chunks name. */
   modelPath: string
+  /** The file name of every picture uploaded with POST /upload/image, in order. */
+  uploads: string[]
+  /** Prompt ids deleted from its history with POST /history. */
+  deleted: string[]
   close(): Promise<void>
 }
 
@@ -28,9 +33,13 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
   const pixels = await sharp({ create: { width: 64, height: 96, channels: 3, background: '#7a6b93' } }).png().toBuffer()
   const graphs: MockComfyUI['graphs'] = []
   const finished = new Set<string>()
+  const uploads: string[] = []
+  const deleted: string[] = []
 
   const server: Server = createServer((request, response) => {
     let text = ''
+    // Latin-1 keeps a multipart body's bytes one to one, enough to find its file name.
+    request.setEncoding('latin1')
     request.on('data', (chunk) => (text += chunk))
     request.on('end', () => {
       const reply = (status: number, body: unknown) => {
@@ -81,6 +90,20 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
         response.writeHead(200, { 'Content-Type': 'image/png', 'Content-Length': png.length })
         return response.end(png)
       }
+      if (route === 'POST /upload/image') {
+        const name = /filename="([^"]+)"/.exec(text)?.[1]
+        if (!name) return reply(400, { error: 'No image' })
+        uploads.push(name)
+        return reply(200, { name, subfolder: 'latentry', type: 'input' })
+      }
+      if (route === 'POST /history') {
+        try {
+          for (const id of (JSON.parse(text) as { delete?: string[] }).delete ?? []) deleted.push(id)
+        } catch {
+          return reply(400, { error: 'Invalid JSON' })
+        }
+        return reply(200, {})
+      }
       if (route === 'POST /interrupt' || route === 'POST /queue') return reply(200, {})
       return reply(404, { error: 'Not found' })
     })
@@ -94,6 +117,8 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
     url: `http://127.0.0.1:${port}/`,
     graphs,
     modelPath: MODEL_PATH,
+    uploads,
+    deleted,
     close: () => {
       server.closeAllConnections()
       return new Promise((resolve) => server.close(() => resolve()))

@@ -27,6 +27,8 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   if (!generate) return jsonError('prompt is required', 400)
   // Only worked out when the pictures are saved with them (off by default).
   if (adapter.config.kind === 'diffusers' && loraHashesEnabled() && getSaveDir()) generate.lora_hashes = true
+  // A backend that keeps traces of a run (ComfyUI) wipes them for a secret one.
+  if (body.secret === true) generate.secret = true
 
   const id = adapter.config.id
   // A backend does one run at a time, so a second request would only queue

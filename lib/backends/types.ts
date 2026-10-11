@@ -114,6 +114,12 @@ export interface GenerateRequest {
    * from the settings (gallery.loraHashes), never taken from the browser.
    */
   lora_hashes?: boolean
+  /**
+   * A secret-mode run: a backend that keeps traces of it (ComfyUI's history,
+   * uploaded pictures) wipes them when it ends. Set by this server from the
+   * run's own flag, not parsed by toGenerateRequest.
+   */
+  secret?: boolean
 }
 
 export type BackendEvent =
@@ -178,4 +184,10 @@ export interface BackendAdapter {
   cancel(runId: string | null): Promise<Outcome<{ status: string }>>
   tag?(imageBase64: string): Promise<Outcome<{ tags: WdTag[] }>>
   pose?(request: PoseRequest): Promise<Outcome<unknown>>
+  /**
+   * Secret mode was turned on during this app's current (or just-ended) run:
+   * treat it as secret from now on, wiping what it left on the backend. A
+   * backend that keeps nothing of a run need not implement it.
+   */
+  markSecret?(): Promise<void>
 }

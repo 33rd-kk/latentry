@@ -75,6 +75,11 @@ The source picture, mask and pose are sent together, up to 48 MB. Only a
 very detailed 2048px source comes near that; if it goes over, a message asks
 for a smaller or simpler picture.
 
+On a ComfyUI backend, the source and mask are uploaded into ComfyUI's input
+folder under two names that each run reuses; after a secret run they are
+overwritten with an empty picture (see
+[Backends](../reference/backends.md#comfyui)).
+
 ### Tags from the source
 
 **Extract tags** reads the source's WD14 tags (a tagger must be set up; see
