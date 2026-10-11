@@ -17,9 +17,13 @@ picture.
 
 - **Install the engine**: gets uv, Python 3.12, PyTorch (the large part),
   diffusers and the engine, then checks the GPU from Python. About 3–4 GB,
-  a few minutes. Everything goes into `.runtime/`; deleting it removes the
-  engine. uv is a fixed release, checked against its published SHA-256
-  before it is run.
+  a few minutes. Everything goes into `.runtime/`, Python included: the
+  engine does not use a Python or uv you installed yourself, and ignores your
+  own uv settings (`UV_*` variables, `uv.toml`). Deleting `.runtime/` removes
+  the engine. An engine installed before this used a Python 3.12 from this
+  computer when it found one; **Repair / update** moves it onto its own.
+  uv is a fixed release, checked against its published SHA-256 before it is
+  run.
 - **Repair / update**: run it after updating Latentry, or when the engine
   will not start.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
