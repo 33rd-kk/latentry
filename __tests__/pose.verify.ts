@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three'
 import { check, done, eq } from './assert'
-import { POSE_LIMITS, toPoseRequest } from '../lib/pose'
+import { ALL_PEOPLE, FRONT, POSE_LIMITS, WHOLE_FRAME, readPoseAnswer, sameView, toPoseRequest } from '../lib/pose'
 import { aimCamera, frustumFor, toThree } from '../components/pose3d/projection'
 import fixtures from './fixtures/pose-view.json'
 
@@ -68,5 +68,46 @@ for (const [index, fixture] of fixtures.entries()) {
   })
   check(worst < 0.05, `view ${index} (yaw ${fixture.yaw}, pitch ${fixture.pitch}, zoom ${fixture.framing.zoom}) matches poseorbit: off by ${worst.toFixed(4)} px`)
 }
+
+// The pose slot's reading of /api/pose answers (lib/pose.ts readPoseAnswer).
+eq(readPoseAnswer(null), null, 'answer: none')
+eq(readPoseAnswer({ error: 'No person found' }), null, 'answer: an error has no skeleton')
+eq(
+  readPoseAnswer({ skeleton_base64: 'AAA', width: 832, height: 1216 }),
+  {
+    skeleton: { dataUrl: 'data:image/png;base64,AAA', width: 832, height: 1216 },
+    people: [],
+    person: null,
+    limits: null,
+    style: null,
+    jointsInFrame: null,
+    camera: FRONT,
+  },
+  'answer: a backend that sends only the skeleton cannot turn it and drew it from the front'
+)
+const full = readPoseAnswer({
+  skeleton_base64: 'AAA',
+  width: 832,
+  height: 1216,
+  person: -1,
+  people: [{ bbox: [0, 0, 0.5, 1] }, { bbox: [0.5, 0, 1, 1] }],
+  limits: { yaw: 90, pitch: 45, zoom: [0.5, 6] },
+  style: 'openpose',
+  joints_in_frame: 9,
+  camera: { yaw: 40, pitch: 10 },
+})
+eq(full?.person, ALL_PEOPLE, 'answer: everyone')
+eq(full?.people.length, 2, 'answer: the people found')
+eq(full?.limits, { yaw: 90, pitch: 45, zoom: [0.5, 6] }, 'answer: turning limits')
+eq(full?.style, 'openpose', 'answer: drawing style')
+eq(full?.jointsInFrame, 9, 'answer: joints in frame')
+eq(full?.camera, { yaw: 40, pitch: 10, framing: WHOLE_FRAME }, 'answer: a camera without framing frames the whole picture')
+eq(
+  readPoseAnswer({ skeleton_base64: 'AAA', limits: { yaw: 90, pitch: 45 } })?.limits,
+  { yaw: 90, pitch: 45, zoom: [1, 1] },
+  'answer: a backend without zoom limits cannot zoom'
+)
+check(sameView(FRONT, { yaw: 0, pitch: 0, framing: { zoom: 1, x: 0.5, y: 0.5 } }), 'sameView: the front equals itself')
+check(!sameView(FRONT, { yaw: 0, pitch: 0, framing: { zoom: 2, x: 0.5, y: 0.5 } }), 'sameView: a zoom is another view')
 
 done('pose')

@@ -82,3 +82,89 @@ export function toPoseRequest(body: Record<string, unknown> | null): PoseRequest
   }
   return request
 }
+
+// ── The pose slot's side: reading what /api/pose answers ─────────────────────
+
+/** The pose API's index for "every detected person" (see docs/backend-api.md). */
+export const ALL_PEOPLE = -1
+
+/** The skeleton the run will follow, as the backend's /pose drew it. */
+export interface PoseSkeleton {
+  dataUrl: string
+  width: number
+  height: number
+}
+
+/** One person the server found, as fractions of the reference picture: [x0, y0, x1, y1]. */
+export interface DetectedPerson {
+  bbox: [number, number, number, number]
+  /** With want_3d: 133 points (x right, y down, z away) in units of the picture's width. */
+  points_3d?: number[][]
+  scores?: number[]
+}
+
+/** The camera as the 3D view and the answers carry it: framing always present. */
+export type ViewCamera = PoseCamera & { framing: PoseFraming }
+
+export const FRONT: ViewCamera = { yaw: 0, pitch: 0, framing: WHOLE_FRAME }
+
+export const sameView = (a: ViewCamera, b: ViewCamera) =>
+  a.yaw === b.yaw && a.pitch === b.pitch && a.framing.zoom === b.framing.zoom && a.framing.x === b.framing.x && a.framing.y === b.framing.y
+
+/** How far a backend lets the camera swing and zoom. */
+export interface PoseTurnLimits {
+  yaw: number
+  pitch: number
+  zoom: readonly [number, number]
+}
+
+/** One /api/pose answer, as the pose slot keeps it. */
+export interface PoseAnswer {
+  skeleton: PoseSkeleton
+  people: DetectedPerson[]
+  /** Who was drawn: an index into `people`, ALL_PEOPLE, or null when the backend does not say. */
+  person: number | null
+  /** Null when the backend cannot turn a pose. */
+  limits: PoseTurnLimits | null
+  /** How the skeleton was drawn ("openpose", "dwpose"), when it says. */
+  style: string | null
+  /** Body joints left inside the frame, when it says. */
+  jointsInFrame: number | null
+  /** The angle the skeleton was drawn from. */
+  camera: ViewCamera
+}
+
+/** A /api/pose answer read leniently, as backends written before some fields still send it; null without a skeleton. */
+export function readPoseAnswer(data: unknown): PoseAnswer | null {
+  const answer = data as {
+    skeleton_base64?: string
+    width?: number
+    height?: number
+    people?: unknown
+    person?: unknown
+    limits?: { yaw?: unknown; pitch: number; zoom?: unknown } | null
+    style?: unknown
+    joints_in_frame?: unknown
+    camera?: { yaw?: unknown; pitch: number; framing?: PoseFraming } | null
+  } | null
+  if (!answer || typeof answer !== 'object' || !answer.skeleton_base64) return null
+  const { limits, camera } = answer
+  return {
+    skeleton: { dataUrl: `data:image/png;base64,${answer.skeleton_base64}`, width: answer.width as number, height: answer.height as number },
+    people: Array.isArray(answer.people) ? (answer.people as DetectedPerson[]) : [],
+    person: typeof answer.person === 'number' ? answer.person : null,
+    limits:
+      limits && typeof limits.yaw === 'number'
+        ? {
+            yaw: limits.yaw,
+            pitch: limits.pitch,
+            // A backend without framing gets a view that cannot zoom.
+            zoom: Array.isArray(limits.zoom) ? (limits.zoom as [number, number]) : [1, 1],
+          }
+        : null,
+    style: typeof answer.style === 'string' ? answer.style : null,
+    jointsInFrame: typeof answer.joints_in_frame === 'number' ? answer.joints_in_frame : null,
+    camera:
+      camera && typeof camera.yaw === 'number' ? { yaw: camera.yaw, pitch: camera.pitch, framing: camera.framing ?? WHOLE_FRAME } : FRONT,
+  }
+}
