@@ -11,6 +11,7 @@
     "test": "node scripts/run-verify.mjs",
     "i18n:translate": "node scripts/i18n-translate.mjs",
     "i18n:check": "node scripts/i18n-translate.mjs --check",
+    "engine:lock": "node scripts/lock-engine.mjs",
     "banner": "node scripts/make-banner.mjs",
     "test:e2e": "node scripts/e2e.mjs"
   },
