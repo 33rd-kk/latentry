@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { toSourceImage, type SourceImage } from "@/components/generate/source-image-slot"
 import { useT } from "@/lib/i18n"
-import { FRONT, isPlainView, readPoseAnswer, type DetectedPerson, type PoseSkeleton, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
+import { FRONT, isPlainView, readPoseAnswer, type DetectedPerson, type PersonChoice, type PoseSkeleton, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
 
 interface UsePoseDetectOptions {
   /** The backend whose /pose detects people and draws the skeleton. */
@@ -26,7 +26,9 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
   // person (or detecting again at a new size) doesn't need the picture again.
   const [reference, setReference] = useState<SourceImage | null>(null)
   const [people, setPeople] = useState<DetectedPerson[]>([])
-  const [person, setPerson] = useState<number | null>(null)
+  const [person, setPerson] = useState<PersonChoice | null>(null)
+  // Whether the backend takes some of the people by a list, or only one or everyone.
+  const [subsets, setSubsets] = useState(false)
   // How far the backend lets the camera swing; null when it cannot turn a pose.
   const [limits, setLimits] = useState<PoseTurnLimits | null>(null)
   // How the skeleton was drawn, and how much of the body is left in its frame.
@@ -38,7 +40,7 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
   const [view, setView] = useState<ViewCamera>(FRONT)
 
   const detect = useCallback(
-    async (picture: SourceImage, which?: number | null, options: { camera?: ViewCamera; want3d?: boolean } = {}) => {
+    async (picture: SourceImage, which?: PersonChoice | null, options: { camera?: ViewCamera; want3d?: boolean } = {}) => {
       setLoading(true)
       setError(null)
       const camera = options.camera ?? turn
@@ -62,6 +64,7 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
         setReference(picture)
         setPeople(answer.people)
         setPerson(answer.person)
+        setSubsets(answer.subsets)
         setLimits(answer.limits)
         setStyle(answer.style)
         setJointsInFrame(answer.jointsInFrame)
@@ -117,6 +120,7 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
     reference,
     people,
     person,
+    subsets,
     limits,
     style,
     jointsInFrame,

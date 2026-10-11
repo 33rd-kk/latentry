@@ -205,12 +205,21 @@ def test_a_bodyless_post_is_fine(client: TestClient) -> None:
         {"image_base64": ""},
         {"image_base64": 42},
         {"image_base64": "x", "person": -2},
+        {"image_base64": "x", "person": []},
+        {"image_base64": "x", "person": [0, -1]},
+        {"image_base64": "x", "person": list(range(65))},
         {"image_base64": "x", "width": 0},
         {"image_base64": "x", "style": "s" * 33},
     ],
 )
 def test_pose_checks_its_body(client: TestClient, body: dict[str, object]) -> None:
     assert client.post("/api/pose", json=body, headers=auth()).status_code == 422
+
+
+@pytest.mark.parametrize("person", [0, -1, [0, 2]])
+def test_pose_takes_one_person_everyone_or_some(client: TestClient, person: object) -> None:
+    # The body passes; the picture is not one, which poseorbit refuses with a 400.
+    assert client.post("/api/pose", json={"image_base64": "x", "person": person}, headers=auth()).status_code == 400
 
 
 def test_generate_caps_the_prompt(client: TestClient) -> None:

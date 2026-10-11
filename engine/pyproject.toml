@@ -18,10 +18,10 @@ dependencies = [
     "pillow>=10",
     "numpy>=1.26",
     # Pose control: poseorbit (PyPI; https://github.com/33rd-kk/poseorbit)
-    # finds people and draws skeletons; below 0.2 while its API may still
+    # finds people and draws skeletons; below 0.3 while its API may still
     # change between minor versions. peft loads Anima's pose LoRA.
-    # 0.1.2 pins its detector downloads to a commit and a SHA-256.
-    "poseorbit>=0.1.2,<0.2",
+    # 0.2.0 draws some of the people by a list (and pins its downloads, as 0.1.2 did).
+    "poseorbit>=0.2.0,<0.3",
     "peft>=0.15",
     # torch comes from PyTorch's index, which carries an old setuptools
     # (78.1, with known path-traversal advisories); this pulls a fixed one

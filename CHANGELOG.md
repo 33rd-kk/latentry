@@ -10,6 +10,13 @@
   the same for its three detector models and no longer leaves a second copy
   in Hugging Face's shared cache. Run **Repair / update** for the engine on
   **Setup** once to get it.
+- **Pick any of the people for a pose**: in a picture of several people,
+  click each numbered box to follow that person or leave them out, so two
+  of three can be used; at least one stays. **Everyone** still picks all.
+  This needs a backend that says it takes a list (`person_subsets` in
+  docs/backend-api.md); Latentry's engine does from poseorbit 0.2.0, so run
+  **Repair / update** for the engine once. Other backends keep one person
+  or everyone, and the chooser says why.
 
 ## 0.7.0 (2026-10-11)
 

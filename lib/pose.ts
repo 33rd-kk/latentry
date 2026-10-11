@@ -54,8 +54,16 @@ export function toPoseRequest(body: Record<string, unknown> | null): PoseRequest
   if (finite(body.width)) request.width = body.width
   if (finite(body.height)) request.height = body.height
   // Whose pose in a picture of several people: an index into the previous
-  // answer's `people`, or -1 for everyone. Absent means the most confident.
+  // answer's `people`, -1 for everyone, or a list of indices for some of them
+  // (sorted, without repeats). Absent means the most confident.
   if (Number.isInteger(body.person) && (body.person as number) >= -1) request.person = body.person as number
+  else if (Array.isArray(body.person)) {
+    const indices = body.person as unknown[]
+    if (!indices.length || indices.length > MAX_CHOSEN || !indices.every((index) => Number.isInteger(index) && (index as number) >= 0)) {
+      return `person as a list must hold 1-${MAX_CHOSEN} indices`
+    }
+    request.person = [...new Set(indices as number[])].sort((a, b) => a - b)
+  }
   if (body.want_3d === true) request.want_3d = true
   if (body.camera !== undefined && body.camera !== null) {
     const camera = body.camera as Record<string, unknown>
@@ -118,12 +126,42 @@ export interface PoseTurnLimits {
   zoom: readonly [number, number]
 }
 
+/** Who to draw: an index into `people`, ALL_PEOPLE, or some of them by index. */
+export type PersonChoice = number | number[]
+
+/** The most people one request may choose by a list (poseorbit holds to the same). */
+export const MAX_CHOSEN = 64
+
+/** The indices `person` means among `count` people (none for null). */
+export function chosenIndices(person: PersonChoice | null, count: number): Set<number> {
+  if (person === null) return new Set()
+  if (person === ALL_PEOPLE) return new Set(Array.from({ length: count }, (_, index) => index))
+  return new Set(Array.isArray(person) ? person : [person])
+}
+
+/**
+ * The choice after `index` is switched on or off, or null when that would
+ * leave nobody. One person stays a plain index and all of them become
+ * ALL_PEOPLE, so a backend sees the same request as from the one-or-all chooser.
+ */
+export function toggledChoice(person: PersonChoice | null, index: number, count: number): PersonChoice | null {
+  const chosen = chosenIndices(person, count)
+  if (chosen.has(index)) chosen.delete(index)
+  else chosen.add(index)
+  if (chosen.size === 0) return null
+  if (chosen.size === count) return ALL_PEOPLE
+  const indices = [...chosen].sort((a, b) => a - b)
+  return indices.length === 1 ? indices[0] : indices
+}
+
 /** One /api/pose answer, as the pose slot keeps it. */
 export interface PoseAnswer {
   skeleton: PoseSkeleton
   people: DetectedPerson[]
-  /** Who was drawn: an index into `people`, ALL_PEOPLE, or null when the backend does not say. */
-  person: number | null
+  /** Who was drawn, or null when the backend does not say. */
+  person: PersonChoice | null
+  /** Whether the backend takes a list of people (`person_subsets`); without it, one or everyone. */
+  subsets: boolean
   /** Null when the backend cannot turn a pose. */
   limits: PoseTurnLimits | null
   /** How the skeleton was drawn ("openpose", "dwpose"), when it says. */
@@ -142,6 +180,7 @@ export function readPoseAnswer(data: unknown): PoseAnswer | null {
     height?: number
     people?: unknown
     person?: unknown
+    person_subsets?: unknown
     limits?: { yaw?: unknown; pitch: number; zoom?: unknown } | null
     style?: unknown
     joints_in_frame?: unknown
@@ -152,7 +191,13 @@ export function readPoseAnswer(data: unknown): PoseAnswer | null {
   return {
     skeleton: { dataUrl: `data:image/png;base64,${answer.skeleton_base64}`, width: answer.width as number, height: answer.height as number },
     people: Array.isArray(answer.people) ? (answer.people as DetectedPerson[]) : [],
-    person: typeof answer.person === 'number' ? answer.person : null,
+    person:
+      typeof answer.person === 'number'
+        ? answer.person
+        : Array.isArray(answer.person) && answer.person.length && answer.person.every((index) => Number.isInteger(index))
+          ? (answer.person as number[])
+          : null,
+    subsets: answer.person_subsets === true,
     limits:
       limits && typeof limits.yaw === 'number'
         ? {

@@ -134,6 +134,7 @@ export function PoseSlot({ backend, value, onChange, strength, defaultStrength, 
           picture={choosing}
           people={people}
           person={person}
+          subsets={pose.subsets}
           onPick={(which) => void detect(choosing, which)}
           veil={
             secret

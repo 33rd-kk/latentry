@@ -1,12 +1,13 @@
-// The pose slot on a diffusers-compatible backend with pose (the mock in
+// The pose slot on diffusers-compatible backends with pose (the mock in
 // __tests__/fixtures/mock-diffusers.ts finds three people): a picture is
-// detected, a person is picked, the 3D view opens, and secret mode blurs the
-// picture people are picked from but not their numbered boxes.
+// detected, people are picked (one by one on "pose", which takes a list; one
+// or everyone on "pose-single", which does not), the 3D view opens, and
+// secret mode blurs the picture people are picked from but not their boxes.
 
 import { expect, test, type Page, type Request } from '@playwright/test'
 import sharp from 'sharp'
 
-const isPose = (request: Request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/gen/pose/pose'
+const isPose = (request: Request) => request.method() === 'POST' && /^\/api\/gen\/pose(-single)?\/pose$/.test(new URL(request.url()).pathname)
 
 /** What the page asked /api/pose for, without the picture. */
 function asked(request: Request): Record<string, unknown> {
@@ -14,12 +15,12 @@ function asked(request: Request): Record<string, unknown> {
   return rest
 }
 
-async function openPoseBackend(page: Page) {
+async function openPoseBackend(page: Page, id: 'pose' | 'pose-single' = 'pose') {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
   // The backend select is the first one on the page.
   await page.getByRole('combobox').first().click()
-  await page.getByRole('option').filter({ hasText: 'diffusers' }).click()
+  await page.getByRole('option').filter({ has: page.getByText(id, { exact: true }) }).click()
   await expect(page.getByText('Skeleton pose', { exact: true })).toBeVisible()
 }
 
@@ -43,8 +44,8 @@ async function poseAfter(page: Page, click: () => Promise<void>): Promise<Record
   return sent
 }
 
-test('a picture is detected, a person picked, and the skeleton removed', async ({ page }) => {
-  await openPoseBackend(page)
+test('on a backend that takes one or everyone, a person is picked, and the skeleton removed', async ({ page }) => {
+  await openPoseBackend(page, 'pose-single')
   const first = asked(await choosePicture(page))
   // A new picture names nobody and starts from the front.
   expect(first).not.toHaveProperty('person')
@@ -53,6 +54,8 @@ test('a picture is detected, a person picked, and the skeleton removed', async (
 
   await expect(page.getByRole('img', { name: 'Skeleton pose' })).toBeVisible()
   await expect(page.getByText('Found 3 people. Pick whose pose to follow.')).toBeVisible()
+  // It says why it cannot pick two of them.
+  await expect(page.getByText('This backend follows one person or everyone.', { exact: false })).toBeVisible()
   // The server drew its most confident one: the second from the left.
   await expect(page.getByRole('button', { name: 'Person 2' })).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('button', { name: 'Person 1' })).toHaveAttribute('aria-pressed', 'false')
@@ -67,6 +70,33 @@ test('a picture is detected, a person picked, and the skeleton removed', async (
   await page.getByRole('button', { name: 'Remove' }).click()
   await expect(page.getByRole('img', { name: 'Skeleton pose' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /Drop a picture to follow its pose/ })).toBeVisible()
+})
+
+test('on a backend that takes a list, people are switched on and off one by one', async ({ page }) => {
+  await openPoseBackend(page)
+  await choosePicture(page)
+  await expect(page.getByText('Click each one to follow or leave out', { exact: false })).toBeVisible()
+  await expect(page.getByText('This backend follows one person or everyone.', { exact: false })).toHaveCount(0)
+  const person = (n: number) => page.getByRole('button', { name: `Person ${n}` })
+  const pressed = async (expected: boolean[]) => {
+    for (const [index, on] of expected.entries()) await expect(person(index + 1)).toHaveAttribute('aria-pressed', String(on))
+  }
+  // The server drew its most confident one; it is the only one, so it cannot be left out.
+  await pressed([false, true, false])
+  await expect(person(2)).toBeDisabled()
+
+  expect(await poseAfter(page, () => person(3).click())).toMatchObject({ person: [1, 2] })
+  await pressed([false, true, true])
+  // All three is everyone, as the Everyone button sends.
+  expect(await poseAfter(page, () => person(1).click())).toMatchObject({ person: -1 })
+  await pressed([true, true, true])
+  await expect(page.getByRole('button', { name: 'Everyone' })).toHaveAttribute('aria-pressed', 'true')
+  expect(await poseAfter(page, () => person(2).click())).toMatchObject({ person: [0, 2] })
+  await pressed([true, false, true])
+  // Back to one is a plain index.
+  expect(await poseAfter(page, () => person(1).click())).toMatchObject({ person: 2 })
+  await pressed([false, false, true])
+  await expect(person(3)).toBeDisabled()
 })
 
 test('the 3D view asks for the points once and starts from the front', async ({ page }) => {
@@ -107,5 +137,5 @@ test('in secret mode the picture is blurred, its numbered boxes are not', async 
   await expect(chooser).toHaveCount(1)
 
   // A person can still be picked while it is blurred.
-  expect(await poseAfter(page, () => page.getByRole('button', { name: 'Person 3' }).click())).toMatchObject({ person: 2 })
+  expect(await poseAfter(page, () => page.getByRole('button', { name: 'Person 3' }).click())).toMatchObject({ person: [1, 2] })
 })
