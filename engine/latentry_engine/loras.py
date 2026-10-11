@@ -202,7 +202,7 @@ def applied(pipe, calls: list[LoraCall]):
         for name, call in zip(names, calls):
             try:
                 pipe.load_lora_weights(str(call.path), adapter_name=name)
-            except Exception as error:  # noqa: BLE001 - diffusers says why in its own words
+            except Exception as error:
                 raise LoraError(f"The LoRA {call.name} could not be applied to this model: {error}") from error
         pipe.set_adapters(others + names, [1.0] * len(others) + [call.weight for call in calls])
         yield

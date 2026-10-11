@@ -30,18 +30,16 @@ from pathlib import Path
 from queue import Empty, Queue
 from typing import Any
 
+import poseorbit
+import poseorbit.api
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-import poseorbit
-import poseorbit.api
-
 from . import __version__, loras, models, pose_control, samplers
 from .core import Cancelled, Engine, EngineError, GenerateRequest, decode_image
 from .gpu import plan as gpu_plan
-
 
 # What one request may carry. Latentry sends at most 48 MB (lib/limits.ts),
 # with each picture under 32M characters of base64 (lib/api.ts).
@@ -297,8 +295,8 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                         import torch
 
                         torch.cuda.empty_cache()
-                    except Exception:  # noqa: BLE001
-                        pass
+                    except Exception as cleanup:  # noqa: BLE001 - the run has failed anyway
+                        print(f"[engine] could not free GPU memory: {cleanup!r}", flush=True)
                 print(f"[engine] generation failed: {error!r}", flush=True)
                 emit("error", {"message": message})
             finally:

@@ -140,9 +140,8 @@ def test_applied_keeps_the_pose_adapter_on(tmp_path: Path) -> None:
 def test_a_lora_that_will_not_load_leaves_nothing_on(tmp_path: Path) -> None:
     calls = [loras.LoraCall("a", 1, tmp_path / "a.safetensors"), loras.LoraCall("b", 1, tmp_path / "b.safetensors")]
     pipe = StandIn(fail_on="b.safetensors")
-    with pytest.raises(loras.LoraError, match="The LoRA b could not be applied"):
-        with loras.applied(pipe, calls):
-            pass
+    with pytest.raises(loras.LoraError, match="The LoRA b could not be applied"), loras.applied(pipe, calls):
+        pass
     assert pipe.adapters == []
 
 

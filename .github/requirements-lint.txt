@@ -1,0 +1,4 @@
+# Lint tools CI installs (see .github/workflows/ci.yml). Pinned so a new
+# release cannot change what passes without a pull request; Dependabot
+# proposes the updates.
+ruff==0.17.0
