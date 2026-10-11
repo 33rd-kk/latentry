@@ -39,7 +39,13 @@ The Setup page runs in three steps:
 1. **Install the engine.** Latentry looks at your GPU and installs Python
    3.12, the matching PyTorch build and stock diffusers, all under `.runtime/`
    in the app folder (about 3–4 GB, a few minutes). Deleting `.runtime/`
-   removes it again.
+   removes it again. The Python packages are the ones pinned for your
+   machine, each file checked against its hash; **Repair / update** makes
+   the engine's environment match them exactly, so a package you added to
+   it by hand is removed. To take the newest packages instead (say, a
+   pinned one has a known vulnerability and no Latentry update has come),
+   set `LATENTRY_ENGINE_PACKAGES=latest` in `.env.local` and run
+   **Repair / update**; Setup then says the packages are not pinned.
 2. **Download a model.** Each model comes from its publisher on Hugging Face.
    Read its licence (linked on the page; some are non-commercial), tick the
    box, and download. Or point the models folder at models you already have.

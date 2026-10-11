@@ -1,6 +1,7 @@
 # Known vulnerabilities in what Latentry installs: the web UI's npm packages
-# and the engine's Python packages (torch aside: it comes from PyTorch's own
-# index, matched to the GPU, at install time). Weekly, and when they change.
+# and the engine's Python packages, exactly as pinned in engine/locks/ for
+# every machine and PyTorch build. Weekly, and when they change: the pinned
+# packages get fixes only with a new lock, so a red run here is the signal.
 name: Dependency audit
 
 on:
@@ -8,9 +9,9 @@ on:
     - cron: "23 3 * * 1" # Mondays 03:23 UTC
   push:
     branches: [main]
-    paths: [package.json, package-lock.json, engine/pyproject.toml, .github/workflows/audit.yml]
+    paths: [package.json, package-lock.json, engine/pyproject.toml, engine/locks/**, .github/workflows/audit.yml]
   pull_request:
-    paths: [package.json, package-lock.json, engine/pyproject.toml, .github/workflows/audit.yml]
+    paths: [package.json, package-lock.json, engine/pyproject.toml, engine/locks/**, .github/workflows/audit.yml]
   workflow_dispatch:
 
 permissions:
@@ -38,12 +39,37 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
+      - run: pip install pip-audit
+      # Each lock as name==version, nothing installed: the vulnerability
+      # database knows torch 2.14.1, not the local build tag "+cu130", so the
+      # tag is left off (the same release for the audit). Any finding fails the job.
+      #
+      # Known and accepted, on two locks only: PyTorch stopped publishing for
+      # CUDA 11.8 at torch 2.7 and for CUDA 12.8 at 2.10, so torch there has
+      # known vulnerabilities that no build for that CUDA fixes. Those builds
+      # are for older NVIDIA drivers (and Blackwell GPUs on a 570 driver);
+      # Setup says so there and asks for a driver update (580+), which gets
+      # the current CUDA 13.0 build. Their torch is listed, not failed on;
+      # every other package on them still fails the job.
       - run: |
-          python -m venv /tmp/audit
-          /tmp/audit/bin/pip install --upgrade pip
-          # accelerate and peft need torch; the CPU build keeps the job small.
-          /tmp/audit/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
-          /tmp/audit/bin/pip install -e ./engine
-          pip install pip-audit
-      # The engine itself (editable) is skipped, poseorbit from PyPI is checked; any finding fails the job.
-      - run: pip-audit --path /tmp/audit/lib/python3.12/site-packages --skip-editable --desc on
+          status=0
+          for lock in engine/locks/*.txt; do
+            echo "::group::$lock"
+            python - "$lock" > /tmp/pins.txt <<'EOF'
+          import re, sys
+          for line in open(sys.argv[1]):
+              if re.match(r"[A-Za-z0-9]", line):
+                  print(re.sub(r"\+[\w.]+$", "", line.split()[0]))
+          EOF
+            case "$lock" in
+              *-cu118.txt|*-cu128.txt)
+                grep -E '^torch(vision)?==' /tmp/pins.txt > /tmp/torch.txt
+                pip-audit -r /tmp/torch.txt --no-deps --disable-pip || echo "::notice::$lock: torch on an outdated CUDA build (accepted, see above)"
+                grep -vE '^torch(vision)?==' /tmp/pins.txt > /tmp/rest.txt
+                mv /tmp/rest.txt /tmp/pins.txt
+                ;;
+            esac
+            pip-audit -r /tmp/pins.txt --no-deps --disable-pip --desc on || status=1
+            echo "::endgroup::"
+          done
+          exit $status

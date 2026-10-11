@@ -82,7 +82,24 @@ What it does guard against:
   Setup page come from a fixed commit of their repository, and each file is
   checked against its SHA-256 before it is kept. So are the pose models
   fetched on first use: the engine's SDXL ControlNet and Anima pose adapter,
-  and poseorbit's pose detectors. The Python packages are not pinned yet.
+  and poseorbit's pose detectors. So are the engine's Python packages: each
+  machine and PyTorch build has a lock in `engine/locks/` (every package at
+  one version, with the SHA-256 of each file), installed with
+  `uv pip sync --require-hashes`, so a file that does not match is never
+  installed and nothing outside the lock stays in the environment.
+  - Pinned also means security fixes arrive only with a new lock (a
+    Latentry update; one is proposed every month, and the weekly audit
+    checks the locks). Setup says when the lock is over six months old.
+  - Where Latentry has no lock (another machine, macOS before 14, a GPU
+    newer than the locked PyTorch knows, or a pinned file its index no
+    longer offers), the engine is installed unpinned, as before, and the
+    log and Setup say so. `LATENTRY_ENGINE_PACKAGES=latest` does the same
+    by choice, for when Latentry is not updated and a pinned package has a
+    known vulnerability. A file whose hash does not match never falls back:
+    the install stops.
+  - PyTorch no longer publishes current releases for CUDA 11.8 and 12.8;
+    machines that need those builds (older NVIDIA drivers) get an older
+    PyTorch with known vulnerabilities, and Setup asks for a driver update.
 - **Secret mode** is a privacy aid for this browser, not a security
   boundary: it keeps typed text out of browser storage, gallery pictures out
   of the browser cache, and secret runs from other pages. By design, saved

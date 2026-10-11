@@ -17,6 +17,19 @@
   docs/backend-api.md); Latentry's engine does from poseorbit 0.2.0, so run
   **Repair / update** for the engine once. Other backends keep one person
   or everyone, and the chooser says why.
+- **Pinned Python packages**: the engine's packages, PyTorch included, now
+  come from a lock for your machine and PyTorch build (`engine/locks/`),
+  every file checked against its SHA-256, and **Repair / update** makes the
+  environment match it exactly (a package added to it by hand is removed).
+  Setup shows the date they were pinned and warns once that is over six
+  months ago. Where there is no lock, or with
+  `LATENTRY_ENGINE_PACKAGES=latest`, the engine is installed unpinned as
+  before, and Setup says so. Run **Repair / update** once to switch.
+- **PyTorch for 570-series NVIDIA drivers**: GPUs older than Blackwell now
+  get the CUDA 12.6 build, which PyTorch still updates, instead of CUDA
+  12.8, which stopped at an older PyTorch. Where an older build is the only
+  one that runs (CUDA 11.8, or Blackwell on a 570 driver), Setup suggests a
+  driver update.
 
 ## 0.7.0 (2026-10-11)
 
