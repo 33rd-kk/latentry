@@ -363,7 +363,7 @@ export function SettingsForm() {
                   </Field>
                 </div>
                 {backend.kind === "comfyui" && (
-                  <Field label={t("settings.backendModel")}>
+                  <Field label={t("settings.backendModel")} hint={t("settings.backendModelHint")}>
                     <Input
                       value={backend.model}
                       onChange={(event) => update({ model: event.target.value })}
@@ -376,7 +376,6 @@ export function SettingsForm() {
                         <option key={name} value={name} />
                       ))}
                     </datalist>
-                    <p className="text-xs text-muted-foreground">{t("settings.backendModelHint")}</p>
                     {error(`backends.${index}.model`)}
                   </Field>
                 )}
