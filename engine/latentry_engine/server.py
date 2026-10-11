@@ -290,8 +290,10 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             except (EngineError, loras.LoraError) as error:
                 emit("error", {"message": str(error)})
             except Exception as error:  # noqa: BLE001
-                message = str(error)
-                if "out of memory" in message.lower():
+                # An unexpected error's own text can name files and folders on this
+                # computer, and the run may come from a phone: it goes to the log only.
+                message = f"Generation failed ({type(error).__name__}). The engine's log on the computer running Latentry has the details."
+                if "out of memory" in str(error).lower():
                     message = "The GPU ran out of memory. Try a smaller size or fewer images."
                     try:
                         import torch

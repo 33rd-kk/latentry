@@ -361,6 +361,13 @@ export function SetupPanel() {
               {t("setup.autoStart")}
             </label>
           </div>
+          <label className="flex items-start gap-2 text-xs">
+            <Switch className="mt-0.5" checked={s.shareLoras} onCheckedChange={(checked) => void saveEngineSetting({ shareLoras: checked })} />
+            <span>
+              {t("setup.shareLoras")}
+              <span className="block text-muted-foreground">{t("setup.shareLorasHint")}</span>
+            </span>
+          </label>
 
           {s.engines.map((engine) => (
             <Collapsible key={engine.id} className="rounded-lg border p-3">

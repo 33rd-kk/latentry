@@ -9,6 +9,7 @@
 
 import { adapterFor, getAdapter, usableBackends } from '@/lib/backends'
 import { taggerPreference } from '@/lib/backends/config'
+import { redactPaths } from '@/lib/backends/http'
 import type { Outcome, WdTag } from '@/lib/backends/types'
 import { BUILTIN_TAGGER, type Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
@@ -56,7 +57,8 @@ export function builtinTagger(config: Wd14Config = wd14Config()): Tagger | null 
         return { ok: true, value: { tags: await tagImage(modelDir, imageBase64, thresholds) } }
       } catch (error) {
         console.error('Built-in WD14 failed:', error)
-        return { ok: false, status: 500, error: error instanceof Error ? error.message : 'Tagging failed' }
+        // ONNX Runtime names the model file by its full path; a phone may be asking.
+        return { ok: false, status: 500, error: error instanceof Error ? redactPaths(error.message) : 'Tagging failed' }
       }
     },
   }

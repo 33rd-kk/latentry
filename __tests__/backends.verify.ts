@@ -18,7 +18,7 @@ import {
   type A1111Transport,
 } from '../lib/backends/a1111'
 import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
-import { REDIRECT_REFUSED } from '../lib/backends/http'
+import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
 import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL } from '../lib/backends/hints'
 import { applyEvent, consumeEvents, getCurrentJob, startJob, toSnapshot } from '../lib/diffusion/job-store'
@@ -66,7 +66,7 @@ function scriptedWebUi(options: {
       }
       if (path === '/sdapi/v1/samplers') return { status: 200, body: [{ name: 'Euler a' }, { name: 'DPM++ 2M' }] }
       if (path === '/sdapi/v1/schedulers') return { status: 200, body: [{ name: 'karras', label: 'Karras' }] }
-      if (path === '/sdapi/v1/options') return { status: 200, body: { sd_model_checkpoint: 'waiNSFW.safetensors' } }
+      if (path === '/sdapi/v1/options') return { status: 200, body: { sd_model_checkpoint: 'sdxl\\anime\\waiNSFW.safetensors [abc123]' } }
       return { status: 404, body: null }
     },
     post(path, body) {
@@ -99,6 +99,25 @@ async function main() {
   )
   eq('loras' in (toEvent('image', { index: 0, seed: 9, image_base64: 'AA==', loras: [] }) ?? {}), false, 'image: no LoRAs said, none recorded')
   eq(toEvent('error', {}), { type: 'error', message: 'The backend reported an error.' }, 'error without a message')
+
+  // Paths in a backend's words are hidden: a paired phone may be reading them.
+  eq(
+    toEvent('error', { message: "[Errno 2] No such file or directory: 'C:\\Users\\me\\models\\x.safetensors'" }),
+    { type: 'error', message: "[Errno 2] No such file or directory: '<path>'" },
+    'a Windows path in an error event'
+  )
+  eq(
+    [
+      redactPaths('cannot open /home/me/models/loras/style.safetensors now'),
+      redactPaths('share \\\\nas\\pictures\\a.png gone'),
+      redactPaths('D:/ComfyUI/output failed'),
+      redactPaths('see http://192.168.1.5:7860/sdapi/v1/txt2img for 1/2 of it'),
+      redactPaths('/api only'),
+    ],
+    ['cannot open <path> now', 'share <path> gone', '<path> failed', 'see http://192.168.1.5:7860/sdapi/v1/txt2img for 1/2 of it', '/api only'],
+    'POSIX, network and forward-slash Windows paths go; URLs, fractions and single words stay'
+  )
+  eq(errorMessage({ detail: 'No model at E:\\sd\\x.ckpt' }, 'x'), 'No model at <path>', 'errorMessage hides them too')
   eq(toEvent('heartbeat', {}), null, 'unknown events are ignored')
 
   // ── A1111 helpers ──
@@ -169,8 +188,8 @@ async function main() {
   const status = await adapter.status()
   eq(
     [status.alive, status.busy, status.model, status.samplers[0], status.schedulers, status.capabilities.pose],
-    [true, false, 'waiNSFW.safetensors', 'Default', ['Default', 'Karras'], false],
-    'status'
+    [true, false, 'waiNSFW.safetensors [abc123]', 'Default', ['Default', 'Karras'], false],
+    'status, the model named by its file only (no folders under the models folder)'
   )
 
   const busy = scriptedWebUi({ progress: [{ job_count: 1, job_timestamp: 'theirs' }], pollsBeforeDone: 0, result: { status: 200, body: {} } })

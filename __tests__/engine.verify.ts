@@ -10,6 +10,7 @@ import { chooseTorch, parseNvidiaSmi, type Gpu } from '../lib/engine/gpus'
 import { isSha256 } from '../lib/engine/download'
 import { isPinnedUv, uvAsset, uvEnvironment, venvOnOtherPython } from '../lib/engine/install'
 import { UV_SHA256, UV_VERSION, uvUrl } from '../lib/engine/uv-release'
+import { loraAccess } from '../lib/engine/lora-access'
 import { profileFor } from '../lib/engine/supervisor'
 import { EMPTY_SETTINGS, validateSettings } from '../lib/settings/schema'
 
@@ -97,5 +98,21 @@ const merged = validateSettings({ engine: { autoStart: false } }, { version: 1, 
 eq(merged.ok ? merged.settings.engine : null, { model: 'a.safetensors', modelsDir: 'D:/models', autoStart: false }, 'one engine field at a time keeps the others')
 const cleared = validateSettings({ engine: { modelsDir: null } }, { version: 1, engine: { model: 'a.safetensors', modelsDir: 'D:/models' } })
 eq(cleared.ok ? cleared.settings.engine : null, { model: 'a.safetensors', modelsDir: null }, 'null goes back to the default folder')
+
+// The LoRA list: this machine, or paired devices only when sharing is on
+const share = (value: unknown) => {
+  const result = validateSettings({ engine: { shareLoras: value } }, { version: 1, engine: { autoStart: false } })
+  return result.ok ? result.settings.engine : null
+}
+eq([share(true), share('yes')], [{ autoStart: false, shareLoras: true }, { autoStart: false, shareLoras: false }], 'sharing LoRAs is on only for true, and keeps the other engine fields')
+const local = new Headers({ host: 'localhost:3000' })
+const phone = new Headers({ host: '192.168.1.20:3000', 'x-forwarded-for': '192.168.1.30' })
+const sharing = { version: 1, engine: { shareLoras: true } } as const
+eq(
+  [loraAccess(local, EMPTY_SETTINGS, {}), loraAccess(phone, EMPTY_SETTINGS, {}), loraAccess(phone, sharing, {})],
+  ['edit', null, 'shared'],
+  'this machine always; a paired device only with sharing on'
+)
+eq(loraAccess(phone, EMPTY_SETTINGS, { SETTINGS_EDIT: 'lan' }), 'edit', 'SETTINGS_EDIT=lan already lets the LAN edit')
 
 done('engine')

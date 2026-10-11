@@ -58,6 +58,8 @@ export interface EngineStatus {
   /** The folder set on the Setup page; null for the default (<app>/models). */
   customModelsDir: string | null
   autoStart: boolean
+  /** Whether paired devices get the LoRA picker too (settings.engine.shareLoras). */
+  shareLoras: boolean
   basePort: number
   installed: InstallRecord | null
   install: { state: InstallState; step: string | null; error: string | null; log: string[] }
@@ -154,6 +156,7 @@ export async function engineStatus(): Promise<EngineStatus> {
     modelsDir: dir,
     customModelsDir: settings.engine?.modelsDir ?? null,
     autoStart: settings.engine?.autoStart !== false,
+    shareLoras: settings.engine?.shareLoras === true,
     basePort: settings.engine?.basePort ?? DEFAULT_BASE_PORT,
     installed: await installRecord(),
     install: { state: job.state, step: job.step, error: job.error, log: job.log.slice(-200) },

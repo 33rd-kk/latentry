@@ -42,6 +42,18 @@ if (mode !== 'build' && !rest.some((arg) => arg === '-H' || arg === '--hostname'
   args.push('-H', configuredHost() ?? '127.0.0.1')
 }
 
+// `next dev` shows its error overlay, with this computer's paths and source,
+// to every page it serves. Fine on this machine; on the LAN, say so.
+const hostAt = args.findIndex((arg) => arg === '-H' || arg === '--hostname' || arg.startsWith('--hostname='))
+const host = hostAt === -1 ? null : args[hostAt].startsWith('--hostname=') ? args[hostAt].slice('--hostname='.length) : args[hostAt + 1]
+if (mode === 'dev' && host && !/^(?:127\.\d+\.\d+\.\d+|localhost|::1|\[::1\])$/i.test(host)) {
+  console.warn(
+    `\nWarning: \`npm run dev\` is listening on ${host}, so other devices reach the development server.\n` +
+      "Its error pages show file paths and source code of this computer to them. To use Latentry from\n" +
+      'other devices, run `npm run build` and `npm start` instead.\n'
+  )
+}
+
 if (mode === 'start' && !process.env.LATENTRY_NO_LOGO) await import('./logo.mjs')
 
 // Requests are stamped with their real address from before Next.js loads, so

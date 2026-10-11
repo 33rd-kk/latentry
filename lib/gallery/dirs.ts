@@ -12,6 +12,7 @@
 import path from 'node:path'
 import type { Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
+import { autoFolderName, folderNamesKey } from './folder-names'
 
 type Env = Record<string, string | undefined>
 
@@ -19,9 +20,20 @@ export interface GalleryDir {
   index: number
   /** Absolute, normalised. Server-side only. */
   path: string
-  /** The folder's own name, which is all the browser is shown. */
+  /**
+   * What the browser is shown: the display name set on the Settings page,
+   * or else a made-up one (./folder-names.ts). Never the folder's own name.
+   */
   label: string
+  /** Whether `label` is made up rather than set. */
+  autoLabel: boolean
   writable: boolean
+}
+
+/** A folder path as compared: resolved, and case-folded where the file system is. */
+export function folderKey(folder: string, platform: NodeJS.Platform = process.platform): string {
+  const resolved = path.resolve(folder)
+  return platform === 'win32' ? resolved.toLowerCase() : resolved
 }
 
 function splitPaths(value: string | undefined): string[] {
@@ -32,19 +44,29 @@ function splitPaths(value: string | undefined): string[] {
     .filter(Boolean)
 }
 
-/** Pure, so the verify script can feed it any environment and settings. */
-export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }): GalleryDir[] {
+/**
+ * Pure, so the verify script can feed it any environment, settings and key.
+ * `nameKey` makes the names of folders without one (see ./folder-names.ts);
+ * without it they are "Folder 1", "Folder 2"…
+ */
+export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }, nameKey?: Buffer): GalleryDir[] {
   const dirs: GalleryDir[] = []
   const seen = new Set<string>()
+  const gallery = settings.gallery ?? {}
+  const labels = new Map(Object.entries(gallery.labels ?? {}).map(([folder, label]) => [folderKey(folder), label]))
+  const used = new Set<string>()
   const add = (raw: string, writable: boolean) => {
-    const resolved = path.resolve(raw)
     // Windows paths are case-insensitive; compare them that way.
-    const key = process.platform === 'win32' ? resolved.toLowerCase() : resolved
+    const key = folderKey(raw)
     if (seen.has(key)) return
     seen.add(key)
-    dirs.push({ index: dirs.length, path: resolved, label: path.basename(resolved) || resolved, writable })
+    const set = labels.get(key)
+    let label = set ?? (nameKey ? autoFolderName(nameKey, key) : `Folder ${dirs.length + 1}`)
+    // Two folders never share a name in the tabs.
+    for (let n = 2; used.has(label.toLowerCase()); n += 1) label = `${set ?? label.replace(/ \d+$/, '')} ${n}`
+    used.add(label.toLowerCase())
+    dirs.push({ index: dirs.length, path: path.resolve(raw), label, autoLabel: set === undefined, writable })
   }
-  const gallery = settings.gallery ?? {}
   const save = gallery.saveDir !== undefined ? gallery.saveDir : env.GALLERY_SAVE_DIR?.trim()
   if (save) add(save, true)
   for (const dir of gallery.dirs ?? splitPaths(env.GALLERY_DIRS)) add(dir, false)
@@ -52,7 +74,16 @@ export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }):
 }
 
 export function getGalleryDirs(env: Env = process.env): GalleryDir[] {
-  return parseGalleryDirs(env, getSettings())
+  return parseGalleryDirs(env, getSettings(), folderNameKey(env))
+}
+
+/** This install's key for made-up folder names; none (so "Folder 1"…) if it cannot be read or made. */
+function folderNameKey(env: Env): Buffer | undefined {
+  try {
+    return folderNamesKey(env)
+  } catch {
+    return undefined
+  }
 }
 
 export function getSaveDir(env: Env = process.env): GalleryDir | null {

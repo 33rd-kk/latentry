@@ -8,7 +8,8 @@
 import path from 'node:path'
 import { check, done, eq } from './assert'
 import { parseBackends } from '../lib/backends/config'
-import { parseGalleryDirs } from '../lib/gallery/dirs'
+import { folderKey, parseGalleryDirs } from '../lib/gallery/dirs'
+import { autoFolderName } from '../lib/gallery/folder-names'
 import { composePrompt, fitToImage, formatForProfile, getProfile, listProfiles } from '../lib/profiles'
 import { appendTag, appendTags, formatTags, prependTags, splitTags, tagKey, toSpacedTags, wildcardMatch } from '../lib/tags'
 
@@ -48,7 +49,7 @@ eq(parseBackends({}).backends, [], 'nothing configured')
 // ── GALLERY_* ──
 const dirs = parseGalleryDirs({ GALLERY_SAVE_DIR: './output', GALLERY_DIRS: 'a;  b ;./output;' })
 eq(
-  dirs.map((dir) => [dir.index, dir.label, dir.writable]),
+  dirs.map((dir) => [dir.index, path.basename(dir.path), dir.writable]),
   [
     [0, 'output', true],
     [1, 'a', false],
@@ -57,6 +58,24 @@ eq(
   'the save folder first and writable, duplicates dropped'
 )
 check(dirs.every((dir) => path.isAbsolute(dir.path)), 'paths are absolute')
+
+// Folder names: never the folder's own; set, or made up from this install's key.
+const key = Buffer.alloc(32, 7)
+const named = parseGalleryDirs({ GALLERY_SAVE_DIR: './output', GALLERY_DIRS: 'D:/ComfyUI/output;E:/' }, { version: 1, gallery: { labels: { './output': 'Mine' } } }, key)
+eq(named.map((dir) => [dir.label, dir.autoLabel]).slice(0, 1), [['Mine', false]], 'a set display name is used, matched however the folder is written')
+check(
+  named.slice(1).every((dir) => dir.autoLabel && /^[A-Z][a-z]+ [A-Z][a-z]+( \d+)?$/.test(dir.label) && !/comfy|output|[:\\/]/i.test(dir.label)),
+  'other folders get a made-up name that says nothing of the path'
+)
+eq(
+  parseGalleryDirs({ GALLERY_DIRS: 'D:/ComfyUI/output;E:/' }, undefined, key).map((dir) => dir.label),
+  named.slice(1).map((dir) => dir.label),
+  'the same folder keeps the same made-up name'
+)
+check(autoFolderName(Buffer.alloc(32, 8), folderKey('D:/ComfyUI/output')) !== autoFolderName(key, folderKey('D:/ComfyUI/output')) || autoFolderName(Buffer.alloc(32, 9), folderKey('D:/ComfyUI/output')) !== autoFolderName(key, folderKey('D:/ComfyUI/output')), 'another install (key) gives other names')
+eq(parseGalleryDirs({ GALLERY_DIRS: 'x;y' }).map((dir) => dir.label), ['Folder 1', 'Folder 2'], 'without a key: numbers')
+const twins = parseGalleryDirs({ GALLERY_DIRS: 'x;y' }, { version: 1, gallery: { labels: { x: 'Same', y: 'same' } } })
+eq(twins.map((dir) => dir.label), ['Same', 'same 2'], 'two folders never share a name')
 eq(parseGalleryDirs({ GALLERY_DIRS: 'x' })[0].writable, false, 'without a save folder nothing is writable')
 
 // ── Profiles ──
