@@ -18,13 +18,12 @@ import contextlib
 import io
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
 
 import torch
 from PIL import Image, ImageFilter
-
 from poseorbit import letterbox
 
 from . import loras, pose_control, samplers
@@ -112,7 +111,7 @@ def mask_from_alpha(mask: Image.Image, size: tuple[int, int]) -> Image.Image:
 
 
 def snap(value: float, multiple: int = 8) -> int:
-    return max(256, min(2048, int(round(value / multiple)) * multiple))
+    return max(256, min(2048, round(value / multiple) * multiple))
 
 
 def fit_to_image(source: Image.Image, width: int, height: int, multiple: int = 8) -> tuple[int, int]:

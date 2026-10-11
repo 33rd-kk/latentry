@@ -34,3 +34,8 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["latentry_engine"]
+
+# Lint (CI runs the ruff pinned in .github/requirements-lint.txt, with its
+# default rules): the oldest Python the engine supports.
+[tool.ruff]
+target-version = "py310"

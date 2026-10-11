@@ -202,8 +202,9 @@ def applied(pipe, calls: list[LoraCall]):
         for name, call in zip(names, calls):
             try:
                 pipe.load_lora_weights(str(call.path), adapter_name=name)
-            except Exception as error:  # noqa: BLE001 - diffusers says why in its own words
-                # Its words can include the file's path: those go to the log, not to the client.
+            except Exception as error:
+                # diffusers says why in its own words, which can include the
+                # file's path: those go to the log, not to the client.
                 print(f"[engine] applying LoRA {call.name} failed: {error!r}", flush=True)
                 raise LoraError(f"The LoRA {call.name} could not be applied to this model ({type(error).__name__}). The engine's log has the details.") from error
         pipe.set_adapters(others + names, [1.0] * len(others) + [call.weight for call in calls])

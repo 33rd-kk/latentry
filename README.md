@@ -212,7 +212,13 @@ npm run typecheck
 npm run lint
 npm test          # verify scripts in __tests__/, no test framework needed
 npm test -- gallery   # just the ones whose name contains "gallery"
+npm run i18n:check
+ruff check engine # the version in .github/requirements-lint.txt
 ```
+
+CI runs these on every pull request (Ubuntu and Windows on Node.js 22,
+Ubuntu on Node.js 24), plus a production build and the engine's tests.
+macOS runs after each merge to main and once a week.
 
 Layout:
 
