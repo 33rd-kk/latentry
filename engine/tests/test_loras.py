@@ -150,3 +150,17 @@ def test_no_calls_touch_nothing() -> None:
     with loras.applied(pipe, []):
         pass
     assert pipe.log == []
+
+
+def test_a_failed_lora_names_no_path_to_the_client(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    class PathInError(StandIn):
+        def load_lora_weights(self, path, adapter_name):
+            raise OSError(f"Unable to open {path}")
+
+    calls = [loras.LoraCall("style", 1, tmp_path / "secret-folder" / "style.safetensors")]
+    with pytest.raises(loras.LoraError) as raised, loras.applied(PathInError(), calls):
+        pass
+    message = str(raised.value)
+    assert "secret-folder" not in message and str(tmp_path) not in message
+    assert "OSError" in message and "log" in message
+    assert "secret-folder" in capsys.readouterr().out, "the details are in the engine's log"

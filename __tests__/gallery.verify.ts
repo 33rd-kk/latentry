@@ -147,7 +147,7 @@ async function main() {
   await mkdir(folder)
   await mkdir(outside)
   try {
-    const dir: GalleryDir = { index: 0, path: folder, label: 'out', writable: true }
+    const dir: GalleryDir = { index: 0, path: folder, label: 'out', autoLabel: true, writable: true }
     await writeFile(path.join(folder, 'old.png'), written)
     await writeFile(path.join(folder, 'new.png'), retagged)
     await writeFile(path.join(folder, 'notes.txt'), 'not an image')
@@ -173,7 +173,7 @@ async function main() {
     // ── Orders and filters, in a folder of their own ──
     const sorting = path.join(root, 'sorting')
     await mkdir(sorting)
-    const sortDir: GalleryDir = { index: 1, path: sorting, label: 'sorting', writable: false }
+    const sortDir: GalleryDir = { index: 1, path: sorting, label: 'sorting', autoLabel: true, writable: false }
     const wide = await sharp({ create: { width: 32, height: 16, channels: 3, background: '#654321' } }).webp().toBuffer()
     await writeFile(path.join(sorting, 'p10.png'), written) // portrait, no WD14 tags
     await writeFile(path.join(sorting, 'p2.png'), retagged) // portrait, tagged
@@ -212,7 +212,7 @@ async function main() {
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
 
     // ── LoRAs, from a picture A1111 wrote ──
-    const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', writable: false }
+    const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', autoLabel: true, writable: false }
     await mkdir(loraDir.path)
     await writeFile(
       path.join(loraDir.path, 'with.png'),

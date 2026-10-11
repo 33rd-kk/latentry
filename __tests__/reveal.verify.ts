@@ -32,7 +32,7 @@ async function main() {
     await writeFile(path.join(folder, 'a.png'), 'x')
     await writeFile(path.join(root, 'outside.png'), 'x')
     await writeFile(path.join(folder, 'notes.txt'), 'x')
-    const dir: GalleryDir = { index: 0, path: folder, label: 'out', writable: false }
+    const dir: GalleryDir = { index: 0, path: folder, label: 'out', autoLabel: true, writable: false }
     const started: OpenCommand[] = []
     const run = (command: OpenCommand) => void started.push(command)
 

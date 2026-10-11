@@ -7,7 +7,7 @@
 
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { loraName, type LoraUse } from '@/lib/image-meta'
-import { errorMessage, fetchWithTimeout, getJson, isAbortError, refuseRedirect } from './http'
+import { errorMessage, fetchWithTimeout, getJson, isAbortError, redactPaths, refuseRedirect } from './http'
 import { diffusersHints } from './hints'
 import type {
   BackendAdapter,
@@ -60,7 +60,9 @@ function finite(value: unknown): number | null {
 
 /** "org/name" → "name"; the repo owner is noise in a one-line label. */
 function shortModelName(id: string): string {
-  return id.split('/').pop() ?? id
+  // Either separator: a server may name its model by a Windows path, and only
+  // the last part of it is shown, to paired devices too.
+  return id.split(/[\\/]/).pop() ?? id
 }
 
 export class DiffusersAdapter implements BackendAdapter {
@@ -288,7 +290,7 @@ export function toEvent(event: string, data: Record<string, unknown>): BackendEv
     case 'cancelled':
       return { type: 'cancelled' }
     case 'error':
-      return { type: 'error', message: typeof data.message === 'string' ? data.message : 'The backend reported an error.' }
+      return { type: 'error', message: typeof data.message === 'string' ? redactPaths(data.message) : 'The backend reported an error.' }
     default:
       return null
   }

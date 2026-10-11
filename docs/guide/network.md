@@ -15,7 +15,9 @@ your network:
     LATENTRY_HOST=0.0.0.0
     ```
 
-2. Restart Latentry (`npm start`).
+2. Restart Latentry (`npm start`). Not `npm run dev`: the development
+   server's error pages show this computer's file paths and source code to
+   every device that opens them, and it warns when started that way.
 3. On Windows, when the firewall asks, allow Node.js on **private** networks.
 4. On the other device, open `http://<this computer's address>:3000`, for
    example `http://192.168.1.20:3000`. It shows **Pair this device**.
@@ -122,6 +124,12 @@ Good to know:
 - Requests are rate-limited per device, counted by the address the
   connection really comes from.
 - Stopping a run takes that run's id, which only the page watching it has.
+- Paired devices do not see this computer's paths or folder names. Gallery
+  folders are shown by their display name (Settings > Gallery folders) or a
+  made-up one such as "Amber Fox", models by their file name only, and
+  error messages with paths in them as `<path>`. The LoRA list (file names)
+  goes to them only if **Show the LoRA list on paired devices** is on
+  (Setup > Engine).
 - The built-in engine listens on 127.0.0.1 with a random token only Latentry
   holds, and answers only requests addressed to this computer.
 - Backend tokens are only sent to the server they were set up for.

@@ -20,7 +20,14 @@ export interface SettingsView {
   backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
-  gallery: { saveDir: string | null; dirs: string[]; autoTag: boolean; loraHashes: boolean }
+  gallery: {
+    saveDir: string | null
+    dirs: string[]
+    autoTag: boolean
+    loraHashes: boolean
+    /** Each folder's name as shown, set or made up, by its path as in saveDir / dirs. */
+    labels: Record<string, { label: string; auto: boolean }>
+  }
   profiles: Partial<Record<ProfileId, ProfileOverride>>
   sources: { backends: Source; tagger: Source; wd14: Source; saveDir: Source; dirs: Source; autoTag: Source }
   builtinProfiles: {
@@ -62,6 +69,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       dirs: dirs.filter((dir) => !dir.writable).map((dir) => dir.path),
       autoTag: autoTagEnabled(process.env, settings),
       loraHashes: loraHashesEnabled(settings),
+      labels: Object.fromEntries(dirs.map((dir) => [dir.path, { label: dir.label, auto: dir.autoLabel }])),
     },
     profiles: settings.profiles ?? {},
     sources: {

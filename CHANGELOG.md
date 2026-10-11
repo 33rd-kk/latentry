@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- **Less of this computer on paired devices**:
+  - Gallery folders are shown by a display name you set next to each
+    folder on Settings, or else by a made-up name such as "Amber Fox".
+    The folder's own name is no longer shown, here or on a phone.
+  - Unexpected errors from the engine no longer pass on their own text,
+    which can name files; it goes to the engine's log.
+  - Paths in other errors (the built-in tagger, other backends) show as
+    `<path>`.
+  - Model names show the file name only, without the folders they sit in.
+  - `npm run dev` warns when it listens beyond this computer, since its
+    error pages show paths and source code.
+- **LoRA list on paired devices**: **Show the LoRA list on paired devices**
+  (Setup > Engine, off by default) gives phones and other paired devices
+  **Add a LoRA** too.
+
 - **Pinned downloads**: the engine install fetches uv 0.13.0 instead of
   the latest release, and checks it against its SHA-256 before running it.
   An engine installed with another uv gets 0.13.0 on its next **Repair /

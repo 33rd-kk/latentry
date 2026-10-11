@@ -55,6 +55,13 @@ export function GenerateClient() {
   const { load: loadEngineModel } = engineModels
   const isEngine = Boolean(selectedId && engineModels.engines.includes(selectedId))
   const engineLoras = useEngineLoras()
+  // The LoRA picker has its own rule: a paired device gets it too when sharing is on.
+  const pickLoras = Boolean(selectedId && engineLoras.engines.includes(selectedId))
+  // The loaded model's family, to grey out LoRAs for the other one. A client
+  // without the model list (a paired device) goes by the form's profile.
+  const loraFamily =
+    engineModels.models?.find((model) => model.id === engineModels.current)?.family ??
+    (form?.profile === "anima" ? "anima" : form?.profile === "sdxl" || form?.profile === "illustrious" || form?.profile === "pony" ? "sdxl" : null)
   const chooseModel = useCallback(
     async (model: EngineModelOption) => {
       const error = await loadEngineModel(model.id)
@@ -290,10 +297,10 @@ export function GenerateClient() {
               onPromptScopeChange={formState.changePromptScope}
               appliesLoras={Boolean(capabilities?.lora)}
               loraPicker={
-                isEngine && capabilities?.lora
+                pickLoras && capabilities?.lora
                   ? {
                       loras: engineLoras.loras,
-                      family: engineModels.models?.find((model) => model.id === engineModels.current)?.family ?? null,
+                      family: loraFamily,
                       onOpen: engineLoras.refresh,
                     }
                   : undefined

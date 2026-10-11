@@ -15,6 +15,7 @@ import { UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { BACKEND_KINDS, type BackendKind, type BackendStatus } from "@/lib/backends/types"
 import { setProfileOverrides, type ProfileId } from "@/lib/profiles"
 import { TAG_STYLES } from "@/lib/tags"
+import { MAX_FOLDER_LABEL } from "@/lib/settings/schema"
 import type { SettingsView } from "@/lib/settings/view"
 import { cn } from "@/lib/utils"
 import { useT, type MessageKey } from "@/lib/i18n"
@@ -46,7 +47,10 @@ interface Draft {
   wd14General: string
   wd14Character: string
   saveDir: string
+  /** Display names, "" for a made-up one; dirLabels runs alongside dirs. */
+  saveLabel: string
   dirs: string[]
+  dirLabels: string[]
   autoTag: boolean
   loraHashes: boolean
   profiles: Partial<Record<ProfileId, ProfileDraft>>
@@ -58,6 +62,18 @@ const PROFILE_FIELDS: (keyof ProfileDraft)[] = ["width", "height", "steps", "cfg
 
 let nextKey = 0
 const newKey = () => `b${(nextKey += 1)}`
+
+/** A folder's display name as set on this page; "" when it has a made-up one. */
+function setLabel(view: SettingsView, folder: string | null): string {
+  const entry = folder ? view.gallery.labels[folder] : undefined
+  return entry && !entry.auto ? entry.label : ""
+}
+
+/** What an empty display name shows as: the folder's made-up name, once it has one. */
+function autoLabel(view: SettingsView, folder: string): string | undefined {
+  const entry = view.gallery.labels[folder.trim()]
+  return entry?.auto ? entry.label : undefined
+}
 
 function toDraft(view: SettingsView): Draft {
   const profiles: Draft["profiles"] = {}
@@ -88,7 +104,9 @@ function toDraft(view: SettingsView): Draft {
     wd14General: view.wd14.general === view.wd14.defaults.general ? "" : String(view.wd14.general),
     wd14Character: view.wd14.character === view.wd14.defaults.character ? "" : String(view.wd14.character),
     saveDir: view.gallery.saveDir ?? "",
+    saveLabel: setLabel(view, view.gallery.saveDir),
     dirs: view.gallery.dirs,
+    dirLabels: view.gallery.dirs.map((dir) => setLabel(view, dir)),
     autoTag: view.gallery.autoTag,
     loraHashes: view.gallery.loraHashes,
     profiles,
@@ -117,7 +135,18 @@ function toInput(draft: Draft, dirty: Set<Part>) {
     }
   }
   if (dirty.has("gallery")) {
-    body.gallery = { saveDir: draft.saveDir.trim() || null, dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean), autoTag: draft.autoTag, loraHashes: draft.loraHashes }
+    const labels: Record<string, string> = {}
+    if (draft.saveDir.trim() && draft.saveLabel.trim()) labels[draft.saveDir.trim()] = draft.saveLabel.trim()
+    draft.dirs.forEach((dir, index) => {
+      if (dir.trim() && draft.dirLabels[index]?.trim()) labels[dir.trim()] = draft.dirLabels[index].trim()
+    })
+    body.gallery = {
+      saveDir: draft.saveDir.trim() || null,
+      dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean),
+      autoTag: draft.autoTag,
+      loraHashes: draft.loraHashes,
+      labels,
+    }
   }
   if (dirty.has("profiles")) {
     const profiles: Record<string, Record<string, unknown>> = {}
@@ -457,12 +486,22 @@ export function SettingsForm() {
       >
         <div className="space-y-4">
           <Field label={t("settings.saveDir")} hint={t("settings.saveDirHint")}>
-            <Input
-              value={draft.saveDir}
-              onChange={(event) => change("gallery", (current) => ({ ...current, saveDir: event.target.value }))}
-              placeholder={t("settings.saveDirOff")}
-              className="font-mono text-xs"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={draft.saveDir}
+                onChange={(event) => change("gallery", (current) => ({ ...current, saveDir: event.target.value }))}
+                placeholder={t("settings.saveDirOff")}
+                className="font-mono text-xs"
+              />
+              <Input
+                value={draft.saveLabel}
+                onChange={(event) => change("gallery", (current) => ({ ...current, saveLabel: event.target.value }))}
+                placeholder={autoLabel(settingsView, draft.saveDir) ?? t("settings.folderLabelAuto")}
+                aria-label={t("settings.folderLabel")}
+                maxLength={MAX_FOLDER_LABEL}
+                className="w-32 shrink-0 text-xs sm:w-40"
+              />
+            </div>
             {error("gallery.saveDir")}
           </Field>
           <div className="space-y-2">
@@ -478,12 +517,31 @@ export function SettingsForm() {
                     }
                     className="font-mono text-xs"
                   />
+                  <Input
+                    value={draft.dirLabels[index] ?? ""}
+                    onChange={(event) =>
+                      change("gallery", (current) => ({
+                        ...current,
+                        dirLabels: current.dirs.map((_, i) => (i === index ? event.target.value : (current.dirLabels[i] ?? ""))),
+                      }))
+                    }
+                    placeholder={autoLabel(settingsView, dir) ?? t("settings.folderLabelAuto")}
+                    aria-label={t("settings.folderLabel")}
+                    maxLength={MAX_FOLDER_LABEL}
+                    className="w-32 shrink-0 text-xs sm:w-40"
+                  />
                   <Button
                     type="button"
                     variant="ghost"
                     size="icon"
                     aria-label={t("settings.remove")}
-                    onClick={() => change("gallery", (current) => ({ ...current, dirs: current.dirs.filter((_, i) => i !== index) }))}
+                    onClick={() =>
+                      change("gallery", (current) => ({
+                        ...current,
+                        dirs: current.dirs.filter((_, i) => i !== index),
+                        dirLabels: current.dirLabels.filter((_, i) => i !== index),
+                      }))
+                    }
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -491,7 +549,12 @@ export function SettingsForm() {
                 {error(`gallery.dirs.${index}`)}
               </div>
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => change("gallery", (current) => ({ ...current, dirs: [...current.dirs, ""] }))}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => change("gallery", (current) => ({ ...current, dirs: [...current.dirs, ""], dirLabels: [...current.dirLabels, ""] }))}
+            >
               <Plus className="mr-1 h-4 w-4" />
               {t("settings.addDir")}
             </Button>
