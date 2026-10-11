@@ -1,6 +1,7 @@
 // Prints the pins Latentry checks its downloads against, for pasting into
-// lib/engine/uv-release.ts and lib/engine/catalog.ts. It changes no file:
-// read what it prints before trusting it.
+// lib/engine/uv-release.ts, lib/engine/catalog.ts and
+// engine/latentry_engine/pose_control.py. It changes no file: read what it
+// prints before trusting it.
 //
 //   node scripts/pin-downloads.mjs uv <version>
 //       SHA-256 of each uv build Latentry may install, from that release's

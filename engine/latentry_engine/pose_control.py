@@ -16,7 +16,9 @@ this module applies the drawn skeleton to the loaded model:
   pipelines, built from the loaded pipeline's components. Skeletons are drawn
   "openpose".
 
-Weights download on first use into `<models>/controls/`.
+Weights download on first use into `<models>/controls/`, from a fixed commit
+of their repository, and each file is checked against its SHA-256 before it
+is used (re-pin with `node scripts/pin-downloads.mjs hf <repo> <files>`).
 """
 
 from __future__ import annotations
@@ -28,26 +30,61 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .models import sha256_of
+
 ANIMA_ADAPTER_REPO = "Claquasse/Anima-Control-Pose"
+ANIMA_ADAPTER_REVISION = "8f559771d5a49a02fa03f7df2a05ccb7eecb3a2a"
 ANIMA_ADAPTER_FILE = "anima_pose_preview2.safetensors"
+ANIMA_ADAPTER_SHA256 = "c10fa11628e9b1bf16dfe095ac5c6dc4ddd9ae77d7fe023d0a1857f7e29c516f"
 ANIMA_LAYERS = 28
 ANIMA_ADAPTER_NAME = "anima_pose"
 
 SDXL_CONTROLNET_REPO = "xinsir/controlnet-openpose-sdxl-1.0"
-SDXL_CONTROLNET_FILES = ("config.json", "diffusion_pytorch_model.safetensors")
+SDXL_CONTROLNET_REVISION = "23f966cd5cfdd3f7729c903e243d87152162d2b7"
+SDXL_CONTROLNET_FILES = {
+    "config.json": "b5b8f9a7619c9452f19407ef73a01ce3f061fcf932de43ddbaca336d12d02801",
+    "diffusion_pytorch_model.safetensors": "b8524e557a7df60d081f5d4a0eb109967d107df217943bf88c2d99b9ebcc06c5",
+}
+
+# Files already checked, by (path, size, mtime_ns): hashing the 2.5 GB
+# ControlNet on every model load would cost seconds. Kept in memory only.
+_checked: set[tuple[str, int, int]] = set()
 
 
 def controls_dir(models_dir: Path) -> Path:
     return models_dir / "controls"
 
 
-def _download(repo: str, filename: str, folder: Path) -> Path:
+def _matches(path: Path, sha256: str) -> bool:
+    if not path.is_file():
+        return False
+    stat = path.stat()
+    key = (str(path), stat.st_size, stat.st_mtime_ns)
+    if key not in _checked:
+        if sha256_of(path) != sha256:
+            return False
+        _checked.add(key)
+    return True
+
+
+def _download(repo: str, revision: str, filename: str, sha256: str, folder: Path) -> Path:
+    """`filename` from `repo` at `revision`, checked against `sha256`.
+
+    A file already there that does not match (one fetched from `main` before
+    the pin, or a damaged one) is removed and fetched again; a download that
+    does not match is removed, never used.
+    """
     from huggingface_hub import hf_hub_download
 
     local = folder / filename
-    if local.is_file():
+    if _matches(local, sha256):
         return local
-    return Path(hf_hub_download(repo, filename, local_dir=folder))
+    local.unlink(missing_ok=True)
+    downloaded = Path(hf_hub_download(repo, filename, revision=revision, local_dir=folder))
+    if not _matches(downloaded, sha256):
+        downloaded.unlink(missing_ok=True)
+        raise RuntimeError(f"{repo}/{filename} does not match its pinned SHA-256")
+    return downloaded
 
 
 # ── Anima ───────────────────────────────────────────────────────────────────
@@ -95,7 +132,9 @@ class AnimaPoseAdapter:
             return
         from safetensors.torch import load_file
 
-        state = load_file(str(_download(ANIMA_ADAPTER_REPO, ANIMA_ADAPTER_FILE, self.folder)))
+        state = load_file(
+            str(_download(ANIMA_ADAPTER_REPO, ANIMA_ADAPTER_REVISION, ANIMA_ADAPTER_FILE, ANIMA_ADAPTER_SHA256, self.folder))
+        )
         embedder_state = {
             key.split("control_embedder.", 1)[1]: value for key, value in state.items() if "control_embedder." in key
         }
@@ -147,8 +186,8 @@ def load_sdxl_controlnet(folder: Path, dtype: torch.dtype):
     from diffusers import ControlNetModel
 
     target = folder / SDXL_CONTROLNET_REPO.split("/")[1]
-    for filename in SDXL_CONTROLNET_FILES:
-        _download(SDXL_CONTROLNET_REPO, filename, target)
+    for filename, sha256 in SDXL_CONTROLNET_FILES.items():
+        _download(SDXL_CONTROLNET_REPO, SDXL_CONTROLNET_REVISION, filename, sha256, target)
     return ControlNetModel.from_pretrained(str(target), torch_dtype=dtype)
 
 
