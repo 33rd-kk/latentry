@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { adapterOr404, json } from '@/lib/api'
 import { getCurrentJob, isResumable, toSnapshot } from '@/lib/diffusion/job-store'
 
@@ -12,7 +11,7 @@ export const runtime = 'nodejs'
  */
 export async function GET(_request: Request, ctx: RouteContext<'/api/gen/[backend]/job'>) {
   const adapter = adapterOr404((await ctx.params).backend)
-  if (adapter instanceof NextResponse) return adapter
+  if (adapter instanceof Response) return adapter
   const job = getCurrentJob(adapter.config.id)
   return json({ job: job && isResumable(job) ? toSnapshot(job) : null })
 }

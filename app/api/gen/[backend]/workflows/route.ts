@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { adapterOr404, json } from '@/lib/api'
 import { listWorkflows } from '@/lib/backends/comfy-workflows'
 import { workflowAccess } from '@/lib/backends/workflow-access'
@@ -16,7 +15,7 @@ export const runtime = 'nodejs'
  */
 export async function GET(request: Request, ctx: RouteContext<'/api/gen/[backend]/workflows'>) {
   const adapter = adapterOr404((await ctx.params).backend)
-  if (adapter instanceof NextResponse) return adapter
+  if (adapter instanceof Response) return adapter
   const dir = adapter.config.workflowsDir
   if (!dir || !workflowAccess(request.headers, adapter.config)) {
     return json({ workflows: [] })
