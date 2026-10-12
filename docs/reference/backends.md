@@ -4,7 +4,7 @@
 |---|---|---|
 | Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU | SDXL family: txt2img, img2img, inpainting, pose. Anima: txt2img, img2img, pose (v1.0). 3D pose turning |
 | `diffusers` | Any server speaking the [backend API](../backend-api.md) | img2img, inpainting and pose if the server offers them; precise cancel |
-| `a1111` | AUTOMATIC1111 or Forge started with `--api` | img2img, inpainting. No pose control |
+| `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpainting. No pose control |
 | `comfyui` | A ComfyUI server | txt2img, img2img and inpainting with LoRAs, from a graph Latentry builds. No pose yet; precise cancel |
 
 Use the built-in engine, servers you already run, or both: different
@@ -39,6 +39,12 @@ Start the web UI with `--api` (and `--api-auth user:password` if you give the
 backend a token). Latentry generates one image per iteration so progress
 counts images, and saves its own copy: turn the web UI's saving off if you do
 not want two. Its WD14 tagger extension can serve as Latentry's tagger.
+
+Latentry draws with the checkpoint loaded in the web UI, so choose one there
+first. Forge Neo (checked with 2.30) works the same way: txt2img, img2img,
+inpainting, progress, **Cancel** and its samplers and schedulers, and the
+gallery reads its pictures' settings. **Cancel** stops at the web UI's next
+step, and the picture it was drawing comes back unfinished and is saved too.
 
 Keep the web UI on the computer running Latentry if you can (it then needs
 no `--listen`). On another computer it has to be started with `--listen`,

@@ -180,6 +180,27 @@ async function main() {
     'progress is synthesised; the grid is dropped; seeds come from info'
   )
   eq((await adapter.cancel(null)).ok && 'idle', 'idle', 'nothing to cancel after the run')
+
+  // The step count arrives a moment after the job: until then the web UI
+  // still reports the previous run's (seen on Forge Neo and A1111 alike).
+  const staleUi = scriptedWebUi({
+    progress: [
+      { job_count: 0, job_timestamp: 'old', sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'i2i', sampling_step: 0, sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'i2i', sampling_step: 0, sampling_steps: 11 },
+      { job_count: 1, job_no: 0, job_timestamp: 'i2i', sampling_step: 4, sampling_steps: 11 },
+      { job_count: 0, job_timestamp: 'i2i', sampling_steps: 11 },
+    ],
+    pollsBeforeDone: 4,
+    result: { status: 200, body: { images: [png.toString('base64')], info: '{"all_seeds":[9]}' } },
+  })
+  const staleRun = await new A1111Adapter({ id: 'stale', kind: 'a1111', url: 'http://web.ui', profile: 'sdxl' }, staleUi.transport).start({ ...REQUEST, image_count: 1 })
+  const staleEvents = staleRun.ok ? await collect(staleRun.value) : []
+  eq(
+    staleEvents.map((event) => (event.type === 'start' ? `start:${event.index}:${event.steps}` : event.type === 'step' ? `step:${event.step}` : event.type)),
+    ['start:0:20', 'start:0:11', 'step:4', 'image', 'done'],
+    'a step count that changes after the start is announced again'
+  )
   // Asked after the run: every status call polls progress too, which would
   // otherwise use up the scripted "before" state.
   const status = await adapter.status()

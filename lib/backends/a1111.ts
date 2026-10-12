@@ -205,6 +205,7 @@ export class A1111Adapter implements BackendAdapter {
       })
 
     let announced = -1
+    let announcedSteps = -1
     let lastStep = -1
     try {
       while (outcome.settled === null) {
@@ -213,16 +214,16 @@ export class A1111Adapter implements BackendAdapter {
         if (state && (state.job_count ?? 0) > 0 && state.job_timestamp && state.job_timestamp !== timestampBefore) {
           inflight.runId = state.job_timestamp
           const index = Math.max(0, Math.min(total - 1, state.job_no ?? 0))
-          if (index !== announced) {
+          const steps = state.sampling_steps || request.num_inference_steps
+          // The web UI sets the step count only when sampling starts, a moment
+          // after the job: until then it still holds the previous run's (20
+          // from a txt2img while this img2img does 11). Announced again when
+          // it changes, so the bar ends where the run does.
+          if (index !== announced || steps !== announcedSteps) {
             announced = index
+            announcedSteps = steps
             lastStep = -1
-            yield {
-              type: 'start',
-              index,
-              total,
-              steps: state.sampling_steps ?? request.num_inference_steps,
-              runId: state.job_timestamp,
-            }
+            yield { type: 'start', index, total, steps, runId: state.job_timestamp }
           }
           const step = state.sampling_step ?? 0
           if (step !== lastStep && step > 0) {
