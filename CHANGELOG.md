@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Sliders stay put while you scroll on a phone**: on a touch screen a
+  slider now moves only when you drag its knob, which has a larger grip. A
+  swipe that starts on a slider's track scrolls the page, and a tap on the
+  track no longer changes the value. A mouse click on the track still moves
+  it there.
 - **Pose on ComfyUI**: a ComfyUI backend now follows a skeleton pose, with
   the Pose ControlNet chosen for it on Settings (or `GEN_CONTROLNET_<ID>`),
   an OpenPose ControlNet that fits the checkpoint (NoobAI-XL OpenPose for
