@@ -1,9 +1,8 @@
 """The loaded model and generating with it.
 
 One model at a time, kept on the GPU between runs (loading is the slow part).
-SDXL runs on the stock StableDiffusionXL pipelines; img2img and inpainting
-are derived from the same weights with from_pipe, so they cost no extra VRAM.
-Anima runs on its stock modular pipeline.
+How each family is loaded, and the img2img / inpaint / pose pipelines made
+from its weights, are in pipelines.py; pictures in and out in pictures.py.
 
 Pose control (pose_control.py) follows a skeleton poseorbit drew: SDXL
 through an OpenPose ControlNet pipeline built from the same weights, Anima
@@ -13,9 +12,7 @@ through a LoRA adapter put on for the run only. The prompt's own LoRAs
 
 from __future__ import annotations
 
-import base64
 import contextlib
-import io
 import threading
 import time
 from collections.abc import Callable
@@ -26,9 +23,18 @@ import torch
 from PIL import Image, ImageFilter
 from poseorbit import letterbox
 
-from . import loras, pose_control, samplers
+from . import loras, pipelines, pose_control, samplers
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
+from .pictures import (
+    encode_png,
+    fit_to_image,
+    flatten,
+    img2img_steps,
+    mask_from_alpha,
+    snap,
+)
+from .pipelines import EngineError, Loaded
 from .prompts import encode_sdxl
 
 Emit = Callable[[str, dict], None]
@@ -36,10 +42,6 @@ Emit = Callable[[str, dict], None]
 
 class Cancelled(Exception):
     pass
-
-
-class EngineError(Exception):
-    """A refusal worth showing the user as is."""
 
 
 @dataclass
@@ -66,70 +68,6 @@ class GenerateRequest:
     loras: list[loras.LoraCall] = field(default_factory=list)
     # Say each LoRA's hash in the image events (A1111's "Lora hashes").
     lora_hashes: bool = False
-
-
-@dataclass
-class Loaded:
-    info: ModelInfo
-    family: str
-    pipe: object
-    base_scheduler: object
-    variants: dict = field(default_factory=dict)
-    # Pose control, made on the first pose run: SDXL's ControlNet, Anima's adapter.
-    controlnet: object = None
-    pose_adapter: object = None
-
-
-def decode_image(data: str) -> Image.Image:
-    if data.startswith("data:"):
-        data = data.split(",", 1)[1]
-    image = Image.open(io.BytesIO(base64.b64decode(data)))
-    image.load()
-    return image
-
-
-def encode_png(image: Image.Image) -> str:
-    buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
-    return base64.b64encode(buffer.getvalue()).decode("ascii")
-
-
-def flatten(image: Image.Image) -> Image.Image:
-    """RGB, with transparency on white (what an illustration's empty background means)."""
-    if image.mode in ("RGBA", "LA", "P"):
-        image = image.convert("RGBA")
-        background = Image.new("RGB", image.size, (255, 255, 255))
-        background.paste(image, mask=image.getchannel("A"))
-        return background
-    return image.convert("RGB")
-
-
-def mask_from_alpha(mask: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """Latentry's mask: painted (opaque) pixels are redrawn. As L, white = redraw."""
-    mask = mask.convert("RGBA").getchannel("A") if mask.mode in ("RGBA", "LA", "P") else mask.convert("L")
-    return mask.resize(size, Image.Resampling.LANCZOS)
-
-
-def snap(value: float, multiple: int = 8) -> int:
-    return max(256, min(2048, round(value / multiple) * multiple))
-
-
-def fit_to_image(source: Image.Image, width: int, height: int, multiple: int = 8) -> tuple[int, int]:
-    """The source's aspect ratio at the requested pixel area (Latentry's fitToImage)."""
-    area = max(256 * 256, width * height)
-    aspect = source.width / source.height
-    fitted_height = (area / aspect) ** 0.5
-    return snap(fitted_height * aspect, multiple), snap(fitted_height, multiple)
-
-
-def img2img_steps(steps: int, strength: float, family: str) -> int:
-    """How many steps img2img really runs: what each pipeline's get_timesteps
-    keeps. The SDXL pipelines truncate steps * strength (28 at 0.85 is 23);
-    Anima's modular one truncates the skipped part instead (24)."""
-    if family == FAMILY_SDXL:
-        return max(1, min(int(steps * strength), steps))
-    init = min(steps * strength, steps)
-    return max(1, steps - int(max(steps - init, 0)))
 
 
 def _with_loras(emit: Emit, applied: list[dict]) -> Emit:
@@ -165,7 +103,8 @@ class Engine:
             try:
                 self.unload()
                 started = time.time()
-                loaded = self._load_sdxl(info) if info.family == FAMILY_SDXL else self._load_anima(info)
+                load = pipelines.load_sdxl if info.family == FAMILY_SDXL else pipelines.load_anima
+                loaded = load(info, self.plan)
                 self.loaded = loaded
                 print(f"[engine] loaded {info.id} ({info.family}) in {time.time() - started:.0f}s", flush=True)
             except Exception as error:
@@ -182,85 +121,10 @@ class Engine:
         if self.plan.device == "cuda":
             torch.cuda.empty_cache()
 
-    def _place(self, pipe) -> None:
-        """Puts a pipeline where the plan says: all on the GPU, or offloaded."""
-        if self.plan.offload == "model":
-            pipe.enable_model_cpu_offload()
-        elif self.plan.offload == "sequential":
-            pipe.enable_sequential_cpu_offload()
-        else:
-            pipe.to(self.plan.device)
-
-    def _load_sdxl(self, info: ModelInfo) -> Loaded:
-        from diffusers import StableDiffusionXLPipeline
-
-        dtype = self.plan.dtype
-        if info.path.is_file():
-            # A single file carries the weights but not the pipeline's configs
-            # (scheduler, tokenizers), which diffusers takes from the Hub. From
-            # its cache once they are there, so a load does not ask the Hub
-            # again every time; diffusers still downloads them on the first.
-            pipe = StableDiffusionXLPipeline.from_single_file(str(info.path), torch_dtype=dtype, local_files_only=True)
-        else:
-            pipe = StableDiffusionXLPipeline.from_pretrained(str(info.path), torch_dtype=dtype)
-        if dtype == torch.float16:
-            # SDXL's VAE overflows in fp16 (black images); the pipeline
-            # upcasts it when this is set.
-            pipe.vae.config.force_upcast = True
-        # Decode a batch one image at a time. Decoding is the memory peak
-        # (the VAE often runs in fp32), and doing it all at once is what makes
-        # a batch outgrow the GPU: with this, four images at 832x1216 peak
-        # where one does.
-        pipe.vae.enable_slicing()
-        self._place(pipe)
-        pipe.set_progress_bar_config(disable=True)
-        return Loaded(info, FAMILY_SDXL, pipe, pipe.scheduler)
-
-    def _load_anima(self, info: ModelInfo) -> Loaded:
-        from diffusers.modular_pipelines.modular_pipeline import ModularPipeline
-
-        pipe = ModularPipeline.from_pretrained(str(info.path))
-        # The index names each component's Hub repository; without this the
-        # weights would be fetched (or looked up in the HF cache) from there
-        # instead of read from this folder.
-        pipe.load_components(torch_dtype=self.plan.dtype, pretrained_model_name_or_path=str(info.path))
-        missing = [name for name in pipe._component_specs if getattr(pipe, name, None) is None]
-        if missing:
-            raise EngineError(f"{info.name} is missing {', '.join(missing)}; is the folder complete?")
-        # Modular pipelines move as a whole; the offload hooks of the classic
-        # pipelines do not apply, so only the all-on-GPU plan is offered.
-        pipe.to(self.plan.device)
-        return Loaded(info, FAMILY_ANIMA, pipe, pipe.scheduler)
-
     def _variant(self, kind: str, pose: bool = False):
-        """The txt2img pipeline, or img2img / inpaint built on its weights;
-        with `pose`, their ControlNet twins."""
+        """The pipeline for this kind of run on the loaded model (pipelines.variant)."""
         assert self.loaded
-        loaded = self.loaded
-        if pose:
-            key = f"{kind}+pose"
-            if key not in loaded.variants:
-                if loaded.controlnet is None:
-                    loaded.controlnet = pose_control.load_sdxl_controlnet(self.controls_dir, self.plan.dtype)
-                variant = pose_control.sdxl_pose_pipeline(kind, self._variant(kind), loaded.controlnet, self.plan.dtype)
-                if self.plan.offload == "none":
-                    loaded.controlnet.to(self.plan.device)
-                else:
-                    # The ControlNet joins the offload chain; the shared modules
-                    # keep working for the plain pipelines too.
-                    self._place(variant)
-                loaded.variants[key] = variant
-            return loaded.variants[key]
-        if kind == "txt2img":
-            return loaded.pipe
-        if kind not in loaded.variants:
-            from diffusers import AutoPipelineForImage2Image, AutoPipelineForInpainting
-
-            cls = AutoPipelineForImage2Image if kind == "img2img" else AutoPipelineForInpainting
-            variant = cls.from_pipe(loaded.pipe)
-            variant.set_progress_bar_config(disable=True)
-            loaded.variants[kind] = variant
-        return loaded.variants[kind]
+        return pipelines.variant(self.loaded, kind, self.plan, self.controls_dir, pose)
 
     # ── Capabilities ────────────────────────────────────────────────────────
 
