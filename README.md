@@ -187,6 +187,12 @@ back to `.env.local`.
   must be paired with a code first. To expose it further, put an
   authenticating reverse proxy in front of it, on this computer, one that
   overwrites `X-Forwarded-For`.
+- **Pairing protects Latentry, not your backends.** A ComfyUI or A1111 /
+  Forge server on another computer listens on the network, and anyone who
+  reaches it can use it (ComfyUI has no login). Keep backends on this
+  computer where you can; otherwise use `--api-auth` for A1111 / Forge and an
+  authenticating proxy for ComfyUI. Settings warns about one reached over the
+  network without a token.
 
 ## Translations
 

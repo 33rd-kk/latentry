@@ -48,6 +48,29 @@ To allow changing them from the network as well, set `SETTINGS_EDIT=lan`
 backend at their own server and receive your prompts and pictures from then
 on); `SETTINGS_EDIT=off` makes them read-only everywhere.
 
+## Backends on other computers
+
+Pairing protects Latentry, not the servers it draws with. A ComfyUI or
+AUTOMATIC1111 / Forge server that Latentry reaches at another computer's
+address listens on the network itself, and anyone who can reach it can use
+it without Latentry: ComfyUI has no login, and its custom nodes run code on
+that computer. Exposed ComfyUI servers have been taken over this way.
+
+So **Settings** warns, under the backend, when a `comfyui` or `a1111`
+backend's address is not this computer's and it has no token. The safest
+setup is the backend on the same computer as Latentry, listening on
+127.0.0.1 (ComfyUI's default; an A1111 web UI without `--listen`). For one
+on another computer:
+
+- **AUTOMATIC1111 / Forge**: start it with `--api-auth user:password` and
+  enter `user:password` as the backend's token.
+- **ComfyUI**: put a reverse proxy that asks for a login in front of it,
+  bind ComfyUI itself to 127.0.0.1 on that computer, and enter the proxy's
+  token (sent as a Bearer token).
+
+Either way, allow only the computer running Latentry through that
+computer's firewall if you can. See [Backends](../reference/backends.md).
+
 ## Tip: keep the pairing key in your keychain
 
 Paired devices are recognised by a key in `latentry.pairing-key`, next to
