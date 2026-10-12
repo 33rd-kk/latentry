@@ -11,6 +11,7 @@ falls back to `.env.local`. Restart Latentry after editing `.env.local`.
 | `GEN_BACKENDS` | — | Backends: `id\|kind\|url\|profile`, separated by `;` |
 | `GEN_TOKEN_<ID>` | — | A backend's token, by its id in upper case |
 | `GEN_MODEL_<ID>` | first listed | A `comfyui` backend's checkpoint, as ComfyUI lists it |
+| `GEN_CONTROLNET_<ID>` | — | A `comfyui` backend's Pose ControlNet, as ComfyUI lists it; unset: no pose |
 | `GALLERY_SAVE_DIR` | `./output` | Where finished pictures are saved; unset: not saved |
 | `GALLERY_DIRS` | — | Other folders to browse read-only, separated by `;` |
 | `GALLERY_AUTO_TAG` | off | `1`: tag each saved picture with WD14 as it arrives |

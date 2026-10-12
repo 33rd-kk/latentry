@@ -148,6 +148,23 @@ function BackendRow({
         </Field>
       )}
       {backend.kind === "comfyui" && (
+        <Field label={t("settings.backendControlnet")} hint={t("settings.backendControlnetHint")}>
+          <Input
+            value={backend.controlnet}
+            onChange={(event) => update({ controlnet: event.target.value })}
+            placeholder={t("settings.backendControlnetNone")}
+            list={`controlnets-${backend.key}`}
+            autoComplete="off"
+          />
+          <datalist id={`controlnets-${backend.key}`}>
+            {(test?.controlnets ?? []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <FieldError errors={errors} at={`backends.${index}.controlnet`} />
+        </Field>
+      )}
+      {backend.kind === "comfyui" && (
         <Field label={t("settings.backendWorkflowsDir")} hint={t("settings.backendWorkflowsDirHint")}>
           <Input
             value={backend.workflowsDir}

@@ -199,10 +199,12 @@
           "img2img": "Latentry cannot send a source image to this kind of backend.",
           "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
           "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
-        },
-        "comfyui": {
-          "pose": "Latentry cannot drive pose control on ComfyUI yet. Use a diffusers-compatible server or Latentry's engine for pose."
         }
+      },
+      "setup": {
+        "controlnet": "Choose a Pose ControlNet for this backend in Settings (an OpenPose ControlNet from ComfyUI's controlnet folder that fits the checkpoint: NoobAI-XL OpenPose for Illustrious and NoobAI models, xinsir's for other SDXL models).",
+        "engine": "Latentry's built-in engine finds the people and draws the skeleton. Start it on the Setup page; it needs no model loaded for this.",
+        "nodes": "This ComfyUI does not list ControlNetLoader and ControlNetApplyAdvanced. Update ComfyUI."
       },
       "notReported": {
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
@@ -411,6 +413,9 @@
     "backendModel": "Model",
     "backendModelFirst": "The first checkpoint ComfyUI lists",
     "backendModelHint": "The checkpoint ComfyUI draws with. Test lists the ones it has.",
+    "backendControlnet": "Pose ControlNet",
+    "backendControlnetNone": "None (no pose on the built-in graph)",
+    "backendControlnetHint": "The ControlNet the built-in graph follows a skeleton with: an OpenPose ControlNet that fits the checkpoint (NoobAI-XL OpenPose for Illustrious and NoobAI models, xinsir's for other SDXL models). Test lists the ones ComfyUI has. The skeleton is drawn by Latentry's engine, so only the skeleton goes to ComfyUI, never the picture it came from.",
     "backendWorkflowsDir": "Workflows folder",
     "backendWorkflowsDirHint": "Optional: a folder on this computer with workflows saved from ComfyUI with Export (API). The Generate page offers them next to the built-in graph. Read only.",
     "shareWorkflows": "Show workflow names on paired devices",

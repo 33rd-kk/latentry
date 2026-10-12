@@ -65,7 +65,13 @@ export function a1111Hints(alive: boolean): Hints {
   return alive ? { pose: { reason: 'kind' } } : {}
 }
 
-/** A ComfyUI server: pose control is not something Latentry drives there yet. */
-export function comfyHints(alive: boolean): Hints {
-  return alive ? { pose: { reason: 'kind' } } : {}
+/**
+ * A ComfyUI server: pose needs its core ControlNet nodes, a ControlNet chosen
+ * for the backend, and a running engine to draw the skeleton. The first one
+ * missing is named.
+ */
+export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }): Hints {
+  if (!alive) return {}
+  const need = !pose.nodes ? 'nodes' : !pose.controlnet ? 'controlnet' : !pose.engine ? 'engine' : null
+  return need ? { pose: { reason: 'setup', need } } : {}
 }

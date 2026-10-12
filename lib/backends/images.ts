@@ -50,6 +50,18 @@ export async function preparedImages(
   }
 }
 
+/**
+ * A drawn skeleton as a plain RGB PNG at the run's size, without any text
+ * chunks it came with. Null when it cannot be read.
+ */
+export async function preparedSkeleton(base64: string, width: number, height: number): Promise<Buffer | null> {
+  try {
+    return await sharp(Buffer.from(stripDataUrl(base64), 'base64')).resize(width, height, { fit: 'fill' }).removeAlpha().png().toBuffer()
+  } catch {
+    return null
+  }
+}
+
 /** A 1×1 transparent PNG, to overwrite an uploaded picture with nothing. */
 export function blankPng(): Promise<Buffer> {
   return sharp({ create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()

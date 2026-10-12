@@ -10,6 +10,8 @@ export interface BackendTest {
   hints?: BackendStatus["hints"]
   /** comfyui: the checkpoints it has, offered for the Model field. */
   checkpoints?: string[]
+  /** comfyui: the ControlNets it has, offered for the Pose ControlNet field. */
+  controlnets?: string[]
   problem?: BackendStatus["problem"]
 }
 
@@ -30,13 +32,16 @@ export function useBackendTests() {
           token: backend.token || undefined,
           profile: backend.profile,
           model: backend.kind === "comfyui" ? backend.model.trim() || undefined : undefined,
+          controlnet: backend.kind === "comfyui" ? backend.controlnet.trim() || undefined : undefined,
         }),
       })
       const data = await response.json().catch(() => null)
-      const checkpoints = Array.isArray(data?.checkpoints) ? (data.checkpoints as unknown[]).filter((name): name is string => typeof name === "string") : undefined
+      const names = (value: unknown) => (Array.isArray(value) ? (value as unknown[]).filter((name): name is string => typeof name === "string") : undefined)
+      const checkpoints = names(data?.checkpoints)
+      const controlnets = names(data?.controlnets)
       setTests((current) => ({
         ...current,
-        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, problem: data?.problem },
+        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, controlnets, problem: data?.problem },
       }))
     } catch {
       setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))

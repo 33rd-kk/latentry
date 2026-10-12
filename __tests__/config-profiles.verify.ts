@@ -48,6 +48,17 @@ eq(
   [['comfy-1', 'sdxl\\base.safetensors'], ['web', undefined], ['bare', undefined], ['odd', undefined]],
   'GEN_MODEL_<ID> sets a comfyui backend\'s checkpoint; other kinds, an unset one and a multi-line one have none'
 )
+const controlnets = parseBackends({
+  GEN_BACKENDS: 'comfy-1|comfyui|http://c:1;web|a1111|http://w:2;odd|comfyui|http://c:4',
+  GEN_CONTROLNET_COMFY_1: ' sdxl\\openpose.safetensors ',
+  GEN_CONTROLNET_WEB: 'ignored.safetensors',
+  GEN_CONTROLNET_ODD: 'two\nlines',
+})
+eq(
+  controlnets.backends.map((backend) => [backend.id, backend.controlnet, backend.model]),
+  [['comfy-1', 'sdxl\\openpose.safetensors', undefined], ['web', undefined, undefined], ['odd', undefined, undefined]],
+  'GEN_CONTROLNET_<ID> sets a comfyui backend\'s pose ControlNet, apart from its checkpoint; the same rules'
+)
 
 const legacy = parseBackends({ DIFFUSION_SERVER_URL: 'http://localhost:7865', DIFFUSION_API_TOKEN: 't' })
 eq(

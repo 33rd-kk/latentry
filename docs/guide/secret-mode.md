@@ -89,9 +89,9 @@ folder as always.
 **A ComfyUI backend is tidied up after a secret run.** When a secret run on
 a [ComfyUI backend](../reference/backends.md#comfyui) ends (or is marked
 secret within a minute of its end), Latentry deletes its prompts from
-ComfyUI's history and overwrites the source and mask it uploaded with an
-empty picture. Ordinary runs leave ComfyUI's history as it is, and the
-next img2img replaces the upload.
+ComfyUI's history and overwrites the source, mask and skeleton it uploaded
+with an empty picture. Ordinary runs leave ComfyUI's history as it is, and
+the next run of the same kind replaces the upload.
 
 **Pictures are not kept in the browser's cache.** This is true in either
 mode: gallery pictures and thumbnails are fetched again each time instead

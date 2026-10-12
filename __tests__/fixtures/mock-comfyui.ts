@@ -56,6 +56,8 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
         return reply(200, { KSampler: { input: { required: { sampler_name: [['euler', 'dpmpp_2m']], scheduler: [['normal', 'karras']] } } } })
       }
       if (route === 'GET /object_info/LoraLoader') return reply(200, combo('LoraLoader', 'lora_name', ['styles/ink.safetensors']))
+      if (route === 'GET /object_info/ControlNetLoader') return reply(200, combo('ControlNetLoader', 'control_net_name', ['private-folder/openpose.safetensors']))
+      if (route === 'GET /object_info/ControlNetApplyAdvanced') return reply(200, { ControlNetApplyAdvanced: { input: { required: {} } } })
       if (route === 'POST /prompt') {
         let body: { prompt?: MockComfyUI['graphs'][number] }
         try {
