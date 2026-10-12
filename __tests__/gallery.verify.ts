@@ -224,7 +224,9 @@ async function main() {
     eq(await inLoras({ lora: 'detail' }), ['with.png'], 'the LoRA filter')
     eq(await inLoras({ q: 'lora:flat' }), ['with.png'], 'lora: in the search box, from Lora hashes')
     eq(await inLoras({ q: '-lora:detail' }), ['without.png'], 'leaving out a LoRA')
-    listFacets(loraDir)
+    // Awaited: the build starts only once the folder is listed, and settleIndex
+    // waits for a build that has started.
+    await listFacets(loraDir)
     await settleIndex(loraDir)
     eq(await listFacets(loraDir), { facets: { models: [RECORD.model!], loras: ['Detail', 'flat'] } }, "the folder's LoRAs for the filter")
     eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
