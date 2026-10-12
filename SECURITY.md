@@ -111,7 +111,9 @@ exposing Latentry to the internet. To do that, put an authenticating reverse
 proxy on this machine in front of it that overwrites `X-Forwarded-For`.
 
 Dependencies are watched by Dependabot and audited weekly (`npm audit` of
-what ships, pip-audit); the code is scanned by CodeQL. `npm ci` may still
+what ships, pip-audit); the engine's Python packages are pinned in
+`engine/locks/` and refreshed once a month by a workflow, not by Dependabot.
+The code is scanned by CodeQL. `npm ci` may still
 report advisories in development tools (the lint config and the shadcn CLI
 that the stylesheet imports from) that have no fixed release yet; none of
 them runs inside Latentry.

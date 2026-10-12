@@ -16,8 +16,15 @@ updates:
       # Node's types follow the Node.js Latentry supports (22), not the newest.
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+  # The engine's packages are pinned in engine/locks/ by scripts/lock-engine.mjs,
+  # which keeps PyTorch's build tags (+cu130) and each CUDA build's own torch.
+  # Dependabot rewrites those files without either, so it opens no version
+  # updates here: the monthly "Engine lock refresh" workflow does (run it by
+  # hand for a security fix). A Dependabot security update that edits
+  # engine/locks/ fails CI; close it and run that workflow instead.
   - package-ecosystem: pip
     directory: /engine
+    open-pull-requests-limit: 0
     schedule:
       interval: weekly
     groups:
