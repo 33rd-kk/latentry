@@ -16,6 +16,11 @@ updates:
       # Node's types follow the Node.js Latentry supports (22), not the newest.
       - dependency-name: "@types/node"
         update-types: [version-update:semver-major]
+      # TypeScript 7.0 ships no JavaScript API (7.1 is to bring a new one), and
+      # typescript-eslint, ts-node (npm test, e2e) and Next.js all need one.
+      # Remove this once they run on TypeScript 7.
+      - dependency-name: typescript
+        versions: [">= 7"]
   # The engine's packages are pinned in engine/locks/ by scripts/lock-engine.mjs,
   # which keeps PyTorch's build tags (+cu130) and each CUDA build's own torch.
   # Dependabot rewrites those files without either, so it opens no version
