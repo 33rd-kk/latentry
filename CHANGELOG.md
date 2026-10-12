@@ -2,11 +2,14 @@
 
 ## Unreleased
 
-- **Sliders stay put while you scroll on a phone**: on a touch screen a
-  slider now moves only when you drag its knob, which has a larger grip. A
-  swipe that starts on a slider's track scrolls the page, and a tap on the
-  track no longer changes the value. A mouse click on the track still moves
-  it there.
+## 0.8.0 (2026-10-13)
+
+**Upgrading from 0.7.0**: open **Setup** and run **Repair / update** for the
+engine once. It installs the engine's Python packages from the new lock and
+brings poseorbit 0.2.0 (picking any of the people in a pose picture).
+
+**Pose**
+
 - **Pose on ComfyUI**: a ComfyUI backend now follows a skeleton pose, with
   the Pose ControlNet chosen for it on Settings (or `GEN_CONTROLNET_<ID>`),
   an OpenPose ControlNet that fits the checkpoint (NoobAI-XL OpenPose for
@@ -22,34 +25,6 @@
   unless the title also says `openpose`, and a node titled
   `latentry:pose_strength` takes Pose strength. The Workflow choice says
   which workflows can follow a skeleton.
-- **Forge Neo**: checked as an `a1111` backend (Forge Neo 2.30, started
-  with `--api`): txt2img, img2img, inpainting, progress, Cancel, samplers
-  and schedulers, and its pictures in the gallery.
-- **Progress on A1111 and Forge after a change of steps**: an img2img or
-  inpaint run right after a run with another step count showed the earlier
-  run's count, so its bar stopped short or ran past the end. The count is
-  now taken again once the web UI sets it.
-
-- **Faster runs with the same LoRA**: the engine leaves the last four LoRAs
-  used in the model, switched off, so a run that calls one again skips
-  putting it in (about 1.5 s on SDXL). A run without them comes out exactly
-  as before. `LATENTRY_LORA_KEEP` sets how many; `0` takes each out after
-  its run, as before.
-- **A warning for backends open to the network**: Settings now says, under
-  the backend, when a ComfyUI or AUTOMATIC1111 / Forge backend is reached at
-  another computer's address without a token. Anyone who can reach such a
-  server can use it without Latentry (ComfyUI has no login, and its custom
-  nodes run code). The manual's
-  [Backends on other computers](https://33rd-kk.github.io/latentry/guide/network/#backends-on-other-computers)
-  says how to keep one on this computer, or put a login in front of it.
-- **Pinned pose weights**: the engine now fetches the SDXL OpenPose
-  ControlNet and the Anima pose adapter from a fixed commit and checks each
-  file against its SHA-256 before using it. A file fetched before this
-  that does not match is fetched again once.
-- **Pinned pose detectors**: the engine needs poseorbit 0.1.2, which does
-  the same for its three detector models and no longer leaves a second copy
-  in Hugging Face's shared cache. Run **Repair / update** for the engine on
-  **Setup** once to get it.
 - **Pick any of the people for a pose**: in a picture of several people,
   click each numbered box to follow that person or leave them out, so two
   of three can be used; at least one stays. **Everyone** still picks all.
@@ -57,6 +32,30 @@
   docs/backend-api.md); Latentry's engine does from poseorbit 0.2.0, so run
   **Repair / update** for the engine once. Other backends keep one person
   or everyone, and the chooser says why.
+
+**Generate page**
+
+- **Sliders stay put while you scroll on a phone**: on a touch screen a
+  slider now moves only when you drag its knob, which has a larger grip. A
+  swipe that starts on a slider's track scrolls the page, and a tap on the
+  track no longer changes the value. A mouse click on the track still moves
+  it there.
+
+**Backends**
+
+- **A warning for backends open to the network**: Settings now says, under
+  the backend, when a ComfyUI or AUTOMATIC1111 / Forge backend is reached at
+  another computer's address without a token. Anyone who can reach such a
+  server can use it without Latentry (ComfyUI has no login, and its custom
+  nodes run code). The manual's
+  [Backends on other computers](https://33rd-kk.github.io/latentry/guide/network/#backends-on-other-computers)
+  says how to keep one on this computer, or put a login in front of it.
+- **Forge Neo**: checked as an `a1111` backend (Forge Neo 2.30, started
+  with `--api`): txt2img, img2img, inpainting, progress, Cancel, samplers
+  and schedulers, and its pictures in the gallery.
+
+**Engine install**
+
 - **Pinned Python packages**: the engine's packages, PyTorch included, now
   come from a lock for your machine and PyTorch build (`engine/locks/`),
   every file checked against its SHA-256, and **Repair / update** makes the
@@ -70,6 +69,29 @@
   12.8, which stopped at an older PyTorch. Where an older build is the only
   one that runs (CUDA 11.8, or Blackwell on a 570 driver), Setup suggests a
   driver update.
+- **Pinned pose weights**: the engine now fetches the SDXL OpenPose
+  ControlNet and the Anima pose adapter from a fixed commit and checks each
+  file against its SHA-256 before using it. A file fetched before this
+  that does not match is fetched again once.
+- **Pinned pose detectors**: the engine needs poseorbit 0.1.2, which does
+  the same for its three detector models and no longer leaves a second copy
+  in Hugging Face's shared cache. Run **Repair / update** for the engine on
+  **Setup** once to get it.
+
+**Engine (0.6.0)**
+
+- **Faster runs with the same LoRA**: the engine leaves the last four LoRAs
+  used in the model, switched off, so a run that calls one again skips
+  putting it in (about 1.5 s on SDXL). A run without them comes out exactly
+  as before. `LATENTRY_LORA_KEEP` sets how many; `0` takes each out after
+  its run, as before.
+
+**Fixed**
+
+- **Progress on A1111 and Forge after a change of steps**: an img2img or
+  inpaint run right after a run with another step count showed the earlier
+  run's count, so its bar stopped short or ran past the end. The count is
+  now taken again once the web UI sets it.
 
 ## 0.7.0 (2026-10-11)
 
