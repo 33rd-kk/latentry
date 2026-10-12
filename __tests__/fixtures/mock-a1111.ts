@@ -21,8 +21,18 @@ export interface MockA1111 {
 /** Seed reported for a request that asks for a random one (-1). */
 export const MOCK_SEED = 123
 
-/** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockA1111(options: { port?: number } = {}): Promise<MockA1111> {
+/** The tags the mock tagger finds in any picture, as the gallery stores them. */
+export const MOCK_TAGS = [
+  { name: 'lighthouse', score: 0.9, category: 0 },
+  { name: 'mock_character', score: 0.88, category: 4 },
+  { name: 'dusk', score: 0.6, category: 0 },
+]
+
+/**
+ * Listens on 127.0.0.1 only; port 0 (the default) picks a free one. With
+ * `tagger`, it also answers as the WD14 tagger extension, finding MOCK_TAGS.
+ */
+export async function startMockA1111(options: { port?: number; tagger?: boolean } = {}): Promise<MockA1111> {
   // Without this sharp keeps what it read open on Windows, and a test cannot delete its folder.
   sharp.cache(false)
   const png = (await sharp({ create: { width: 64, height: 96, channels: 3, background: '#6b7c93' } }).png().toBuffer()).toString('base64')
@@ -52,6 +62,18 @@ export async function startMockA1111(options: { port?: number } = {}): Promise<M
           return reply(200, [{ label: 'Karras' }])
         case 'POST /sdapi/v1/interrupt':
           return reply(200, {})
+        case 'GET /tagger/v1/interrogators':
+          if (!options.tagger) break
+          return reply(200, { models: ['mock-tagger', 'wd-mock-tagger'] })
+        case 'POST /tagger/v1/interrogate':
+          if (!options.tagger) break
+          return reply(200, {
+            caption: {
+              rating: { general: 0.95 },
+              general: Object.fromEntries(MOCK_TAGS.filter((tag) => tag.category === 0).map((tag) => [tag.name, tag.score])),
+              character: Object.fromEntries(MOCK_TAGS.filter((tag) => tag.category === 4).map((tag) => [tag.name, tag.score])),
+            },
+          })
         case 'POST /sdapi/v1/txt2img': {
           let body: Record<string, unknown> = {}
           try {
@@ -69,10 +91,9 @@ export async function startMockA1111(options: { port?: number } = {}): Promise<M
             })
           return held ? void waiting.push(answer) : answer()
         }
-        default:
-          // The tagger extension among them: a 404 says it is not installed.
-          return reply(404, { detail: 'Not Found' })
       }
+      // The tagger extension among them, unless asked for: a 404 says it is not installed.
+      reply(404, { detail: 'Not Found' })
     })
   })
   await new Promise<void>((resolve) => server.listen(options.port ?? 0, '127.0.0.1', resolve))

@@ -236,7 +236,11 @@ export async function stopEngines(): Promise<void> {
     exits.push(new Promise((resolve) => child.once('exit', () => resolve())))
     child.kill()
   }
-  await Promise.race([Promise.all(exits), new Promise((resolve) => setTimeout(resolve, 10000))])
+  if (!exits.length) return
+  // Give up waiting after 10 s, but do not keep the process alive for it.
+  let timer: ReturnType<typeof setTimeout> | undefined
+  await Promise.race([Promise.all(exits), new Promise((resolve) => (timer = setTimeout(resolve, 10000)))])
+  clearTimeout(timer)
 }
 
 export function engines(): EngineProcess[] {
