@@ -31,7 +31,9 @@ falls back to `.env.local`. Restart Latentry after editing `.env.local`.
 
 The engine also reads `LATENTRY_DEVICE`, `LATENTRY_DTYPE`, `LATENTRY_OFFLOAD`,
 `LATENTRY_MAX_BATCH` and `LATENTRY_VRAM_FRACTION` to override its GPU plan
-(see [Setup and the engine](../guide/engine.md)).
+(see [Setup and the engine](../guide/engine.md)), and `LATENTRY_LORA_KEEP`:
+how many LoRAs stay in the loaded model between runs, switched off, so
+calling one again is quick (default 4; `0` takes each out after its run).
 
 ## `.env.example`
 

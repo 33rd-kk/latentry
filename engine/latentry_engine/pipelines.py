@@ -14,6 +14,7 @@ import torch
 
 from . import pose_control
 from .gpu import GpuPlan
+from .loras import LoraKeeper
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 
 
@@ -31,6 +32,8 @@ class Loaded:
     # Pose control, made on the first pose run: SDXL's ControlNet, Anima's adapter.
     controlnet: object = None
     pose_adapter: object = None
+    # The prompt LoRAs left in this model's layers between runs.
+    lora_keeper: LoraKeeper = field(default_factory=LoraKeeper)
 
 
 def place(pipe, plan: GpuPlan) -> None:

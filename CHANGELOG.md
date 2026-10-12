@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Faster runs with the same LoRA**: the engine leaves the last four LoRAs
+  used in the model, switched off, so a run that calls one again skips
+  putting it in (about 1.5 s on SDXL). A run without them comes out exactly
+  as before. `LATENTRY_LORA_KEEP` sets how many; `0` takes each out after
+  its run, as before.
 - **A warning for backends open to the network**: Settings now says, under
   the backend, when a ComfyUI or AUTOMATIC1111 / Forge backend is reached at
   another computer's address without a token. Anyone who can reach such a
