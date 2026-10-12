@@ -69,7 +69,7 @@ jobs:
                 mv /tmp/rest.txt /tmp/pins.txt
                 ;;
             esac
-            pip-audit -r /tmp/pins.txt --no-deps --disable-pip --desc on || status=1
+            pip-audit -r /tmp/pins.txt --no-deps --disable-pip --desc on || { status=1; echo "::error::$lock: run the Engine lock refresh workflow by hand to pin fixed releases"; }
             echo "::endgroup::"
           done
           exit $status
