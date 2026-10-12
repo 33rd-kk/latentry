@@ -508,6 +508,9 @@ async function throughRoutes(): Promise<void> {
     const source = (await sharp({ create: { width: 96, height: 64, channels: 3, background: '#357' } }).png().toBuffer()).toString('base64')
     const secretJob = await settled(await generate({ prompt: 'a harbour', init_image_base64: source, strength: 0.5, secret: true }))
     eq([secretJob?.status, secretJob?.secret], ['done', true], 'a secret img2img run ends done')
+    // The wipe runs once the run has ended (after "done"): history first, then
+    // the blank upload, so waiting for that upload waits for both.
+    for (const end = Date.now() + 5_000; mock.uploads.length < 2 && Date.now() < end; ) await new Promise((resolve) => setTimeout(resolve, 20))
     eq(mock.uploads, ['comfy-source.png', 'comfy-source.png'], 'its source went up, then was overwritten')
     eq(mock.deleted, ['mock-2'], 'and its prompt was deleted from ComfyUI\'s history')
     eq(mock.graphs[1]?.['8']?.inputs.image, 'latentry/comfy-source.png', 'the graph loaded the uploaded source')
