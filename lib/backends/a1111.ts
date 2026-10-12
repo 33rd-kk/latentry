@@ -14,13 +14,17 @@
 //   job_timestamp), so it cannot stop someone else's work in the web UI.
 // - No pose control (that would mean driving the ControlNet extension).
 // - Tagging needs the WD14 tagger extension (/tagger/v1/*).
+//
+// Beside it: a1111-transport.ts (the HTTP), a1111-payload.ts (a request in
+// the web UI's field names) and a1111-tagger.ts (the tagger's answer).
 
-import { Agent, fetch as undiciFetch } from 'undici'
 import { loraCallsInPrompt } from '@/lib/image-meta'
-import { fitToImage, getProfile } from '@/lib/profiles'
+import { getProfile } from '@/lib/profiles'
 import { a1111Hints, problemOf } from './hints'
-import { alphaToMask, imageSize } from './images'
-import { errorMessage, isAbortError, REDIRECT_REFUSED, stripDataUrl } from './http'
+import { errorMessage, isAbortError, stripDataUrl } from './http'
+import { DEFAULT, seedsFromInfo, toA1111Payload } from './a1111-payload'
+import { chooseTaggerModel, parseTaggerCaption } from './a1111-tagger'
+import { httpTransport, type A1111Transport, type ProgressState } from './a1111-transport'
 import type {
   BackendAdapter,
   BackendConfig,
@@ -33,68 +37,10 @@ import type {
   WdTag,
 } from './types'
 
-const DEFAULT = 'Default'
 const POLL_MS = 500
 const STATUS_TIMEOUT_MS = 4 * 1000
 const STATIC_CACHE_MS = 60 * 1000
 const TAG_TIMEOUT_MS = 60 * 1000
-// Ratings the tagger extension mixes into its answer; never a prompt tag.
-const RATING_TAGS = new Set(['general', 'sensitive', 'questionable', 'explicit'])
-
-// The generate call returns only when the last image is done. Node's fetch
-// gives up on response headers after five minutes, which a large batch passes
-// easily, so it goes through an agent with no header or body deadline.
-const longAgent = new Agent({ headersTimeout: 0, bodyTimeout: 0 })
-
-export interface ProgressState {
-  job_count?: number
-  job_no?: number
-  job_timestamp?: string
-  sampling_step?: number
-  sampling_steps?: number
-  interrupted?: boolean
-}
-
-/** The HTTP the adapter needs, separable so the verify script can play a web UI. */
-export interface A1111Transport {
-  get(path: string, timeoutMs: number): Promise<{ status: number; body: unknown }>
-  post(path: string, body: unknown, options: { timeoutMs: number | null }): Promise<{ status: number; body: unknown }>
-  sleep(ms: number): Promise<void>
-}
-
-function httpTransport(config: BackendConfig): A1111Transport {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (config.token) headers.Authorization = `Basic ${Buffer.from(config.token).toString('base64')}`
-
-  const call = async (path: string, init: { method: string; body?: string; timeoutMs: number | null }) => {
-    // Redirects are refused, not followed: see refuseRedirect.
-    const response = await undiciFetch(new URL(path, config.url), {
-      method: init.method,
-      headers,
-      body: init.body,
-      redirect: 'manual',
-      ...(init.timeoutMs === null ? { dispatcher: longAgent } : { signal: AbortSignal.timeout(init.timeoutMs) }),
-    })
-    if (response.status >= 300 && response.status < 400) {
-      await response.body?.cancel().catch(() => {})
-      return { status: 502, body: { error: REDIRECT_REFUSED } }
-    }
-    const text = await response.text()
-    let body: unknown = null
-    try {
-      body = text ? JSON.parse(text) : null
-    } catch {
-      body = { error: text.slice(0, 300) }
-    }
-    return { status: response.status, body }
-  }
-
-  return {
-    get: (path, timeoutMs) => call(path, { method: 'GET', timeoutMs }),
-    post: (path, body, options) => call(path, { method: 'POST', body: JSON.stringify(body), timeoutMs: options.timeoutMs }),
-    sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-  }
-}
 
 interface Inflight {
   /** The web UI's job_timestamp for our run, once a progress poll has seen it. */
@@ -122,99 +68,6 @@ function names(body: unknown, key: 'name' | 'label'): string[] {
   return body
     .map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>)[key] ?? (item as Record<string, unknown>).name : null))
     .filter((value): value is string => typeof value === 'string' && value.length > 0)
-}
-
-/** Picks the tagger model: A1111_TAGGER_MODEL if set, else the first WD one. */
-export function chooseTaggerModel(models: string[], preferred?: string): string | null {
-  if (!models.length) return null
-  if (preferred && models.includes(preferred)) return preferred
-  return models.find((model) => /wd/i.test(model)) ?? models[0]
-}
-
-/**
- * The tagger extension's answer as WD14 tags. Older builds return one flat
- * { tag: score } map with the ratings mixed in; newer ones split it into
- * { rating, general, character } maps.
- */
-export function parseTaggerCaption(caption: unknown): WdTag[] {
-  if (!caption || typeof caption !== 'object') return []
-  const entries = Object.entries(caption as Record<string, unknown>)
-  const tags: WdTag[] = []
-  const push = (name: string, score: unknown, category: number) => {
-    if (typeof score === 'number' && Number.isFinite(score)) tags.push({ name, score, category })
-  }
-  const grouped = entries.some(([, value]) => value && typeof value === 'object')
-  if (grouped) {
-    for (const [group, map] of entries) {
-      if (group === 'rating' || !map || typeof map !== 'object') continue
-      const category = group === 'character' ? 4 : 0
-      for (const [name, score] of Object.entries(map as Record<string, unknown>)) push(name, score, category)
-    }
-  } else {
-    for (const [name, score] of entries) if (!RATING_TAGS.has(name)) push(name, score, 0)
-  }
-  return tags.sort((a, b) => b.score - a.score)
-}
-
-/** A seed list from the `info` string (or object) a generate call returns. */
-export function seedsFromInfo(info: unknown): number[] {
-  let parsed: unknown = info
-  if (typeof info === 'string') {
-    try {
-      parsed = JSON.parse(info)
-    } catch {
-      return []
-    }
-  }
-  const seeds = (parsed as { all_seeds?: unknown })?.all_seeds
-  return Array.isArray(seeds) ? seeds.filter((seed): seed is number => typeof seed === 'number') : []
-}
-
-/** Our request in the web UI's field names; `null` when the source cannot be read. */
-export async function toA1111Payload(
-  request: GenerateRequest,
-  sizeMultiple: number
-): Promise<{ path: string; body: Record<string, unknown> } | null> {
-  const body: Record<string, unknown> = {
-    prompt: request.prompt,
-    negative_prompt: request.negative_prompt,
-    seed: request.seed,
-    // One image per iteration, so progress (job_no) counts images.
-    batch_size: 1,
-    n_iter: Math.max(1, Math.min(16, Math.floor(request.image_count))),
-    steps: request.num_inference_steps,
-    cfg_scale: request.guidance_scale,
-    width: request.width,
-    height: request.height,
-    send_images: true,
-    // Latentry saves (with its own metadata) when GALLERY_SAVE_DIR is set; a
-    // second copy in the web UI's outputs would be clutter by default.
-    save_images: false,
-  }
-  if (request.sampler && request.sampler !== DEFAULT) body.sampler_name = request.sampler
-  if (request.scheduler && request.scheduler !== DEFAULT) body.scheduler = request.scheduler
-
-  if (!request.init_image_base64) return { path: '/sdapi/v1/txt2img', body }
-
-  const size = await imageSize(request.init_image_base64)
-  if (!size) return null
-  // Fit the output to the source's aspect, as the diffusers-compatible API
-  // does server-side; the web UI would otherwise stretch it.
-  const fitted = fitToImage(size, request.width, request.height, sizeMultiple)
-  body.width = fitted.width
-  body.height = fitted.height
-  body.init_images = [stripDataUrl(request.init_image_base64)]
-  body.denoising_strength = request.strength ?? 0.6
-  body.resize_mode = 0
-  if (request.mask_base64) {
-    body.mask = (await alphaToMask(request.mask_base64)).toString('base64')
-    body.mask_blur = request.mask_blur ?? 4
-    // 1 = start from the source's own pixels under the mask.
-    body.inpainting_fill = 1
-    body.inpaint_full_res = false
-    body.inpainting_mask_invert = 0
-  }
-  return { path: '/sdapi/v1/img2img', body }
 }
 
 export class A1111Adapter implements BackendAdapter {

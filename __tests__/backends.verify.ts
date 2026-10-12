@@ -9,14 +9,10 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
-import {
-  A1111Adapter,
-  chooseTaggerModel,
-  parseTaggerCaption,
-  seedsFromInfo,
-  toA1111Payload,
-  type A1111Transport,
-} from '../lib/backends/a1111'
+import { A1111Adapter } from '../lib/backends/a1111'
+import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
+import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
+import type { A1111Transport } from '../lib/backends/a1111-transport'
 import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
 import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
