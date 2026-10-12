@@ -104,8 +104,10 @@ outfit does not carry over.
   scale** (CFG). Backends with speed presets show **Speed preset** instead of
   sampler and steps; **Custom** brings them back.
 - A slider moved away from its default shows a small arrow at the end of its
-  label: press it to put that one slider back to the profile's value. On a
-  phone this catches a slider moved by a stray tap while scrolling.
+  label: press it to put that one slider back to the profile's value.
+- On a phone or tablet, a slider moves only when you drag its knob. A swipe
+  that starts on its track scrolls the page, and a tap on the track leaves
+  the value alone.
 - **Reset** (the arrow next to Generate) puts this backend's form back to the
   profile's defaults.
 

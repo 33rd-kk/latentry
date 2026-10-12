@@ -10,6 +10,7 @@ function Slider({
   value,
   min = 0,
   max = 100,
+  onPointerDown,
   ...props
 }: React.ComponentProps<typeof SliderPrimitive.Root>) {
   const _values = React.useMemo(
@@ -29,8 +30,18 @@ function Slider({
       value={value}
       min={min}
       max={max}
+      // On touch, only the thumb moves the value. A swipe that starts on the
+      // track scrolls the page, and a tap on it does nothing, so scrolling a
+      // phone past a slider cannot change it. Radix skips its own handler
+      // (the jump to the touched spot) once the event is default-prevented.
+      onPointerDown={(event) => {
+        if (event.pointerType === "touch" && !(event.target as Element).closest('[data-slot="slider-thumb"]')) {
+          event.preventDefault()
+        }
+        onPointerDown?.(event)
+      }}
       className={cn(
-        "relative flex w-full touch-none items-center select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
+        "relative flex w-full touch-pan-y items-center data-vertical:touch-pan-x select-none data-disabled:opacity-50 data-vertical:h-full data-vertical:min-h-40 data-vertical:w-auto data-vertical:flex-col",
         className
       )}
       {...props}
@@ -48,7 +59,7 @@ function Slider({
         <SliderPrimitive.Thumb
           data-slot="slider-thumb"
           key={index}
-          className="relative block size-3 shrink-0 rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
+          className="relative block size-3 shrink-0 touch-none rounded-full border border-ring bg-white ring-ring/50 transition-[color,box-shadow] select-none after:absolute after:-inset-2 pointer-coarse:after:-inset-4 hover:ring-3 focus-visible:ring-3 focus-visible:outline-hidden active:ring-3 disabled:pointer-events-none disabled:opacity-50"
         />
       ))}
     </SliderPrimitive.Root>
