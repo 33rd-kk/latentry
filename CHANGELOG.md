@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Forge Neo**: checked as an `a1111` backend (Forge Neo 2.30, started
+  with `--api`): txt2img, img2img, inpainting, progress, Cancel, samplers
+  and schedulers, and its pictures in the gallery.
+- **Progress on A1111 and Forge after a change of steps**: an img2img or
+  inpaint run right after a run with another step count showed the earlier
+  run's count, so its bar stopped short or ran past the end. The count is
+  now taken again once the web UI sets it.
+
 - **Faster runs with the same LoRA**: the engine leaves the last four LoRAs
   used in the model, switched off, so a run that calls one again skips
   putting it in (about 1.5 s on SDXL). A run without them comes out exactly
