@@ -38,8 +38,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 from . import __version__, loras, models, pose_control, samplers
-from .core import Cancelled, Engine, EngineError, GenerateRequest, decode_image
+from .core import Cancelled, Engine, EngineError, GenerateRequest
 from .gpu import plan as gpu_plan
+from .pictures import decode_image
 
 # What one request may carry. Latentry sends at most 48 MB (lib/limits.ts),
 # with each picture under 32M characters of base64 (lib/api.ts).
