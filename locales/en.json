@@ -202,7 +202,7 @@
         }
       },
       "setup": {
-        "controlnet": "Choose a Pose ControlNet for this backend in Settings (an OpenPose ControlNet from ComfyUI's controlnet folder, for SDXL models).",
+        "controlnet": "Choose a Pose ControlNet for this backend in Settings (an OpenPose ControlNet from ComfyUI's controlnet folder that fits the checkpoint: NoobAI-XL OpenPose for Illustrious and NoobAI models, xinsir's for other SDXL models).",
         "engine": "Latentry's built-in engine finds the people and draws the skeleton. Start it on the Setup page; it needs no model loaded for this.",
         "nodes": "This ComfyUI does not list ControlNetLoader and ControlNetApplyAdvanced. Update ComfyUI."
       },
@@ -415,7 +415,7 @@
     "backendModelHint": "The checkpoint ComfyUI draws with. Test lists the ones it has.",
     "backendControlnet": "Pose ControlNet",
     "backendControlnetNone": "None (no pose on the built-in graph)",
-    "backendControlnetHint": "The ControlNet the built-in graph follows a skeleton with, e.g. an OpenPose ControlNet for SDXL. Test lists the ones ComfyUI has. The skeleton is drawn by Latentry's engine, so only the skeleton goes to ComfyUI, never the picture it came from.",
+    "backendControlnetHint": "The ControlNet the built-in graph follows a skeleton with: an OpenPose ControlNet that fits the checkpoint (NoobAI-XL OpenPose for Illustrious and NoobAI models, xinsir's for other SDXL models). Test lists the ones ComfyUI has. The skeleton is drawn by Latentry's engine, so only the skeleton goes to ComfyUI, never the picture it came from.",
     "backendWorkflowsDir": "Workflows folder",
     "backendWorkflowsDirHint": "Optional: a folder on this computer with workflows saved from ComfyUI with Export (API). The Generate page offers them next to the built-in graph. Read only.",
     "shareWorkflows": "Show workflow names on paired devices",

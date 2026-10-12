@@ -4,7 +4,9 @@
 
 - **Pose on ComfyUI**: a ComfyUI backend now follows a skeleton pose, with
   the Pose ControlNet chosen for it on Settings (or `GEN_CONTROLNET_<ID>`),
-  such as an OpenPose ControlNet for SDXL. Latentry's engine finds the
+  an OpenPose ControlNet that fits the checkpoint (NoobAI-XL OpenPose for
+  Illustrious and NoobAI models, xinsir's for other SDXL models; the manual's
+  Backends page says why). Latentry's engine finds the
   people and draws the skeleton, so picking people and the 3D view work as
   on the engine, and only the drawn skeleton goes to ComfyUI, never the
   reference picture. It works with a source picture and a mask too; a

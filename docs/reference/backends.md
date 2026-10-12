@@ -77,9 +77,16 @@ things are there:
 
 - **A Pose ControlNet** chosen for it on Settings (or in
   `GEN_CONTROLNET_<ID>`): an OpenPose ControlNet from ComfyUI's
-  `models/controlnet` folder that fits the checkpoint, such as
-  `xinsir/controlnet-openpose-sdxl-1.0` for SDXL models. **Test** lists the
-  ones ComfyUI has.
+  `models/controlnet` folder that fits the checkpoint. **Test** lists the
+  ones ComfyUI has. The checkpoint's family matters:
+
+    | Checkpoint | Pose ControlNet |
+    |---|---|
+    | Illustrious, NoobAI and models built on them | NoobAI-XL OpenPose (`Laxhar/noob_openpose`, `openpose_pre.safetensors`) |
+    | Other SDXL models | `xinsir/controlnet-openpose-sdxl-1.0` |
+
+    An SDXL ControlNet on an Illustrious checkpoint leaves the picture
+    washed out and grey, and the pose is hardly followed.
 - **Latentry's engine running** ([Setup](../guide/engine.md)). It finds the
   people and draws the skeleton on this computer's CPU, whatever model it
   has loaded, so picking people and the 3D view work as on the engine. The
