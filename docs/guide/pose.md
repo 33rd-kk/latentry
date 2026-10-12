@@ -1,8 +1,9 @@
 # Pose and the 3D view
 
-**Skeleton pose** makes the run follow a pose taken from a picture: the
-backend detects the people in it, draws the chosen person's skeleton, and
-generates along it. It needs a backend that offers pose control: the
+**Skeleton pose** makes the run follow a pose taken from any picture, even
+a group picture: the backend finds the people in it, you pick which of them
+to follow, turn their pose in 3D and frame it if you like, and the run is
+drawn along that skeleton. It needs a backend that offers pose control: the
 built-in engine (SDXL models and Anima v1.0) or a server that implements it
 (see the [backend API](../backend-api.md)).
 
@@ -22,9 +23,13 @@ dynamic poses (running, jumping) are followed least reliably.
 ![Two people found in the reference, the second one chosen, and the 3D view](../assets/manual-people.webp){ width="440" }
 
 With several people in the picture, their boxes are drawn over it, numbered
-left to right. Click one to follow that person, or **Everyone** for the whole
-group. The run sends only the skeleton, so the people's looks do not carry
-over.
+left to right. Click a box to follow that person or leave them out, so two
+of three can be used; at least one stays. **Everyone** picks the whole
+group. A backend that takes only one person or everyone (one without
+`person_subsets`, see the [backend API](../backend-api.md)) offers just
+that, and the chooser says why; Latentry's engine takes any set from
+poseorbit 0.2.0 (run **Repair / update** on [Setup](engine.md) once). The
+run sends only the skeleton, so the people's looks do not carry over.
 
 ## Turn it and frame it in 3D
 

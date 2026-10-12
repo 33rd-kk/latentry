@@ -16,9 +16,11 @@ it again by what it shows or how it was made.
 ## What it does
 
 - **Generate**: text-to-image, img2img (a variation, or a picture as a pose
-  reference), inpainting with a painted mask, and skeleton pose control:
-  pick whose pose in a group picture, turn it in 3D and frame it before
-  generating.
+  reference) and inpainting with a painted mask.
+- **Poses from group pictures, turned in 3D**: pick which of the people in a
+  picture to follow (one, several or everyone), turn the pose in 3D and frame
+  it, then generate along that skeleton. See
+  [Pose and the 3D view](guide/pose.md).
 - **Several backends and model families**: each backend keeps its own form,
   and a model profile (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
   sizes, steps, CFG, negative prompt, artist notation and quality tags.
