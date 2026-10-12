@@ -22,6 +22,8 @@ export interface BackendDraft {
   tokenSource: Source | null
   /** comfyui: the checkpoint, "" for ComfyUI's first. */
   model: string
+  /** comfyui: the pose ControlNet, "" for no pose on the built-in graph. */
+  controlnet: string
   /** comfyui: a folder of workflows, "" for none; and whether paired devices see them. */
   workflowsDir: string
   shareWorkflows: boolean
@@ -57,7 +59,7 @@ export const newKey = () => `b${(nextKey += 1)}`
 
 /** A row for "Add backend". */
 export function emptyBackend(): BackendDraft {
-  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', workflowsDir: '', shareWorkflows: false }
+  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', controlnet: '', workflowsDir: '', shareWorkflows: false }
 }
 
 /** A profile with every field back to the built-in value. */
@@ -100,6 +102,7 @@ export function toDraft(view: SettingsView): Draft {
       clearToken: false,
       tokenSource: backend.token,
       model: backend.model ?? '',
+      controlnet: backend.controlnet ?? '',
       workflowsDir: backend.workflowsDir ?? '',
       shareWorkflows: backend.shareWorkflows,
     })),
@@ -130,6 +133,7 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
       // Write-only: a typed value sets it, "clear" empties it, nothing keeps it.
       ...(backend.clearToken ? { token: '' } : backend.token ? { token: backend.token } : {}),
       ...(backend.kind === 'comfyui' && backend.model.trim() ? { model: backend.model.trim() } : {}),
+      ...(backend.kind === 'comfyui' && backend.controlnet.trim() ? { controlnet: backend.controlnet.trim() } : {}),
       ...(backend.kind === 'comfyui' && backend.workflowsDir.trim() ? { workflowsDir: backend.workflowsDir.trim(), shareWorkflows: backend.shareWorkflows } : {}),
     }))
   }

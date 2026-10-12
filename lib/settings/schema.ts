@@ -22,6 +22,8 @@ export interface StoredBackend {
   token?: string
   /** comfyui only: the checkpoint, as ComfyUI lists it (folders included). */
   model?: string
+  /** comfyui only: the pose ControlNet, as ComfyUI lists it (folders included). */
+  controlnet?: string
   /** comfyui only: a folder of API-format workflows (absolute; read only). */
   workflowsDir?: string
   /** comfyui only: paired devices may see and pick those workflows by name. */
@@ -176,6 +178,7 @@ export interface BackendInput {
   profile: unknown
   token?: unknown
   model?: unknown
+  controlnet?: unknown
   workflowsDir?: unknown
   shareWorkflows?: unknown
 }
@@ -234,6 +237,14 @@ export function validateSettings(
         ) {
           errors[`${at}.model`] = 'settings.errorBackendModel'
         }
+        const controlnet = typeof raw?.controlnet === 'string' ? raw.controlnet.trim() : ''
+        if (
+          (raw?.controlnet !== undefined && raw.controlnet !== null && typeof raw.controlnet !== 'string') ||
+          controlnet.length > MAX_BACKEND_MODEL_LENGTH ||
+          /[\u0000-\u001f\u007f]/.test(controlnet)
+        ) {
+          errors[`${at}.controlnet`] = 'settings.errorBackendModel'
+        }
         const workflowsDir = typeof raw?.workflowsDir === 'string' ? raw.workflowsDir.trim() : ''
         if (raw?.workflowsDir !== undefined && raw.workflowsDir !== null && typeof raw.workflowsDir !== 'string') {
           errors[`${at}.workflowsDir`] = 'settings.errorAbsolute'
@@ -262,6 +273,7 @@ export function validateSettings(
           profile: raw.profile as ProfileId,
           ...(token ? { token } : {}),
           ...(comfy && model ? { model } : {}),
+          ...(comfy && controlnet ? { controlnet } : {}),
           ...(comfy && workflowsDir ? { workflowsDir } : {}),
           // Off unless turned on, and only meaningful with a folder.
           ...(comfy && workflowsDir && raw.shareWorkflows === true ? { shareWorkflows: true } : {}),

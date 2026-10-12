@@ -25,6 +25,8 @@ export interface BackendConfig {
   token?: string
   /** comfyui: the checkpoint to draw with, as ComfyUI lists it; else its first. */
   model?: string
+  /** comfyui: the ControlNet the built-in graph follows a skeleton with, as ComfyUI lists it; no pose without one. */
+  controlnet?: string
   /** comfyui: a folder of API-format workflows to pick from on the Generate page. */
   workflowsDir?: string
   /** comfyui: whether paired devices see (and may pick) those workflows by name. */
@@ -57,7 +59,9 @@ export type HintedFeature = (typeof HINTED_FEATURES)[number]
  * - `declined`: the server says it cannot; `detail` is its own reason, if any.
  */
 export interface FeatureHint {
-  reason: 'kind' | 'not-reported' | 'declined'
+  reason: 'kind' | 'not-reported' | 'declined' | 'setup'
+  /** For `setup`: what is missing before Latentry can use the feature there. */
+  need?: 'controlnet' | 'engine' | 'nodes'
   /** The server's words, plain text, already trimmed. */
   detail?: string
 }
@@ -175,6 +179,8 @@ export interface PoseRequest {
   want_3d?: boolean
   /** Draw the pose seen from here, in degrees, framed on the canvas (see lib/pose.ts for the limits). */
   camera?: { yaw: number; pitch: number; framing?: { zoom: number; x: number; y: number } }
+  /** How to draw the skeleton ("openpose", "dwpose"). Set by this server for the backend that follows it, never by the browser. */
+  style?: 'openpose' | 'dwpose'
 }
 
 /** A backend's answer that is either a body to pass on or a refusal with its status. */

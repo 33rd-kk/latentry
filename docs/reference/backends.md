@@ -5,7 +5,7 @@
 | Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU | SDXL family: txt2img, img2img, inpainting, pose. Anima: txt2img, img2img, pose (v1.0). 3D pose turning |
 | `diffusers` | Any server speaking the [backend API](../backend-api.md) | img2img, inpainting and pose if the server offers them; precise cancel |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpainting. No pose control |
-| `comfyui` | A ComfyUI server | txt2img, img2img and inpainting with LoRAs, from a graph Latentry builds. No pose yet; precise cancel |
+| `comfyui` | A ComfyUI server | txt2img, img2img and inpainting with LoRAs, from a graph Latentry builds. Pose with a ControlNet, the skeleton drawn by Latentry's engine; precise cancel |
 
 Use the built-in engine, servers you already run, or both: different
 backends run in parallel, one run each.
@@ -70,10 +70,33 @@ picture being drawn and skips the rest. It never sends a graph from the page,
 and it never cancels another client's prompt. While someone else's prompt is
 queued, a run is refused rather than queued behind it.
 
+### Pose
+
+A ComfyUI backend follows a [skeleton pose](../guide/pose.md) once three
+things are there:
+
+- **A Pose ControlNet** chosen for it on Settings (or in
+  `GEN_CONTROLNET_<ID>`): an OpenPose ControlNet from ComfyUI's
+  `models/controlnet` folder that fits the checkpoint, such as
+  `xinsir/controlnet-openpose-sdxl-1.0` for SDXL models. **Test** lists the
+  ones ComfyUI has.
+- **Latentry's engine running** ([Setup](../guide/engine.md)). It finds the
+  people and draws the skeleton on this computer's CPU, whatever model it
+  has loaded, so picking people and the 3D view work as on the engine. The
+  reference picture goes to the engine only; ComfyUI gets the drawn skeleton.
+- **ComfyUI's own ControlNet nodes** (`ControlNetLoader`,
+  `ControlNetApplyAdvanced`), which every current ComfyUI has.
+
+Until then, the Generate page says which is missing. The run uploads the
+skeleton at the size it draws and applies it to both prompts, at **Pose
+strength**, over all the steps; it works with a source picture and a mask
+too. A workflow cannot follow a skeleton yet: for a pose, use the built-in
+graph.
+
 What stays on the ComfyUI computer: the graph ends in a preview, so pictures
 go to ComfyUI's temp folder (emptied when ComfyUI restarts), not its output
-folder. An upload reuses one of two names for the backend
-(`input/latentry/<id>-source.png` and `-mask.png`), so they never pile up;
+folder. An upload reuses one of three names for the backend
+(`input/latentry/<id>-source.png`, `-mask.png` and `-pose.png`), so they never pile up;
 ComfyUI's history keeps the prompts Latentry ran, as it does its own. After
 a [secret](../guide/secret-mode.md) run, Latentry deletes that run's prompts
 from the history and overwrites its uploads with an empty picture. Latentry saves its own copy, without ComfyUI's graph in it (that
@@ -122,13 +145,11 @@ Latentry fills a workflow in on this computer before it is queued:
   ComfyUI's output folder; the picture is read from the `latentry:output`
   node, else the first.
 
-A workflow draws from the prompt only: for a source picture or a mask, use
-the built-in graph. The folder is only read, never written, and only its
+A workflow draws from the prompt only: for a source picture, a mask or a
+pose, use the built-in graph. The folder is only read, never written, and only its
 own `*.json` files (no subfolders, at most 200, 1 MB each). Workflow names
 are shown to paired devices only with **Show workflow names on paired
 devices** on for that backend.
-
-Not yet: pose.
 
 ## Your own server
 

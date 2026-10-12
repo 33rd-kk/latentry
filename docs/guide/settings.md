@@ -22,6 +22,10 @@ The servers that generate images. Each has:
 - **Profile**: the model profile its form starts from.
 - **Model** (`comfyui` only): the checkpoint ComfyUI draws with. **Test**
   fills the list with the ones it has; left empty, it is the first.
+- **Pose ControlNet** (`comfyui` only, optional): the ControlNet the
+  built-in graph follows a [skeleton pose](pose.md) with, such as an
+  OpenPose ControlNet for SDXL. **Test** fills the list; left empty, the
+  backend offers no pose (see [Backends](../reference/backends.md#pose)).
 - **Workflows folder** (`comfyui` only, optional): a folder of workflows
   saved with ComfyUI's **Export (API)**, offered on the Generate page (see
   [Backends](../reference/backends.md#your-own-workflows)). **Show workflow

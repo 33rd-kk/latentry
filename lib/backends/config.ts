@@ -9,7 +9,8 @@
 //
 // A comfyui backend draws with the first checkpoint ComfyUI lists, or the one
 // in GEN_MODEL_<ID> (as ComfyUI lists it, e.g. sdxl\base.safetensors), or the
-// one chosen on the settings page.
+// one chosen on the settings page. Its built-in graph follows a skeleton only
+// with a ControlNet: GEN_CONTROLNET_<ID>, or the one chosen there.
 //
 // The ids are what the browser sees (in /api/gen/<id>/...), so they are the
 // only part of an entry that ever leaves the server. A single
@@ -44,9 +45,12 @@ function tokenFor(id: string, env: Env): string | undefined {
   return value ? value : undefined
 }
 
-/** GEN_MODEL_<ID>: a comfyui backend's checkpoint, as ComfyUI lists it; one line, as the settings page allows. */
-function modelFor(id: string, env: Env): string | undefined {
-  const value = env[`GEN_MODEL_${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]?.trim()
+/**
+ * GEN_MODEL_<ID> (a comfyui backend's checkpoint) or GEN_CONTROLNET_<ID> (its
+ * pose ControlNet), as ComfyUI lists it; one line, as the settings page allows.
+ */
+function fileFor(prefix: 'GEN_MODEL' | 'GEN_CONTROLNET', id: string, env: Env): string | undefined {
+  const value = env[`${prefix}_${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]?.trim()
   return value && value.length <= MAX_BACKEND_MODEL_LENGTH && !/[\u0000-\u001f\u007f]/.test(value) ? value : undefined
 }
 
@@ -106,8 +110,17 @@ export function parseBackends(env: Env): BackendConfigResult {
     seen.add(normalizedId)
     const token = tokenFor(normalizedId, env)
     // Only ComfyUI is told which checkpoint to load; the others draw with what they have.
-    const model = kind === 'comfyui' ? modelFor(normalizedId, env) : undefined
-    backends.push({ id: normalizedId, kind, url: parsed.toString(), profile, ...(token ? { token } : {}), ...(model ? { model } : {}) })
+    const model = kind === 'comfyui' ? fileFor('GEN_MODEL', normalizedId, env) : undefined
+    const controlnet = kind === 'comfyui' ? fileFor('GEN_CONTROLNET', normalizedId, env) : undefined
+    backends.push({
+      id: normalizedId,
+      kind,
+      url: parsed.toString(),
+      profile,
+      ...(token ? { token } : {}),
+      ...(model ? { model } : {}),
+      ...(controlnet ? { controlnet } : {}),
+    })
   }
 
   return { backends, problems }

@@ -24,8 +24,8 @@ made, then sends those settings back to the form to make it again.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
   pose in 3D and frame it, then generate along that skeleton. Works on the
-  built-in engine (SDXL family and Anima) and on servers that offer pose
-  control; detection and turning come from
+  built-in engine (SDXL family and Anima), on ComfyUI with a ControlNet, and
+  on servers that offer pose control; detection and turning come from
   [poseorbit](https://github.com/33rd-kk/poseorbit).
 - **A gallery that knows how every picture was made.** Every finished image
   is saved with its settings embedded (readable by A1111's PNG Info too).
@@ -92,7 +92,7 @@ page lists what is kept where.
 | Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). 3D pose turning. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint. No pose control. |
-| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. No pose yet. Precise cancel. |
+| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |
 
 Use the built-in engine, the servers you already run, or both.
 

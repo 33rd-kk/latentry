@@ -27,7 +27,9 @@ export async function POST(request: Request) {
   const id = typeof body?.id === 'string' ? body.id : ''
   const saved = getBackendConfig(id)
   const token = typeof body?.token === 'string' && body.token ? body.token : saved && sameOrigin(saved.url, url) ? saved.token : undefined
-  const model = typeof body?.model === 'string' && body.model.trim() ? body.model.trim().slice(0, MAX_BACKEND_MODEL_LENGTH) : undefined
+  const file = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, MAX_BACKEND_MODEL_LENGTH) : undefined)
+  const model = file(body?.model)
+  const controlnet = file(body?.controlnet)
   const adapter = adapterFor({
     id: `test-${Date.now()}`,
     kind: kind as BackendKind,
@@ -35,11 +37,13 @@ export async function POST(request: Request) {
     profile: isProfileId(body?.profile) ? body.profile : 'generic',
     ...(token ? { token } : {}),
     ...(model ? { model } : {}),
+    ...(controlnet ? { controlnet } : {}),
   })
   const status = await adapter.status()
-  // ComfyUI's checkpoints, folders included, to choose from: only this
-  // settings page sees them (the route is for clients that may edit settings).
-  const checkpoints = adapter instanceof ComfyUIAdapter && status.alive ? await adapter.checkpoints() : null
+  // ComfyUI's checkpoints and ControlNets, folders included, to choose from:
+  // only this settings page sees them (the route is for clients that may edit settings).
+  const comfy = adapter instanceof ComfyUIAdapter && status.alive ? adapter : null
+  const [checkpoints, controlnets] = comfy ? await Promise.all([comfy.checkpoints(), comfy.controlnets()]) : [null, null]
   return json({
     alive: status.alive,
     model: status.model,
@@ -47,5 +51,6 @@ export async function POST(request: Request) {
     hints: status.hints,
     ...(status.problem ? { problem: status.problem } : {}),
     ...(checkpoints ? { checkpoints } : {}),
+    ...(controlnets ? { controlnets } : {}),
   })
 }

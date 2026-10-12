@@ -60,5 +60,6 @@ function hintText(t: ReturnType<typeof useT>, feature: HintedFeature, hint: Feat
     return hint.detail ? t("generate.unavailable.declinedBecause", { detail: hint.detail }) : t("generate.unavailable.declined")
   }
   if (hint.reason === "kind") return t(`generate.unavailable.kind.${kind}.${feature}` as MessageKey)
+  if (hint.reason === "setup" && hint.need) return t(`generate.unavailable.setup.${hint.need}` as MessageKey)
   return t(`generate.unavailable.notReported.${feature}` as MessageKey)
 }

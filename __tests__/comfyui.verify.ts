@@ -28,6 +28,7 @@ import { REDIRECT_REFUSED } from '../lib/backends/http'
 import { isResumable, keptFor, markSecret, SECRET_GRACE_MS, startJob } from '../lib/diffusion/job-store'
 import { fitToImage } from '../lib/profiles'
 import { isPng, readPngText, writePngText } from '../lib/image-meta'
+import { validateSettings } from '../lib/settings/schema'
 import type { BackendConfig, BackendEvent, GenerateRequest } from '../lib/backends/types'
 
 const REQUEST: GenerateRequest = {
@@ -56,7 +57,7 @@ async function collect(events: AsyncIterable<BackendEvent>): Promise<BackendEven
  * when there is one, else in /history), unless `hold` keeps it running until
  * an interrupt.
  */
-async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?: boolean; refuse?: unknown; fail?: string } = {}) {
+async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?: boolean; refuse?: unknown; fail?: string; controlnet?: boolean } = {}) {
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123' } }).png().toBuffer(), {
     prompt: '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"secret/folder/base.safetensors"}}}',
     workflow: '{"nodes":[]}',
@@ -101,6 +102,11 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
       }
       // The newer COMBO form of the same answer.
       if (path === '/object_info/LoraLoader') return { status: 200, body: combo('LoraLoader', 'lora_name', ['COMBO', { options: ['styles/Ink.safetensors'] }]) }
+      // ComfyUI answers {} for a node it does not have.
+      if (path === '/object_info/ControlNetLoader') {
+        return { status: 200, body: options.controlnet ? combo('ControlNetLoader', 'control_net_name', [['sdxl/openpose.safetensors']]) : {} }
+      }
+      if (path === '/object_info/ControlNetApplyAdvanced') return { status: 200, body: options.controlnet ? { ControlNetApplyAdvanced: { input: { required: {} } } } : {} }
       const match = /^\/history\/(.+)$/.exec(path)
       if (match) {
         const id = decodeURIComponent(match[1])
@@ -199,8 +205,18 @@ async function main() {
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
   eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
-  eq(status.hints, comfyHints(true), 'source image, inpaint and pose are explained as not available on this kind')
-  eq(comfyHints(false), {}, 'no hints while it is down')
+  eq(status.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'pose is explained: this ComfyUI has no ControlNet nodes')
+  const nothing = { nodes: false, controlnet: false, engine: false }
+  eq(comfyHints(false, nothing), {}, 'no hints while it is down')
+  eq(
+    [
+      comfyHints(true, { ...nothing, nodes: true }),
+      comfyHints(true, { nodes: true, controlnet: true, engine: false }),
+      comfyHints(true, { nodes: true, controlnet: true, engine: true }),
+    ],
+    [{ pose: { reason: 'setup', need: 'controlnet' } }, { pose: { reason: 'setup', need: 'engine' } }, {}],
+    'then the first thing missing: a ControlNet chosen, a running engine; nothing once all are there'
+  )
   eq((await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-2', model: 'other.safetensors' }, quiet.transport).status()).model, 'other.safetensors', 'the model set for the backend is the one shown')
 
   // ── Why it is down ──
@@ -334,6 +350,115 @@ async function main() {
   eq(painter.deleted, [], 'an ordinary run leaves its history on ComfyUI')
   eq(painter.uploads.length, 2, 'and its uploads as they are')
 
+  // ── Pose: the engine draws, ComfyUI follows ──
+  const poseGraph = buildComfyGraph(REQUEST, {
+    checkpoint: 'c',
+    loras: [],
+    seed: 1,
+    sizeMultiple: 8,
+    pose: { image: 'latentry/x-pose.png', controlnet: 'sdxl/openpose.safetensors', strength: 0.8 },
+  })
+  eq(
+    [poseGraph['32']?.inputs, poseGraph['33']?.inputs, poseGraph['34']?.class_type, poseGraph['34']?.inputs],
+    [
+      { image: 'latentry/x-pose.png' },
+      { control_net_name: 'sdxl/openpose.safetensors' },
+      'ControlNetApplyAdvanced',
+      { positive: ['2', 0], negative: ['3', 0], control_net: ['33', 0], image: ['32', 0], strength: 0.8, start_percent: 0, end_percent: 1, vae: ['1', 2] },
+    ],
+    'pose graph: the skeleton and the ControlNet go into ControlNetApplyAdvanced with both prompts, at the strength asked for'
+  )
+  eq([poseGraph['5'].inputs.positive, poseGraph['5'].inputs.negative, poseGraph['5'].inputs.latent_image], [['34', 0], ['34', 1], ['4', 0]], 'the sampler takes its conditioning from it, the latent as before')
+  eq([graph['5'].inputs.positive, graph['5'].inputs.negative, '34' in graph], [['2', 0], ['3', 0], false], 'without a pose, no ControlNet at all')
+  const poseInpaint = buildComfyGraph(REQUEST, {
+    checkpoint: 'c',
+    loras: [],
+    seed: 1,
+    sizeMultiple: 8,
+    images: { source: 's.png', mask: 'm.png', strength: 0.5 },
+    pose: { image: 'p.png', controlnet: 'cn', strength: 1 },
+  })
+  eq([poseInpaint['5'].inputs.latent_image, poseInpaint['5'].inputs.positive], [['31', 0], ['34', 0]], 'a pose with inpaint: the masked latent, followed by the skeleton')
+
+  const asked: unknown[] = []
+  const engine = { pose: async (request: unknown) => (asked.push(request), { ok: true as const, value: { people: [] } }) }
+  const POSED: BackendConfig = { ...CONFIG, controlnet: 'sdxl/openpose.safetensors' }
+  const poser = await scriptedComfy({ socket: true, controlnet: true })
+  const posed = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).status()
+  eq([posed.capabilities.pose, posed.hints], [true, {}], 'pose is on with the nodes, a ControlNet set and a running engine')
+  const noEngine = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => null)
+  eq([(await noEngine.status()).capabilities.pose, (await noEngine.status()).hints], [false, { pose: { reason: 'setup', need: 'engine' } }], 'off without an engine, and said why')
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'poser' }, poser.transport, () => engine).status()).hints, { pose: { reason: 'setup', need: 'controlnet' } }, 'off without a ControlNet chosen')
+
+  const detected = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).pose({ image_base64: 'abc', person: [0, 2] })
+  eq([detected.ok, asked], [true, [{ image_base64: 'abc', person: [0, 2], style: 'openpose' }]], '/pose goes to the engine, asking for OpenPose drawing; nothing to ComfyUI')
+  eq(poser.calls.filter((call) => call.startsWith('UPLOAD') || call.startsWith('POST')), [], 'ComfyUI never sees the reference picture')
+  const noReader = await noEngine.pose({ image_base64: 'abc' })
+  eq(noReader.ok ? null : [noReader.status, noReader.error], [503, 'Start the built-in engine to read poses'], 'no engine: /pose says to start it')
+
+  const skeletonPng = await sharp({ create: { width: 64, height: 96, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 1 } } }).png().toBuffer()
+  const POSE_RUN: GenerateRequest = { ...REQUEST, image_count: 1, pose_image_base64: skeletonPng.toString('base64'), pose_is_skeleton: true, pose_strength: 0.7 }
+  const poseRun = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).start(POSE_RUN)
+  check(poseRun.ok, 'a pose run starts')
+  const poseEvents = poseRun.ok ? await collect(poseRun.value) : []
+  eq(poseEvents.map((event) => event.type), ['start', 'step', 'step', 'image', 'done'], 'and ends with its picture')
+  eq(poser.uploads.map(({ subfolder, name }) => `${subfolder}/${name}`), ['latentry/poser-pose.png'], 'only the skeleton goes up, under a fixed name for this backend')
+  const upSkeleton = await sharp(poser.uploads[0].png).metadata()
+  eq([upSkeleton.width, upSkeleton.height, upSkeleton.channels], [832, 1216, 3], 'at the size the latent is drawn at, without alpha')
+  eq(
+    [poser.graphs[0]['32'].inputs.image, poser.graphs[0]['33'].inputs.control_net_name, poser.graphs[0]['34'].inputs.strength],
+    ['latentry/poser-pose.png', 'sdxl/openpose.safetensors', 0.7],
+    'the graph loads it, with the ControlNet set for the backend and the pose strength'
+  )
+
+  const refusePose = async (config: BackendConfig, request: GenerateRequest, comfy = poser) => {
+    const outcome = await new ComfyUIAdapter(config, comfy.transport, () => engine).start(request)
+    return outcome.ok ? 'started' : `${outcome.status} ${outcome.error}`
+  }
+  eq(await refusePose({ ...CONFIG, id: 'poser' }, POSE_RUN), "400 Choose a Pose ControlNet for this backend in Settings", 'a pose without a ControlNet set is refused')
+  eq(
+    await refusePose({ ...CONFIG, id: 'poser', controlnet: 'gone.safetensors' }, POSE_RUN),
+    "400 The Pose ControlNet set for this backend is not in ComfyUI's list: gone.safetensors",
+    'so is one ComfyUI does not list'
+  )
+  eq(await refusePose({ ...POSED, id: 'bare' }, POSE_RUN, quiet), '400 This ComfyUI has no ControlNetLoader and ControlNetApplyAdvanced', 'and a ComfyUI without the nodes')
+  eq(
+    await refusePose({ ...POSED, id: 'poser' }, { ...POSE_RUN, pose_is_skeleton: false }),
+    '400 This backend follows a drawn skeleton only (pose_is_skeleton, from /pose)',
+    'a raw reference picture is refused, so it never goes to ComfyUI'
+  )
+  eq(
+    await refusePose({ ...POSED, id: 'poser' }, { ...POSE_RUN, workflow: 'mine' }),
+    '400 A workflow cannot follow a skeleton yet. Choose the built-in graph for a pose.',
+    'and so is a pose with a workflow, for now'
+  )
+  eq(poser.uploads.length, 1, 'nothing goes up for a refused run')
+
+  const hiddenPose = await scriptedComfy({ socket: true, controlnet: true })
+  const secretPose = await new ComfyUIAdapter({ ...POSED, id: 'hidden-pose' }, hiddenPose.transport, () => engine).start({
+    ...POSE_RUN,
+    init_image_base64: sourcePng.toString('base64'),
+    secret: true,
+  })
+  if (secretPose.ok) await collect(secretPose.value)
+  eq(hiddenPose.uploads.map(({ name }) => name), ['hidden-pose-source.png', 'hidden-pose-pose.png', 'hidden-pose-source.png', 'hidden-pose-pose.png'], 'a secret pose run blanks the skeleton as well as the source')
+  eq(hiddenPose.deleted, ['p1'], 'and deletes its prompt from the history')
+
+  const stored = (kind: 'comfyui' | 'a1111', controlnet: unknown) => {
+    const checked = validateSettings({ backends: [{ id: 'c', kind, url: 'http://c:1', profile: 'sdxl', controlnet }] }, { version: 1 }, {})
+    return checked.ok ? checked.settings.backends?.[0].controlnet : checked.errors
+  }
+  eq(
+    [stored('comfyui', ' sdxl/openpose.safetensors '), stored('comfyui', ''), stored('a1111', 'x.safetensors')],
+    ['sdxl/openpose.safetensors', undefined, undefined],
+    'settings keep a comfyui backend\'s ControlNet, trimmed; blank is none, and other kinds keep none'
+  )
+  eq(
+    [stored('comfyui', 'two\nlines'), stored('comfyui', 'x'.repeat(513)), stored('comfyui', 5)],
+    Array(3).fill({ 'backends.0.controlnet': 'settings.errorBackendModel' }),
+    'one line, at most 512 characters, and text'
+  )
+
   // ── Secret runs take back their traces ──
   const hidden = await scriptedComfy({ socket: true })
   const secretRun = await new ComfyUIAdapter({ ...CONFIG, id: 'hidden' }, hidden.transport).start({ ...REQUEST, init_image_base64: sourcePng.toString('base64'), secret: true })
@@ -457,6 +582,20 @@ async function throughRoutes(): Promise<void> {
     const listed = (await (await backendsRoute()).json()) as { backends: { id: string; kind: string; alive: boolean; model: string | null }[] }
     eq(listed.backends.map(({ id, kind, alive, model }) => ({ id, kind, alive, model })), [{ id: 'comfy', kind: 'comfyui', alive: true, model: 'base.safetensors' }], 'the page sees the ComfyUI backend, its model by file name only')
     check(!JSON.stringify(listed).includes('private-folder'), 'and none of the folders the model sits in')
+
+    const { POST: testRoute } = await import('../app/api/settings/test/route')
+    const tryBackend = (host: string) =>
+      testRoute(
+        new Request(`http://${host}/api/settings/test`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', host },
+          body: JSON.stringify({ kind: 'comfyui', url: mock.url, controlnet: 'private-folder/openpose.safetensors' }),
+        })
+      )
+    const tried = (await (await tryBackend('127.0.0.1:3000')).json()) as { controlnets?: string[]; capabilities?: { pose?: boolean }; hints?: unknown }
+    eq(tried.controlnets, ['private-folder/openpose.safetensors'], 'Settings Test lists ComfyUI\'s ControlNets, folders included, on this machine')
+    eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' } }], 'and says pose waits for a running engine')
+    eq((await tryBackend('192.168.1.20:3000')).status, 403, 'a paired device cannot ask for that list')
 
     const started = await generateRoute(
       new Request('http://127.0.0.1:3000/api/gen/comfy/generate', {
