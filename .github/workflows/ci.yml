@@ -36,7 +36,11 @@ jobs:
       # Every UI string has an English source and no catalog is broken.
       - run: npm run i18n:check
       # The verify scripts in __tests__/: no backend, GPU or model needed.
-      - run: npm test
+      # Once with coverage, printed in the log only (nothing is uploaded).
+      - if: matrix.os != 'ubuntu-latest' || matrix.node != 22
+        run: npm test
+      - if: matrix.os == 'ubuntu-latest' && matrix.node == 22
+        run: npm run coverage
       # A production build, once: what `npm start` serves must compile.
       - if: matrix.os == 'ubuntu-latest' && matrix.node == 22
         run: npm run build

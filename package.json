@@ -13,7 +13,8 @@
     "i18n:check": "node scripts/i18n-translate.mjs --check",
     "engine:lock": "node scripts/lock-engine.mjs",
     "banner": "node scripts/make-banner.mjs",
-    "test:e2e": "node scripts/e2e.mjs"
+    "test:e2e": "node scripts/e2e.mjs",
+    "coverage": "c8 node scripts/run-verify.mjs && node -e \"require('fs').rmSync('coverage/tmp', { recursive: true, force: true })\""
   },
   "dependencies": {
     "class-variance-authority": "^0.7.1",
@@ -40,6 +41,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/three": "^0.186.0",
+    "c8": "^12.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.4.0",
     "shadcn": "^4.21.4",
