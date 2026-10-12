@@ -1,4 +1,3 @@
-import { NextResponse } from 'next/server'
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { toPoseRequest } from '@/lib/pose'
 import { tryEnter } from '@/lib/security/concurrency'
@@ -13,7 +12,7 @@ const MAX_AT_ONCE = 2
 export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backend]/pose'>) {
   const id = (await ctx.params).backend
   const adapter = adapterOr404(id)
-  if (adapter instanceof NextResponse) return adapter
+  if (adapter instanceof Response) return adapter
   if (!adapter.pose) return jsonError('Pose control is not available on this backend', 404)
 
   const release = tryEnter(`gen:pose:${id}`, MAX_AT_ONCE)

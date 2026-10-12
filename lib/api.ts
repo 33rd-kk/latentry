@@ -1,22 +1,22 @@
-// Shared bits for the route handlers.
+// Shared bits for the route handlers. Plain web Response, not NextResponse:
+// nothing under lib/ imports Next, so it could serve another HTTP server.
 
-import { NextResponse } from 'next/server'
 import { getAdapter } from '@/lib/backends'
 import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
-export function jsonError(error: string, status: number, extra: Record<string, unknown> = {}): NextResponse {
-  return NextResponse.json({ error, ...extra }, { status, headers: NO_STORE })
+export function jsonError(error: string, status: number, extra: Record<string, unknown> = {}): Response {
+  return Response.json({ error, ...extra }, { status, headers: NO_STORE })
 }
 
-export function json(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}): NextResponse {
-  return NextResponse.json(body, { status: init.status, headers: { ...NO_STORE, ...init.headers } })
+export function json(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}): Response {
+  return Response.json(body, { status: init.status, headers: { ...NO_STORE, ...init.headers } })
 }
 
 /** The adapter for a backend id from the URL; a 404 response for an unknown one. */
-export function adapterOr404(id: string): BackendAdapter | NextResponse {
+export function adapterOr404(id: string): BackendAdapter | Response {
   return getAdapter(id) ?? jsonError('Unknown backend', 404)
 }
 

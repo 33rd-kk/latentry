@@ -15,6 +15,18 @@ const eslintConfig = defineConfig([
     },
   },
   {
+    // lib/ is plain TypeScript on web and node APIs; Next stays in app/ and
+    // proxy.ts, so the API could move behind another HTTP server.
+    files: ["lib/**"],
+    ignores: ["lib/image-meta/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ regex: "^next($|/)", message: "lib/ does not import Next; keep it to app/ and proxy.ts." }] },
+      ],
+    },
+  },
+  {
     // lib/image-meta is kept free of the app so it can become its own package:
     // node's built-ins and its own files only (see its README.md).
     files: ["lib/image-meta/**"],

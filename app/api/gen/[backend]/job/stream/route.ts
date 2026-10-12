@@ -28,7 +28,7 @@ const KEEPALIVE_MS = 20 * 1000
  */
 export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[backend]/job/stream'>) {
   const adapter = adapterOr404((await ctx.params).backend)
-  if (adapter instanceof NextResponse) return adapter
+  if (adapter instanceof Response) return adapter
   const backend = adapter.config.id
 
   const id = request.nextUrl.searchParams.get('id')
