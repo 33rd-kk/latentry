@@ -1,4 +1,6 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
+import { WORKFLOW_NAME } from '@/lib/backends/types'
+import { workflowAccess } from '@/lib/backends/workflow-access'
 import { toPoseRequest } from '@/lib/pose'
 import { tryEnter } from '@/lib/security/concurrency'
 
@@ -18,9 +20,13 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   const release = tryEnter(`gen:pose:${id}`, MAX_AT_ONCE)
   if (!release) return jsonError('Busy reading other poses. Try again in a moment.', 409)
   try {
-    const pose = toPoseRequest(await readJson(request))
+    const body = await readJson(request)
+    const pose = toPoseRequest(body)
     if (typeof pose === 'string') return jsonError(pose, 400)
-    const result = await adapter.pose(pose)
+    // Drawn for a ComfyUI workflow: only for a client that may run it, as on generate.
+    const workflow = typeof body?.workflow === 'string' && WORKFLOW_NAME.test(body.workflow) ? body.workflow : undefined
+    if (workflow && !workflowAccess(request.headers, adapter.config)) return jsonError('Workflows are not available to this device', 403)
+    const result = await adapter.pose(pose, workflow ? { workflow } : {})
     return result.ok ? json(result.value) : jsonError(result.error, result.status)
   } finally {
     release()

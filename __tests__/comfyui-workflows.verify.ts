@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
 import { startMockComfyUI } from './fixtures/mock-comfyui'
-import { asApiGraph, describe, fillWorkflow, listWorkflows, MAX_WORKFLOWS, readWorkflow, WORKFLOW_NAME, type ComfyGraph } from '../lib/backends/comfy-workflows'
+import { asApiGraph, describe, fillWorkflow, listWorkflows, MAX_WORKFLOWS, poseSlots, readWorkflow, WORKFLOW_NAME, type ComfyGraph } from '../lib/backends/comfy-workflows'
 import { workflowAccess } from '../lib/backends/workflow-access'
 import { comfyGraphRoles, readPngText } from '../lib/image-meta'
 import { validateSettings } from '../lib/settings/schema'
@@ -90,6 +90,34 @@ async function main() {
   const sdxl: ComfyGraph = { ...TXT2IMG, '6': { class_type: 'CLIPTextEncodeSDXL', inputs: { text_g: 'g', text_l: 'l', clip: ['4', 1], width: 1024, height: 1024 } } }
   const sdxlFilled = fillWorkflow(sdxl, REQUEST, { seed: 1, prompt: 'both', sizeMultiple: 8, loras: [] })
   check(!('error' in sdxlFilled) && sdxlFilled.graph['6'].inputs.text_g === 'both' && sdxlFilled.graph['6'].inputs.text_l === 'both', "the SDXL encoder gets the prompt in both its texts")
+
+  // ── Pose: a LoadImage marked latentry:pose ──
+  const posed: ComfyGraph = {
+    ...TXT2IMG,
+    '30': { class_type: 'LoadImage', inputs: { image: 'example.png' }, _meta: { title: 'Skeleton latentry:pose' } },
+    '31': { class_type: 'SomePoseApply', inputs: { strength: 1, image: ['30', 0] }, _meta: { title: 'latentry:pose_strength' } },
+  }
+  eq(poseSlots(posed), { image: '30', style: 'dwpose', strength: '31' }, 'pose: the marked LoadImage, drawn dwpose by default, and the strength node')
+  eq(poseSlots({ ...posed, '30': { ...posed['30'], _meta: { title: 'latentry:pose OpenPose' } } })?.style, 'openpose', '"openpose" in its title asks for OpenPose drawing')
+  eq(poseSlots(TXT2IMG), null, 'no marker, no pose')
+  eq(
+    poseSlots({ '1': { class_type: 'LoadImage', inputs: { image: 'x' }, _meta: { title: 'latentry:pose_strength' } } }),
+    null,
+    'latentry:pose_strength is not latentry:pose'
+  )
+  eq(poseSlots({ '1': { class_type: 'CLIPTextEncode', inputs: { text: 'x' }, _meta: { title: 'latentry:pose' } } }), null, 'only a LoadImage takes the skeleton')
+  eq([describe('p', posed).pose, describe('t', TXT2IMG).pose], [true, undefined], 'the list says which workflows can follow a skeleton')
+  const poseFilled = fillWorkflow(posed, REQUEST, { seed: 1, prompt: 'x', sizeMultiple: 8, loras: [], pose: { image: 'latentry/comfy-pose.png', strength: 0.6 } })
+  eq(
+    'error' in poseFilled ? poseFilled.error : [poseFilled.graph['30'].inputs.image, poseFilled.graph['31'].inputs.strength],
+    ['latentry/comfy-pose.png', 0.6],
+    'a pose run puts the uploaded skeleton in it, and the pose strength in the strength node'
+  )
+  eq(posed['30'].inputs.image, 'example.png', 'the workflow itself is left as it was')
+  const noPose = fillWorkflow(TXT2IMG, REQUEST, { seed: 1, prompt: 'x', sizeMultiple: 8, loras: [], pose: { image: 'p.png', strength: 1 } })
+  eq('error' in noPose ? noPose.error : null, 'This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose', 'a pose run on a workflow without the marker is refused')
+  const promptOnly = fillWorkflow(posed, REQUEST, { seed: 1, prompt: 'x', sizeMultiple: 8, loras: [] })
+  eq('error' in promptOnly ? null : promptOnly.graph['30'].inputs.image, 'example.png', 'without a pose, a marked workflow runs with its own picture there')
 
   // ── Reading a folder, and only that folder ──
   const scratch = mkdtempSync(path.join(tmpdir(), 'latentry-workflows-'))
@@ -182,6 +210,18 @@ async function throughRoutes(scratch: string, dir: string): Promise<void> {
         params({ backend: 'comfy' })
       )
     eq((await generate({ prompt: 'x', workflow: 'portrait' }, phone)).status, 403, 'nor may it run one')
+    const { POST: poseRoute } = await import('../app/api/gen/[backend]/pose/route')
+    const askPose = (headers: Record<string, string>) =>
+      poseRoute(
+        new Request('http://localhost:3000/api/gen/comfy/pose', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', ...headers },
+          body: JSON.stringify({ image_base64: 'abc', workflow: 'portrait' }),
+        }),
+        params({ backend: 'comfy' })
+      )
+    eq((await askPose(phone)).status, 403, 'nor have a skeleton drawn for one')
+    eq((await askPose(local)).status, 400, 'this machine may: a workflow without latentry:pose is refused, before anything is drawn')
     eq((await generate({ prompt: 'x', workflow: 'editor' }, local)).status, 400, 'a workflow that cannot run is refused before anything is queued')
     eq(mock.graphs.length, 0, 'and nothing was queued')
 

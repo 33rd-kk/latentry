@@ -157,14 +157,28 @@ export function GenerateClient() {
   }, [secret, runId, backendRef])
 
   // ── Generate and cancel ──────────────────────────────────────────────────
-  // A ComfyUI workflow from the backend's folder draws from a prompt only.
+  // A ComfyUI workflow from the backend's folder draws from a prompt, and
+  // follows a skeleton when it has a `latentry:pose` LoadImage. It needs only
+  // the engine for that (the backend's ControlNet is the built-in graph's), and
+  // the engine is the first thing the backend's pose hint names when missing.
   const workflows = useComfyWorkflows(status)
   const workflow = form && workflows.some((item) => item.name === form.workflow && !item.problem) ? form.workflow : ""
+  const workflowPose = workflows.some((item) => item.name === workflow && item.pose === true)
   const statusCapabilities = status?.capabilities
+  const statusHints = status?.hints
+  const engineReady = statusHints?.pose?.need !== "engine"
   const capabilities = useMemo(
-    () => (statusCapabilities && workflow ? { ...statusCapabilities, img2img: false, inpaint: false } : statusCapabilities),
-    [statusCapabilities, workflow]
+    () =>
+      statusCapabilities && workflow
+        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady }
+        : statusCapabilities,
+    [statusCapabilities, workflow, workflowPose, engineReady]
   )
+  const hints = useMemo(() => {
+    if (!statusHints || !workflow || !engineReady) return statusHints
+    const { pose: _builtIn, ...rest } = statusHints
+    return workflowPose ? rest : { ...rest, pose: { reason: "setup" as const, need: "marker" as const } }
+  }, [statusHints, workflow, workflowPose, engineReady])
   const sampler = form ? accepted(form.sampler, status?.samplers ?? []) : DEFAULT
   const scheduler = form ? accepted(form.scheduler, status?.schedulers ?? []) : DEFAULT
 
@@ -364,6 +378,7 @@ export function GenerateClient() {
             {capabilities?.pose && (
               <PoseSlot
                 backend={status.id}
+                workflow={workflow}
                 value={poseSkeleton}
                 onChange={setPoseSkeleton}
                 strength={poseStrength}
@@ -377,7 +392,7 @@ export function GenerateClient() {
             {!capabilities?.pose && poseSkeleton && (
               <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseDropped")}</p>
             )}
-            {status.alive && <UnavailableFeatures hints={status.hints ?? {}} kind={status.kind} />}
+            {status.alive && <UnavailableFeatures hints={hints ?? {}} kind={status.kind} />}
 
             <SettingsSection
               form={form}

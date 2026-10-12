@@ -61,7 +61,7 @@ export type HintedFeature = (typeof HINTED_FEATURES)[number]
 export interface FeatureHint {
   reason: 'kind' | 'not-reported' | 'declined' | 'setup'
   /** For `setup`: what is missing before Latentry can use the feature there. */
-  need?: 'controlnet' | 'engine' | 'nodes'
+  need?: 'controlnet' | 'engine' | 'nodes' | 'marker'
   /** The server's words, plain text, already trimmed. */
   detail?: string
 }
@@ -199,7 +199,8 @@ export interface BackendAdapter {
   /** Stops the run `runId` names, and only that run. Null means "whatever this app started". */
   cancel(runId: string | null): Promise<Outcome<{ status: string }>>
   tag?(imageBase64: string): Promise<Outcome<{ tags: WdTag[] }>>
-  pose?(request: PoseRequest): Promise<Outcome<unknown>>
+  /** `workflow`: a ComfyUI workflow the skeleton is drawn for, kept apart so it never reaches another kind's server. */
+  pose?(request: PoseRequest, options?: { workflow?: string }): Promise<Outcome<unknown>>
   /**
    * Secret mode was turned on during this app's current (or just-ended) run:
    * treat it as secret from now on, wiping what it left on the backend. A

@@ -21,6 +21,8 @@ export type { PoseSkeleton } from "@/lib/pose"
 interface PoseSlotProps {
   /** The backend whose pose detector draws the skeleton. */
   backend: string
+  /** A ComfyUI workflow the skeleton is drawn for (its own drawing style), "" for the built-in graph. */
+  workflow?: string
   value: PoseSkeleton | null
   onChange: (value: PoseSkeleton | null) => void
   strength: number
@@ -44,10 +46,10 @@ interface PoseSlotProps {
  * is drawn; a backend that can turn a pose also gets Pose3dPanel. Both choices
  * live only here: the run still just sends the drawn skeleton.
  */
-export function PoseSlot({ backend, value, onChange, strength, defaultStrength, onStrengthChange, outputSize, source, disabled }: PoseSlotProps) {
+export function PoseSlot({ backend, workflow = "", value, onChange, strength, defaultStrength, onStrengthChange, outputSize, source, disabled }: PoseSlotProps) {
   const t = useT()
   const [showGallery, setShowGallery] = useState(false)
-  const pose = usePoseDetect({ backend, outputSize, onChange })
+  const pose = usePoseDetect({ backend, workflow, outputSize, onChange })
   const { reference, people, person, limits, loading, detect } = pose
 
   const people3d = people.every((detected) => detected.points_3d && detected.scores)

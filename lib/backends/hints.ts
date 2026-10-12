@@ -66,12 +66,13 @@ export function a1111Hints(alive: boolean): Hints {
 }
 
 /**
- * A ComfyUI server: pose needs its core ControlNet nodes, a ControlNet chosen
- * for the backend, and a running engine to draw the skeleton. The first one
- * missing is named.
+ * A ComfyUI server: pose needs a running engine to draw the skeleton, and for
+ * the built-in graph its core ControlNet nodes and a ControlNet chosen for the
+ * backend. The first one missing is named, the engine first: a workflow with
+ * its own pose nodes needs only that, so the page can tell from the hint.
  */
 export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }): Hints {
   if (!alive) return {}
-  const need = !pose.nodes ? 'nodes' : !pose.controlnet ? 'controlnet' : !pose.engine ? 'engine' : null
+  const need = !pose.engine ? 'engine' : !pose.nodes ? 'nodes' : !pose.controlnet ? 'controlnet' : null
   return need ? { pose: { reason: 'setup', need } } : {}
 }

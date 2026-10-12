@@ -97,8 +97,8 @@ things are there:
 Until then, the Generate page says which is missing. The run uploads the
 skeleton at the size it draws and applies it to both prompts, at **Pose
 strength**, over all the steps; it works with a source picture and a mask
-too. A workflow cannot follow a skeleton yet: for a pose, use the built-in
-graph.
+too. Your own workflow can follow a skeleton with its own pose nodes, such
+as an Anima pose adapter's: see [Pose in a workflow](#pose-in-a-workflow).
 
 What stays on the ComfyUI computer: the graph ends in a preview, so pictures
 go to ComfyUI's temp folder (emptied when ComfyUI restarts), not its output
@@ -152,11 +152,34 @@ Latentry fills a workflow in on this computer before it is queued:
   ComfyUI's output folder; the picture is read from the `latentry:output`
   node, else the first.
 
-A workflow draws from the prompt only: for a source picture, a mask or a
-pose, use the built-in graph. The folder is only read, never written, and only its
+A workflow draws from the prompt, and from a skeleton when it has a pose
+node (below): for a source picture or a mask, use the built-in graph. The
+folder is only read, never written, and only its
 own `*.json` files (no subfolders, at most 200, 1 MB each). Workflow names
 are shown to paired devices only with **Show workflow names on paired
 devices** on for that backend.
+
+#### Pose in a workflow
+
+A workflow follows a [skeleton pose](../guide/pose.md) through its own pose
+nodes: Latentry only supplies the skeleton. In ComfyUI, add a **Load Image**
+node that feeds those nodes, put `latentry:pose` in its title, and export
+the workflow again with **Export (API)**:
+
+- The skeleton is drawn **dwpose**-style, which is what Anima's pose adapter
+  was trained on. Put `openpose` in the title as well (`latentry:pose
+  openpose`) for an OpenPose ControlNet.
+- A node with `latentry:pose_strength` in its title takes **Pose strength**
+  in its `strength` input. Without one, the workflow keeps its own strength.
+- **Workflow** says which workflows can follow a skeleton. Picking one shows
+  **Skeleton pose** while Latentry's engine runs, which draws the skeleton
+  as for the built-in graph. The backend's Pose ControlNet is not used, and
+  the reference picture stays with the engine. Picking another workflow
+  draws the skeleton again in that workflow's style.
+- A run uploads the skeleton under the same fixed name
+  (`input/latentry/<id>-pose.png`) and puts that name in the marked node. A
+  secret run blanks it afterwards. Without a pose, the node keeps the
+  picture saved in the workflow.
 
 ## Your own server
 

@@ -8,6 +8,8 @@ export interface WorkflowOption {
   name: string
   missing: ("negative" | "seed" | "size" | "steps" | "cfg" | "sampler")[]
   problem?: string
+  /** It takes a skeleton in a `latentry:pose` LoadImage. */
+  pose?: boolean
 }
 
 /**

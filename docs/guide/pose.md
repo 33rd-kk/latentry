@@ -4,8 +4,8 @@
 a group picture: the backend finds the people in it, you pick which of them
 to follow, turn their pose in 3D and frame it if you like, and the run is
 drawn along that skeleton. It needs a backend that offers pose control: the
-built-in engine (SDXL models and Anima v1.0), a ComfyUI backend with a Pose
-ControlNet while the engine runs (see
+built-in engine (SDXL models and Anima v1.0), a ComfyUI backend while the
+engine runs, with a Pose ControlNet or a workflow of your own (see
 [Backends](../reference/backends.md#pose)), or a server that implements it
 (see the [backend API](../backend-api.md)).
 

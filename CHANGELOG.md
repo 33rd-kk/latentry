@@ -10,8 +10,13 @@
   people and draws the skeleton, so picking people and the 3D view work as
   on the engine, and only the drawn skeleton goes to ComfyUI, never the
   reference picture. It works with a source picture and a mask too; a
-  secret run blanks the uploaded skeleton with the rest. Workflows cannot
-  follow a skeleton yet.
+  secret run blanks the uploaded skeleton with the rest.
+- **Pose in your own ComfyUI workflows**: a workflow with a Load Image node
+  titled `latentry:pose` follows the skeleton pose through its own pose
+  nodes (an Anima pose adapter's, say). The skeleton is drawn dwpose-style
+  unless the title also says `openpose`, and a node titled
+  `latentry:pose_strength` takes Pose strength. The Workflow choice says
+  which workflows can follow a skeleton.
 - **Forge Neo**: checked as an `a1111` backend (Forge Neo 2.30, started
   with `--api`): txt2img, img2img, inpainting, progress, Cancel, samplers
   and schedulers, and its pictures in the gallery.
