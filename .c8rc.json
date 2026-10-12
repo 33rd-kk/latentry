@@ -1,0 +1,8 @@
+{
+  "all": true,
+  "include": ["lib/**", "app/api/**", "proxy.ts", "instrumentation.ts"],
+  "exclude": ["**/*.d.ts"],
+  "extension": [".ts", ".mjs", ".js"],
+  "reporter": ["text-summary", "html"],
+  "reports-dir": "coverage"
+}

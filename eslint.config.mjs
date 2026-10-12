@@ -37,6 +37,8 @@ const eslintConfig = defineConfig([
     ".runtime/**",
     "models/**",
     "output/**",
+    // npm run coverage's report.
+    "coverage/**",
   ]),
 ]);
 

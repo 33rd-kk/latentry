@@ -211,8 +211,10 @@ than one.
 ```bash
 npm run typecheck
 npm run lint
-npm test          # verify scripts in __tests__/, no test framework needed
+npm test          # verify scripts in __tests__/, several at a time, no test framework needed
 npm test -- gallery   # just the ones whose name contains "gallery"
+VERIFY_JOBS=1 npm test   # one at a time
+npm run coverage  # the same with a coverage report in coverage/ (stays on this machine)
 npm run i18n:check
 ruff check engine # the version in .github/requirements-lint.txt
 npm run test:e2e  # browser tests in e2e/ (see below)
