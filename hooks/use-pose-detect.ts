@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { toSourceImage, type SourceImage } from "@/components/generate/source-image-slot"
 import { useT } from "@/lib/i18n"
 import { FRONT, isPlainView, readPoseAnswer, type DetectedPerson, type PersonChoice, type PoseSkeleton, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
@@ -8,6 +8,8 @@ import { FRONT, isPlainView, readPoseAnswer, type DetectedPerson, type PersonCho
 interface UsePoseDetectOptions {
   /** The backend whose /pose detects people and draws the skeleton. */
   backend: string
+  /** A ComfyUI workflow to draw the skeleton for, "" for none: it says how the skeleton is drawn. */
+  workflow?: string
   /** The run's output size; the skeleton is drawn at it. */
   outputSize: { width: number; height: number }
   onChange: (value: PoseSkeleton | null) => void
@@ -18,7 +20,7 @@ interface UsePoseDetectOptions {
  * picture, the people found in it and whose skeleton was drawn, and the 3D
  * camera. Every detect answers with a fresh skeleton, handed to `onChange`.
  */
-export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOptions) {
+export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: UsePoseDetectOptions) {
   const t = useT()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -54,6 +56,7 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
             ...(which != null ? { person: which } : {}),
             ...((options.want3d ?? show3d) ? { want_3d: true } : {}),
             ...(isPlainView(camera) ? {} : { camera }),
+            ...(workflow ? { workflow } : {}),
           }),
         })
         const data = await response.json().catch(() => null)
@@ -77,8 +80,19 @@ export function usePoseDetect({ backend, outputSize, onChange }: UsePoseDetectOp
         setLoading(false)
       }
     },
-    [backend, onChange, outputSize, show3d, t, turn]
+    [backend, onChange, outputSize, show3d, t, turn, workflow]
   )
+
+  // Another workflow may draw skeletons another way: draw this one again for it.
+  const drawnFor = useRef(workflow)
+  /* eslint-disable react-hooks/set-state-in-effect -- the workflow is chosen
+     outside this slot, and the skeleton it needs comes from the server */
+  useEffect(() => {
+    if (drawnFor.current === workflow) return
+    drawnFor.current = workflow
+    if (reference) void detect(reference, person)
+  }, [detect, person, reference, workflow])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const loadPicture = useCallback(
     async (picture: Promise<Blob>) => {

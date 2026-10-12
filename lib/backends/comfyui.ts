@@ -10,9 +10,11 @@
 // until the prompt is done.
 //
 // Pose: Latentry's own engine finds the people and draws the skeleton (pose()
-// forwards to it, asking for OpenPose drawing), so the reference picture never
-// goes to ComfyUI. A run uploads only the drawn skeleton and follows it with
-// the ControlNet chosen for this backend (ControlNetApplyAdvanced).
+// forwards to it), so the reference picture never goes to ComfyUI. A run
+// uploads only the drawn skeleton. The built-in graph follows it with the
+// ControlNet chosen for this backend (ControlNetApplyAdvanced), drawn
+// OpenPose-style; a workflow takes it in its `latentry:pose` LoadImage, drawn
+// the way that node's title asks (comfy-workflows.ts poseSlots).
 //
 // What stays on the ComfyUI machine: the graph ends in PreviewImage, so the
 // picture goes to ComfyUI's temp folder (emptied when it restarts), not its
@@ -24,8 +26,8 @@
 // when it ends.
 //
 // Known limits, compared with the diffusers-compatible API:
-// - Pose needs a running engine and a ControlNet chosen in Settings, and is
-//   for the built-in graph only.
+// - Pose needs a running engine, and a ControlNet chosen in Settings (built-in
+//   graph) or a `latentry:pose` LoadImage (a workflow).
 // - The model is the one chosen for this backend in Settings, else the first
 //   checkpoint ComfyUI lists.
 // - ComfyUI has no login. A token is sent as a Bearer token, for a proxy in
@@ -39,7 +41,7 @@ import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { engineBackends } from '@/lib/engine/supervisor'
 import { getProfile } from '@/lib/profiles'
 import { comfyHints, problemOf } from './hints'
-import { fillWorkflow, readWorkflow, type ComfyGraph } from './comfy-workflows'
+import { fillWorkflow, poseSlots, readWorkflow, type ComfyGraph, type SkeletonStyle } from './comfy-workflows'
 import { DiffusersAdapter } from './diffusers'
 import { blankPng, preparedImages, preparedSkeleton } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
@@ -510,9 +512,6 @@ export class ComfyUIAdapter implements BackendAdapter {
     if (request.pose_image_base64 && !request.pose_is_skeleton) {
       return { ok: false, status: 400, error: 'This backend follows a drawn skeleton only (pose_is_skeleton, from /pose)' }
     }
-    if (request.pose_image_base64 && request.workflow) {
-      return { ok: false, status: 400, error: 'A workflow cannot follow a skeleton yet. Choose the built-in graph for a pose.' }
-    }
     if (request.mask_base64 && !request.init_image_base64) return { ok: false, status: 400, error: 'An inpaint mask needs a source image' }
     if (inflightRuns.has(this.config.id)) return { ok: false, status: 409, error: 'This backend is already generating for Latentry' }
 
@@ -531,7 +530,8 @@ export class ComfyUIAdapter implements BackendAdapter {
     const { found, missing } = resolveLoras(calls, info.loras ?? [])
     if (missing.length) return { ok: false, status: 400, error: `LoRA not found on this backend: ${missing.join(', ')}` }
     const controlnet = this.config.controlnet?.trim()
-    if (request.pose_image_base64) {
+    // A workflow brings its own pose nodes; the built-in graph needs the ControlNet.
+    if (request.pose_image_base64 && !request.workflow) {
       if (info.controlnets === null) return { ok: false, status: 400, error: `This ComfyUI has no ControlNetLoader and ${CONTROLNET_APPLY}` }
       if (!controlnet) return { ok: false, status: 400, error: 'Choose a Pose ControlNet for this backend in Settings' }
       if (!info.controlnets.includes(controlnet)) {
@@ -549,7 +549,13 @@ export class ComfyUIAdapter implements BackendAdapter {
       const read = await readWorkflow(this.config.workflowsDir, request.workflow)
       if ('error' in read) return { ok: false, status: 400, error: read.error }
       // Filled once here, so a workflow Latentry cannot fill is refused before anything is queued.
-      const trial = fillWorkflow(read.graph, request, { seed: 0, prompt: withoutLoraCalls(request.prompt), sizeMultiple: 8, loras: found })
+      const trial = fillWorkflow(read.graph, request, {
+        seed: 0,
+        prompt: withoutLoraCalls(request.prompt),
+        sizeMultiple: 8,
+        loras: found,
+        ...(request.pose_image_base64 ? { pose: { image: 'trial.png', strength: 1 } } : {}),
+      })
       if ('error' in trial) return { ok: false, status: 400, error: trial.error }
       workflow = read.graph
     }
@@ -578,8 +584,8 @@ export class ComfyUIAdapter implements BackendAdapter {
       images = { source: source.name, ...(mask ? { mask } : {}), strength: request.strength ?? 0.6 }
       drawn = { ...request, width: prepared.width, height: prepared.height }
     }
-    let pose: { image: string; controlnet: string; strength: number } | undefined
-    if (request.pose_image_base64 && controlnet) {
+    let pose: { image: string; strength: number } | undefined
+    if (request.pose_image_base64) {
       // At the size the latent is drawn at (img2img's is already a multiple).
       const multiple = getProfile(this.config.profile).sizeMultiple
       const snap = (value: number) => Math.max(multiple, Math.round(value / multiple) * multiple)
@@ -592,7 +598,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         if (inflight.secret && inflight.uploads.length) await this.wipe([], inflight.uploads)
         return { ok: false, status: skeleton ? 502 : 400, error: uploaded.error }
       }
-      pose = { image: uploaded.name, controlnet, strength: request.pose_strength ?? 1 }
+      pose = { image: uploaded.name, strength: request.pose_strength ?? 1 }
     }
 
     inflightRuns.set(this.config.id, inflight)
@@ -602,13 +608,23 @@ export class ComfyUIAdapter implements BackendAdapter {
 
   /**
    * The people in a picture and the skeleton to follow, from Latentry's own
-   * engine: the picture goes there, not to ComfyUI. Drawn OpenPose-style, as
-   * the SDXL OpenPose ControlNets were trained.
+   * engine: the picture goes there, not to ComfyUI. Drawn OpenPose-style for
+   * the built-in graph, as the SDXL OpenPose ControlNets were trained; for a
+   * workflow, the way its `latentry:pose` node asks.
    */
-  async pose(request: PoseRequest): Promise<Outcome<unknown>> {
+  async pose(request: PoseRequest, options: { workflow?: string } = {}): Promise<Outcome<unknown>> {
+    let style: SkeletonStyle = 'openpose'
+    if (options.workflow) {
+      if (!this.config.workflowsDir) return { ok: false, status: 400, error: 'This backend has no workflows folder' }
+      const read = await readWorkflow(this.config.workflowsDir, options.workflow)
+      if ('error' in read) return { ok: false, status: 400, error: read.error }
+      const slots = poseSlots(read.graph)
+      if (!slots) return { ok: false, status: 400, error: 'This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose' }
+      style = slots.style
+    }
     const engine = this.poseReader()
     if (!engine?.pose) return { ok: false, status: 503, error: 'Start the built-in engine to read poses' }
-    return engine.pose({ ...request, style: 'openpose' })
+    return engine.pose({ ...request, style })
   }
 
   /** Uploads one picture into ComfyUI's input folder; the name LoadImage takes, or why not. */
@@ -666,7 +682,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
     inflight: Inflight,
-    uploaded: Pick<Parameters<typeof buildComfyGraph>[1], 'images' | 'pose'>,
+    uploaded: { images?: { source: string; mask?: string; strength: number }; pose?: { image: string; strength: number } },
     workflow?: ComfyGraph
   ): AsyncGenerator<BackendEvent> {
     const total = request.image_count
@@ -714,6 +730,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             sizeMultiple,
             ...(this.config.model ? { checkpoint: this.config.model } : {}),
             loras,
+            ...(uploaded.pose ? { pose: uploaded.pose } : {}),
           })
           if ('error' in filled) {
             yield { type: 'error', message: filled.error }
@@ -728,7 +745,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             seed,
             sizeMultiple,
             ...(uploaded.images ? { images: uploaded.images } : {}),
-            ...(uploaded.pose ? { pose: uploaded.pose } : {}),
+            ...(uploaded.pose ? { pose: { ...uploaded.pose, controlnet: this.config.controlnet?.trim() ?? '' } } : {}),
           })
         }
         let queued: { status: number; body: unknown }

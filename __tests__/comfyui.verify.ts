@@ -205,17 +205,20 @@ async function main() {
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
   eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
-  eq(status.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'pose is explained: this ComfyUI has no ControlNet nodes')
+  eq(status.hints, { pose: { reason: 'setup', need: 'engine' } }, 'pose is explained: no engine runs to draw the skeleton')
+  const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
+  eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
   const nothing = { nodes: false, controlnet: false, engine: false }
   eq(comfyHints(false, nothing), {}, 'no hints while it is down')
   eq(
     [
-      comfyHints(true, { ...nothing, nodes: true }),
-      comfyHints(true, { nodes: true, controlnet: true, engine: false }),
+      comfyHints(true, nothing),
+      comfyHints(true, { ...nothing, engine: true }),
+      comfyHints(true, { nodes: true, controlnet: false, engine: true }),
       comfyHints(true, { nodes: true, controlnet: true, engine: true }),
     ],
-    [{ pose: { reason: 'setup', need: 'controlnet' } }, { pose: { reason: 'setup', need: 'engine' } }, {}],
-    'then the first thing missing: a ControlNet chosen, a running engine; nothing once all are there'
+    [{ pose: { reason: 'setup', need: 'engine' } }, { pose: { reason: 'setup', need: 'nodes' } }, { pose: { reason: 'setup', need: 'controlnet' } }, {}],
+    'the first thing missing, the engine first (a workflow needs only that): then the nodes, a ControlNet chosen; nothing once all are there'
   )
   eq((await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-2', model: 'other.safetensors' }, quiet.transport).status()).model, 'other.safetensors', 'the model set for the backend is the one shown')
 
@@ -427,12 +430,63 @@ async function main() {
     '400 This backend follows a drawn skeleton only (pose_is_skeleton, from /pose)',
     'a raw reference picture is refused, so it never goes to ComfyUI'
   )
-  eq(
-    await refusePose({ ...POSED, id: 'poser' }, { ...POSE_RUN, workflow: 'mine' }),
-    '400 A workflow cannot follow a skeleton yet. Choose the built-in graph for a pose.',
-    'and so is a pose with a workflow, for now'
-  )
   eq(poser.uploads.length, 1, 'nothing goes up for a refused run')
+
+  // ── Pose in your own workflow: a LoadImage marked latentry:pose ──
+  const flowDir = mkdtempSync(path.join(tmpdir(), 'latentry-comfy-pose-'))
+  const flow = (extra: Record<string, unknown>) => ({
+    '1': { class_type: 'UNETLoader', inputs: { unet_name: 'anima.safetensors' } },
+    '2': { class_type: 'CLIPTextEncode', inputs: { text: 'old', clip: ['9', 0] } },
+    '3': { class_type: 'CLIPTextEncode', inputs: { text: 'old negative', clip: ['9', 0] } },
+    '4': { class_type: 'EmptyLatentImage', inputs: { width: 512, height: 512, batch_size: 1 } },
+    '5': { class_type: 'KSampler', inputs: { seed: 1, steps: 20, cfg: 4, sampler_name: 'euler', scheduler: 'normal', denoise: 1, model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['4', 0] } },
+    '6': { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['8', 0] } },
+    '7': { class_type: 'SaveImage', inputs: { filename_prefix: 'x', images: ['6', 0] } },
+    ...extra,
+  })
+  writeFileSync(
+    path.join(flowDir, 'anima-pose.json'),
+    JSON.stringify(
+      flow({
+        '20': { class_type: 'LoadImage', inputs: { image: 'example.png' }, _meta: { title: 'Skeleton latentry:pose' } },
+        '21': { class_type: 'AnimaPoseApply', inputs: { strength: 1, image: ['20', 0], model: ['1', 0] }, _meta: { title: 'latentry:pose_strength' } },
+      })
+    )
+  )
+  writeFileSync(path.join(flowDir, 'sdxl-pose.json'), JSON.stringify(flow({ '20': { class_type: 'LoadImage', inputs: { image: 'x.png' }, _meta: { title: 'latentry:pose openpose' } } })))
+  writeFileSync(path.join(flowDir, 'plain.json'), JSON.stringify(flow({})))
+  const FLOWS: BackendConfig = { ...CONFIG, workflowsDir: flowDir }
+  try {
+    asked.length = 0
+    const flowed = new ComfyUIAdapter({ ...FLOWS, id: 'flows' }, quiet.transport, () => engine)
+    await flowed.pose({ image_base64: 'abc' }, { workflow: 'anima-pose' })
+    await flowed.pose({ image_base64: 'abc' }, { workflow: 'sdxl-pose' })
+    eq(
+      asked.map((request) => (request as { style?: string }).style),
+      ['dwpose', 'openpose'],
+      "/pose for a workflow draws the way its latentry:pose node asks: dwpose (Anima's), or openpose when its title says so"
+    )
+    const unmarked = await flowed.pose({ image_base64: 'abc' }, { workflow: 'plain' })
+    eq(unmarked.ok ? null : [unmarked.status, unmarked.error], [400, 'This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose'], 'a workflow without the marker is refused, saying how to mark it')
+    eq(asked.length, 2, 'and nothing went to the engine for it')
+
+    // No ControlNet set and no ControlNet nodes: a workflow brings its own pose nodes.
+    const flowComfy = await scriptedComfy({ socket: true })
+    const flowRun = await new ComfyUIAdapter({ ...FLOWS, id: 'flows' }, flowComfy.transport, () => engine).start({ ...POSE_RUN, prompt: '1girl, smile', workflow: 'anima-pose' })
+    check(flowRun.ok, 'a pose run on a marked workflow starts, without the built-in graph\'s ControlNet')
+    if (flowRun.ok) await collect(flowRun.value)
+    eq(flowComfy.uploads.map(({ subfolder, name }) => `${subfolder}/${name}`), ['latentry/flows-pose.png'], 'only the skeleton goes up, under the same fixed name')
+    eq(
+      [flowComfy.graphs[0]?.['20']?.inputs.image, flowComfy.graphs[0]?.['21']?.inputs.strength, flowComfy.graphs[0]?.['7']?.class_type],
+      ['latentry/flows-pose.png', 0.7, 'PreviewImage'],
+      'the marked LoadImage loads it, the latentry:pose_strength node takes the pose strength, the rest is filled as always'
+    )
+    const plainRun = await new ComfyUIAdapter({ ...FLOWS, id: 'flows-plain' }, flowComfy.transport, () => engine).start({ ...POSE_RUN, prompt: '1girl, smile', workflow: 'plain' })
+    eq(plainRun.ok ? 'started' : `${plainRun.status} ${plainRun.error}`, '400 This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose', 'a pose run on an unmarked workflow is refused')
+    eq(flowComfy.uploads.length, 1, 'before anything goes up')
+  } finally {
+    rmSync(flowDir, { recursive: true, force: true })
+  }
 
   const hiddenPose = await scriptedComfy({ socket: true, controlnet: true })
   const secretPose = await new ComfyUIAdapter({ ...POSED, id: 'hidden-pose' }, hiddenPose.transport, () => engine).start({

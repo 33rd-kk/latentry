@@ -33,7 +33,8 @@
     "workflow": "Workflow",
     "workflowBuiltIn": "Built-in graph",
     "workflowMissing": "Not found in this workflow, so left as in the file: {items}.",
-    "workflowPromptOnly": "A workflow draws from the prompt only: no source image or mask.",
+    "workflowPromptOnly": "A workflow draws from the prompt only: no source image, mask or skeleton pose.",
+    "workflowPromptAndPose": "This workflow draws from the prompt and can follow a skeleton pose (its latentry:pose node); no source image or mask.",
     "workflowRole": {
       "negative": "negative prompt",
       "seed": "seed",
@@ -204,7 +205,8 @@
       "setup": {
         "controlnet": "Choose a Pose ControlNet for this backend in Settings (an OpenPose ControlNet from ComfyUI's controlnet folder that fits the checkpoint: NoobAI-XL OpenPose for Illustrious and NoobAI models, xinsir's for other SDXL models).",
         "engine": "Latentry's built-in engine finds the people and draws the skeleton. Start it on the Setup page; it needs no model loaded for this.",
-        "nodes": "This ComfyUI does not list ControlNetLoader and ControlNetApplyAdvanced. Update ComfyUI."
+        "nodes": "This ComfyUI does not list ControlNetLoader and ControlNetApplyAdvanced. Update ComfyUI.",
+        "marker": "This workflow has no LoadImage marked latentry:pose. Add one to its title in ComfyUI, feed it to the workflow's pose nodes, and export it again with Export (API)."
       },
       "notReported": {
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",

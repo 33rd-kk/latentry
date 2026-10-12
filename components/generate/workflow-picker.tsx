@@ -53,7 +53,9 @@ export function WorkflowPicker({ workflows, value, onChange, disabled }: Workflo
           })}
         </p>
       )}
-      {chosen && !chosen.problem && <p className="text-xs text-muted-foreground">{t("generate.workflowPromptOnly")}</p>}
+      {chosen && !chosen.problem && (
+        <p className="text-xs text-muted-foreground">{t(chosen.pose ? "generate.workflowPromptAndPose" : "generate.workflowPromptOnly")}</p>
+      )}
     </div>
   )
 }

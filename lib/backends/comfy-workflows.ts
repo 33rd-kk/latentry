@@ -23,6 +23,30 @@ export interface WorkflowInfo {
   name: string
   missing: ('negative' | 'seed' | 'size' | 'steps' | 'cfg' | 'sampler')[]
   problem?: string
+  /** It has a LoadImage marked `latentry:pose`, so it can follow a skeleton. */
+  pose?: true
+}
+
+/** How a skeleton is drawn for a workflow. */
+export type SkeletonStyle = 'openpose' | 'dwpose'
+
+/** `latentry:pose` as a word of its own: not the start of `latentry:pose_strength`. */
+const POSE_MARKER = /latentry:pose(?![\w-])/
+const POSE_STRENGTH_MARKER = /latentry:pose_strength(?![\w-])/
+
+/**
+ * Where a workflow takes the skeleton: the first LoadImage whose title has
+ * `latentry:pose`, drawn the way its title says ("openpose"), else
+ * "dwpose" (what Anima's pose adapter was trained on). Also the node marked
+ * `latentry:pose_strength`, whose `strength` takes the pose strength.
+ */
+export function poseSlots(graph: ComfyGraph): { image: string; style: SkeletonStyle; strength?: string } | null {
+  const titled = (id: string) => (typeof graph[id]?._meta?.title === 'string' ? (graph[id]._meta!.title as string) : '')
+  const ids = Object.keys(graph).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+  const image = ids.find((id) => graph[id].class_type === 'LoadImage' && POSE_MARKER.test(titled(id)))
+  if (!image) return null
+  const strength = ids.find((id) => POSE_STRENGTH_MARKER.test(titled(id)) && typeof graph[id].inputs?.strength === 'number')
+  return { image, style: /openpose/i.test(titled(image).replace(POSE_MARKER, '')) ? 'openpose' : 'dwpose', ...(strength ? { strength } : {}) }
 }
 
 /** A workflow's JSON as a graph to run, or why it is not one. */
@@ -49,7 +73,7 @@ export function describe(name: string, graph: ComfyGraph): WorkflowInfo {
   if (!roles.cfg) missing.push('cfg')
   if (!roles.samplerName) missing.push('sampler')
   const problem = !roles.positive ? 'No prompt found (mark its node latentry:prompt)' : !roles.outputs.length ? 'No SaveImage or PreviewImage node' : undefined
-  return { name, missing, ...(problem ? { problem } : {}) }
+  return { name, missing, ...(problem ? { problem } : {}), ...(poseSlots(graph) ? { pose: true as const } : {}) }
 }
 
 /** The folder's real path, and a file's inside it, or null when the name or the file would leave it. */
@@ -124,6 +148,8 @@ export async function readWorkflow(dir: string, name: string): Promise<{ graph: 
  *   that used the loader's model and clip moved onto the last LoRA
  * - SaveImage swapped for PreviewImage, so nothing lands in ComfyUI's output
  *   folder; the picture is read from the first output
+ * - with a pose run, the uploaded skeleton's name into the `latentry:pose`
+ *   LoadImage, and the pose strength into a `latentry:pose_strength` node
  */
 export function fillWorkflow(
   graph: ComfyGraph,
@@ -134,6 +160,8 @@ export function fillWorkflow(
     sizeMultiple: number
     checkpoint?: string
     loras: { file: string; use: LoraUse }[]
+    /** The skeleton as LoadImage names it ("latentry/x.png"); a placeholder for a trial fill. */
+    pose?: { image: string; strength: number }
   }
 ): { graph: ComfyGraph; output: string } | { error: string } {
   const filled = structuredClone(graph)
@@ -141,6 +169,12 @@ export function fillWorkflow(
   if (!roles.positive) return { error: 'The workflow has no prompt Latentry can find (mark its node latentry:prompt)' }
   const output = roles.outputs[0]
   if (!output) return { error: 'The workflow has no SaveImage or PreviewImage node' }
+  if (options.pose) {
+    const slots = poseSlots(filled)
+    if (!slots) return { error: 'This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose' }
+    filled[slots.image].inputs.image = options.pose.image
+    if (slots.strength) filled[slots.strength].inputs.strength = options.pose.strength
+  }
 
   const set = (slot: ComfySlot | undefined, value: unknown) => {
     if (slot) filled[slot.node].inputs[slot.input] = value
