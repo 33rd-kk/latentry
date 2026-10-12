@@ -78,6 +78,25 @@ test('an unsaved profile change shows a reset, and Discard drops it', async ({ p
   await expect(profiles.getByRole('button', { name: 'Back to built-in' })).toHaveCount(0)
 })
 
+test('a ComfyUI reached over the network without a token is warned about as it is typed', async ({ page }) => {
+  await open(page)
+  const backends = card(page, 'Backends')
+  const warning = backends.getByText(/^This ComfyUI is reached over the network/)
+  // The ComfyUI one is on this computer, so there is nothing to say yet.
+  await expect(warning).toBeHidden()
+
+  const url = backends.locator('input[placeholder="http://localhost:7860"]').nth(1)
+  const address = await url.inputValue()
+  await url.fill('http://192.168.1.20:8188/')
+  await expect(warning).toBeVisible()
+  await backends.locator('input[type="password"]').nth(1).fill('a-proxy-token')
+  await expect(warning).toBeHidden()
+
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await expect(url).toHaveValue(address)
+  await expect(warning).toBeHidden()
+})
+
 test('what the server rejects is shown at its field, and nothing is saved', async ({ page }) => {
   await open(page)
   const backends = card(page, 'Backends')

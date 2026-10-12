@@ -40,6 +40,13 @@ backend a token). Latentry generates one image per iteration so progress
 counts images, and saves its own copy: turn the web UI's saving off if you do
 not want two. Its WD14 tagger extension can serve as Latentry's tagger.
 
+Keep the web UI on the computer running Latentry if you can (it then needs
+no `--listen`). On another computer it has to be started with `--listen`,
+and then always with `--api-auth` too, with that `user:password` as the
+backend's token: without it, anyone on the network can use the web UI.
+Settings warns about an `a1111` backend at another address without a
+token.
+
 ## ComfyUI
 
 Add it with the kind `comfyui` and ComfyUI's address (by default
@@ -68,9 +75,15 @@ names your model folders), so the saved picture cannot be dropped back into
 ComfyUI as a workflow; it keeps Latentry's settings and an A1111-style
 `parameters` text instead.
 
-ComfyUI has no login. Keep it on this computer or your own network; a token,
-if you give one, is sent as a Bearer token for a proxy in front of it. A
-login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
+ComfyUI has no login, and whoever reaches it can run code on its computer
+through custom nodes; exposed ComfyUI servers have been taken over this
+way. Keep it on the computer running Latentry, listening on 127.0.0.1
+(ComfyUI's default, without `--listen`). On another computer, bind it to
+127.0.0.1 there and put a reverse proxy that asks for a login in front of
+it: a token, if you give one, is sent as a Bearer token for that proxy.
+Settings warns about a `comfyui` backend at another address without a
+token ([Backends on other computers](../guide/network.md#backends-on-other-computers)).
+A login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
 something Latentry can get past: **Test** and the Generate page then say that
 it asks for a login, with ComfyUI's own message.
 

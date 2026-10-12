@@ -14,6 +14,7 @@ import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
 import type { A1111Transport } from '../lib/backends/a1111-transport'
 import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
+import { openBackendWarning } from '../lib/backends/exposure'
 import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
 import { a1111Hints, diffusersHints, hintDetail, MAX_HINT_DETAIL, problemOf } from '../lib/backends/hints'
@@ -316,6 +317,22 @@ async function main() {
   check(long?.length === MAX_HINT_DETAIL && long.endsWith('…'), 'a long reason is cut to the limit')
   eq(a1111Hints(true), { pose: { reason: 'kind' } }, 'A1111 cannot take a pose, by kind')
   eq(a1111Hints(false), {}, 'an A1111 that is down gets no feature hints')
+
+  // ── A backend open to the network without a login ──
+  const open = (kind: 'diffusers' | 'a1111' | 'comfyui', url: string, hasToken = false) => openBackendWarning({ kind, url, hasToken })
+  eq(open('comfyui', 'http://127.0.0.1:8188'), null, 'a ComfyUI on this computer is fine')
+  eq(open('comfyui', 'http://localhost:8188'), null, 'so is localhost')
+  eq(open('comfyui', 'http://127.0.0.2:8188'), null, 'and any 127.x address')
+  eq(open('a1111', 'http://[::1]:7860'), null, 'and IPv6 loopback')
+  eq(open('comfyui', 'http://192.168.1.20:8188'), 'comfyui', 'a ComfyUI on the LAN is warned about')
+  eq(open('comfyui', 'http://gpu-box:8188/'), 'comfyui', 'so is one by host name')
+  eq(open('comfyui', 'http://0.0.0.0:8188'), 'comfyui', 'and one listening on every address')
+  eq(open('a1111', ' http://10.0.0.5:7860 '), 'a1111', 'an A1111 on the LAN without a token is warned about')
+  eq(open('a1111', 'http://10.0.0.5:7860', true), null, 'not with a token')
+  eq(open('comfyui', 'https://comfy.example.lan', true), null, 'nor a ComfyUI behind a proxy with a token')
+  eq(open('diffusers', 'http://192.168.1.20:7865'), null, 'a diffusers-compatible server is not')
+  eq(open('comfyui', 'not a url'), null, 'an address that cannot be read is left to the field check')
+  eq(open('comfyui', ''), null, 'nor is an empty one')
 
   // ── Why a backend is down ──
   eq(problemOf(null), { reason: 'unreachable' }, 'no answer at all')

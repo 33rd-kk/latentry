@@ -422,6 +422,8 @@
     "tokenNoneComfyui": "None (ComfyUI has no login; a Bearer token for a proxy in front of it)",
     "tokenWillClear": "Will be removed on save",
     "tokenClear": "Remove saved token",
+    "openBackendComfyui": "This ComfyUI is reached over the network, and ComfyUI has no login: anyone who can reach it can run code on that computer. Run it on this computer, or put it behind a reverse proxy that asks for a login and enter its token here.",
+    "openBackendA1111": "This web UI is reached over the network without a token: anyone who can reach it can use it. Start it with --api-auth user:password and enter that here, or run it on this computer.",
     "test": "Test",
     "testOk": "Connected: {model}",
     "testFail": "No answer at that address.",
