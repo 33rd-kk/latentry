@@ -1,12 +1,13 @@
 "use client"
 
-import { CheckCircle2, Loader2, Plus, Trash2, Wifi, XCircle } from "lucide-react"
+import { CheckCircle2, Loader2, Plus, ShieldAlert, Trash2, Wifi, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { useBackendTests, type BackendTest } from "@/hooks/use-backend-tests"
+import { openBackendWarning } from "@/lib/backends/exposure"
 import { BACKEND_KINDS, type BackendKind } from "@/lib/backends/types"
 import type { ProfileId } from "@/lib/profiles"
 import { emptyBackend, type BackendDraft, type ChangeDraft } from "@/lib/settings/draft"
@@ -87,6 +88,8 @@ function BackendRow({
       ...current,
       backends: current.backends.map((item) => (item.key === backend.key ? { ...item, ...patch } : item)),
     }))
+  const hasToken = Boolean(backend.token.trim()) || (backend.tokenSource !== null && !backend.clearToken)
+  const openWarning = openBackendWarning({ kind: backend.kind, url: backend.url, hasToken })
   return (
     <div className="space-y-2 rounded-lg border p-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-[8rem_8rem_1fr_10rem]">
@@ -207,6 +210,12 @@ function BackendRow({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+      {openWarning && (
+        <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-500">
+          <ShieldAlert className="mt-px h-3.5 w-3.5 shrink-0" />
+          {t(openWarning === "comfyui" ? "settings.openBackendComfyui" : "settings.openBackendA1111")}
+        </p>
+      )}
       {test && test.state !== "testing" && (
         <p className={cn("flex items-center gap-1 text-xs", test.state === "ok" ? "text-emerald-600 dark:text-emerald-500" : "text-destructive")}>
           {test.state === "ok" ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}

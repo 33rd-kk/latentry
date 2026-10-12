@@ -19,11 +19,14 @@ made, then sends those settings back to the form to make it again.
 ## What it does
 
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
-  reference), inpainting with a painted mask, and skeleton pose control where
-  the backend supports it: pick whose pose in a group picture, and turn it in
-  3D before generating (with [poseorbit](https://github.com/33rd-kk/poseorbit)).
-  Runs live on the server, so a reload or a second tab picks up a run in
-  progress.
+  reference) and inpainting with a painted mask. Runs live on the server, so
+  a reload or a second tab picks up a run in progress.
+- **Poses from group pictures, turned in 3D.** Drop in any picture, pick
+  which of the people in it to follow (one, several or everyone), turn the
+  pose in 3D and frame it, then generate along that skeleton. Works on the
+  built-in engine (SDXL family and Anima) and on servers that offer pose
+  control; detection and turning come from
+  [poseorbit](https://github.com/33rd-kk/poseorbit).
 - **A gallery that knows how every picture was made.** Every finished image
   is saved with its settings embedded (readable by A1111's PNG Info too).
   Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
@@ -187,6 +190,12 @@ back to `.env.local`.
   must be paired with a code first. To expose it further, put an
   authenticating reverse proxy in front of it, on this computer, one that
   overwrites `X-Forwarded-For`.
+- **Pairing protects Latentry, not your backends.** A ComfyUI or A1111 /
+  Forge server on another computer listens on the network, and anyone who
+  reaches it can use it (ComfyUI has no login). Keep backends on this
+  computer where you can; otherwise use `--api-auth` for A1111 / Forge and an
+  authenticating proxy for ComfyUI. Settings warns about one reached over the
+  network without a token.
 
 ## Translations
 

@@ -7,6 +7,13 @@
   putting it in (about 1.5 s on SDXL). A run without them comes out exactly
   as before. `LATENTRY_LORA_KEEP` sets how many; `0` takes each out after
   its run, as before.
+- **A warning for backends open to the network**: Settings now says, under
+  the backend, when a ComfyUI or AUTOMATIC1111 / Forge backend is reached at
+  another computer's address without a token. Anyone who can reach such a
+  server can use it without Latentry (ComfyUI has no login, and its custom
+  nodes run code). The manual's
+  [Backends on other computers](https://33rd-kk.github.io/latentry/guide/network/#backends-on-other-computers)
+  says how to keep one on this computer, or put a login in front of it.
 - **Pinned pose weights**: the engine now fetches the SDXL OpenPose
   ControlNet and the Anima pose adapter from a fixed commit and checks each
   file against its SHA-256 before using it. A file fetched before this

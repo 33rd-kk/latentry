@@ -10,17 +10,12 @@
 // The stamping itself is in peer-stamp.mjs. serve.mjs loads it before Next.js
 // starts; instrumentation.ts installs it too, for a server started otherwise.
 
+import { isLoopbackAddress } from './loopback'
 import { installPeerStamp } from './peer-stamp.mjs'
 
-export { installPeerStamp }
+export { installPeerStamp, isLoopbackAddress }
 
 const globalForPeer = globalThis as typeof globalThis & { __latentryPeerHeader?: string }
-
-/** Whether an address (or `localhost`) is this machine's loopback. */
-export function isLoopbackAddress(value: string): boolean {
-  const host = value.trim().toLowerCase().replace(/^\[|\]$/g, '')
-  return host === 'localhost' || host === '::1' || /^(::ffff:)?127\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(host)
-}
 
 /** The stamp's header name for this process, once stamping is on. */
 export function peerHeaderName(): string | undefined {
