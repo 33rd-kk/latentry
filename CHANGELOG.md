@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Faster runs with the same LoRA**: the engine leaves the last four LoRAs
+  used in the model, switched off, so a run that calls one again skips
+  putting it in (about 1.5 s on SDXL). A run without them comes out exactly
+  as before. `LATENTRY_LORA_KEEP` sets how many; `0` takes each out after
+  its run, as before.
 - **Pinned pose weights**: the engine now fetches the SDXL OpenPose
   ControlNet and the Anima pose adapter from a fixed commit and checks each
   file against its SHA-256 before using it. A file fetched before this

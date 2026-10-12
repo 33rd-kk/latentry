@@ -53,7 +53,14 @@ file name without `.safetensors` (`latentry_engine/loras.py`). The generate
 page also lists them under **Add a LoRA**, which puts the call into the prompt.
 
 - The calls are taken out of the prompt before it is encoded, and the LoRAs
-  are put on for that run only and taken off after, as the pose adapter is.
+  are on for that run only.
+- Putting a LoRA into the model is the slow part (about 1.5 s on SDXL), so
+  the last ones used stay in it between runs, switched off: a run that
+  calls one again only switches it on, and a run without them comes out
+  exactly as if they had never been loaded. `LATENTRY_LORA_KEEP` sets how
+  many stay (default 4; `0` takes each out after its run, which also frees
+  their GPU memory). They go when the model is unloaded or switched, and a
+  changed file is loaded again.
 - SDXL takes kohya and diffusers LoRAs; Anima takes the ComfyUI
   (`diffusion_model.…`) and diffusers layouts. A LoRA made for the other
   family, a name not in the folder, or a file diffusers cannot apply stops

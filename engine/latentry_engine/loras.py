@@ -1,5 +1,5 @@
 """LoRAs: finding them in `<models>/loras/`, reading `<lora:name:weight>`
-calls out of a prompt, and putting them on the pipeline for one run.
+calls out of a prompt, and putting them on the pipeline for a run.
 
     models/loras/
       style.safetensors              called as <lora:style:0.8>
@@ -9,8 +9,12 @@ A LoRA's name is its file name without the extension, as in A1111, so a
 prompt written for the web UI works here unchanged. The calls are taken out
 of the prompt before it is encoded: left in, they would be read as words.
 
-LoRAs are on only for the run that calls them, like the pose adapter: the
-next run without them comes out exactly as if they had never been loaded.
+LoRAs are on only for the run that calls them. Putting one into the model is
+the slow part (about 1.5 s on SDXL), so the last few used stay in it between
+runs (LoraKeeper, up to LATENTRY_LORA_KEEP, default 4), switched off: a
+switched-off LoRA layer runs only the model's own layer, so the next run
+without them comes out exactly as if they had never been loaded. They go
+with the model when it is unloaded or switched.
 
 Nothing about a LoRA is written anywhere by the engine. Its hash (the one
 A1111 writes as "Lora hashes") is worked out only when a run asks for it,
@@ -21,8 +25,10 @@ from __future__ import annotations
 
 import contextlib
 import hashlib
+import os
 import re
 import struct
+from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +42,7 @@ FAMILY_SD15 = "sd15"
 CALL = re.compile(r"<(?:lora|lyco):([^:<>]+)(?::([^:<>]*))?(?::[^<>]*)?>", re.IGNORECASE)
 LICENSE_KEYS = ("modelspec.license", "license")
 ADAPTER_PREFIX = "lora_"
+DEFAULT_KEEP = 4
 
 
 class LoraError(ValueError):
@@ -182,39 +189,92 @@ def applied_list(calls: list[LoraCall], with_hashes: bool) -> list[dict]:
     ]
 
 
-def _adapter_names(pipe) -> list[str]:
+def adapter_names(pipe) -> list[str]:
     names: list[str] = []
     for adapters in pipe.get_list_adapters().values():
         names.extend(name for name in adapters if name not in names)
     return names
 
 
-@contextlib.contextmanager
-def applied(pipe, calls: list[LoraCall]):
-    """Within the block, `pipe` runs with `calls` at their weights. Adapters
-    already on (the Anima pose adapter) stay on at full weight."""
-    if not calls:
-        yield
-        return
-    others = _adapter_names(pipe)
-    names = [f"{ADAPTER_PREFIX}{index}" for index in range(len(calls))]
+def keep_limit() -> int:
+    """LATENTRY_LORA_KEEP: how many LoRAs stay in the model between runs; 0
+    takes each one out after its run."""
+    wanted = os.environ.get("LATENTRY_LORA_KEEP", "").strip()
     try:
-        for name, call in zip(names, calls):
-            try:
+        return max(0, int(wanted)) if wanted else DEFAULT_KEEP
+    except ValueError:
+        return DEFAULT_KEEP
+
+
+class LoraKeeper:
+    """The LoRAs left in one loaded model between runs, by file (path, size,
+    mtime: a changed file is loaded again as a new adapter), the last used at
+    the end. One per model (pipelines.Loaded), so they go with it."""
+
+    def __init__(self) -> None:
+        self._kept: OrderedDict[tuple[str, int, int], str] = OrderedDict()
+        self._count = 0
+
+    @contextlib.contextmanager
+    def applied(self, pipe, calls: list[LoraCall]):
+        """Within the block, `pipe` runs with `calls` at their weights and no
+        other kept LoRA. Adapters put on by others (the Anima pose adapter)
+        stay on at full weight."""
+        present = adapter_names(pipe)
+        # Whatever took every LoRA out since (unload_lora_weights) took ours too.
+        self._kept = OrderedDict((key, name) for key, name in self._kept.items() if name in present)
+        if not calls and not self._kept:
+            yield
+            return
+        others = [name for name in present if name not in self._kept.values()]
+        names: list[str] = []
+        try:
+            for call in calls:
+                names.append(self._load(pipe, call))
+            if names or others:
+                # Every layer on, then only these: a layer added by this
+                # load starts on, older ones may have been switched off.
+                pipe.enable_lora()
+                pipe.set_adapters(others + names, [1.0] * len(others) + [call.weight for call in calls])
+            else:
+                pipe.disable_lora()
+            yield
+        finally:
+            self._settle(pipe, others)
+
+    def _load(self, pipe, call: LoraCall) -> str:
+        try:
+            stat = call.path.stat()
+            key = (str(call.path), stat.st_size, stat.st_mtime_ns)
+            if key not in self._kept:
+                name = f"{ADAPTER_PREFIX}{self._count}"
+                self._count += 1
                 pipe.load_lora_weights(str(call.path), adapter_name=name)
-            except Exception as error:
-                # diffusers says why in its own words, which can include the
-                # file's path: those go to the log, not to the client.
-                print(f"[engine] applying LoRA {call.name} failed: {error!r}", flush=True)
-                raise LoraError(f"The LoRA {call.name} could not be applied to this model ({type(error).__name__}). The engine's log has the details.") from error
-        pipe.set_adapters(others + names, [1.0] * len(others) + [call.weight for call in calls])
-        yield
-    finally:
-        loaded = [name for name in _adapter_names(pipe) if name in names]
-        if not others:
-            # Nothing else on: take the LoRA layers out entirely.
-            pipe.unload_lora_weights()
-        else:
-            if loaded:
-                pipe.delete_adapters(loaded)
+                self._kept[key] = name
+        except Exception as error:
+            # diffusers says why in its own words, which can include the
+            # file's path: those go to the log, not to the client.
+            print(f"[engine] applying LoRA {call.name} failed: {error!r}", flush=True)
+            raise LoraError(f"The LoRA {call.name} could not be applied to this model ({type(error).__name__}). The engine's log has the details.") from error
+        self._kept.move_to_end(key)
+        return self._kept[key]
+
+    def _settle(self, pipe, others: list[str]) -> None:
+        """After a run: keep the last used up to the limit, switched off, and
+        take out the rest (and anything half loaded)."""
+        limit = keep_limit()
+        while len(self._kept) > limit:
+            self._kept.popitem(last=False)
+        kept = set(self._kept.values())
+        if not kept and not others:
+            # Nothing to keep: take the LoRA layers out entirely.
+            if adapter_names(pipe):
+                pipe.unload_lora_weights()
+            return
+        leaving = [name for name in adapter_names(pipe) if name not in kept and name not in others]
+        if leaving:
+            pipe.delete_adapters(leaving)
+        if others:
             pipe.set_adapters(others, [1.0] * len(others))
+        else:
+            pipe.disable_lora()

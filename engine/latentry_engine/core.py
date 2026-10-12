@@ -7,7 +7,8 @@ from its weights, are in pipelines.py; pictures in and out in pictures.py.
 Pose control (pose_control.py) follows a skeleton poseorbit drew: SDXL
 through an OpenPose ControlNet pipeline built from the same weights, Anima
 through a LoRA adapter put on for the run only. The prompt's own LoRAs
-(loras.py) are put on for the run only too.
+(loras.py) are on for the run only too; the last few used stay in the
+model switched off, so calling them again is quick.
 """
 
 from __future__ import annotations
@@ -215,7 +216,7 @@ class Engine:
         else:
             pipe.vae.disable_tiling()
 
-        with loras.applied(pipe, request.loras):
+        with loaded.lora_keeper.applied(pipe, request.loras):
             device = getattr(pipe, "_execution_device", self.plan.device)
             embeds = encode_sdxl(pipe, request.prompt, request.negative_prompt, device)
             seeds = self._seeds(request)
@@ -319,8 +320,8 @@ class Engine:
                 # Once around all the images: loading the LoRA is the slow part.
                 skeleton = letterbox(request.pose_skeleton, (width, height))
                 scopes.enter_context(loaded.pose_adapter.applied(skeleton, request.pose_strength))
-            # After the pose adapter, which takes every LoRA off when it ends.
-            scopes.enter_context(loras.applied(pipe, request.loras))
+            # After the pose adapter, so it stays on beside the prompt's LoRAs.
+            scopes.enter_context(loaded.lora_keeper.applied(pipe, request.loras))
         except BaseException:
             # A LoRA that would not load must not leave the pose adapter on.
             scopes.close()

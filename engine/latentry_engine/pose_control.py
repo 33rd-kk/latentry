@@ -30,6 +30,7 @@ import numpy as np
 import torch
 from PIL import Image
 
+from .loras import adapter_names
 from .models import sha256_of
 
 ANIMA_ADAPTER_REPO = "Claquasse/Anima-Control-Pose"
@@ -118,7 +119,8 @@ class AnimaPoseAdapter:
     """Holds the adapter's weights (CPU) and applies them to `pipe` for one run at a time.
 
     The LoRA and the hook are on only inside `applied`, so ordinary runs never
-    see a PEFT-wrapped layer or a hook and come out exactly as before.
+    see them and come out exactly as before. Prompt LoRAs kept in the model
+    between runs (loras.LoraKeeper) stay in when it goes.
     """
 
     def __init__(self, pipe, folder: Path):
@@ -169,12 +171,18 @@ class AnimaPoseAdapter:
             return output + tokens.to(output.device, output.dtype)
 
         self.pipe.load_lora_weights(dict(self._lora), adapter_name=ANIMA_ADAPTER_NAME)
+        # On, and alone, even where kept prompt LoRAs left their layers switched off.
+        self.pipe.enable_lora()
+        self.pipe.set_adapters([ANIMA_ADAPTER_NAME], [1.0])
         handle = transformer.patch_embed.register_forward_hook(add_control)
         try:
             yield
         finally:
             handle.remove()
-            self.pipe.unload_lora_weights()
+            if any(name != ANIMA_ADAPTER_NAME for name in adapter_names(self.pipe)):
+                self.pipe.delete_adapters([ANIMA_ADAPTER_NAME])
+            else:
+                self.pipe.unload_lora_weights()
             self._embedder.to("cpu")
 
 
