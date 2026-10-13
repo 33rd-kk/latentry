@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **What Latentry protects against**: a new page in the manual goes through
+  who could try to misuse Latentry (a website you visit, another device on
+  your network, internet scanners, model files and workflows, swapped
+  downloads, someone using the computer later, whoever receives a picture),
+  what Latentry does about each, and what it leaves to you. SECURITY.md and
+  the network guide now say that paired devices share ordinary runs.
 - **Settings says whether Latentry is open to your network**: the pairing
   card now says when Latentry listens beyond this computer
   (`LATENTRY_HOST`), and how to open it when it does not.
