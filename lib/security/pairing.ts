@@ -41,6 +41,7 @@
 import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto'
 import { closeSync, fstatSync, mkdirSync, openSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
 import { settingsPath } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
@@ -94,6 +95,7 @@ function writeKey(file: string, flag: 'w' | 'wx' = 'w'): Buffer {
   const key = randomBytes(32)
   mkdirSync(path.dirname(file), { recursive: true })
   writeFileSync(file, key.toString('hex') + '\n', { mode: 0o600, flag })
+  restrictToOwner(file)
   return key
 }
 
@@ -122,6 +124,7 @@ function readIfChanged(file: string, knownMtimeMs?: number): { mtimeMs: number; 
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
     throw error
   }
+  restrictExistingToOwner(file)
   try {
     const { mtimeMs } = fstatSync(fd)
     return { mtimeMs, text: mtimeMs === knownMtimeMs ? null : readFileSync(fd, 'utf8') }
@@ -220,6 +223,7 @@ function writeDevices(devices: PairedDevice[], env: Env): void {
   mkdirSync(path.dirname(file), { recursive: true })
   const temp = `${file}.${process.pid}.tmp`
   writeFileSync(temp, encryptList(devices, env), { mode: 0o600 })
+  restrictToOwner(temp)
   renameSync(temp, file)
   // Read back on next use (see createKey).
   globalForPairing.__pairingDevices = undefined

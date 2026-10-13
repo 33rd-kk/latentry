@@ -191,6 +191,19 @@ async function main(): Promise<void> {
   eq((await (await thisDeviceRoute(new Request('http://localhost:3000/api/pair', { headers: fromHere }))).json()).local, true, 'this machine is told it needs none')
   const listed = await (await pairingSettings(new Request('http://localhost:3000/api/settings/pairing', { headers: fromHere }))).json()
   eq(listed.devices.length, 1, 'this machine sees the paired device')
+  eq(listed.network, false, 'without a listen host from serve.mjs, it is not said to be open to the network')
+  const listening = async (host: string) => {
+    process.env.LATENTRY_LISTEN_HOST = host
+    try {
+      return (await (await pairingSettings(new Request('http://localhost:3000/api/settings/pairing', { headers: fromHere }))).json()).network
+    } finally {
+      delete process.env.LATENTRY_LISTEN_HOST
+    }
+  }
+  eq(await listening('0.0.0.0'), true, 'listening on 0.0.0.0 is open to the network')
+  eq(await listening('192.168.1.20'), true, 'and so is a LAN address')
+  eq(await listening('127.0.0.1'), false, 'loopback is not')
+  eq(await listening('::1'), false, 'nor is ::1')
   const again = await (await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'code' }))).json()
   const repaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', withCookie({ ...fromLan, [peer]: '192.168.1.33' }, cookieValue), { code: again.code.code, name: 'Renamed' }))
   eq(repaired.status, 200, 'a paired device can pair again')

@@ -15,6 +15,7 @@
 import { createHmac, randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
+import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
 import { settingsPath } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
@@ -64,12 +65,14 @@ export function folderNamesKey(env: Env = process.env): Buffer {
     try {
       // 'wx': if two requests race to make it, the second reads the first's.
       writeFileSync(file, randomBytes(32).toString('hex') + '\n', { mode: 0o600, flag: 'wx' })
+      restrictToOwner(file)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
     }
     key = readKey(file)
     if (!key) throw new Error(`${path.basename(file)} is not a key`)
   }
+  restrictExistingToOwner(file)
   globalForNames.__folderNamesKey = { file, key }
   return key
 }
