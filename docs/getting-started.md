@@ -32,6 +32,26 @@ npm start
 Ctrl+C stops it. Latentry listens on this computer only; to use it from a
 phone, see [Other devices and security](guide/network.md).
 
+### From a release download, checked
+
+Instead of `git clone`, you can download a release's source from its
+[release page](https://github.com/33rd-kk/latentry/releases)
+(`latentry-X.Y.Z.tar.gz` or `.zip`) and check that it was made by
+Latentry's release workflow from that release's commit, before you run
+anything in it:
+
+```bash
+gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry
+```
+
+This needs the [GitHub CLI](https://cli.github.com/). Without it, compare
+the file's SHA-256 with `SHA256SUMS` on the same page
+(`sha256sum -c SHA256SUMS --ignore-missing` on Linux, `shasum -a 256` on
+macOS, `Get-FileHash` in PowerShell); that shows the file is the one listed
+there, and the attestation shows who made it. Then unpack it and run the
+install script inside, as above. Git is still needed, for one of the
+packages.
+
 ## Set up the engine
 
 The Setup page runs in three steps:

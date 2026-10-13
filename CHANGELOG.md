@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Checked release downloads**: each release now has its source as
+  `.tar.gz` and `.zip`, made by a GitHub workflow from the release's
+  commit, with `SHA256SUMS` and a build provenance attestation, so
+  `gh attestation verify` can show where a download came from. Getting
+  started says how to check one.
 - **What Latentry protects against**: a new page in the manual goes through
   who could try to misuse Latentry (a website you visit, another device on
   your network, internet scanners, model files and workflows, swapped
