@@ -22,6 +22,7 @@ import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
 import { securityHeaders } from '../lib/security/headers'
 import { restrictToOwner } from '../lib/security/owner-only'
+import { restrictPrivateFiles } from '../lib/security/private-files'
 import { checkApiRequest } from '../lib/security/route-guard'
 import { checkRequestBudget, classifyRequest, clientIp, FixedWindow, sseSlot } from '../lib/security/request-budget'
 import { bodyTooLarge } from '../lib/api'
@@ -366,6 +367,17 @@ function ownerOnlyFiles(): void {
     check(entries.some((entry) => /SYSTEM/i.test(entry)), 'SYSTEM is one')
     check(!entries.some((entry) => /\\Users:|Everyone|Authenticated/i.test(entry)), 'no group of users can read it')
     eq(readFileSync(file, 'utf8'), 'secret\n', 'the owner can still read it')
+
+    // At start: every private file that exists, whether or not anything has read it yet.
+    const env = { LATENTRY_SETTINGS_FILE: path.join(folder, 'latentry.settings.json') }
+    const names = ['latentry.settings.json', 'latentry.pairing-key', 'latentry.folder-names-key']
+    for (const name of names) writeFileSync(path.join(folder, name), 'x\n')
+    const restricted = restrictPrivateFiles(env)
+    eq(restricted.map((name) => path.basename(name)).sort(), [...names].sort(), 'at start the existing private files are restricted (the missing device list is skipped)')
+    check(
+      restricted.every((name) => !execFileSync(icacls, [name], { encoding: 'utf8', windowsHide: true }).includes('(I)')),
+      'and none of them inherits from the folder any more'
+    )
   } finally {
     rmSync(folder, { recursive: true, force: true })
   }

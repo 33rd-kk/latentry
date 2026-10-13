@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Private files restricted at start**: on Windows the settings file, the
+  pairing key, the paired-device list and the folder-name key now all get
+  their owner-only access list when Latentry starts. Before, each got it
+  the first time it was used, so a pairing key nobody had used since an
+  update stayed readable by other users until then.
 - **Checking a download against its tag**: Getting started now adds
   `--source-ref refs/tags/vX.Y.Z` to `gh attestation verify`, which also
   checks that the file was built from that release's tag.
