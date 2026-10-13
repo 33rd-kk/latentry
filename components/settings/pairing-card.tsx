@@ -20,6 +20,8 @@ interface PairingState {
   days: number
   code: { code: string; expiresAt: number } | null
   devices: PairedDevice[]
+  /** Listening beyond loopback, so other devices can reach this server. */
+  network: boolean
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -126,6 +128,7 @@ export function PairingCard() {
         <CardDescription>
           {state.enabled ? t("settings.pairingHint", { days: state.days }) : t("settings.pairingOff")}
         </CardDescription>
+        <p className="text-sm">{state.network ? t("settings.pairingNetwork") : t("settings.pairingLocal")}</p>
       </CardHeader>
       {state.enabled && (
         <CardContent className="space-y-4">

@@ -109,3 +109,10 @@ test('what the server rejects is shown at its field, and nothing is saved', asyn
   await page.reload()
   await expect(url).not.toHaveValue('not an address')
 })
+
+test('the pairing card says Latentry listens on this computer only', async ({ page }) => {
+  // The browser tests' server is started by scripts/serve.mjs on 127.0.0.1.
+  await open(page)
+  await expect(page.getByText('Latentry listens on this computer only.', { exact: false })).toBeVisible()
+  await expect(page.getByText('Latentry is open to your network', { exact: false })).toHaveCount(0)
+})

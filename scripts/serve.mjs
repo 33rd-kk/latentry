@@ -63,7 +63,9 @@ const preload = mode === 'build' ? [] : ['--import', pathToFileURL(path.resolve(
 const next = createRequire(import.meta.url).resolve('next/dist/bin/next')
 const child = spawn(process.execPath, [...preload, next, ...args], {
   stdio: 'inherit',
-  env: { NEXT_TELEMETRY_DISABLED: '1', ...process.env },
+  // LATENTRY_LISTEN_HOST tells the app where it listens, so Settings can say
+  // when other devices can reach it.
+  env: { NEXT_TELEMETRY_DISABLED: '1', ...process.env, ...(host ? { LATENTRY_LISTEN_HOST: host } : {}) },
 })
 // Ctrl+C reaches Next.js directly (same console); passing it on as well
 // would, on Windows, end it abruptly instead of letting it shut down.

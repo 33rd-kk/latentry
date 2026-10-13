@@ -10,6 +10,7 @@ import { randomBytes } from 'node:crypto'
 import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs'
 import path from 'node:path'
+import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
 import { EMPTY_SETTINGS, parseStoredSettings, type Settings } from './schema'
 
 export function settingsPath(env: Record<string, string | undefined> = process.env): string {
@@ -36,6 +37,7 @@ export function getSettings(): Settings {
   } catch {
     return EMPTY_SETTINGS
   }
+  restrictExistingToOwner(file)
   try {
     const mtime = fstatSync(fd).mtimeMs
     const cached = globalForSettings.__latentrySettings
@@ -59,6 +61,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
   const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`
   try {
     await writeFile(temp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 })
+    restrictToOwner(temp)
     await rename(temp, file)
   } catch (error) {
     await unlink(temp).catch(() => {})

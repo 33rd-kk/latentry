@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Settings says whether Latentry is open to your network**: the pairing
+  card now says when Latentry listens beyond this computer
+  (`LATENTRY_HOST`), and how to open it when it does not.
+- **Private files stay private on Windows**: the settings file, the pairing
+  key, the paired-device list and the folder-name key now get an access
+  list with only your account (and Windows itself), so other users of the
+  computer cannot read them wherever Latentry is installed. Files from
+  earlier versions are fixed the first time they are read.
 - **Pinned SDXL configs**: a single-file SDXL checkpoint's config files
   (scheduler, text encoders and tokenizers; no weights) now come from a
   fixed commit of SDXL base, each checked against its SHA-256, and are kept

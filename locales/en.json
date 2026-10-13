@@ -523,6 +523,8 @@
     "pairingTitle": "Phones and other computers",
     "pairingHint": "Devices other than this computer need a code to use Latentry. Add a device here, then type the code on it at the address you open Latentry with. A paired device stays paired for {days} days.",
     "pairingOff": "Pairing is off (LATENTRY_PAIRING=off): any device that can reach Latentry can use it.",
+    "pairingNetwork": "Latentry is open to your network (LATENTRY_HOST): other devices can reach it.",
+    "pairingLocal": "Latentry listens on this computer only. To use it from other devices, set LATENTRY_HOST=0.0.0.0 and restart it.",
     "pairingAdd": "Add a device",
     "pairingNewCode": "New code",
     "pairingCodeHint": "Type this code on the other device. It works once, for {minutes}:{seconds} more.",
