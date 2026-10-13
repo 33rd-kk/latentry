@@ -39,14 +39,14 @@ def hub(monkeypatch: pytest.MonkeyPatch):
 def test_a_matching_file_is_used_without_a_download(tmp_path: Path, hub) -> None:
     calls, _ = hub
     (tmp_path / "w.safetensors").write_bytes(GOOD)
-    assert pose_control._download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path) == tmp_path / "w.safetensors"
+    assert pose_control.pinned_download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path) == tmp_path / "w.safetensors"
     assert calls == []
 
 
 def test_a_file_that_does_not_match_is_fetched_again_from_the_pinned_commit(tmp_path: Path, hub) -> None:
     calls, _ = hub
     (tmp_path / "w.safetensors").write_bytes(b"from main, before the pin")
-    path = pose_control._download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
+    path = pose_control.pinned_download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
     assert path.read_bytes() == GOOD
     assert calls == [{"repo": "o/r", "filename": "w.safetensors", "revision": REVISION}]
 
@@ -55,7 +55,7 @@ def test_a_download_that_does_not_match_is_removed_and_refused(tmp_path: Path, h
     _, state = hub
     state["served"] = b"something else"
     with pytest.raises(RuntimeError, match="pinned SHA-256") as caught:
-        pose_control._download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
+        pose_control.pinned_download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
     assert not (tmp_path / "w.safetensors").exists()
     # The message names the repository file, never a folder on this machine.
     assert str(tmp_path) not in str(caught.value)
@@ -63,9 +63,9 @@ def test_a_download_that_does_not_match_is_removed_and_refused(tmp_path: Path, h
 
 def test_a_checked_file_is_not_hashed_again(tmp_path: Path, hub, monkeypatch: pytest.MonkeyPatch) -> None:
     (tmp_path / "w.safetensors").write_bytes(GOOD)
-    pose_control._download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
+    pose_control.pinned_download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
     monkeypatch.setattr(pose_control, "sha256_of", lambda _path: pytest.fail("hashed twice"))
-    pose_control._download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
+    pose_control.pinned_download("o/r", REVISION, "w.safetensors", GOOD_SHA256, tmp_path)
 
 
 def test_the_pins_are_well_formed() -> None:

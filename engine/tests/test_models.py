@@ -172,3 +172,20 @@ def test_pickle_only_parts_names_parts_with_no_safetensors(tmp_path: Path) -> No
 
     (folder / "old.CKPT").unlink()
     assert models.pickle_only_parts(folder) == []
+
+
+def test_sdxl_unet_in_channels_from_the_header(tmp_path: Path) -> None:
+    def checkpoint(name: str, shape: list[int] | None) -> Path:
+        header: dict = {"conditioner.embedders.1.x": {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]}}
+        if shape is not None:
+            header[models.SDXL_UNET_INPUT] = {"dtype": "F16", "shape": shape, "data_offsets": [2, 4]}
+        data = json.dumps(header).encode()
+        path = tmp_path / name
+        path.write_bytes(struct.pack("<Q", len(data)) + data)
+        return path
+
+    assert models.sdxl_unet_in_channels(checkpoint("base.safetensors", [320, 4, 3, 3])) == 4
+    assert models.sdxl_unet_in_channels(checkpoint("inpaint.safetensors", [320, 9, 3, 3])) == 9
+    assert models.sdxl_unet_in_channels(checkpoint("none.safetensors", None)) is None
+    (tmp_path / "broken.safetensors").write_bytes(b"\x01")
+    assert models.sdxl_unet_in_channels(tmp_path / "broken.safetensors") is None

@@ -58,6 +58,24 @@ def _safetensors_keys(path: Path) -> list[str]:
     return safetensors_header(path)[0]
 
 
+# The first layer of an SDXL checkpoint's UNet: its second dimension is the
+# number of latent channels the UNet takes (4, or 9 for an inpainting model).
+SDXL_UNET_INPUT = "model.diffusion_model.input_blocks.0.0.weight"
+
+
+def sdxl_unet_in_channels(path: Path) -> int | None:
+    """How many channels a single-file SDXL checkpoint's UNet takes, from its header only."""
+    try:
+        with path.open("rb") as file:
+            (length,) = struct.unpack("<Q", file.read(8))
+            if length > 100_000_000:
+                return None
+            shape = json.loads(file.read(length)).get(SDXL_UNET_INPUT, {}).get("shape")
+    except (OSError, ValueError, struct.error, AttributeError):
+        return None
+    return shape[1] if isinstance(shape, list) and len(shape) == 4 and isinstance(shape[1], int) else None
+
+
 def _checkpoint_family(path: Path) -> str | None:
     try:
         keys = _safetensors_keys(path)

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Pinned SDXL configs**: a single-file SDXL checkpoint's config files
+  (scheduler, text encoders and tokenizers; no weights) now come from a
+  fixed commit of SDXL base, each checked against its SHA-256, and are kept
+  in the engine's controls folder. Before, diffusers fetched them from the
+  latest version on the first load. An inpainting checkpoint is loaded as
+  before.
 - **The engine reads only safetensors**: a diffusers folder model is now
   refused when a part of it has weights only in a pickle format (`.bin`,
   `.ckpt`, `.pt`), which can run code when loaded, and the message names

@@ -50,7 +50,11 @@ Face, under its own licence, into the **models folder**:
   The engine reads weights only from `.safetensors` files, which cannot run
   code. A diffusers folder with a part whose weights are only in a pickle
   format (`.bin`, `.ckpt`, `.pt`) is refused when you load it, and the
-  message names that part.
+  message names that part. A single-file SDXL checkpoint needs SDXL's
+  config files (scheduler, text encoders, tokenizers, no weights); the
+  engine fetches them once from a fixed commit, checks each against its
+  SHA-256 and keeps them in the controls folder, so later loads need no
+  network.
 - **Available to download**: the licence, whether outputs may be used
   commercially, and a box to accept the licence before **Download**. Each
   download is a fixed version of the repository, and its files are checked
