@@ -2,17 +2,15 @@
 
 ## Unreleased
 
-- **Checked release downloads**: each release now has its source as
-  `.tar.gz` and `.zip`, made by a GitHub workflow from the release's
-  commit, with `SHA256SUMS` and a build provenance attestation, so
-  `gh attestation verify` can show where a download came from. Getting
-  started says how to check one.
-- **What Latentry protects against**: a new page in the manual goes through
-  who could try to misuse Latentry (a website you visit, another device on
-  your network, internet scanners, model files and workflows, swapped
-  downloads, someone using the computer later, whoever receives a picture),
-  what Latentry does about each, and what it leaves to you. SECURITY.md and
-  the network guide now say that paired devices share ordinary runs.
+## 0.8.1 (2026-10-13)
+
+**Upgrading from 0.8.0**: nothing to do. The first load of a single-file
+SDXL checkpoint fetches SDXL's config files once (a few MB of text) into the
+engine's controls folder. A diffusers folder model whose weights are only in
+a pickle format is now refused; get its `.safetensors` files.
+
+**Security and privacy**
+
 - **Settings says whether Latentry is open to your network**: the pairing
   card now says when Latentry listens beyond this computer
   (`LATENTRY_HOST`), and how to open it when it does not.
@@ -21,17 +19,31 @@
   list with only your account (and Windows itself), so other users of the
   computer cannot read them wherever Latentry is installed. Files from
   earlier versions are fixed the first time they are read.
+- **What Latentry protects against**: a new page in the manual goes through
+  who could try to misuse Latentry (a website you visit, another device on
+  your network, internet scanners, model files and workflows, swapped
+  downloads, someone using the computer later, whoever receives a picture),
+  what Latentry does about each, and what it leaves to you. SECURITY.md and
+  the network guide now say that paired devices share ordinary runs.
+- **Checked release downloads**: each release now has its source as
+  `.tar.gz` and `.zip`, made by a GitHub workflow from the release's
+  commit, with `SHA256SUMS` and a build provenance attestation, so
+  `gh attestation verify` can show where a download came from. Getting
+  started says how to check one.
+
+**Engine (0.6.1)**
+
+- **The engine reads only safetensors**: a diffusers folder model is now
+  refused when a part of it has weights only in a pickle format (`.bin`,
+  `.ckpt`, `.pt`), which can run code when loaded, and the message names
+  that part. The SDXL folder and ControlNet loads also ask for safetensors
+  only. Single-file checkpoints and LoRAs were `.safetensors` only already.
 - **Pinned SDXL configs**: a single-file SDXL checkpoint's config files
   (scheduler, text encoders and tokenizers; no weights) now come from a
   fixed commit of SDXL base, each checked against its SHA-256, and are kept
   in the engine's controls folder. Before, diffusers fetched them from the
   latest version on the first load. An inpainting checkpoint is loaded as
   before.
-- **The engine reads only safetensors**: a diffusers folder model is now
-  refused when a part of it has weights only in a pickle format (`.bin`,
-  `.ckpt`, `.pt`), which can run code when loaded, and the message names
-  that part. The SDXL folder and ControlNet loads also ask for safetensors
-  only. Single-file checkpoints and LoRAs were `.safetensors` only already.
 
 ## 0.8.0 (2026-10-13)
 
