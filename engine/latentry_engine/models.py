@@ -86,6 +86,29 @@ def _diffusers_family(folder: Path) -> str | None:
     return None
 
 
+# Weight formats built on Python's pickle: loading one can run any code in it.
+PICKLE_SUFFIXES = (".bin", ".ckpt", ".pt", ".pth", ".pkl", ".pickle")
+
+
+def pickle_only_parts(folder: Path) -> list[str]:
+    """The parts of a diffusers folder whose weights come only in a pickle format.
+
+    diffusers and transformers read .safetensors when a part has both, and fall
+    back to a pickle when it has nothing else; the engine loads only folders
+    where that fallback never happens. Each part is named by its path inside
+    the folder ("." for the folder itself).
+    """
+    parts: set[Path] = set()
+    for file in folder.rglob("*"):
+        if (
+            file.is_file()
+            and file.suffix.lower() in PICKLE_SUFFIXES
+            and not any(other.suffix.lower() == ".safetensors" for other in file.parent.iterdir())
+        ):
+            parts.add(file.parent.relative_to(folder))
+    return sorted(part.as_posix() for part in parts)
+
+
 def _folder_size(folder: Path) -> int:
     return sum(file.stat().st_size for file in folder.rglob("*") if file.is_file())
 

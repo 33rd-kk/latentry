@@ -152,3 +152,23 @@ def test_start_refuses_a_branch_or_a_file_without_its_hash(tmp_path: Path) -> No
             continue
         raise AssertionError(f"started {args}")
     assert downloads.items == {}
+
+
+def test_pickle_only_parts_names_parts_with_no_safetensors(tmp_path: Path) -> None:
+    folder = tmp_path / "model"
+    (folder / "unet").mkdir(parents=True)
+    (folder / "unet" / "diffusion_pytorch_model.bin").write_bytes(b"x")
+    (folder / "vae").mkdir()
+    (folder / "vae" / "diffusion_pytorch_model.bin").write_bytes(b"x")
+    (folder / "vae" / "diffusion_pytorch_model.safetensors").write_bytes(b"x")
+    (folder / "text_encoder").mkdir()
+    (folder / "text_encoder" / "model.safetensors").write_bytes(b"x")
+    (folder / "model_index.json").write_text("{}", encoding="utf-8")
+    assert models.pickle_only_parts(folder) == ["unet"]
+
+    (folder / "unet" / "diffusion_pytorch_model.safetensors").write_bytes(b"x")
+    (folder / "old.CKPT").write_bytes(b"x")
+    assert models.pickle_only_parts(folder) == ["."]
+
+    (folder / "old.CKPT").unlink()
+    assert models.pickle_only_parts(folder) == []

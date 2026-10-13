@@ -196,7 +196,7 @@ def load_sdxl_controlnet(folder: Path, dtype: torch.dtype):
     target = folder / SDXL_CONTROLNET_REPO.split("/")[1]
     for filename, sha256 in SDXL_CONTROLNET_FILES.items():
         _download(SDXL_CONTROLNET_REPO, SDXL_CONTROLNET_REVISION, filename, sha256, target)
-    return ControlNetModel.from_pretrained(str(target), torch_dtype=dtype)
+    return ControlNetModel.from_pretrained(str(target), torch_dtype=dtype, use_safetensors=True)
 
 
 def sdxl_pose_pipeline(kind: str, base, controlnet, dtype: torch.dtype):
