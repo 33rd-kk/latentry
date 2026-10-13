@@ -68,7 +68,7 @@ def _matches(path: Path, sha256: str) -> bool:
     return True
 
 
-def _download(repo: str, revision: str, filename: str, sha256: str, folder: Path) -> Path:
+def pinned_download(repo: str, revision: str, filename: str, sha256: str, folder: Path) -> Path:
     """`filename` from `repo` at `revision`, checked against `sha256`.
 
     A file already there that does not match (one fetched from `main` before
@@ -135,7 +135,7 @@ class AnimaPoseAdapter:
         from safetensors.torch import load_file
 
         state = load_file(
-            str(_download(ANIMA_ADAPTER_REPO, ANIMA_ADAPTER_REVISION, ANIMA_ADAPTER_FILE, ANIMA_ADAPTER_SHA256, self.folder))
+            str(pinned_download(ANIMA_ADAPTER_REPO, ANIMA_ADAPTER_REVISION, ANIMA_ADAPTER_FILE, ANIMA_ADAPTER_SHA256, self.folder))
         )
         embedder_state = {
             key.split("control_embedder.", 1)[1]: value for key, value in state.items() if "control_embedder." in key
@@ -195,7 +195,7 @@ def load_sdxl_controlnet(folder: Path, dtype: torch.dtype):
 
     target = folder / SDXL_CONTROLNET_REPO.split("/")[1]
     for filename, sha256 in SDXL_CONTROLNET_FILES.items():
-        _download(SDXL_CONTROLNET_REPO, SDXL_CONTROLNET_REVISION, filename, sha256, target)
+        pinned_download(SDXL_CONTROLNET_REPO, SDXL_CONTROLNET_REVISION, filename, sha256, target)
     return ControlNetModel.from_pretrained(str(target), torch_dtype=dtype, use_safetensors=True)
 
 

@@ -104,8 +104,10 @@ class Engine:
             try:
                 self.unload()
                 started = time.time()
-                load = pipelines.load_sdxl if info.family == FAMILY_SDXL else pipelines.load_anima
-                loaded = load(info, self.plan)
+                if info.family == FAMILY_SDXL:
+                    loaded = pipelines.load_sdxl(info, self.plan, self.controls_dir)
+                else:
+                    loaded = pipelines.load_anima(info, self.plan)
                 self.loaded = loaded
                 print(f"[engine] loaded {info.id} ({info.family}) in {time.time() - started:.0f}s", flush=True)
             except Exception as error:
