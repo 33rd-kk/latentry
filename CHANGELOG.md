@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Checking a download against its tag**: Getting started now adds
+  `--source-ref refs/tags/vX.Y.Z` to `gh attestation verify`, which also
+  checks that the file was built from that release's tag.
+
 ## 0.8.1 (2026-10-13)
 
 **Upgrading from 0.8.0**: nothing to do. The first load of a single-file

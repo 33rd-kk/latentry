@@ -41,8 +41,12 @@ Latentry's release workflow from that release's commit, before you run
 anything in it:
 
 ```bash
-gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry
+gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry --source-ref refs/tags/vX.Y.Z
 ```
+
+`--source-ref` makes it check that the file was built from the tag of that
+release (from 0.8.1 on). 0.8.0's files were added later, from `main`, so
+check those without it.
 
 This needs the [GitHub CLI](https://cli.github.com/). Without it, compare
 the file's SHA-256 with `SHA256SUMS` on the same page

@@ -3,7 +3,9 @@
 # anyone can check that a download was made here, by this workflow, from that
 # commit:
 #
-#   gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry
+#   gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry --source-ref refs/tags/vX.Y.Z
+#
+# A run by hand records main as its source instead of the tag.
 #
 # Runs when a release is published, and by hand for an earlier release.
 name: Release files
