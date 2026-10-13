@@ -37,6 +37,7 @@ nav:
       - Setup and the engine: guide/engine.md
       - Settings: guide/settings.md
       - Other devices and security: guide/network.md
+      - What it protects against: guide/threat-model.md
   - Reference:
       - Configuration: reference/configuration.md
       - Backends: reference/backends.md

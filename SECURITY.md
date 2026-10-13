@@ -19,6 +19,10 @@ accounts or passwords. This machine can always use it; any other device must
 be paired first, and once paired it can generate images, read the configured
 gallery folders and drive the GPU.
 
+The manual's
+[What Latentry protects against](https://33rd-kk.github.io/latentry/guide/threat-model/)
+goes through the same ground by who could try to misuse it.
+
 What it does guard against:
 
 - **The network**: it listens on 127.0.0.1 unless `LATENTRY_HOST` opens it
@@ -46,9 +50,18 @@ What it does guard against:
 - **Floods**: per-IP request budgets, counted by the address the connection
   comes from; `X-Forwarded-For` is believed only from this machine (a
   reverse proxy here).
-- **Stopping someone else's run**: a run is stopped only by naming its id,
-  which only the page watching it has (and a secret run's id is never
-  handed out).
+- **Stopping someone else's run**: a run is stopped only by naming its id.
+  A device that is not paired never gets one. Paired devices are told the
+  id of an ordinary run, so a page that reloads on any of them can pick it
+  up again; a secret run's id is never handed out, so only its own page can
+  stop it.
+- **Model files**: the engine reads weights only from `.safetensors` files,
+  which cannot run code; a model folder whose weights come only in a pickle
+  format (`.bin`, `.ckpt`, `.pt`) is refused.
+- **Private files**: the settings file, the pairing key, the paired-device
+  list and the folder-name key are written with mode 600; on Windows, where
+  that mode does nothing, each gets an access list with only the current
+  user and SYSTEM.
 - **Settings from the network**: by default only this machine may change
   settings (which decide the folders read and written, and where prompts
   are sent). This goes by the address the connection really comes from, not
