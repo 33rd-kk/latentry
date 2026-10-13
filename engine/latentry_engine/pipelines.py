@@ -15,7 +15,7 @@ import torch
 from . import pose_control
 from .gpu import GpuPlan
 from .loras import LoraKeeper
-from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
+from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo, pickle_only_parts
 
 
 class EngineError(Exception):
@@ -46,6 +46,16 @@ def place(pipe, plan: GpuPlan) -> None:
         pipe.to(plan.device)
 
 
+def refuse_pickles(info: ModelInfo) -> None:
+    """Stops before loading a folder model that would read a pickle-format file."""
+    parts = pickle_only_parts(info.path)
+    if parts:
+        raise EngineError(
+            f"{info.name} has weights only in a pickle format (.bin, .ckpt, .pt) in {', '.join(parts)}; "
+            "the engine reads only .safetensors, which cannot run code. Get the .safetensors files for it."
+        )
+
+
 def load_sdxl(info: ModelInfo, plan: GpuPlan) -> Loaded:
     from diffusers import StableDiffusionXLPipeline
 
@@ -57,7 +67,8 @@ def load_sdxl(info: ModelInfo, plan: GpuPlan) -> Loaded:
         # again every time; diffusers still downloads them on the first.
         pipe = StableDiffusionXLPipeline.from_single_file(str(info.path), torch_dtype=dtype, local_files_only=True)
     else:
-        pipe = StableDiffusionXLPipeline.from_pretrained(str(info.path), torch_dtype=dtype)
+        refuse_pickles(info)
+        pipe = StableDiffusionXLPipeline.from_pretrained(str(info.path), torch_dtype=dtype, use_safetensors=True)
     if dtype == torch.float16:
         # SDXL's VAE overflows in fp16 (black images); the pipeline
         # upcasts it when this is set.
@@ -75,6 +86,7 @@ def load_sdxl(info: ModelInfo, plan: GpuPlan) -> Loaded:
 def load_anima(info: ModelInfo, plan: GpuPlan) -> Loaded:
     from diffusers.modular_pipelines.modular_pipeline import ModularPipeline
 
+    refuse_pickles(info)
     pipe = ModularPipeline.from_pretrained(str(info.path))
     # The index names each component's Hub repository; without this the
     # weights would be fetched (or looked up in the HF cache) from there

@@ -47,6 +47,10 @@ Face, under its own licence, into the **models folder**:
 
 - **In the models folder**: what is there now; **Load** one, or see which is
   loaded. Single `.safetensors` files and diffusers folders are listed.
+  The engine reads weights only from `.safetensors` files, which cannot run
+  code. A diffusers folder with a part whose weights are only in a pickle
+  format (`.bin`, `.ckpt`, `.pt`) is refused when you load it, and the
+  message names that part.
 - **Available to download**: the licence, whether outputs may be used
   commercially, and a box to accept the licence before **Download**. Each
   download is a fixed version of the repository, and its files are checked

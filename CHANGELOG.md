@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **The engine reads only safetensors**: a diffusers folder model is now
+  refused when a part of it has weights only in a pickle format (`.bin`,
+  `.ckpt`, `.pt`), which can run code when loaded, and the message names
+  that part. The SDXL folder and ControlNet loads also ask for safetensors
+  only. Single-file checkpoints and LoRAs were `.safetensors` only already.
+
 ## 0.8.0 (2026-10-13)
 
 **Upgrading from 0.7.0**: open **Setup** and run **Repair / update** for the
