@@ -357,10 +357,14 @@ function ownerOnlyFiles(): void {
     const acl = execFileSync(icacls, [file], { encoding: 'utf8', windowsHide: true })
     // The first line starts with the file's path; the last two are a summary and a blank.
     const entries = acl.split(/\r?\n/).filter((line) => /:\(/.test(line)).map((line) => line.replace(file, '').trim())
-    eq(entries.length, 2, `two entries: the owner and SYSTEM (${entries.join(' | ')})`)
+    // A file made by an elevated process (as on CI) also keeps the
+    // Administrators entry its creator's token gives it; administrators can
+    // take any file anyway. What must be gone is everything from the folder.
+    const others = entries.filter((entry) => !/SYSTEM:|\\Administrators:/i.test(entry))
+    eq(others.length, 1, `one account besides SYSTEM and Administrators: the owner (${entries.join(' | ')})`)
     check(entries.every((entry) => !entry.includes('(I)')), 'none inherited from the folder')
     check(entries.some((entry) => /SYSTEM/i.test(entry)), 'SYSTEM is one')
-    check(!entries.some((entry) => /\\Users:|Everyone|Authenticated|Administrators/i.test(entry)), 'no group of users can read it')
+    check(!entries.some((entry) => /\\Users:|Everyone|Authenticated/i.test(entry)), 'no group of users can read it')
     eq(readFileSync(file, 'utf8'), 'secret\n', 'the owner can still read it')
   } finally {
     rmSync(folder, { recursive: true, force: true })

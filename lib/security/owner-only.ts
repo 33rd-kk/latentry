@@ -6,7 +6,8 @@
 // access list: private under the user's profile, but readable by every user
 // of the computer in a folder like C:\latentry. This replaces the list with
 // one that names only the owner (and Windows itself, for backups and the
-// like). icacls and whoami are run without a shell.
+// like). A file made by an elevated process keeps the Administrators entry
+// its creator's token gives it. icacls and whoami are run without a shell.
 
 import { execFileSync } from 'node:child_process'
 import path from 'node:path'
