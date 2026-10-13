@@ -93,7 +93,8 @@ What it does guard against:
 - **Releases** come with their source as `.tar.gz` and `.zip`, made by a
   workflow from the release's commit (`.github/workflows/release.yml`),
   with `SHA256SUMS` and a build provenance attestation for each file
-  (`gh attestation verify <file> --repo 33rd-kk/latentry`).
+  (`gh attestation verify <file> --repo 33rd-kk/latentry --source-ref refs/tags/vX.Y.Z`;
+  0.8.0's files were added later from `main`, so check those without `--source-ref`).
 - **Downloads** are pinned. The engine install uses a fixed uv release,
   checked against its SHA-256 before it runs. Models and taggers from the
   Setup page come from a fixed commit of their repository, and each file is
