@@ -90,6 +90,10 @@ What it does guard against:
   holds, and answers only requests addressed to a loopback name, so a web
   page that re-resolves its hostname to this machine cannot drive it. Run by
   hand, it refuses to listen beyond loopback without `LATENTRY_ENGINE_TOKEN`.
+- **Releases** come with their source as `.tar.gz` and `.zip`, made by a
+  workflow from the release's commit (`.github/workflows/release.yml`),
+  with `SHA256SUMS` and a build provenance attestation for each file
+  (`gh attestation verify <file> --repo 33rd-kk/latentry`).
 - **Downloads** are pinned. The engine install uses a fixed uv release,
   checked against its SHA-256 before it runs. Models and taggers from the
   Setup page come from a fixed commit of their repository, and each file is
