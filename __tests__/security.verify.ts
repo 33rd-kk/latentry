@@ -8,6 +8,7 @@
 import { execFileSync } from 'node:child_process'
 import { createServer, type IncomingHttpHeaders } from 'node:http'
 import type { AddressInfo } from 'node:net'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -20,6 +21,7 @@ import { editRefusal } from '../lib/settings/access'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
 import { securityHeaders } from '../lib/security/headers'
+import { restrictToOwner } from '../lib/security/owner-only'
 import { checkApiRequest } from '../lib/security/route-guard'
 import { checkRequestBudget, classifyRequest, clientIp, FixedWindow, sseSlot } from '../lib/security/request-budget'
 import { bodyTooLarge } from '../lib/api'
@@ -339,6 +341,36 @@ async function cancelling(): Promise<void> {
   }
 }
 
+// Private files (settings, pairing key and list, folder-name key) on Windows,
+// where the 0o600 mode does not keep other users out: the access list names
+// only the owner and SYSTEM, none of it inherited from the folder.
+function ownerOnlyFiles(): void {
+  const folder = mkdtempSync(path.join(tmpdir(), 'latentry-owner-only-'))
+  try {
+    const file = path.join(folder, 'private.txt')
+    writeFileSync(file, 'secret\n', { mode: 0o600 })
+    restrictToOwner(file, 'linux')
+    check(true, 'elsewhere than Windows it leaves the file to its 0o600 mode')
+    if (process.platform !== 'win32') return
+    restrictToOwner(file)
+    const icacls = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'icacls.exe')
+    const acl = execFileSync(icacls, [file], { encoding: 'utf8', windowsHide: true })
+    // The first line starts with the file's path; the last two are a summary and a blank.
+    const entries = acl.split(/\r?\n/).filter((line) => /:\(/.test(line)).map((line) => line.replace(file, '').trim())
+    // A file made by an elevated process (as on CI) also keeps the
+    // Administrators entry its creator's token gives it; administrators can
+    // take any file anyway. What must be gone is everything from the folder.
+    const others = entries.filter((entry) => !/SYSTEM:|\\Administrators:/i.test(entry))
+    eq(others.length, 1, `one account besides SYSTEM and Administrators: the owner (${entries.join(' | ')})`)
+    check(entries.every((entry) => !entry.includes('(I)')), 'none inherited from the folder')
+    check(entries.some((entry) => /SYSTEM/i.test(entry)), 'SYSTEM is one')
+    check(!entries.some((entry) => /\\Users:|Everyone|Authenticated/i.test(entry)), 'no group of users can read it')
+    eq(readFileSync(file, 'utf8'), 'secret\n', 'the owner can still read it')
+  } finally {
+    rmSync(folder, { recursive: true, force: true })
+  }
+}
+
 // Pose previews hold a backend's GPU: a few at once, not a flood.
 async function heavyRequests(): Promise<void> {
   const waiting: (() => void)[] = []
@@ -375,6 +407,7 @@ async function heavyRequests(): Promise<void> {
   }
 }
 
+ownerOnlyFiles()
 stamping().then(preloadStamping).then(tokenLending).then(cancelling).then(heavyRequests).then(
   () => done('security'),
   (error: unknown) => {

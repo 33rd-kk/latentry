@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Settings says whether Latentry is open to your network**: the pairing
+  card now says when Latentry listens beyond this computer
+  (`LATENTRY_HOST`), and how to open it when it does not.
+- **Private files stay private on Windows**: the settings file, the pairing
+  key, the paired-device list and the folder-name key now get an access
+  list with only your account (and Windows itself), so other users of the
+  computer cannot read them wherever Latentry is installed. Files from
+  earlier versions are fixed the first time they are read.
 - **The engine reads only safetensors**: a diffusers folder model is now
   refused when a part of it has weights only in a pickle format (`.bin`,
   `.ckpt`, `.pt`), which can run code when loaded, and the message names

@@ -136,7 +136,13 @@ Good to know:
 
 ## What protects it
 
-- It listens on 127.0.0.1 unless `LATENTRY_HOST` says otherwise.
+- It listens on 127.0.0.1 unless `LATENTRY_HOST` says otherwise. The
+  pairing card on Settings says which: this computer only, or open to your
+  network.
+- The settings file, the pairing key, the paired-device list and the
+  folder-name key can be read only by you: on Windows Latentry gives each
+  an access list with only your account (and Windows itself), wherever
+  Latentry is installed; elsewhere they are written with mode 600.
 - Every device other than this computer must be paired: until then it gets
   only the pairing page, and every `/api` call is refused. A paired device
   holds a signed cookie that scripts on the page cannot read. Over plain
