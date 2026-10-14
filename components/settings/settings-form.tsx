@@ -4,7 +4,7 @@ import { Loader2, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useSettingsForm } from "@/hooks/use-settings-form"
-import { useT } from "@/lib/i18n"
+import { useI18n } from "@/lib/i18n"
 import { ThisDeviceCard } from "@/components/this-device"
 import { BackendsSection } from "./backends-section"
 import { GallerySection } from "./gallery-section"
@@ -13,7 +13,7 @@ import { ProfilesSection } from "./profiles-section"
 import { TaggerSection } from "./tagger-section"
 
 export function SettingsForm() {
-  const t = useT()
+  const { t, locale } = useI18n()
   const { view, draft, dirty, errors, saving, backendIds, load, change, save } = useSettingsForm()
 
   if (view === null) {
@@ -48,7 +48,14 @@ export function SettingsForm() {
     <div className="mx-auto max-w-4xl space-y-6 pb-24">
       <div>
         <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
-        <p className="mt-1 text-xs text-muted-foreground">{t("settings.version", { version: view.version })}</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {view.releaseDate
+            ? t("settings.versionReleased", {
+                version: view.version,
+                date: new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(`${view.releaseDate}T00:00:00`)),
+              })
+            : t("settings.version", { version: view.version })}
+        </p>
         <p className="mt-1 text-sm text-muted-foreground">{t("settings.intro", { file: view.file })}</p>
       </div>
 

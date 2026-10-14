@@ -3,8 +3,9 @@
 ## Unreleased
 
 - **The version on Settings**: Settings shows the version of Latentry it
-  runs, so it can be matched against published security advisories. Like
-  the rest of Settings, it is shown on this computer only. The LIGSP
+  runs and the day that version was released (from its heading in this
+  changelog), so it can be matched against published security advisories.
+  Like the rest of Settings, it is shown on this computer only. The LIGSP
   conformance page gets the profile's new OPS-3 row.
 - **LIGSP conformance**: the manual has a new page with Latentry's
   conformance table for the Local Image Generation Security Profile (LIGSP

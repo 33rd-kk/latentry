@@ -110,4 +110,4 @@ the protection, that is said too.
 |---|---|---|---|
 | OPS-1 | 1 | Met | [What Latentry protects against](../guide/threat-model.md) goes through the profile's threats one by one. |
 | OPS-2 | 1 | Met | Settings says whether Latentry is open to your network, warns when pairing is off, and warns about backends open to the network. |
-| OPS-3 | 1 | Met | Settings shows the version of Latentry it runs, to this computer only. Latentry publishes its security advisories on [GitHub](https://github.com/33rd-kk/latentry/security/advisories), each with the version that fixes it, and the [changelog](../changelog.md) names every release. |
+| OPS-3 | 1 | Met | Settings shows the version of Latentry it runs and its release date, to this computer only. Latentry publishes its security advisories on [GitHub](https://github.com/33rd-kk/latentry/security/advisories), each with the version that fixes it, and the [changelog](../changelog.md) names every release. |

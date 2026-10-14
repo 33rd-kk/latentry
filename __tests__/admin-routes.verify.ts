@@ -215,6 +215,7 @@ async function main(): Promise<void> {
     const [, view] = await read(await settingsGet(request('/api/settings', { method: 'GET' })))
     eq([view.editable, view.file], [true, settingsFile], 'this machine is shown the settings and their file')
     eq(view.version, packageVersion, 'and the version of Latentry it runs, to match against advisories')
+    check(view.releaseDate === null || /^\d{4}-\d{2}-\d{2}$/.test(String(view.releaseDate)), `and its release date from CHANGELOG.md (${view.releaseDate})`)
     check(!JSON.stringify(phoneView).includes(packageVersion), 'a phone is not told the version')
     eq((view.gallery as { saveDir: string; dirs: string[] }).dirs, [readOnlyDir], 'with the folders')
 
