@@ -116,3 +116,8 @@ test('the pairing card says Latentry listens on this computer only', async ({ pa
   await expect(page.getByText('Latentry listens on this computer only.', { exact: false })).toBeVisible()
   await expect(page.getByText('Latentry is open to your network', { exact: false })).toHaveCount(0)
 })
+
+test('Settings shows the version of Latentry it runs', async ({ page }) => {
+  await open(page)
+  await expect(page.getByText(/^Latentry \d+\.\d+\.\d+/)).toBeVisible()
+})

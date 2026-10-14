@@ -48,6 +48,7 @@ export function SettingsForm() {
     <div className="mx-auto max-w-4xl space-y-6 pb-24">
       <div>
         <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
+        <p className="mt-1 text-xs text-muted-foreground">{t("settings.version", { version: view.version })}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t("settings.intro", { file: view.file })}</p>
       </div>
 
