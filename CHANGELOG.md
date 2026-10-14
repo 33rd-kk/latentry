@@ -2,25 +2,36 @@
 
 ## Unreleased
 
-- **The engine's version on Setup**: each running engine shows its
-  version, and Setup says when it differs from the engine in Latentry's
-  folder, which means it was started before an update and needs a stop and
-  start.
+## 0.8.2 (2026-10-14)
+
+**Upgrading from 0.8.1**: nothing to do beyond the usual update. On
+Windows, the next start gives Latentry's private files their owner-only
+access list.
+
+**Security and privacy**
+
+- **Private files restricted at start**: on Windows the settings file, the
+  pairing key, the paired-device list and the folder-name key now all get
+  their owner-only access list when Latentry starts. Before, each got it
+  the first time it was used, so a pairing key nobody had used since an
+  update stayed readable by other users until then.
 - **The version on Settings**: Settings shows the version of Latentry it
   runs, so it can be matched against published security advisories. Like
   the rest of Settings, it is shown on this computer only. The LIGSP
   conformance page gets the profile's new OPS-3 row.
+- **The engine's version on Setup**: each running engine shows its
+  version, and Setup says when it differs from the engine in Latentry's
+  folder, which means it was started before an update and needs a stop and
+  start.
+
+**Manual**
+
 - **LIGSP conformance**: the manual has a new page with Latentry's
   conformance table for the Local Image Generation Security Profile (LIGSP
   0.1, level 2), the profile Latentry is the reference implementation of.
   The README, SECURITY.md and the threat-model page link to it, and the
   threat-model page says how to check your own setup with the profile's
   read-only checker (`uvx local-image-gen-security check ...`).
-- **Private files restricted at start**: on Windows the settings file, the
-  pairing key, the paired-device list and the folder-name key now all get
-  their owner-only access list when Latentry starts. Before, each got it
-  the first time it was used, so a pairing key nobody had used since an
-  update stayed readable by other users until then.
 - **Checking a download against its tag**: Getting started now adds
   `--source-ref refs/tags/vX.Y.Z` to `gh attestation verify`, which also
   checks that the file was built from that release's tag.
