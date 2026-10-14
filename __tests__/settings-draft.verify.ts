@@ -24,6 +24,7 @@ const builtin = {
 
 const view: SettingsView = {
   editable: true,
+  version: '0.0.0',
   file: '/config/settings.json',
   backends: [
     { id: 'box', kind: 'a1111', url: 'http://127.0.0.1:7860/', profile: 'sdxl', token: 'settings', model: null, controlnet: null, workflowsDir: null, shareWorkflows: false },

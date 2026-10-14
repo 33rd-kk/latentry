@@ -401,6 +401,7 @@
   "settings": {
     "title": "Settings",
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
+    "version": "Latentry {version}",
     "lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost). Set SETTINGS_EDIT=lan to allow it from the network.",
     "lockedOff": "Settings are read-only here (SETTINGS_EDIT=off). Edit .env.local or latentry.settings.json instead.",
     "fromSettings": "Set here",

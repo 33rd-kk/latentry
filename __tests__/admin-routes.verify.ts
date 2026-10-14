@@ -19,6 +19,9 @@ import path from 'node:path'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import { startMockA1111, MOCK_TAGS } from './fixtures/mock-a1111'
+import packageJson from '../package.json'
+
+const packageVersion = packageJson.version
 import { GET as settingsGet, PUT as settingsPut } from '../app/api/settings/route'
 import { POST as tagRoute } from '../app/api/gen/tag/route'
 import { GET as presetsRoute } from '../app/api/gen/[backend]/presets/route'
@@ -211,6 +214,8 @@ async function main(): Promise<void> {
     eq([phoneStatus, phoneView], [200, { editable: false, reason: 'notLocal' }], 'a phone is told it cannot edit the settings, and nothing else')
     const [, view] = await read(await settingsGet(request('/api/settings', { method: 'GET' })))
     eq([view.editable, view.file], [true, settingsFile], 'this machine is shown the settings and their file')
+    eq(view.version, packageVersion, 'and the version of Latentry it runs, to match against advisories')
+    check(!JSON.stringify(phoneView).includes(packageVersion), 'a phone is not told the version')
     eq((view.gallery as { saveDir: string; dirs: string[] }).dirs, [readOnlyDir], 'with the folders')
 
     const put = (body: unknown, from = LOCAL) => settingsPut(request('/api/settings', { method: 'PUT', body, from }))
