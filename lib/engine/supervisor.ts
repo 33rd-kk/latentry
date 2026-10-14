@@ -44,6 +44,8 @@ export interface EngineProcess {
   family: string | null
   loading: string | null
   loadError: string | null
+  /** The engine's version as it last reported it. */
+  version: string | null
   stopping: boolean
 }
 
@@ -151,6 +153,7 @@ async function poll(): Promise<void> {
       engine.family = typeof health.family === 'string' ? health.family : null
       engine.loading = typeof health.loading === 'string' ? health.loading : null
       engine.loadError = typeof health.load_error === 'string' ? health.load_error : null
+      engine.version = typeof health.version === 'string' ? health.version : null
     } catch {
       // Still starting (importing torch takes a while), or busy answering.
     }
@@ -213,6 +216,7 @@ export async function startEngines(): Promise<StartResult> {
       family: null,
       loading: null,
       loadError: null,
+      version: null,
       stopping: false,
     }
     Object.assign(engine, { gpu, port, token: randomBytes(24).toString('hex'), restarts: [] })

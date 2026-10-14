@@ -27,7 +27,10 @@ picture.
 - **Repair / update**: run it after updating Latentry, or when the engine
   will not start.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
-  runs per NVIDIA GPU, each with its port, state, loaded model and **Log**.
+  runs per NVIDIA GPU, each with its port, state, loaded model, version and
+  **Log**. An engine still running a version other than the one in
+  Latentry's folder was started before an update; Setup says so, and a stop
+  and start runs the new one.
 
 The engine decides once at start how to use the GPU, from the memory that
 is free then:

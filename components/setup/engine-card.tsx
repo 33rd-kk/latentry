@@ -110,6 +110,7 @@ export function EngineCard({ status: s, actions }: { status: EngineStatus; actio
               <span className="text-xs">
                 {engine.loading ? t("setup.loadingModel", { model: engine.loading }) : (engine.model ?? t("setup.noModel"))}
               </span>
+              {engine.version && <span className="text-xs text-muted-foreground">{t("setup.engineVersion", { version: engine.version })}</span>}
               {engine.restarts > 0 && <span className="text-xs text-muted-foreground">{t("setup.restarts", { count: engine.restarts })}</span>}
               <CollapsibleTrigger asChild>
                 <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs">
@@ -118,6 +119,11 @@ export function EngineCard({ status: s, actions }: { status: EngineStatus; actio
               </CollapsibleTrigger>
             </div>
             {engine.loadError && <p className="mt-2 text-xs text-destructive">{t("setup.loadError", { error: engine.loadError })}</p>}
+            {engine.version && s.engineVersion && engine.version !== s.engineVersion && (
+              <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
+                {t("setup.engineOutdated", { running: engine.version, folder: s.engineVersion })}
+              </p>
+            )}
             <CollapsibleContent className="pt-2">
               <LogView lines={engine.log} />
             </CollapsibleContent>

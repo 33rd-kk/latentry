@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **The engine's version on Setup**: each running engine shows its
+  version, and Setup says when it differs from the engine in Latentry's
+  folder, which means it was started before an update and needs a stop and
+  start.
 - **The version on Settings**: Settings shows the version of Latentry it
   runs, so it can be matched against published security advisories. Like
   the rest of Settings, it is shown on this computer only. The LIGSP
