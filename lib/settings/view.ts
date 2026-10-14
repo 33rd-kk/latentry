@@ -10,7 +10,7 @@ import { DEFAULT_THRESHOLDS, hasModel } from '@/lib/tagger/wd14'
 import type { BackendKind } from '@/lib/backends/types'
 import type { TagStyle } from '@/lib/tags'
 import { getSettings, settingsPath } from './store'
-import { releaseDate, VERSION } from '@/lib/version'
+import packageJson from '../../package.json'
 import type { ProfileOverride, Settings } from './schema'
 
 type Source = 'settings' | 'env'
@@ -19,8 +19,6 @@ export interface SettingsView {
   editable: true
   /** Latentry's own version, so the owner can match it against advisories (shown to this computer only, like the rest). */
   version: string
-  /** The day this version was released (YYYY-MM-DD), from CHANGELOG.md; null when it is not listed there. */
-  releaseDate: string | null
   file: string
   backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; workflowsDir: string | null; shareWorkflows: boolean }[]
   tagger: string | null
@@ -56,8 +54,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
   const stored = new Map((settings.backends ?? []).map((backend) => [backend.id, backend]))
   return {
     editable: true,
-    version: VERSION,
-    releaseDate: releaseDate(),
+    version: packageJson.version,
     file: settingsPath(),
     backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, workflowsDir, shareWorkflows }) => ({
       id,

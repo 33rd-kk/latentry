@@ -7,7 +7,6 @@
 import { check, done, eq } from './assert'
 import { AUTO, autoLabel, emptyBackend, emptyProfile, toDraft, toInput, type Draft, type Part } from '../lib/settings/draft'
 import type { SettingsView } from '../lib/settings/view'
-import { releaseDate, VERSION } from '../lib/version'
 
 const builtin = {
   label: 'SDXL',
@@ -26,7 +25,6 @@ const builtin = {
 const view: SettingsView = {
   editable: true,
   version: '0.0.0',
-  releaseDate: null,
   file: '/config/settings.json',
   backends: [
     { id: 'box', kind: 'a1111', url: 'http://127.0.0.1:7860/', profile: 'sdxl', token: 'settings', model: null, controlnet: null, workflowsDir: null, shareWorkflows: false },
@@ -124,13 +122,5 @@ eq(
   'numbers as numbers; text kept as typed'
 )
 eq(profiles({ ...draft, profiles: { sdxl: emptyProfile(), anima: emptyProfile() } }), {}, 'a profile back to built-in sends nothing')
-
-// ── The version and release date Settings shows ──
-const changelog = (heading: string) => `# Changelog\n\n## Unreleased\n\n- x\n\n${heading}\n\n- y\n\n## 0.0.1 (2020-01-01)\n`
-eq(releaseDate(changelog(`## ${VERSION} (2026-10-13)`)), '2026-10-13', "the date comes from this version's heading in the changelog")
-eq(releaseDate(changelog(`## ${VERSION}.1 (2026-10-14)`)), null, 'a longer version number with the same start is not it')
-eq(releaseDate('# Changelog\n\n## Unreleased\n'), null, 'a version the changelog does not list yet has no date')
-eq(releaseDate(changelog(`## ${VERSION} (soon)`)), null, 'nor does a heading without a date')
-check(releaseDate() === null || /^\d{4}-\d{2}-\d{2}$/.test(releaseDate() ?? ''), "this checkout's own CHANGELOG.md gives a date or none")
 
 done('settings-draft')
