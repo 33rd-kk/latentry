@@ -586,6 +586,8 @@
     },
     "port": "port {port}",
     "noModel": "no model loaded",
+    "engineVersion": "engine {version}",
+    "engineOutdated": "This engine runs {running}, but Latentry's folder has engine {folder}: it was started before an update. Stop it and start it again to run {folder}, and run Repair / update if this release asks for it.",
     "loadingModel": "loading {model}…",
     "loadError": "Loading failed: {error}",
     "restarts": "{count} restarts",

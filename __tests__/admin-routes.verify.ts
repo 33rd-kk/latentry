@@ -38,6 +38,7 @@ import { POST as loadRoute } from '../app/api/engine/models/load/route'
 import { POST as downloadRoute } from '../app/api/engine/models/download/route'
 import { catalogEntry } from '../lib/engine/catalog'
 import { engines, type EngineProcess } from '../lib/engine/supervisor'
+import { sourceEngineVersion, versionIn } from '../lib/engine/version'
 import { metaFromText, readPngText } from '../lib/image-meta'
 import { getSettings } from '../lib/settings/store'
 
@@ -305,7 +306,7 @@ async function main(): Promise<void> {
     // one with no child process is never stopped or restarted, only asked.
     const running: EngineProcess = {
       id: 'engine', gpu: null, port: engine.port, token: TOKEN, state: 'running', pid: null, child: null, restarts: [], log: ['ready'],
-      model: 'mine.safetensors', family: 'sdxl', loading: null, loadError: null, stopping: false,
+      model: 'mine.safetensors', family: 'sdxl', loading: null, loadError: null, version: '0.0.1', stopping: false,
     }
     ;(globalThis as { __latentryEngines?: { engines: Map<string, EngineProcess> } }).__latentryEngines!.engines.set(running.id, running)
     eq(engines().length, 1, 'the stand-in is the only engine')
@@ -323,6 +324,11 @@ async function main(): Promise<void> {
       [{ id: 'engine', state: 'running', log: ['ready'] }],
       'and the engine with its log'
     )
+    eq(live.engineVersion, sourceEngineVersion(), "the engine version in Latentry's folder")
+    check(typeof live.engineVersion === 'string' && /^\d+\.\d+\.\d+/.test(live.engineVersion), `read from engine/latentry_engine/__init__.py (${live.engineVersion})`)
+    eq((live.engines as { version: string | null }[])[0].version, '0.0.1', 'and the version the running engine reports, so Setup can say when they differ')
+    eq(versionIn('"""x"""\n\n__version__ = "1.2.3"\n'), '1.2.3', 'the version line is found')
+    eq(versionIn('no version here'), null, 'and missing it gives none')
     eq(
       (await read(await modelsRoute(request('/api/engine/models', { method: 'GET' }))))[1],
       {

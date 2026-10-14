@@ -10,6 +10,7 @@ import { installJob, installRecord, type InstallRecord, type InstallState } from
 import { enginePaths } from './paths'
 import { DEFAULT_BASE_PORT, engineFetch, engines, modelsDir, type EngineState } from './supervisor'
 import { taggerDir, taggerDownloads } from './tagger-download'
+import { sourceEngineVersion } from './version'
 
 export interface DownloadView {
   state: 'queued' | 'downloading' | 'verifying' | 'done' | 'error'
@@ -44,6 +45,8 @@ export interface EngineView {
   model: string | null
   loading: string | null
   loadError: string | null
+  /** The version the running engine reports. */
+  version: string | null
   restarts: number
   log: string[]
 }
@@ -62,6 +65,8 @@ export interface EngineStatus {
   shareLoras: boolean
   basePort: number
   installed: InstallRecord | null
+  /** The engine's version in Latentry's folder; a running engine on another one was started before an update. */
+  engineVersion: string | null
   install: { state: InstallState; step: string | null; error: string | null; log: string[] }
   engines: EngineView[]
   models: EngineModel[] | null
@@ -159,6 +164,7 @@ export async function engineStatus(): Promise<EngineStatus> {
     shareLoras: settings.engine?.shareLoras === true,
     basePort: settings.engine?.basePort ?? DEFAULT_BASE_PORT,
     installed: await installRecord(),
+    engineVersion: sourceEngineVersion(),
     install: { state: job.state, step: job.step, error: job.error, log: job.log.slice(-200) },
     engines: engines().map((engine) => ({
       id: engine.id,
@@ -169,6 +175,7 @@ export async function engineStatus(): Promise<EngineStatus> {
       model: engine.model,
       loading: engine.loading,
       loadError: engine.loadError,
+      version: engine.version,
       restarts: engine.restarts.length,
       log: engine.log.slice(-80),
     })),
