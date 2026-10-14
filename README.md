@@ -85,6 +85,14 @@ anywhere you did not choose. In short:
 The manual's [Privacy](https://33rd-kk.github.io/latentry/guide/privacy/)
 page lists what is kept where.
 
+Latentry is the reference implementation of the
+[Local Image Generation Security Profile (LIGSP)](https://github.com/33rd-kk/local-image-gen-security),
+which says what a local image-generation setup must do to be secure by
+default. It conforms to LIGSP 0.1, level 2; its
+[conformance table](https://33rd-kk.github.io/latentry/reference/ligsp/)
+says how. Check your own setup, backends included, with
+`uvx local-image-gen-security check http://127.0.0.1:3000`.
+
 ## Backends
 
 | Kind | What | Notes |

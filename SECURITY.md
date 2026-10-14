@@ -21,7 +21,11 @@ gallery folders and drive the GPU.
 
 The manual's
 [What Latentry protects against](https://33rd-kk.github.io/latentry/guide/threat-model/)
-goes through the same ground by who could try to misuse it.
+goes through the same ground by who could try to misuse it. Latentry
+conforms to the
+[Local Image Generation Security Profile (LIGSP)](https://github.com/33rd-kk/local-image-gen-security)
+0.1, level 2; see its
+[conformance table](https://33rd-kk.github.io/latentry/reference/ligsp/).
 
 What it does guard against:
 
