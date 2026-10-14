@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **LIGSP conformance**: the manual has a new page with Latentry's
+  conformance table for the Local Image Generation Security Profile (LIGSP
+  0.1, level 2), the profile Latentry is the reference implementation of.
+  The README, SECURITY.md and the threat-model page link to it, and the
+  threat-model page says how to check your own setup with the profile's
+  read-only checker (`uvx local-image-gen-security check ...`).
 - **Private files restricted at start**: on Windows the settings file, the
   pairing key, the paired-device list and the folder-name key now all get
   their owner-only access list when Latentry starts. Before, each got it

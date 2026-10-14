@@ -6,6 +6,12 @@ could try to misuse it, what Latentry does about each, and what it leaves
 to you. The details are in [SECURITY.md](https://github.com/33rd-kk/latentry/blob/main/SECURITY.md)
 and the pages linked below.
 
+The threats here are those of the
+[Local Image Generation Security Profile (LIGSP)](https://github.com/33rd-kk/local-image-gen-security),
+for which Latentry is the reference implementation; its
+[conformance table](../reference/ligsp.md) goes through the profile's
+requirements one by one.
+
 ## What Latentry trusts
 
 - **This computer**, and anyone who can use it as you. Latentry cannot
@@ -122,6 +128,21 @@ See [Privacy](privacy.md).
 - **Your backends themselves.** Latentry cannot add a login to ComfyUI or
   AUTOMATIC1111 / Forge, or vet their extensions.
 - **The pictures and prompts you choose to share.**
+
+## Check your setup
+
+The profile's checker looks at what you actually run: whether Latentry and
+your backends can be reached from the network, whether they answer other
+websites or any host name, whether your model folders hold pickle-format
+files, and who can read Latentry's settings and keys. It only reads, and
+only at the addresses and folders you name:
+
+```bash
+uvx local-image-gen-security check http://127.0.0.1:3000 http://127.0.0.1:8188 --models models --private .
+```
+
+Run it from Latentry's folder, with your own backends' addresses.
+`--redact` hides addresses, ports and paths so the report can be shared.
 
 To report a security problem, use
 [GitHub's private reporting](https://github.com/33rd-kk/latentry/security/advisories/new).
