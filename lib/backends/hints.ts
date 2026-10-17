@@ -14,7 +14,11 @@ const HEALTH_FLAG: Record<HintedFeature, string> = {
   img2img: 'img2img',
   inpaint: 'inpaint',
   pose: 'pose_control',
+  hires: 'hires',
 }
+
+/** Features a diffusers-compatible server must announce; the others are on unless it says no. */
+const OPT_IN: readonly HintedFeature[] = ['pose', 'hires']
 
 /** A server's own reason, as plain one-line text, or nothing usable. */
 export function hintDetail(value: unknown): string | undefined {
@@ -29,7 +33,7 @@ export function hintDetail(value: unknown): string | undefined {
  * Hints for a diffusers-compatible server from its /api/health body; none when
  * it did not answer (being down is shown on its own). img2img and inpaint are
  * on unless said otherwise, so only an explicit `false` hides them, while pose
- * needs an explicit `true`.
+ * and hires fix need an explicit `true`.
  */
 export function diffusersHints(health: Record<string, unknown> | null): Hints {
   if (!health) return {}
@@ -37,7 +41,7 @@ export function diffusersHints(health: Record<string, unknown> | null): Hints {
   const hints: Hints = {}
   for (const feature of Object.keys(HEALTH_FLAG) as HintedFeature[]) {
     const flag = health[HEALTH_FLAG[feature]]
-    const on = feature === 'pose' ? flag === true : flag !== false
+    const on = OPT_IN.includes(feature) ? flag === true : flag !== false
     if (on) continue
     const detail = hintDetail(reasons[feature])
     hints[feature] = flag === false || detail ? { reason: 'declined', ...(detail ? { detail } : {}) } : { reason: 'not-reported' }

@@ -5,6 +5,7 @@
 // The events are already the common vocabulary (see ./types), so this mostly
 // forwards them, renaming fields to camelCase on the way through.
 
+import { LANCZOS } from '@/lib/diffusion/hires'
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { loraName, type LoraUse } from '@/lib/image-meta'
 import { errorMessage, fetchWithTimeout, getJson, isAbortError, probeJson, redactPaths, refuseRedirect } from './http'
@@ -46,6 +47,8 @@ interface HealthBody {
   tagger?: unknown
   img2img?: unknown
   inpaint?: unknown
+  hires?: unknown
+  upscalers?: unknown
   /** Per feature, the server's own reason it is off. */
   unavailable?: unknown
 }
@@ -91,6 +94,7 @@ export class DiffusersAdapter implements BackendAdapter {
     // A transformer swapped in over the base's weights is what actually draws,
     // so it leads; the layer count tells apart two releases of the same name.
     const label = transformer ? `${transformer} (${model})` : model
+    const hires = health?.hires === true
     return {
       id: this.config.id,
       kind: this.config.kind,
@@ -110,10 +114,13 @@ export class DiffusersAdapter implements BackendAdapter {
         tag: health ? health.tagger !== false : false,
         presets: true,
         preciseCancel: true,
+        // Only a server that says so: one that does not would drop the hr_* fields and draw at the first size.
+        hires,
       },
       hints: diffusersHints(health as Record<string, unknown> | null),
       samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
       schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
+      upscalers: hires ? (stringList(health?.upscalers) ?? [LANCZOS]) : [],
       ...(problem ? { problem } : {}),
     }
   }

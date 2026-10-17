@@ -96,6 +96,15 @@
     "sampler": "Sampler",
     "scheduler": "Scheduler",
     "guidanceScale": "Guidance scale: {value}",
+    "hires": {
+      "title": "Hires fix",
+      "hint": "Upscale each picture and redraw its detail at the larger size. Takes longer.",
+      "upscaler": "Upscaler",
+      "scale": "Upscale by: {value} (about {width}×{height})",
+      "steps": "Hires steps: {value}",
+      "stepsSame": "Hires steps: same ({value})",
+      "denoise": "Denoising strength: {value}"
+    },
     "generating": "Generating...",
     "generateButton": "Generate",
     "cancel": "Cancel",
@@ -191,7 +200,8 @@
       "feature": {
         "img2img": "Source image",
         "inpaint": "Inpaint mask",
-        "pose": "Skeleton pose"
+        "pose": "Skeleton pose",
+        "hires": "Hires fix"
       },
       "declined": "The server says it cannot do this with what it has loaded.",
       "declinedBecause": "The server says: {detail}",
@@ -211,7 +221,8 @@
       "notReported": {
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
         "inpaint": "The server's /api/health has \"inpaint\": false or no answer for it. Drop that field (or set it to true) and accept \"mask_base64\" and \"mask_blur\" on /api/generate.",
-        "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md."
+        "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md.",
+        "hires": "The server's /api/health does not say \"hires\": true. To use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md."
       }
     }
   },
@@ -297,7 +308,7 @@
     "readOnlyHint": "Read-only folder: tags found by WD14 are shown but not written into these files.",
     "tagged": "WD14",
     "useSettings": "Generate with these settings",
-    "useSettingsHint": "Replaces the form's prompts with this picture's and carries over its seed (and, on the same backend, its size, steps, CFG and sampler). Tags already in the form are not kept.",
+    "useSettingsHint": "Replaces the form's prompts with this picture's and carries over its seed (and, on the same backend, its size, steps, CFG, sampler and hires fix). Tags already in the form are not kept.",
     "useAsSource": "Use as source",
     "useAsSourceHint": "Sets this picture as the form's source image for a variation or edit. Prompts and settings stay as they are.",
     "useAsPose": "Use as pose reference",

@@ -120,6 +120,7 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         cfg: meta.cfg,
         sampler: meta.sampler,
         scheduler: meta.scheduler,
+        ...(meta.hires ? { hires: meta.hires } : {}),
       },
     })
     router.push("/")

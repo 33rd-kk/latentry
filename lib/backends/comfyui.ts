@@ -496,10 +496,12 @@ export class ComfyUIAdapter implements BackendAdapter {
         tag: false,
         presets: false,
         preciseCancel: true,
+        hires: false,
       },
       hints: comfyHints(alive, pose),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
+      upscalers: [],
       ...(problem ? { problem } : {}),
     }
   }

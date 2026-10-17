@@ -3,6 +3,7 @@
 
 import { getAdapter } from '@/lib/backends'
 import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
+import { HIRES_DEFAULTS, HIRES_LIMITS, maxHiresScale } from '@/lib/diffusion/hires'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
@@ -104,7 +105,21 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     request.pose_is_skeleton = body.pose_is_skeleton === true
     request.pose_strength = num(body.pose_strength, 1, 0, 2)
   }
+  // Hires fix redraws a txt2img picture; a source image or a workflow has its own passes.
+  if (typeof body.hr_scale === 'number' && !request.init_image_base64 && !request.workflow) {
+    request.hr_scale = num(body.hr_scale, HIRES_DEFAULTS.scale, HIRES_LIMITS.minScale, maxHiresScale(request.width, request.height))
+    request.hr_steps = Math.round(num(body.hr_steps, HIRES_DEFAULTS.steps, 0, HIRES_LIMITS.maxSteps))
+    request.hr_denoise = num(body.hr_denoise, HIRES_DEFAULTS.denoise, HIRES_LIMITS.minDenoise, HIRES_LIMITS.maxDenoise)
+    request.hr_upscaler = upscalerName(body.hr_upscaler)
+  }
   return request
+}
+
+/** An upscaler as the backend lists it: one short line, else the default. */
+function upscalerName(value: unknown): string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 256 && !/[\u0000-\u001f\u007f]/.test(value)
+    ? value
+    : HIRES_DEFAULTS.upscaler
 }
 
 export function modeOf(request: GenerateRequest): 'txt2img' | 'img2img' | 'inpaint' | 'pose' {

@@ -17,6 +17,7 @@ import { problemText, UnavailableFeatures } from "@/components/generate/unavaila
 import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
 import { ResultsPanel } from "@/components/generate/results-panel"
+import { HiresSection } from "@/components/generate/hires-section"
 import { WorkflowPicker } from "@/components/generate/workflow-picker"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
@@ -25,6 +26,7 @@ import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
+import { LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, DEFAULT } from "@/lib/generate/form"
 import { isSecretMode } from "@/lib/secret-mode"
@@ -43,6 +45,8 @@ import { useT } from "@/lib/i18n"
  */
 // Where the skeleton's strength slider starts: the pose followed as given.
 const DEFAULT_POSE_STRENGTH = 1
+
+const round2 = (value: number) => Math.round(value * 100) / 100
 
 export function GenerateClient() {
   const t = useT()
@@ -170,7 +174,7 @@ export function GenerateClient() {
   const capabilities = useMemo(
     () =>
       statusCapabilities && workflow
-        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady }
+        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, hires: false }
         : statusCapabilities,
     [statusCapabilities, workflow, workflowPose, engineReady]
   )
@@ -181,6 +185,10 @@ export function GenerateClient() {
   }, [statusHints, workflow, workflowPose, engineReady])
   const sampler = form ? accepted(form.sampler, status?.samplers ?? []) : DEFAULT
   const scheduler = form ? accepted(form.scheduler, status?.schedulers ?? []) : DEFAULT
+  // Hires fix redraws a txt2img picture; with a source image the run is img2img.
+  const canHires = Boolean(capabilities?.hires && !(sourceImage && capabilities.img2img))
+  const hires = Boolean(form?.hires && canHires)
+  const upscaler = form ? accepted(form.hrUpscaler, status?.upscalers ?? []) : LANCZOS
 
   const handleGenerate = useCallback(async () => {
     if (!form || !selectedId) return
@@ -209,6 +217,10 @@ export function GenerateClient() {
       ...(capabilities?.pose && poseSkeleton
         ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
         : {}),
+      ...(hires
+        ? // Rounded as the sliders show them: their steps add up to 1.9500000000000002.
+          { hr_scale: round2(form.hrScale), hr_steps: form.hrSteps, hr_denoise: round2(form.hrDenoise), hr_upscaler: upscaler }
+        : {}),
     })
     // The server would refuse it anyway (the body is cut at this size), so say
     // why here rather than after uploading it. The pictures are base64, so the
@@ -224,7 +236,7 @@ export function GenerateClient() {
       completed: 0,
       total: form.imageCount,
       currentStep: 0,
-      stepsPerImage: useSource ? img2imgSteps(form.steps, strength, profile.id) : form.steps,
+      stepsPerImage: useSource ? img2imgSteps(form.steps, strength, profile.id) : form.steps + (hires ? form.hrSteps || form.steps : 0),
     })
 
     try {
@@ -257,7 +269,7 @@ export function GenerateClient() {
       abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaler, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -406,6 +418,16 @@ export function GenerateClient() {
               sampler={sampler}
               scheduler={scheduler}
             />
+            {canHires && (
+              <HiresSection
+                form={form}
+                update={update}
+                upscalers={status.upscalers}
+                upscaler={upscaler}
+                sizeMultiple={profile.sizeMultiple}
+                disabled={isGenerating}
+              />
+            )}
 
             <div className="flex gap-2">
               <Button onClick={handleGenerate} disabled={isGenerating || !status.alive || (isEngine && engineLoading)} className="flex-1">

@@ -18,6 +18,7 @@
 // Beside it: a1111-transport.ts (the HTTP), a1111-payload.ts (a request in
 // the web UI's field names) and a1111-tagger.ts (the tagger's answer).
 
+import { hiresSteps, LANCZOS } from '@/lib/diffusion/hires'
 import { loraCallsInPrompt } from '@/lib/image-meta'
 import { getProfile } from '@/lib/profiles'
 import { a1111Hints, problemOf } from './hints'
@@ -52,6 +53,7 @@ interface StaticInfo {
   at: number
   samplers: string[]
   schedulers: string[]
+  upscalers: string[]
   taggerModel: string | null
 }
 
@@ -62,6 +64,20 @@ const globalForA1111 = globalThis as typeof globalThis & {
 }
 const inflightRuns = (globalForA1111.__a1111Inflight ??= new Map())
 const staticInfo = (globalForA1111.__a1111Static ??= new Map())
+
+/**
+ * The web UI's upscalers that need nothing fetched. "None" is no upscaler (so
+ * no hires fix), and one whose model is only a URL would make the web UI
+ * download it, a pickled .pth as a rule, on first use.
+ */
+function localUpscalers(body: unknown): string[] {
+  if (!Array.isArray(body)) return []
+  return body.flatMap((item) => {
+    const { name, model_path: modelPath } = (item ?? {}) as { name?: unknown; model_path?: unknown }
+    if (typeof name !== 'string' || !name || name === 'None') return []
+    return typeof modelPath === 'string' && /^[a-z][a-z0-9+.-]*:\/\//i.test(modelPath) ? [] : [name]
+  })
+}
 
 function names(body: unknown, key: 'name' | 'label'): string[] {
   if (!Array.isArray(body)) return []
@@ -105,9 +121,11 @@ export class A1111Adapter implements BackendAdapter {
         return null
       }
     }
-    const [samplers, schedulers, interrogators] = await Promise.all([
+    const [samplers, schedulers, upscalers, latentModes, interrogators] = await Promise.all([
       get('/sdapi/v1/samplers'),
       get('/sdapi/v1/schedulers'),
+      get('/sdapi/v1/upscalers'),
+      get('/sdapi/v1/latent-upscale-modes'),
       get('/tagger/v1/interrogators'),
     ])
     const models = Array.isArray((interrogators as { models?: unknown })?.models)
@@ -118,6 +136,8 @@ export class A1111Adapter implements BackendAdapter {
       samplers: names(samplers, 'name'),
       // The web UI matches a scheduler by its label ("Karras") as well as its id.
       schedulers: names(schedulers, 'label'),
+      // Pixel upscalers, then the latent ones.
+      upscalers: [...localUpscalers(upscalers), ...names(latentModes, 'name')],
       taggerModel: chooseTaggerModel(models, process.env.A1111_TAGGER_MODEL?.trim()),
     }
     // Only a complete answer is cached; a web UI still starting up is asked again.
@@ -149,10 +169,13 @@ export class A1111Adapter implements BackendAdapter {
         tag: info.taggerModel !== null,
         presets: false,
         preciseCancel: false,
+        hires: true,
       },
       hints: a1111Hints(progress !== null),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
+      // Lanczos is built into the web UI; a list it did not give still has that.
+      upscalers: info.upscalers.length ? info.upscalers : [LANCZOS],
       ...(problem ? { problem } : {}),
     }
   }
@@ -204,8 +227,13 @@ export class A1111Adapter implements BackendAdapter {
         outcome.settled = { error }
       })
 
+    // Hires fix samples each picture twice, and the web UI counts each pass from
+    // one: the bar runs on through both, the second pass after the first's steps.
+    const hiresPass = hiresSteps(request)
     let announced = -1
     let announcedSteps = -1
+    let passSteps = -1
+    let secondPass = false
     let lastStep = -1
     try {
       while (outcome.settled === null) {
@@ -214,7 +242,22 @@ export class A1111Adapter implements BackendAdapter {
         if (state && (state.job_count ?? 0) > 0 && state.job_timestamp && state.job_timestamp !== timestampBefore) {
           inflight.runId = state.job_timestamp
           const index = Math.max(0, Math.min(total - 1, state.job_no ?? 0))
-          const steps = state.sampling_steps || request.num_inference_steps
+          const sampling = state.sampling_steps || request.num_inference_steps
+          const step = state.sampling_step ?? 0
+          if (index !== announced) secondPass = false
+          // The second pass has begun once the first has drawn and then the
+          // count changes from the first pass's, or the step starts over.
+          else if (
+            hiresPass &&
+            !secondPass &&
+            lastStep > 0 &&
+            ((sampling !== passSteps && passSteps === request.num_inference_steps) || (step > 0 && step < lastStep))
+          ) {
+            secondPass = true
+          }
+          passSteps = sampling
+          const offset = secondPass ? request.num_inference_steps : 0
+          const steps = secondPass ? offset + sampling : sampling + hiresPass
           // The web UI sets the step count only when sampling starts, a moment
           // after the job: until then it still holds the previous run's (20
           // from a txt2img while this img2img does 11). Announced again when
@@ -225,10 +268,9 @@ export class A1111Adapter implements BackendAdapter {
             lastStep = -1
             yield { type: 'start', index, total, steps, runId: state.job_timestamp }
           }
-          const step = state.sampling_step ?? 0
           if (step !== lastStep && step > 0) {
             lastStep = step
-            yield { type: 'step', index, step }
+            yield { type: 'step', index, step: offset + step }
           }
         }
         if (outcome.settled === null) await Promise.race([call, this.http.sleep(POLL_MS)])

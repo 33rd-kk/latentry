@@ -58,6 +58,10 @@ export async function startMockA1111(options: { port?: number; tagger?: boolean 
           return reply(200, { sd_model_checkpoint: 'mock-model.safetensors' })
         case 'GET /sdapi/v1/samplers':
           return reply(200, [{ name: 'Euler' }])
+        case 'GET /sdapi/v1/upscalers':
+          return reply(200, [{ name: 'None' }, { name: 'Lanczos' }, { name: 'R-ESRGAN 4x+' }])
+        case 'GET /sdapi/v1/latent-upscale-modes':
+          return reply(200, [{ name: 'Latent' }])
         case 'GET /sdapi/v1/schedulers':
           return reply(200, [{ label: 'Karras' }])
         case 'POST /sdapi/v1/interrupt':
