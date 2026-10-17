@@ -39,6 +39,8 @@ should answer `401` when it is missing or wrong. `/api/health` and
   "samplers": ["Default", "Euler", "DPM++ 2M", "UniPC"],
   "schedulers": ["Default", "Karras", "Exponential"],
   "tagger": true,
+  "hires": true,
+  "upscalers": ["Lanczos"],
   "unavailable": { "inpaint": "This model has no inpainting pipeline." }
 }
 ```
@@ -52,7 +54,8 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `busy` | no | Something is generating. Shown as the backend's state. |
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
-| `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint` or `pose`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
+| `hires`, `upscalers` | no | `hires: true` enables hires fix (the `hr_*` fields below). `upscalers` lists the `hr_upscaler` values it takes; without it, `["Lanczos"]`. |
+| `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint`, `pose` or `hires`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
 
 Any 2xx answer marks the backend as up.
 
@@ -87,6 +90,7 @@ steps.
   "init_image_base64": "…", "strength": 0.6,
   "mask_base64": "…", "mask_blur": 4,
   "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
+  "hr_scale": 2, "hr_steps": 0, "hr_denoise": 0.4, "hr_upscaler": "Lanczos",
   "lora_hashes": false
 }
 ```
@@ -101,6 +105,13 @@ steps.
   (`pose_is_skeleton: true`), followed at `pose_strength` (0–2, 1.0 as
   trained). The skeleton's drawing style is the backend's business: it is
   drawn by the same backend that follows it.
+- **Hires fix** (servers with `hires: true`, txt2img and pose only): each
+  picture is upscaled by `hr_scale` (1–4, at most 4096 pixels a side) with
+  `hr_upscaler` (one of the health's `upscalers`), then redrawn at
+  `hr_denoise` (0.01–1). The second pass runs exactly `hr_steps` steps, or
+  `num_inference_steps` when it is 0, as in A1111 and ComfyUI. All four
+  come together or not at all. `start.steps` and the `step` count cover both
+  passes, the second after the first.
 - **LoRAs** (servers with `lora: true`): the prompt's `<lora:name:weight>`
   calls, A1111-style. The server takes them out of the prompt, applies them,
   and lists them in each `image` event. `lora_hashes: true` asks for each
@@ -234,6 +245,7 @@ Start the web UI with `--api` (and `--api-auth user:password` if you set
 | `GET /sdapi/v1/progress?skip_current_image=true` | Health, busy state, progress |
 | `GET /sdapi/v1/options` | The loaded checkpoint's name |
 | `GET /sdapi/v1/samplers`, `/sdapi/v1/schedulers` | The sampler and scheduler lists |
+| `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers (`None` left out). Without an answer, Lanczos only. |
 | `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. |
 | `POST /sdapi/v1/interrupt` | Cancel |
 | `GET /tagger/v1/interrogators`, `POST /tagger/v1/interrogate` | WD14 tagging, if the [tagger extension](https://github.com/picobyte/stable-diffusion-webui-wd14-tagger) is installed |
@@ -249,6 +261,10 @@ Differences from the diffusers-compatible API:
   say), Latentry refuses with "another client is generating" instead of
   queueing behind it.
 - **No pose control.** ControlNet is not driven (yet).
+- **Hires fix is the web UI's own.** `hr_*` become `enable_hr`, `hr_scale`,
+  `hr_upscaler`, `hr_second_pass_steps` and `denoising_strength` on
+  `txt2img`. The web UI counts each pass's steps from one; Latentry shows
+  them as one bar.
 - **Masks are converted.** Latentry's alpha mask becomes the web UI's white
   (redraw) on black (keep).
 
@@ -343,6 +359,14 @@ after `IHDR`:
   event, or for A1111 the prompt's `<lora:…>` calls, which it applies
   itself. A call in the prompt that no backend applied is not listed. The prompt is the one sent, artist and
   quality tags included.
+
+  With hires fix, the record has
+  `"hires": { "scale": 2, "steps": 0, "denoise": 0.4, "upscaler": "Lanczos" }`
+  and its `width` and `height` are the first pass's, as in A1111's
+  infotext, which gets `Denoising strength`, `Hires upscale`, `Hires steps`
+  (when not 0) and `Hires upscaler`. When reading A1111 infotext,
+  `Denoising strength` beside `Hires upscale` is the hires pass's, not an
+  img2img source's.
 
 WD14 tags written back from the gallery go in a third chunk,
 **`latentry:tags`**: `[{ "name": "long_hair", "category": 0, "score": 0.93 }, …]`.

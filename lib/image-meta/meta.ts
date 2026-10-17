@@ -27,6 +27,8 @@ export interface ImageMeta {
   sampler?: string
   scheduler?: string
   strength?: number
+  /** Hires fix; `width` and `height` are then the first pass's size. */
+  hires?: HiresUse
   model?: string
   /** Latentry only: which backend and profile drew it. */
   backend?: string
@@ -58,6 +60,8 @@ export interface LatentryRecord {
   steps: number
   cfg: number
   strength?: number
+  /** Hires fix; `width` and `height` are then the first pass's size, as in A1111's infotext. */
+  hires?: HiresUse
   /**
    * The LoRAs the backend says it applied. Left out when it applied none or
    * cannot say: a `<lora:…>` call in the prompt alone proves nothing.
@@ -66,6 +70,14 @@ export interface LatentryRecord {
   /** The ComfyUI workflow (its file name) the picture was drawn with, instead of a built-in graph. */
   workflow?: string
   created: string
+}
+
+/** A hires fix pass: upscaled by `scale` with `upscaler`, then redrawn for `steps` (0: as many as the first pass) at `denoise`. */
+export interface HiresUse {
+  scale: number
+  steps: number
+  denoise: number
+  upscaler: string
 }
 
 /** One LoRA as applied to a run: its name (no folder or extension) and weight. */
@@ -151,6 +163,12 @@ export function parseA1111Parameters(text: string): ImageMeta {
     return settings[key] !== undefined && Number.isFinite(value) ? value : undefined
   }
   const size = /^(\d+)x(\d+)$/.exec(settings.Size ?? '')
+  // With hires fix the denoising strength is the second pass's, not an img2img source's.
+  const hiresScale = num('Hires upscale')
+  const hires: HiresUse | undefined =
+    hiresScale !== undefined
+      ? { scale: hiresScale, steps: num('Hires steps') ?? 0, denoise: num('Denoising strength') ?? 0.4, upscaler: settings['Hires upscaler'] || 'Latent' }
+      : undefined
   return {
     source: 'a1111',
     prompt,
@@ -160,7 +178,7 @@ export function parseA1111Parameters(text: string): ImageMeta {
     cfg: num('CFG scale'),
     sampler: settings.Sampler,
     scheduler: settings['Schedule type'],
-    strength: num('Denoising strength'),
+    ...(hires ? { hires } : { strength: num('Denoising strength') }),
     model: settings.Model,
     loras: uniqueLoras([
       ...lorasInPrompt(prompt),
@@ -186,6 +204,14 @@ export function formatA1111Parameters(record: LatentryRecord, loraHashes: LoraUs
     `Size: ${record.width}x${record.height}`,
     ...(record.model ? [`Model: ${quoteIfNeeded(record.model)}`] : []),
     ...(record.strength !== undefined ? [`Denoising strength: ${record.strength}`] : []),
+    ...(record.hires
+      ? [
+          `Denoising strength: ${record.hires.denoise}`,
+          `Hires upscale: ${record.hires.scale}`,
+          ...(record.hires.steps ? [`Hires steps: ${record.hires.steps}`] : []),
+          `Hires upscaler: ${quoteIfNeeded(record.hires.upscaler)}`,
+        ]
+      : []),
     ...(hashed.length ? [`Lora hashes: ${JSON.stringify(hashed.map((lora) => `${lora.name}: ${lora.hash}`).join(', '))}`] : []),
     `Version: Latentry (${record.backend})`,
   ]
@@ -565,6 +591,7 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     sampler: str(record.sampler),
     scheduler: str(record.scheduler),
     strength: num(record.strength),
+    ...(recordHires(record.hires) ?? {}),
     model: str(record.model),
     backend: str(record.backend),
     kind: str(record.kind),
@@ -573,6 +600,14 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     created: str(record.created),
     loras: recordLoras(record),
   }
+}
+
+/** A record's hires fix, when every field of it is well-formed. */
+function recordHires(value: unknown): { hires: HiresUse } | null {
+  const hires = value as Partial<HiresUse> | null | undefined
+  const finite = (field: unknown): field is number => typeof field === 'number' && Number.isFinite(field)
+  if (!hires || !finite(hires.scale) || !finite(hires.steps) || !finite(hires.denoise) || typeof hires.upscaler !== 'string') return null
+  return { hires: { scale: hires.scale, steps: hires.steps, denoise: hires.denoise, upscaler: hires.upscaler } }
 }
 
 /**

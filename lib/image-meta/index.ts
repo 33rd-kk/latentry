@@ -37,6 +37,7 @@ export {
   parseTags,
   type ComfyRoles,
   type ComfySlot,
+  type HiresUse,
   type ImageMeta,
   type ImageTag,
   type LatentryRecord,

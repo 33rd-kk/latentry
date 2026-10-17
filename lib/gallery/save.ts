@@ -21,6 +21,7 @@ import {
   readPngText,
   TAGS_KEY,
   writePngText,
+  type HiresUse,
   type ImageTag,
   type LatentryRecord,
 } from '../image-meta'
@@ -41,6 +42,10 @@ export function fileNameFor(backend: string, seed: number, index: number, date: 
 
 export function recordFor(job: Job, image: JobImage, created: Date, size: { width: number; height: number } | null): LatentryRecord {
   const { request, profile, kind, model, mode } = job.context
+  const hires: HiresUse | null =
+    request.hr_scale !== undefined
+      ? { scale: request.hr_scale, steps: request.hr_steps ?? 0, denoise: request.hr_denoise ?? 0.4, upscaler: request.hr_upscaler ?? 'Lanczos' }
+      : null
   return {
     schema: 1,
     backend: job.backend,
@@ -52,13 +57,15 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     negative_prompt: request.negative_prompt,
     seed: image.seed,
     // The size the picture actually came out at: img2img fits it to the source.
-    width: size?.width ?? request.width,
-    height: size?.height ?? request.height,
+    // With hires fix, the first pass's, as A1111 writes it beside "Hires upscale".
+    width: hires ? request.width : (size?.width ?? request.width),
+    height: hires ? request.height : (size?.height ?? request.height),
     sampler: request.sampler,
     scheduler: request.scheduler,
     steps: request.num_inference_steps,
     cfg: request.guidance_scale,
     ...(request.strength !== undefined ? { strength: request.strength } : {}),
+    ...(hires ? { hires } : {}),
     // Names and weights only: a hash says which file, and is written only where asked.
     ...(image.loras?.length ? { loras: image.loras.map(({ name, weight }) => ({ name, weight })) } : {}),
     ...(request.workflow ? { workflow: request.workflow } : {}),

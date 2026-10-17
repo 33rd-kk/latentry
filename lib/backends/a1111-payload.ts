@@ -1,6 +1,7 @@
 // Latentry's request in the A1111 web UI's field names, and the seeds out of
 // its answer. Used by ./a1111.ts.
 
+import { LANCZOS } from '@/lib/diffusion/hires'
 import { fitToImage } from '@/lib/profiles'
 import { alphaToMask, imageSize } from './images'
 import { stripDataUrl } from './http'
@@ -47,7 +48,17 @@ export async function toA1111Payload(
   if (request.sampler && request.sampler !== DEFAULT) body.sampler_name = request.sampler
   if (request.scheduler && request.scheduler !== DEFAULT) body.scheduler = request.scheduler
 
-  if (!request.init_image_base64) return { path: '/sdapi/v1/txt2img', body }
+  if (!request.init_image_base64) {
+    if (request.hr_scale !== undefined) {
+      body.enable_hr = true
+      body.hr_scale = request.hr_scale
+      body.hr_upscaler = request.hr_upscaler ?? LANCZOS
+      // 0 is the web UI's own "as many as the first pass".
+      body.hr_second_pass_steps = request.hr_steps ?? 0
+      body.denoising_strength = request.hr_denoise ?? 0.4
+    }
+    return { path: '/sdapi/v1/txt2img', body }
+  }
 
   const size = await imageSize(request.init_image_base64)
   if (!size) return null

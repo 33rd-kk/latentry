@@ -111,6 +111,31 @@ outfit does not carry over.
 - **Reset** (the arrow next to Generate) puts this backend's form back to the
   profile's defaults.
 
+## Hires fix
+
+**Hires fix** draws each picture at the size above, upscales it, and redraws
+it at the larger size, so the detail is drawn at full resolution instead of
+stretched. It is off until you switch it on, and takes longer: the progress
+bar counts both passes.
+
+- **Upscaler**: how the picture is enlarged before it is redrawn. Lanczos
+  works everywhere and needs nothing extra. An A1111 or Forge web UI also
+  offers its own upscalers (R-ESRGAN and the like) and its latent modes.
+- **Upscale by**: how much larger, with the size it ends at.
+- **Hires steps**: the steps of the second pass. At 0 it runs as many as the
+  first.
+- **Denoising strength**: how much the second pass may change. Around 0.3–0.5
+  adds detail and keeps the picture; higher values redraw more.
+
+It applies to pictures drawn from the prompt, with or without a skeleton
+pose. With a source image the run is img2img, so the section is hidden, and
+a ComfyUI workflow from the folder keeps its own passes. Backends that
+cannot do it say so under **Not available on this backend**.
+
+The saved picture records the first pass's size with its hires settings, as
+A1111 does. **Generate with these settings** in the gallery turns hires fix
+back on with them, on the same backend.
+
 ## Results
 
 Progress shows overall and per image. Each finished picture has:

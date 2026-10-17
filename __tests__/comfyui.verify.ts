@@ -204,7 +204,7 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: false }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
   eq(status.hints, { pose: { reason: 'setup', need: 'engine' } }, 'pose is explained: no engine runs to draw the skeleton')
   const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
   eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')

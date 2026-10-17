@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Hires fix on A1111 / Forge**: a new Hires fix section on Generate
+  upscales each txt2img picture and redraws it at the larger size, with
+  the web UI's own upscalers (Lanczos, R-ESRGAN and the like, and its latent
+  modes). Off by default. The progress bar counts both passes, and the
+  saved picture records the hires settings as A1111 does, so the gallery's
+  **Generate with these settings** brings them back. The backend API gains
+  `hires`, `upscalers` and the `hr_*` fields for servers that want to offer
+  it.
+
 ## 0.8.2 (2026-10-14)
 
 **Upgrading from 0.8.1**: nothing to do beyond the usual update. On

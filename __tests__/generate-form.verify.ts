@@ -55,6 +55,18 @@ eq(
 )
 eq(applySettings(form, { prompt: 'cat', negativePrompt: '' }, true).width, 832, 'what a picture does not say stays as it was')
 
+// ── Hires fix: off by default, on exactly when the picture had it ──
+eq([fresh.hires, fresh.hrScale, fresh.hrSteps, fresh.hrDenoise, fresh.hrUpscaler], [false, 2, 0, 0.4, 'Lanczos'], 'a fresh form has hires fix off, ready at 2× Lanczos')
+const hiresSettings = { ...settings, hires: { scale: 1.5, steps: 12, denoise: 0.3, upscaler: 'R-ESRGAN 4x+' } }
+const withHires = applySettings(form, hiresSettings, true)
+eq(
+  [withHires.hires, withHires.hrScale, withHires.hrSteps, withHires.hrDenoise, withHires.hrUpscaler, withHires.width],
+  [true, 1.5, 12, 0.3, 'R-ESRGAN 4x+', 1216],
+  "a hires picture turns it on with its settings, at its first pass's size"
+)
+eq(applySettings(withHires, settings, true).hires, false, 'a picture without hires fix turns it off, keeping the knobs')
+eq(applySettings(form, hiresSettings, false).hires, false, 'from another backend it stays as it was')
+
 // ── <lora:…> in a prompt, warned about where the backend will not load it ──
 check(callsLora('1girl, <lora:detail:0.8>, smile'), 'a <lora:name:weight> tag is found')
 check(callsLora('<LyCORIS:x>') === false && callsLora('<lyco:style>'), '<lyco:…> counts, other angle brackets do not')
