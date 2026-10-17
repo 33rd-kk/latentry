@@ -65,6 +65,20 @@ const globalForA1111 = globalThis as typeof globalThis & {
 const inflightRuns = (globalForA1111.__a1111Inflight ??= new Map())
 const staticInfo = (globalForA1111.__a1111Static ??= new Map())
 
+/**
+ * The web UI's upscalers that need nothing fetched. "None" is no upscaler (so
+ * no hires fix), and one whose model is only a URL would make the web UI
+ * download it, a pickled .pth as a rule, on first use.
+ */
+function localUpscalers(body: unknown): string[] {
+  if (!Array.isArray(body)) return []
+  return body.flatMap((item) => {
+    const { name, model_path: modelPath } = (item ?? {}) as { name?: unknown; model_path?: unknown }
+    if (typeof name !== 'string' || !name || name === 'None') return []
+    return typeof modelPath === 'string' && /^[a-z][a-z0-9+.-]*:\/\//i.test(modelPath) ? [] : [name]
+  })
+}
+
 function names(body: unknown, key: 'name' | 'label'): string[] {
   if (!Array.isArray(body)) return []
   return body
@@ -122,8 +136,8 @@ export class A1111Adapter implements BackendAdapter {
       samplers: names(samplers, 'name'),
       // The web UI matches a scheduler by its label ("Karras") as well as its id.
       schedulers: names(schedulers, 'label'),
-      // Pixel upscalers ("None" is no upscaler, so no hires fix), then the latent ones.
-      upscalers: [...names(upscalers, 'name').filter((name) => name !== 'None'), ...names(latentModes, 'name')],
+      // Pixel upscalers, then the latent ones.
+      upscalers: [...localUpscalers(upscalers), ...names(latentModes, 'name')],
       taggerModel: chooseTaggerModel(models, process.env.A1111_TAGGER_MODEL?.trim()),
     }
     // Only a complete answer is cached; a web UI still starting up is asked again.

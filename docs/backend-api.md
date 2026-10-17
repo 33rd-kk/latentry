@@ -245,7 +245,7 @@ Start the web UI with `--api` (and `--api-auth user:password` if you set
 | `GET /sdapi/v1/progress?skip_current_image=true` | Health, busy state, progress |
 | `GET /sdapi/v1/options` | The loaded checkpoint's name |
 | `GET /sdapi/v1/samplers`, `/sdapi/v1/schedulers` | The sampler and scheduler lists |
-| `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers (`None` left out). Without an answer, Lanczos only. |
+| `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers. `None` is left out, and so is any whose model is only a URL: using it would make the web UI download a model file (usually a pickled `.pth`). Without an answer, Lanczos only. |
 | `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. |
 | `POST /sdapi/v1/interrupt` | Cancel |
 | `GET /tagger/v1/interrogators`, `POST /tagger/v1/interrogate` | WD14 tagging, if the [tagger extension](https://github.com/picobyte/stable-diffusion-webui-wd14-tagger) is installed |
@@ -263,8 +263,12 @@ Differences from the diffusers-compatible API:
 - **No pose control.** ControlNet is not driven (yet).
 - **Hires fix is the web UI's own.** `hr_*` become `enable_hr`, `hr_scale`,
   `hr_upscaler`, `hr_second_pass_steps` and `denoising_strength` on
-  `txt2img`. The web UI counts each pass's steps from one; Latentry shows
-  them as one bar.
+  `txt2img`. For Forge and its forks Latentry also sends
+  `hr_additional_modules: ["Use same choices"]` (without it their second
+  pass fails) and `hr_cfg` equal to the first pass's CFG (their API's own
+  default is 1). AUTOMATIC1111 ignores both. The web UI counts each pass's
+  steps from one; Latentry shows them as one bar. Forge rounds the hires
+  size to multiples of 64, so the size shown on Generate is approximate.
 - **Masks are converted.** Latentry's alpha mask becomes the web UI's white
   (redraw) on black (keep).
 

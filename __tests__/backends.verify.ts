@@ -143,9 +143,9 @@ async function main() {
   check(!('enable_hr' in (t2i?.body ?? {})) && !('denoising_strength' in (t2i?.body ?? {})), 'no hires fix unless asked')
   const hires = await toA1111Payload({ ...REQUEST, hr_scale: 1.5, hr_steps: 0, hr_denoise: 0.35, hr_upscaler: 'R-ESRGAN 4x+' }, 8)
   eq(
-    [hires?.path, hires?.body.enable_hr, hires?.body.hr_scale, hires?.body.hr_upscaler, hires?.body.hr_second_pass_steps, hires?.body.denoising_strength],
-    ['/sdapi/v1/txt2img', true, 1.5, 'R-ESRGAN 4x+', 0, 0.35],
-    'hires fix in the web UI\'s fields; 0 steps is its own "as many as the first pass"'
+    [hires?.path, hires?.body.enable_hr, hires?.body.hr_scale, hires?.body.hr_upscaler, hires?.body.hr_second_pass_steps, hires?.body.denoising_strength, hires?.body.hr_additional_modules, hires?.body.hr_cfg],
+    ['/sdapi/v1/txt2img', true, 1.5, 'R-ESRGAN 4x+', 0, 0.35, ['Use same choices'], 5],
+    'hires fix in the web UI\'s fields; 0 steps is its own "as many as the first pass"; Forge needs its modules named, and the first pass\'s CFG'
   )
   eq([t2i?.body.n_iter, t2i?.body.batch_size, 'sampler_name' in (t2i?.body ?? {}), t2i?.body.scheduler], [2, 1, false, 'Karras'], 'one image per iteration; Default is left to the web UI')
 
@@ -440,7 +440,15 @@ async function main() {
         : path === '/sdapi/v1/samplers'
           ? { status: 200, body: [{ name: 'Euler a' }] }
           : path === '/sdapi/v1/upscalers'
-            ? { status: 200, body: [{ name: 'None' }, { name: 'Lanczos' }, { name: 'R-ESRGAN 4x+' }] }
+            ? {
+                status: 200,
+                body: [
+                  { name: 'None', model_path: null },
+                  { name: 'Lanczos', model_path: null },
+                  { name: 'ESRGAN', model_path: 'https://github.com/cszn/KAIR/releases/download/v1.0/ESRGAN.pth' },
+                  { name: 'R-ESRGAN 4x+', model_path: 'C:\\webui\\models\\RealESRGAN\\RealESRGAN_x4plus.pth' },
+                ],
+              }
             : path === '/sdapi/v1/latent-upscale-modes'
               ? { status: 200, body: [{ name: 'Latent' }] }
               : { status: 404, body: null },
@@ -450,7 +458,7 @@ async function main() {
   eq(
     (await new A1111Adapter({ id: 'upscaling', kind: 'a1111', url: 'http://web.ui', profile: 'generic' }, upscaling).status()).upscalers,
     ['Lanczos', 'R-ESRGAN 4x+', 'Latent'],
-    'its upscalers, then its latent modes; "None" is no upscaler'
+    'its upscalers, then its latent modes; "None" is no upscaler, and one that would be downloaded is left out'
   )
 
   // ── Hires fix in a request ──

@@ -15,7 +15,7 @@ test('hires fix is sent with the chosen upscaler and kept in the picture', async
   await expect(hires).not.toBeChecked()
   await expect(page.getByText('Upscaler', { exact: true })).toBeHidden()
   await hires.click()
-  await expect(page.getByText(/^Upscale by: 2\.00 \(\d+×\d+\)$/)).toBeVisible()
+  await expect(page.getByText(/^Upscale by: 2\.00 \(about \d+×\d+\)$/)).toBeVisible()
 
   // The backend's upscalers, "None" left out; Lanczos is picked to begin with.
   const upscaler = page.getByRole('combobox').filter({ hasText: 'Lanczos' })

@@ -100,9 +100,9 @@
       "title": "Hires fix",
       "hint": "Upscale each picture and redraw its detail at the larger size. Takes longer.",
       "upscaler": "Upscaler",
-      "scale": "Upscale by: {value} ({width}×{height})",
+      "scale": "Upscale by: {value} (about {width}×{height})",
       "steps": "Hires steps: {value}",
-      "stepsSame": "Hires steps: as many as the first pass ({value})",
+      "stepsSame": "Hires steps: same ({value})",
       "denoise": "Denoising strength: {value}"
     },
     "generating": "Generating...",

@@ -56,6 +56,11 @@ export async function toA1111Payload(
       // 0 is the web UI's own "as many as the first pass".
       body.hr_second_pass_steps = request.hr_steps ?? 0
       body.denoising_strength = request.hr_denoise ?? 0.4
+      // Forge and its forks fail the second pass ("'NoneType' object is not
+      // iterable") without this; A1111 drops fields it does not know.
+      body.hr_additional_modules = ['Use same choices']
+      // Their API's own hires CFG is 1, which smears the redraw; the first pass's, as their UI does.
+      body.hr_cfg = request.guidance_scale
     }
     return { path: '/sdapi/v1/txt2img', body }
   }
