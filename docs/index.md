@@ -16,7 +16,10 @@ it again by what it shows or how it was made.
 ## What it does
 
 - **Generate**: text-to-image, img2img (a variation, or a picture as a pose
-  reference) and inpainting with a painted mask.
+  reference) and inpainting with a painted mask. [Hires fix](guide/generate.md#hires-fix)
+  redraws a new picture at a larger size, and
+  [Upscale](guide/generate.md#upscale-a-picture) does the same to one already
+  in the gallery.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
   picture to follow (one, several or everyone), turn the pose in 3D and frame
   it, then generate along that skeleton. See
