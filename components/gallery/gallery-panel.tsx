@@ -157,9 +157,14 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     if (meta.loras?.length) facts.push([t("gallery.loras"), meta.loras.join(", ")])
     if (meta.mode) facts.push([t("gallery.mode"), meta.mode])
     if (meta.seed !== undefined) facts.push([t("gallery.seed"), meta.seed])
-    const width = meta.width ?? picture.width
-    const height = meta.height ?? picture.height
+    // The file's own size first. The settings name the size it was drawn at,
+    // which hires fix and upscale leave smaller (A1111 writes it that way too).
+    const width = picture.width ?? meta.width
+    const height = picture.height ?? meta.height
     if (width && height) facts.push([t("gallery.size"), `${width}×${height}`])
+    if (meta.width && meta.height && width && height && (meta.width !== width || meta.height !== height)) {
+      facts.push([t("gallery.drawnSize"), `${meta.width}×${meta.height}`])
+    }
     if (meta.steps !== undefined) facts.push([t("gallery.steps"), meta.steps])
     if (meta.cfg !== undefined) facts.push([t("gallery.cfg"), meta.cfg])
     if (meta.sampler) facts.push([t("gallery.sampler"), [meta.sampler, meta.scheduler].filter(Boolean).join(" / ")])

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The real size in the gallery**: the side panel's Size is now the
+  picture's own size. For a picture made with hires fix or Upscale, whose
+  settings name the smaller size it was drawn at, a **Drawn at** line shows
+  that one too.
+
 - **Upscale on Latentry's engine**: SDXL and Anima models can upscale a
   picture too. The engine enlarges it with Lanczos from its own size (up to
   4096 a side) and redraws it once with img2img, running exactly the hires
