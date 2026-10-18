@@ -10,9 +10,9 @@ import sharp from 'sharp'
 export interface MockA1111 {
   /** Base URL, with a trailing slash, as a backend's `url` setting. */
   url: string
-  /** The body of every txt2img call, in order. */
+  /** The body of every txt2img and img2img call, in order. */
   received: Record<string, unknown>[]
-  /** Holds txt2img answers back until release(), to see a run while it is running. */
+  /** Holds generate answers back until release(), to see a run while it is running. */
   hold(): void
   release(): void
   close(): Promise<void>
@@ -78,7 +78,11 @@ export async function startMockA1111(options: { port?: number; tagger?: boolean 
               character: Object.fromEntries(MOCK_TAGS.filter((tag) => tag.category === 4).map((tag) => [tag.name, tag.score])),
             },
           })
-        case 'POST /sdapi/v1/txt2img': {
+        // An upscale's first call: its "enlarged" picture is the same small PNG.
+        case 'POST /sdapi/v1/extra-single-image':
+          return reply(200, { image: png, html_info: '' })
+        case 'POST /sdapi/v1/txt2img':
+        case 'POST /sdapi/v1/img2img': {
           let body: Record<string, unknown> = {}
           try {
             body = JSON.parse(text)

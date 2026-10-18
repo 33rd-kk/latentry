@@ -26,7 +26,7 @@ import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
-import { LANCZOS } from "@/lib/diffusion/hires"
+import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, DEFAULT } from "@/lib/generate/form"
 import { isSecretMode } from "@/lib/secret-mode"
@@ -188,7 +188,24 @@ export function GenerateClient() {
   // Hires fix redraws a txt2img picture; with a source image the run is img2img.
   const canHires = Boolean(capabilities?.hires && !(sourceImage && capabilities.img2img))
   const hires = Boolean(form?.hires && canHires)
-  const upscaler = form ? accepted(form.hrUpscaler, status?.upscalers ?? []) : LANCZOS
+  // Upscale redraws the source itself, larger: the source slot's third mode.
+  const canUpscale = Boolean(capabilities?.upscale && capabilities.img2img)
+  const shownMode: SourceMode = sourceMode === "upscale" && !canUpscale ? "variation" : sourceMode
+  const upscaling = Boolean(sourceImage && canUpscale && shownMode === "upscale")
+  // A1111's extras enlarge pixels: its latent modes are for hires fix only.
+  const upscalers = useMemo(
+    () => (upscaling && status?.kind === "a1111" ? (status.upscalers ?? []).filter((name) => !/^Latent\b/.test(name)) : (status?.upscalers ?? [])),
+    [upscaling, status]
+  )
+  const upscaler = form ? accepted(form.hrUpscaler, upscalers) : LANCZOS
+  const hrFields = useMemo(
+    () =>
+      form
+        ? // Rounded as the sliders show them: their steps add up to 1.9500000000000002.
+          { hr_scale: round2(form.hrScale), hr_steps: form.hrSteps, hr_denoise: round2(form.hrDenoise), hr_upscaler: upscaler }
+        : null,
+    [form, upscaler]
+  )
 
   const handleGenerate = useCallback(async () => {
     if (!form || !selectedId) return
@@ -212,15 +229,16 @@ export function GenerateClient() {
       // Secret mode: the server keeps this run to this page only.
       secret: isSecretMode(),
       ...(workflow ? { workflow } : {}),
-      ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
-      ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
-      ...(capabilities?.pose && poseSkeleton
-        ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
-        : {}),
-      ...(hires
-        ? // Rounded as the sliders show them: their steps add up to 1.9500000000000002.
-          { hr_scale: round2(form.hrScale), hr_steps: form.hrSteps, hr_denoise: round2(form.hrDenoise), hr_upscaler: upscaler }
-        : {}),
+      ...(upscaling && sourceImage
+        ? { init_image_base64: sourceImage.dataUrl, upscale: true, ...hrFields }
+        : {
+            ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
+            ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
+            ...(capabilities?.pose && poseSkeleton
+              ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
+              : {}),
+            ...(hires ? hrFields : {}),
+          }),
     })
     // The server would refuse it anyway (the body is cut at this size), so say
     // why here rather than after uploading it. The pictures are base64, so the
@@ -236,7 +254,11 @@ export function GenerateClient() {
       completed: 0,
       total: form.imageCount,
       currentStep: 0,
-      stepsPerImage: useSource ? img2imgSteps(form.steps, strength, profile.id) : form.steps + (hires ? form.hrSteps || form.steps : 0),
+      stepsPerImage: upscaling
+        ? form.hrSteps || form.steps
+        : useSource
+          ? img2imgSteps(form.steps, strength, profile.id)
+          : form.steps + (hires ? form.hrSteps || form.steps : 0),
     })
 
     try {
@@ -269,7 +291,7 @@ export function GenerateClient() {
       abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaler, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, hrFields, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -305,7 +327,11 @@ export function GenerateClient() {
     )
   }
 
-  const outputSize = sourceImage ? fitToImage(sourceImage, form.width, form.height, profile.sizeMultiple) : { width: form.width, height: form.height }
+  const outputSize = upscaling && sourceImage
+    ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple)
+    : sourceImage
+      ? fitToImage(sourceImage, form.width, form.height, profile.sizeMultiple)
+      : { width: form.width, height: form.height }
 
   return (
     <div className="@container">
@@ -371,9 +397,23 @@ export function GenerateClient() {
                 onStrengthChange={setStrength}
                 mask={mask}
                 onMaskChange={setMask}
-                mode={sourceMode}
+                mode={shownMode}
                 onModeChange={changeSourceMode}
                 canInpaint={capabilities.inpaint}
+                canUpscale={canUpscale}
+                upscaleControls={
+                  sourceImage && (
+                    <HiresSection
+                      form={form}
+                      update={update}
+                      upscalers={upscalers}
+                      upscaler={upscaler}
+                      sizeMultiple={profile.sizeMultiple}
+                      disabled={isGenerating}
+                      embedded={{ base: sourceImage, maxScale: HIRES_LIMITS.maxScale }}
+                    />
+                  )
+                }
                 disabled={isGenerating}
               />
             )}

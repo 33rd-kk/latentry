@@ -1,7 +1,7 @@
 "use client"
 
-import { useCallback, useRef, useState } from "react"
-import { Brush, ImagePlus, Images, Loader2, PersonStanding, X } from "lucide-react"
+import { useCallback, useRef, useState, type ReactNode } from "react"
+import { Brush, ImagePlus, Images, Loader2, Maximize2, PersonStanding, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SliderLabel } from "@/components/generate/slider-label"
@@ -17,9 +17,10 @@ import { VeilToggle } from "./veil-toggle"
 /**
  * What the source is for. "variation" redraws this picture (whole, or the
  * masked part); "pose" only borrows its composition and silhouette for a new
- * picture, so it runs at a higher strength and has no mask.
+ * picture, so it runs at a higher strength and has no mask; "upscale" makes
+ * this picture larger and redraws its detail (hires fix for a finished one).
  */
-export type SourceMode = "variation" | "pose"
+export type SourceMode = "variation" | "pose" | "upscale"
 
 /** The img2img source as it will be sent: a PNG data URL plus its size, for the hint under the preview. */
 export interface SourceImage {
@@ -70,6 +71,9 @@ interface SourceImageSlotProps {
   onModeChange: (mode: SourceMode) => void
   /** Masks are only offered where the backend can inpaint. */
   canInpaint?: boolean
+  /** Upscale is only offered where the backend can; its knobs come in `upscaleControls`. */
+  canUpscale?: boolean
+  upscaleControls?: ReactNode
   disabled?: boolean
 }
 
@@ -89,6 +93,8 @@ export function SourceImageSlot({
   mode,
   onModeChange,
   canInpaint = true,
+  canUpscale = false,
+  upscaleControls,
   disabled,
 }: SourceImageSlotProps) {
   const t = useT()
@@ -191,7 +197,7 @@ export function SourceImageSlot({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className={cn("h-6 px-1.5 text-xs", mode === "pose" && "ml-auto")}
+                className={cn("h-6 px-1.5 text-xs", (mode !== "variation" || !canInpaint) && "ml-auto")}
                 onClick={clear}
                 disabled={disabled}
               >
@@ -200,7 +206,7 @@ export function SourceImageSlot({
               </Button>
             </div>
             <div className="flex gap-1" role="radiogroup" aria-label={t("generate.sourceMode")}>
-              {(["variation", "pose"] as const).map((option) => (
+              {(canUpscale ? (["variation", "pose", "upscale"] as const) : (["variation", "pose"] as const)).map((option) => (
                 <Button
                   key={option}
                   type="button"
@@ -218,10 +224,14 @@ export function SourceImageSlot({
                   disabled={disabled}
                 >
                   {option === "pose" && <PersonStanding className="mr-1 h-3 w-3" />}
-                  {t(option === "pose" ? "generate.sourceModePose" : "generate.sourceModeVariation")}
+                  {option === "upscale" && <Maximize2 className="mr-1 h-3 w-3" />}
+                  {t(option === "pose" ? "generate.sourceModePose" : option === "upscale" ? "generate.sourceModeUpscale" : "generate.sourceModeVariation")}
                 </Button>
               ))}
             </div>
+            {mode === "upscale" ? (
+              upscaleControls
+            ) : (
             <div className="space-y-1.5">
               <SliderLabel
                 value={strength}
@@ -244,6 +254,7 @@ export function SourceImageSlot({
                 {t(mode === "pose" ? "generate.poseHint" : "generate.strengthHint")}
               </p>
             </div>
+            )}
           </div>
         </div>
       ) : (

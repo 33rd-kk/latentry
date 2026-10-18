@@ -307,6 +307,9 @@ export function resolveUpscaler(name: string, files: string[]): string | null | 
 
 type GraphNode = { class_type: string; inputs: Record<string, unknown> }
 
+/** The uploaded source (and mask) of a run; `size`, an upscale's source size, which the graph enlarges. */
+type SourceImages = { source: string; mask?: string; strength: number; size?: { width: number; height: number } }
+
 /**
  * The graph for one picture, in ComfyUI's API format: checkpoint → LoRA
  * loaders → the two prompts → a latent → KSampler → decode → PreviewImage
@@ -326,8 +329,8 @@ export function buildComfyGraph(
     loras: { file: string; weight: number }[]
     seed: number
     sizeMultiple: number
-    /** Uploaded pictures, as LoadImage names them ("latentry/x.png"). */
-    images?: { source: string; mask?: string; strength: number }
+    /** Uploaded pictures, as LoadImage names them ("latentry/x.png"); an upscale's source with its own size. */
+    images?: SourceImages
     /** The uploaded skeleton, the ControlNet file to follow it with, and how strongly. */
     pose?: { image: string; controlnet: string; strength: number }
     /** Hires fix's upscale model file, as ComfyUI lists it; without one, Lanczos. */
@@ -351,9 +354,25 @@ export function buildComfyGraph(
   })
   graph['2'] = { class_type: 'CLIPTextEncode', inputs: { text: withoutLoraCalls(request.prompt), clip } }
   graph['3'] = { class_type: 'CLIPTextEncode', inputs: { text: request.negative_prompt, clip } }
+  // Pictures to a latent at `size`: upscaled by the model when one is chosen,
+  // then Lanczos to the exact size, then encoded. Hires fix and upscale both.
+  const enlarged = (pixels: [string, number], size: { width: number; height: number }): [string, number] => {
+    if (options.upscaleModel) {
+      graph['44'] = { class_type: 'UpscaleModelLoader', inputs: { model_name: options.upscaleModel } }
+      graph['45'] = { class_type: 'ImageUpscaleWithModel', inputs: { upscale_model: ['44', 0], image: pixels } }
+      pixels = ['45', 0]
+    }
+    graph['41'] = { class_type: 'ImageScale', inputs: { image: pixels, upscale_method: 'lanczos', width: size.width, height: size.height, crop: 'disabled' } }
+    graph['42'] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae: ['1', 2] } }
+    return ['42', 0]
+  }
   let latent: [string, number] = ['4', 0]
   const images = options.images
-  if (images) {
+  const upscale = request.upscale && request.hr_scale !== undefined && images?.size ? hiresSize(images.size.width, images.size.height, request.hr_scale, options.sizeMultiple) : null
+  if (images && upscale) {
+    graph['8'] = { class_type: 'LoadImage', inputs: { image: images.source } }
+    latent = enlarged(['8', 0], upscale)
+  } else if (images) {
     graph['8'] = { class_type: 'LoadImage', inputs: { image: images.source } }
     graph['9'] = { class_type: 'VAEEncode', inputs: { pixels: ['8', 0], vae: ['1', 2] } }
     latent = ['9', 0]
@@ -402,22 +421,17 @@ export function buildComfyGraph(
       latent_image: latentImage,
     },
   })
-  graph['5'] = sampler(request.num_inference_steps, images ? images.strength : 1, latent)
+  // An upscale's only sampler redraws the enlarged source at the hires denoise.
+  graph['5'] = upscale
+    ? sampler(hiresSteps(request), request.hr_denoise ?? 0.4, latent)
+    : sampler(request.num_inference_steps, images ? images.strength : 1, latent)
   let last: [string, number] = ['5', 0]
   // Hires fix: decode, upscale (with a model, then to the exact size), encode,
   // and sample again with the same prompts (and skeleton) at hr_denoise.
   if (request.hr_scale !== undefined && !images) {
-    const size = hiresSize(snap(request.width), snap(request.height), request.hr_scale, options.sizeMultiple)
     graph['40'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
-    let pixels: [string, number] = ['40', 0]
-    if (options.upscaleModel) {
-      graph['44'] = { class_type: 'UpscaleModelLoader', inputs: { model_name: options.upscaleModel } }
-      graph['45'] = { class_type: 'ImageUpscaleWithModel', inputs: { upscale_model: ['44', 0], image: pixels } }
-      pixels = ['45', 0]
-    }
-    graph['41'] = { class_type: 'ImageScale', inputs: { image: pixels, upscale_method: 'lanczos', width: size.width, height: size.height, crop: 'disabled' } }
-    graph['42'] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae: ['1', 2] } }
-    graph[HIRES_SAMPLER] = sampler(hiresSteps(request), request.hr_denoise ?? 0.4, ['42', 0])
+    const size = hiresSize(snap(request.width), snap(request.height), request.hr_scale, options.sizeMultiple)
+    graph[HIRES_SAMPLER] = sampler(hiresSteps(request), request.hr_denoise ?? 0.4, enlarged(['40', 0], size))
     last = [HIRES_SAMPLER, 0]
   }
   graph['6'] = { class_type: 'VAEDecode', inputs: { samples: last, vae: ['1', 2] } }
@@ -549,6 +563,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         preciseCancel: true,
         // On the built-in graph, from core nodes only; a workflow keeps its own passes.
         hires: alive,
+        upscale: alive,
       },
       hints: comfyHints(alive, pose),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
@@ -621,7 +636,7 @@ export class ComfyUIAdapter implements BackendAdapter {
 
     const inflight: Inflight = { runId: null, cancelRequested: false, secret: request.secret === true, promptIds: [], uploads: [] }
     let drawn = request
-    let images: { source: string; mask?: string; strength: number } | undefined
+    let images: SourceImages | undefined
     if (request.init_image_base64) {
       const prepared = await preparedImages(request, getProfile(this.config.profile).sizeMultiple)
       if (!prepared) return { ok: false, status: 400, error: 'Could not read the source image' }
@@ -638,7 +653,13 @@ export class ComfyUIAdapter implements BackendAdapter {
         }
         mask = uploaded.name
       }
-      images = { source: source.name, ...(mask ? { mask } : {}), strength: request.strength ?? 0.6 }
+      images = {
+        source: source.name,
+        ...(mask ? { mask } : {}),
+        strength: request.strength ?? 0.6,
+        // Uploaded at its own size: the graph enlarges it.
+        ...(request.upscale ? { size: { width: prepared.width, height: prepared.height } } : {}),
+      }
       drawn = { ...request, width: prepared.width, height: prepared.height }
     }
     let pose: { image: string; strength: number } | undefined
@@ -739,7 +760,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
     inflight: Inflight,
-    uploaded: { images?: { source: string; mask?: string; strength: number }; pose?: { image: string; strength: number } },
+    uploaded: { images?: SourceImages; pose?: { image: string; strength: number } },
     workflow?: ComfyGraph,
     upscaleModel?: string
   ): AsyncGenerator<BackendEvent> {
@@ -823,8 +844,11 @@ export class ComfyUIAdapter implements BackendAdapter {
         inflight.promptIds.push(promptId)
         // Hires fix on the built-in graph: the bar runs on through the second
         // sampler, and the upscale model's own progress (tiles) is not steps.
-        const hires = !workflow && request.hr_scale !== undefined
-        yield { type: 'start', index, total, steps: request.num_inference_steps + (hires ? hiresSteps(request) : 0), runId: promptId }
+        // An upscale has one sampler, the redraw; its model's tiles are not steps either.
+        const upscaling = !workflow && request.upscale === true && request.hr_scale !== undefined
+        const hires = !workflow && request.hr_scale !== undefined && !upscaling
+        const steps = upscaling ? hiresSteps(request) : request.num_inference_steps + (hires ? hiresSteps(request) : 0)
+        yield { type: 'start', index, total, steps, runId: promptId }
 
         // Wait for the prompt to finish: the socket says so first, /history in any case.
         let ended: 'done' | 'cancelled' | { error: string } | null = null
@@ -837,7 +861,17 @@ export class ComfyUIAdapter implements BackendAdapter {
             const message = inbox.shift() as { type?: unknown; data?: Record<string, unknown> } | null
             const data = message?.data ?? {}
             if (data.prompt_id !== promptId) continue
-            const offset = !hires ? 0 : data.node === FIRST_SAMPLER ? 0 : data.node === HIRES_SAMPLER ? request.num_inference_steps : null
+            const offset = upscaling
+              ? data.node === FIRST_SAMPLER
+                ? 0
+                : null
+              : !hires
+                ? 0
+                : data.node === FIRST_SAMPLER
+                  ? 0
+                  : data.node === HIRES_SAMPLER
+                    ? request.num_inference_steps
+                    : null
             if (message?.type === 'progress' && typeof data.value === 'number' && offset !== null && offset + data.value > lastStep) {
               lastStep = offset + data.value
               yield { type: 'step', index, step: lastStep }

@@ -105,9 +105,24 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     request.pose_is_skeleton = body.pose_is_skeleton === true
     request.pose_strength = num(body.pose_strength, 1, 0, 2)
   }
+  // Upscale: the source itself, larger and redrawn. Nothing else rides along:
+  // no mask, no skeleton, no workflow, and no strength (hr_denoise is it).
+  const upscale = body.upscale === true && request.init_image_base64 !== undefined && typeof body.hr_scale === 'number'
+  if (upscale) {
+    delete request.mask_base64
+    delete request.mask_blur
+    delete request.strength
+    delete request.pose_image_base64
+    delete request.pose_is_skeleton
+    delete request.pose_strength
+    delete request.workflow
+    request.upscale = true
+  }
   // Hires fix redraws a txt2img picture; a source image or a workflow has its own passes.
-  if (typeof body.hr_scale === 'number' && !request.init_image_base64 && !request.workflow) {
-    request.hr_scale = num(body.hr_scale, HIRES_DEFAULTS.scale, HIRES_LIMITS.minScale, maxHiresScale(request.width, request.height))
+  if (typeof body.hr_scale === 'number' && (upscale || (!request.init_image_base64 && !request.workflow))) {
+    // An upscale's sides are held to 4096 where its source's size is known (hiresSize).
+    const maxScale = upscale ? HIRES_LIMITS.maxScale : maxHiresScale(request.width, request.height)
+    request.hr_scale = num(body.hr_scale, HIRES_DEFAULTS.scale, HIRES_LIMITS.minScale, maxScale)
     request.hr_steps = Math.round(num(body.hr_steps, HIRES_DEFAULTS.steps, 0, HIRES_LIMITS.maxSteps))
     request.hr_denoise = num(body.hr_denoise, HIRES_DEFAULTS.denoise, HIRES_LIMITS.minDenoise, HIRES_LIMITS.maxDenoise)
     request.hr_upscaler = upscalerName(body.hr_upscaler)
@@ -122,7 +137,8 @@ function upscalerName(value: unknown): string {
     : HIRES_DEFAULTS.upscaler
 }
 
-export function modeOf(request: GenerateRequest): 'txt2img' | 'img2img' | 'inpaint' | 'pose' {
+export function modeOf(request: GenerateRequest): 'txt2img' | 'img2img' | 'inpaint' | 'pose' | 'upscale' {
+  if (request.upscale) return 'upscale'
   if (request.pose_image_base64) return 'pose'
   if (request.init_image_base64) return request.mask_base64 ? 'inpaint' : 'img2img'
   return 'txt2img'

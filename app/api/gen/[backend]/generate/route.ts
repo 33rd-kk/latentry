@@ -7,6 +7,7 @@ import { saveToGallery } from '@/lib/gallery/save'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
+import { imageSize } from '@/lib/backends/images'
 import { workflowAccess } from '@/lib/backends/workflow-access'
 
 export const runtime = 'nodejs'
@@ -59,9 +60,14 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     if (!started.ok) return jsonError(started.error, started.status)
 
     const profile = typeof body.profile === 'string' ? body.profile : adapter.config.profile
-    const steps = generate.init_image_base64
-      ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, profile)
-      : generate.num_inference_steps + hiresSteps(generate)
+    // An upscale runs only its redraw; hires fix both passes.
+    const steps = generate.upscale
+      ? hiresSteps(generate)
+      : generate.init_image_base64
+        ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, profile)
+        : generate.num_inference_steps + hiresSteps(generate)
+    // The record names an upscale's size before it, as hires fix's: the source's.
+    const sourceSize = generate.upscale && generate.init_image_base64 ? await imageSize(generate.init_image_base64) : null
     const job = startJob({
       backend: id,
       total: generate.image_count,
@@ -71,7 +77,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
         // The settings without the pictures: the record only needs to say a
         // source was used (strength is set exactly when one was), and the
         // base64 would sit in memory for as long as the job does.
-        request: { ...generate, init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
+        request: { ...generate, ...(sourceSize ?? {}), init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
         profile,
         kind: adapter.config.kind,
         // A workflow loads its own model unless one is set for the backend; status cannot say which.

@@ -9,7 +9,8 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
-import { toGenerateRequest } from '../lib/api'
+import { modeOf, toGenerateRequest } from '../lib/api'
+import { hiresSchedule } from '../lib/diffusion/hires'
 import { A1111Adapter } from '../lib/backends/a1111'
 import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
@@ -70,6 +71,8 @@ function scriptedWebUi(options: {
     post(path, body) {
       calls.push({ method: 'POST', path, body })
       if (path === '/sdapi/v1/interrupt') return Promise.resolve({ status: 200, body: {} })
+      // The extras tab answers at once, with the picture it enlarged.
+      if (path === '/sdapi/v1/extra-single-image') return Promise.resolve({ status: 200, body: { image: 'UPSCALED', html_info: '' } })
       return new Promise((resolve) => {
         finish = resolve
       })
@@ -162,6 +165,30 @@ async function main() {
   check(maskMeta.channels[0].max === 255, 'painted alpha became white')
   eq(await toA1111Payload({ ...REQUEST, init_image_base64: 'bm90IGFuIGltYWdl' }, 8), null, 'an unreadable source')
 
+  // Upscale: the extras tab enlarges the 600 x 900 source to 1.5x, img2img redraws it.
+  const UPSCALE: GenerateRequest = {
+    ...REQUEST,
+    image_count: 1,
+    init_image_base64: source.toString('base64'),
+    upscale: true,
+    hr_scale: 1.5,
+    hr_steps: 12,
+    hr_denoise: 0.35,
+    hr_upscaler: 'R-ESRGAN 4x+',
+  }
+  const upscalePayload = await toA1111Payload(UPSCALE, 8)
+  eq(
+    [upscalePayload?.path, upscalePayload?.body.width, upscalePayload?.body.height, upscalePayload?.body.denoising_strength, upscalePayload?.body.steps, 'init_images' in (upscalePayload?.body ?? {})],
+    ['/sdapi/v1/img2img', 904, 1352, 0.35, hiresSchedule(12, 0.35), false],
+    'upscale: img2img at the source size times the scale, with a schedule that runs the hires steps; its picture comes from extras'
+  )
+  eq(
+    upscalePayload?.extras && [upscalePayload.extras.resize_mode, upscalePayload.extras.upscaling_resize_w, upscalePayload.extras.upscaling_resize_h, upscalePayload.extras.upscaler_1],
+    [1, 904, 1352, 'R-ESRGAN 4x+'],
+    'the extras call enlarges to that exact size with the chosen upscaler'
+  )
+  eq([hiresSchedule(12, 0.35), hiresSchedule(10, 0.4), hiresSchedule(20, 1)], [35, 25, 20], 'the schedule an img2img pass is asked for to run the steps')
+
   // ── A1111 run ──
   const png = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#fff' } }).png().toBuffer()
   const ui = scriptedWebUi({
@@ -246,6 +273,37 @@ async function main() {
     ['start:40', 'step:12', 'step:24', 'image', 'done'],
     'hires fix with the same count: the step starting over begins the second pass'
   )
+
+  // Upscale: extras first, then img2img on what it answered, its steps on their own.
+  const upscaleUi = scriptedWebUi({
+    progress: [
+      { job_count: 0, job_timestamp: 'old' },
+      { job_count: 0, job_timestamp: 'extras' },
+      { job_count: 1, job_no: 0, job_timestamp: 'up', sampling_step: 6, sampling_steps: 12 },
+      { job_count: 1, job_no: 0, job_timestamp: 'up', sampling_step: 12, sampling_steps: 12 },
+      { job_count: 0, job_timestamp: 'up' },
+    ],
+    pollsBeforeDone: 4,
+    result: { status: 200, body: { images: [png.toString('base64')], info: '{"all_seeds":[3]}' } },
+  })
+  const upscaleRun = await new A1111Adapter({ id: 'upscale', kind: 'a1111', url: 'http://web.ui', profile: 'sdxl' }, upscaleUi.transport).start(UPSCALE)
+  const upscaleEvents = upscaleRun.ok ? await collect(upscaleRun.value) : []
+  eq(
+    upscaleEvents.map((event) => (event.type === 'start' ? `start:${event.steps}` : event.type === 'step' ? `step:${event.step}` : event.type)),
+    ['start:12', 'step:6', 'step:12', 'image', 'done'],
+    'upscale: one bar for the redraw, after the extras call'
+  )
+  const posts = upscaleUi.calls.filter((call) => call.method === 'POST')
+  eq(
+    [posts.map((call) => call.path), (posts[1]?.body as { init_images?: unknown })?.init_images],
+    [['/sdapi/v1/extra-single-image', '/sdapi/v1/img2img'], ['UPSCALED']],
+    'extras enlarges the source, and img2img redraws the picture it answered'
+  )
+  const refusingUi = scriptedWebUi({ progress: [{ job_count: 0, job_timestamp: 'old' }], pollsBeforeDone: 0, result: { status: 200, body: {} } })
+  refusingUi.transport.post = async (path) => (path === '/sdapi/v1/extra-single-image' ? { status: 422, body: { detail: 'Upscaler not found' } } : { status: 200, body: {} })
+  const extrasRefused = await new A1111Adapter({ id: 'refusing', kind: 'a1111', url: 'http://web.ui', profile: 'sdxl' }, refusingUi.transport).start(UPSCALE)
+  const refusedEvents = extrasRefused.ok ? await collect(extrasRefused.value) : []
+  eq(refusedEvents, [{ type: 'error', message: 'Upscaler not found' }], 'an extras refusal is the run\'s error, and nothing is drawn')
   // Asked after the run: every status call polls progress too, which would
   // otherwise use up the scripted "before" state.
   const status = await adapter.status()
@@ -373,24 +431,25 @@ async function main() {
   eq(diffusersHints(null), {}, 'a server that did not answer gets no feature hints')
   eq(
     diffusersHints({ model: 'anima' }),
-    { pose: { reason: 'not-reported' }, hires: { reason: 'not-reported' } },
-    'a server silent about pose and hires fix is told to report them; img2img and inpaint stay on'
+    { pose: { reason: 'not-reported' }, hires: { reason: 'not-reported' }, upscale: { reason: 'not-reported' } },
+    'a server silent about pose, hires fix and upscale is told to report them; img2img and inpaint stay on'
   )
-  eq(diffusersHints({ pose_control: true, hires: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
-  eq(diffusersHints({ pose_control: true, hires: true }), {}, 'a server with pose, hires fix and default img2img/inpaint has no hints')
-  eq(diffusersHints({ pose_control: true, hires: false }), { hires: { reason: 'declined' } }, 'hires fix said no to is declined')
+  eq(diffusersHints({ pose_control: true, hires: true, upscale: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
+  eq(diffusersHints({ pose_control: true, hires: true, upscale: true }), {}, 'a server with pose, hires fix, upscale and default img2img/inpaint has no hints')
+  eq(diffusersHints({ pose_control: true, hires: false, upscale: true }), { hires: { reason: 'declined' } }, 'hires fix said no to is declined')
+  eq(diffusersHints({ pose_control: true, hires: true, upscale: false }), { upscale: { reason: 'declined' } }, 'and so is upscale')
   eq(
-    diffusersHints({ pose_control: false, inpaint: false, hires: true, unavailable: { pose: 'Needs a 28-layer model.' } }),
+    diffusersHints({ pose_control: false, inpaint: false, hires: true, upscale: true, unavailable: { pose: 'Needs a 28-layer model.' } }),
     { inpaint: { reason: 'declined' }, pose: { reason: 'declined', detail: 'Needs a 28-layer model.' } },
     "an explicit false is declined, with the server's reason when it gives one"
   )
   eq(
-    diffusersHints({ hires: true, unavailable: { pose: 'Adapter weights missing.' } }),
+    diffusersHints({ hires: true, upscale: true, unavailable: { pose: 'Adapter weights missing.' } }),
     { pose: { reason: 'declined', detail: 'Adapter weights missing.' } },
     'a reason without the flag still counts as the server declining'
   )
-  eq(diffusersHints({ pose_control: true, hires: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
-  eq(diffusersHints({ hires: true, unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
+  eq(diffusersHints({ pose_control: true, hires: true, upscale: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
+  eq(diffusersHints({ hires: true, upscale: true, unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
   eq(hintDetail('  two\nlines\t here  '), 'two lines here', 'a reason is folded onto one line')
   eq(hintDetail(''), undefined, 'an empty reason is none')
   eq(hintDetail(42), undefined, 'a reason that is not text is none')
@@ -471,6 +530,28 @@ async function main() {
   eq(parsed({ hr_scale: 2, hr_upscaler: 'a\nb' })?.hr_upscaler, 'Lanczos', 'an upscaler name with control characters falls back to Lanczos')
   eq('hr_scale' in (parsed({ hr_scale: 2, init_image_base64: 'AAAA' }) ?? {}), false, 'not with a source image: that run is img2img')
   eq('hr_scale' in (parsed({ hr_scale: 2, workflow: 'mine' }) ?? {}), false, 'nor with a workflow, which has its own passes')
+
+  // ── Upscale in a request ──
+  const upscaled = parsed({
+    upscale: true,
+    init_image_base64: 'AAAA',
+    strength: 0.6,
+    mask_base64: 'BBBB',
+    pose_image_base64: 'CCCC',
+    workflow: 'mine',
+    hr_scale: 3,
+    hr_steps: 8,
+    hr_denoise: 0.3,
+  })
+  eq(
+    [upscaled?.upscale, upscaled?.init_image_base64, upscaled?.hr_scale, upscaled?.hr_denoise, 'strength' in (upscaled ?? {}), 'mask_base64' in (upscaled ?? {}), 'pose_image_base64' in (upscaled ?? {}), 'workflow' in (upscaled ?? {})],
+    [true, 'AAAA', 3, 0.3, false, false, false, false],
+    'upscale keeps the source and hr_* (its scale held to 4 here; the backend holds the sides to 4096) and drops the rest'
+  )
+  eq(modeOf(upscaled!), 'upscale', 'its mode is upscale')
+  eq('upscale' in (parsed({ upscale: true, hr_scale: 2 }) ?? {}), false, 'no upscale without a source')
+  const sourceOnly = parsed({ upscale: true, init_image_base64: 'AAAA', strength: 0.5 })
+  eq([sourceOnly?.upscale, sourceOnly?.strength], [undefined, 0.5], 'nor without hr_*: then it is plain img2img')
 
   // ── A1111's lists are per server ──
   const served = (name: string): A1111Transport => ({

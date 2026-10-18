@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { ExternalLink, Eye, FolderOpen, ImageUp, Loader2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { ExternalLink, Eye, FolderOpen, ImageUp, Loader2, Maximize2, PersonStanding, Tags, Wand2 } from "lucide-react"
 import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
 import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
@@ -126,8 +126,10 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     router.push("/")
   }
 
-  const sendSource = (as: "variation" | "pose") => {
-    pushHandoff({ type: "source", url: pictureUrl(picture), as })
+  const sendSource = (as: "variation" | "pose" | "upscale") => {
+    // An upscale redraws this picture, so its own prompts go along when it has them.
+    const words = as === "upscale" && meta?.prompt ? { prompt: meta.prompt, negativePrompt: meta.negativePrompt } : {}
+    pushHandoff({ type: "source", url: pictureUrl(picture), as, ...words })
     router.push("/")
   }
 
@@ -162,6 +164,9 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     if (meta.cfg !== undefined) facts.push([t("gallery.cfg"), meta.cfg])
     if (meta.sampler) facts.push([t("gallery.sampler"), [meta.sampler, meta.scheduler].filter(Boolean).join(" / ")])
     if (meta.strength !== undefined) facts.push([t("gallery.strength"), meta.strength])
+    if (meta.hires) {
+      facts.push([t("gallery.hires"), t("gallery.hiresValue", { scale: meta.hires.scale, upscaler: meta.hires.upscaler, denoise: meta.hires.denoise })])
+    }
   }
 
   const action = "flex items-center gap-1 rounded px-2 py-1 text-xs text-white/85 hover:bg-white/15 hover:text-white disabled:opacity-50"
@@ -186,6 +191,10 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         <button type="button" className={action} onClick={() => sendSource("pose")} title={t("gallery.useAsPoseHint")}>
           <PersonStanding className="h-3 w-3" />
           {t("gallery.useAsPose")}
+        </button>
+        <button type="button" className={action} onClick={() => sendSource("upscale")} title={t("gallery.upscaleHint")}>
+          <Maximize2 className="h-3 w-3" />
+          {t("gallery.upscale")}
         </button>
         {canTag && (
           <button

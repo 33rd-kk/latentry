@@ -138,6 +138,25 @@ The saved picture records the first pass's size with its hires settings, as
 A1111 does. **Generate with these settings** in the gallery turns hires fix
 back on with them, on the same backend.
 
+### Upscale a picture
+
+To give a finished picture the same treatment, choose **Upscale** in the
+gallery's side panel, or set the picture as the source and pick **Upscale**
+under **What the source is for**. The picture's own prompts come along when
+it has them; otherwise use the ones in the form. The same knobs as hires fix
+appear in the source slot: **Upscaler**, **Upscale by** (from the picture's
+own size, up to 4096 pixels a side), **Hires steps** (at 0, the form's
+Steps) and **Denoising strength**. Width and Height are not used.
+
+- An A1111 or Forge web UI enlarges the picture in its Extras tab with the
+  chosen upscaler, then redraws it with img2img. Its latent modes are not
+  offered here.
+- ComfyUI loads the picture at its own size and enlarges it in the graph.
+- The saved picture records the size it had before, its hires settings and
+  the mode `upscale`.
+- A picture larger than 2048 pixels a side is shrunk to that when it is
+  loaded as a source.
+
 ## Results
 
 Progress shows overall and per image. Each finished picture has:

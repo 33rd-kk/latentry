@@ -48,6 +48,7 @@ interface HealthBody {
   img2img?: unknown
   inpaint?: unknown
   hires?: unknown
+  upscale?: unknown
   upscalers?: unknown
   /** Per feature, the server's own reason it is off. */
   unavailable?: unknown
@@ -95,6 +96,7 @@ export class DiffusersAdapter implements BackendAdapter {
     // so it leads; the layer count tells apart two releases of the same name.
     const label = transformer ? `${transformer} (${model})` : model
     const hires = health?.hires === true
+    const upscale = health?.upscale === true
     return {
       id: this.config.id,
       kind: this.config.kind,
@@ -116,11 +118,13 @@ export class DiffusersAdapter implements BackendAdapter {
         preciseCancel: true,
         // Only a server that says so: one that does not would drop the hr_* fields and draw at the first size.
         hires,
+        // The same: one that does not would redraw at the form's size instead.
+        upscale,
       },
       hints: diffusersHints(health as Record<string, unknown> | null),
       samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
       schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
-      upscalers: hires ? (stringList(health?.upscalers) ?? [LANCZOS]) : [],
+      upscalers: hires || upscale ? (stringList(health?.upscalers) ?? [LANCZOS]) : [],
       ...(problem ? { problem } : {}),
     }
   }

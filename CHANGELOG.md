@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Upscale a picture from the gallery**: a new **Upscale** button in the
+  gallery's side panel (and a third mode of the source image) makes a
+  finished picture larger and redraws its detail, hires fix for a picture
+  that already exists. The picture's own prompts come along. On A1111 /
+  Forge the Extras tab enlarges it with the chosen upscaler before img2img;
+  on ComfyUI the graph does, with Lanczos or an upscale model. The saved
+  picture records the mode `upscale`, its size before and its hires
+  settings, which the side panel now shows.
+
 - **Hires fix on Latentry's engine**: SDXL and Anima models get the Hires fix
   section too. The engine upscales with Lanczos (no upscale model to fetch)
   and redraws with the img2img pipeline on the same weights and LoRAs, one

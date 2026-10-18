@@ -23,7 +23,7 @@ import { loraCallsInPrompt } from '@/lib/image-meta'
 import { getProfile } from '@/lib/profiles'
 import { a1111Hints, problemOf } from './hints'
 import { errorMessage, isAbortError, stripDataUrl } from './http'
-import { DEFAULT, seedsFromInfo, toA1111Payload } from './a1111-payload'
+import { DEFAULT, seedsFromInfo, toA1111Payload, type A1111Payload } from './a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from './a1111-tagger'
 import { httpTransport, type A1111Transport, type ProgressState } from './a1111-transport'
 import type {
@@ -170,6 +170,8 @@ export class A1111Adapter implements BackendAdapter {
         presets: false,
         preciseCancel: false,
         hires: true,
+        // Its extras upscale the source, then img2img redraws it.
+        upscale: true,
       },
       hints: a1111Hints(progress !== null),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
@@ -208,12 +210,40 @@ export class A1111Adapter implements BackendAdapter {
     return { ok: true, value: this.run(payload, request, before.job_timestamp ?? null, inflight) }
   }
 
-  private async *run(
-    payload: { path: string; body: Record<string, unknown> },
-    request: GenerateRequest,
-    timestampBefore: string | null,
-    inflight: Inflight
-  ): AsyncGenerator<BackendEvent> {
+  private release(inflight: Inflight): void {
+    if (inflightRuns.get(this.config.id) === inflight) inflightRuns.delete(this.config.id)
+  }
+
+  /** An upscale's first call, the extras tab enlarging the source, then the run itself. */
+  private async *run(payload: A1111Payload, request: GenerateRequest, timestampBefore: string | null, inflight: Inflight): AsyncGenerator<BackendEvent> {
+    if (payload.extras) {
+      let upscaled: { status: number; body: unknown }
+      try {
+        upscaled = await this.http.post('/sdapi/v1/extra-single-image', payload.extras, { timeoutMs: null })
+      } catch (error) {
+        this.release(inflight)
+        yield { type: 'error', message: isAbortError(error) ? 'Timed out waiting for the backend' : 'Could not reach the backend' }
+        return
+      }
+      const image = (upscaled.body as { image?: unknown } | null)?.image
+      if (upscaled.status !== 200 || typeof image !== 'string' || !image) {
+        this.release(inflight)
+        yield { type: 'error', message: errorMessage(upscaled.body, `Backend error: ${upscaled.status}`) }
+        return
+      }
+      if (inflight.cancelRequested) {
+        this.release(inflight)
+        yield { type: 'cancelled' }
+        return
+      }
+      payload = { path: payload.path, body: { ...payload.body, init_images: [stripDataUrl(image)] } }
+      // The extras call is a job of its own; the run's is the one after it.
+      timestampBefore = (await this.progress())?.job_timestamp ?? timestampBefore
+    }
+    yield* this.sample(payload, request, timestampBefore, inflight)
+  }
+
+  private async *sample(payload: A1111Payload, request: GenerateRequest, timestampBefore: string | null, inflight: Inflight): AsyncGenerator<BackendEvent> {
     const total = payload.body.n_iter as number
     // A holder rather than a `let`: it is written from the promise callbacks,
     // which TypeScript's narrowing inside the loop below cannot see.
@@ -229,7 +259,8 @@ export class A1111Adapter implements BackendAdapter {
 
     // Hires fix samples each picture twice, and the web UI counts each pass from
     // one: the bar runs on through both, the second pass after the first's steps.
-    const hiresPass = hiresSteps(request)
+    // An upscale's img2img is a single pass of its own.
+    const hiresPass = request.upscale ? 0 : hiresSteps(request)
     let announced = -1
     let announcedSteps = -1
     let passSteps = -1
@@ -309,7 +340,7 @@ export class A1111Adapter implements BackendAdapter {
       }
       yield inflight.cancelRequested ? { type: 'cancelled' } : { type: 'done' }
     } finally {
-      if (inflightRuns.get(this.config.id) === inflight) inflightRuns.delete(this.config.id)
+      this.release(inflight)
     }
   }
 
