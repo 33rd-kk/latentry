@@ -118,6 +118,8 @@ outfit does not carry over.
 
 ## Hires fix
 
+![The Hires fix section switched on: upscaler, upscale by, hires steps and denoising strength](../assets/manual-hires.webp){ width="360" }
+
 **Hires fix** draws each picture at the size above, upscales it, and redraws
 it at the larger size, so the detail is drawn at full resolution instead of
 stretched. It is off until you switch it on, and takes longer: the progress
@@ -144,6 +146,8 @@ A1111 does. **Generate with these settings** in the gallery turns hires fix
 back on with them, on the same backend.
 
 ### Upscale a picture
+
+![A source picture set to Upscale, with its upscaler and size](../assets/manual-upscale.webp){ width="400" }
 
 To give a finished picture the same treatment, choose **Upscale** in the
 gallery's side panel, or set the picture as the source and pick **Upscale**

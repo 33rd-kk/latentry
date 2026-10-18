@@ -15,6 +15,10 @@
   blank instead of saying there are none.
 - **Screen readers** now hear a name for every slider on Generate, for the
   gallery's filter menus and for the saved-characters menu.
+- **New screenshots in the guide**: the gallery and its viewer as they look
+  now, filters, Compare, hires fix, upscaling a source, secret mode on
+  Generate, and pairing a phone. `npm run docs:screenshots` retakes them from
+  a clean Latentry with public example pictures.
 
 ## 0.9.0 (2026-10-18)
 

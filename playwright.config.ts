@@ -16,6 +16,8 @@ const ci = !!process.env.CI
 
 export default defineConfig({
   testDir: 'e2e',
+  // npm run docs:screenshots runs the shots for the guide instead of the tests.
+  testMatch: process.env.DOCS_SHOTS ? '**/*.shots.ts' : '**/*.spec.ts',
   // One server and one backend: runs share them, so they go one at a time.
   workers: 1,
   fullyParallel: false,
