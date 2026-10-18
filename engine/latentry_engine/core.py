@@ -327,7 +327,12 @@ class Engine:
                     }
                     if hires_skeleton is not None:
                         hires_arguments.update(control_image=hires_skeleton, controlnet_conditioning_scale=request.pose_strength)
-                    _tile_large(hires_pipe.vae, hires_width, hires_height)
+                    # The larger canvas is always encoded and decoded in tiles: at
+                    # full precision a whole one can take the last GB the GPU has
+                    # (seen at 1248 x 1824 with the pose ControlNet loaded).
+                    hires_pipe.vae.enable_tiling()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
                     try:
                         images = hires_pipe(**hires_arguments).images
                     finally:
@@ -420,17 +425,27 @@ class Engine:
                 image = output.images[0] if hasattr(output, "images") else output.get("images")[0]
                 if hires:
                     state.update(forwards=0, offset=steps)
-                    output = pipe(
-                        **{
-                            **arguments,
-                            "width": hires_width,
-                            "height": hires_height,
-                            "image": image.resize((hires_width, hires_height), Image.Resampling.LANCZOS),
-                            "strength": request.hr_denoise,
-                            "num_inference_steps": hires_schedule_steps,
-                            "generator": torch.Generator(self.plan.device).manual_seed(seed),
-                        }
-                    )
+                    # As on SDXL: the larger canvas in tiles (whole, 1536 x 1536 ran out of memory).
+                    vae = getattr(pipe, "vae", None)
+                    if vae is not None:
+                        vae.enable_tiling()
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    try:
+                        output = pipe(
+                            **{
+                                **arguments,
+                                "width": hires_width,
+                                "height": hires_height,
+                                "image": image.resize((hires_width, hires_height), Image.Resampling.LANCZOS),
+                                "strength": request.hr_denoise,
+                                "num_inference_steps": hires_schedule_steps,
+                                "generator": torch.Generator(self.plan.device).manual_seed(seed),
+                            }
+                        )
+                    finally:
+                        if vae is not None:
+                            vae.disable_tiling()
                     image = output.images[0] if hasattr(output, "images") else output.get("images")[0]
                 emit("image", {
                     "index": index,

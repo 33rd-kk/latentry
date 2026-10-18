@@ -87,7 +87,7 @@ def test_the_second_pass_redraws_the_upscaled_picture(engine) -> None:
     image = next(data for event, data in events if event == "image")
     assert pictures.decode_image(image["image_base64"]).size == (1664, 2432)
     assert image["steps_observed"] == 30
-    # 1664 x 2432 is past 1536², so that pass decodes in tiles; the first does not.
+    # The hires pass always encodes and decodes in tiles; the first pass does not at this size.
     assert vae.tiled == [False, True, False]
 
 
