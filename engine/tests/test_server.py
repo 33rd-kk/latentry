@@ -51,9 +51,9 @@ def test_health_needs_no_token_and_says_what_is_off(client: TestClient) -> None:
     assert body["model"] is None
     assert "Default" in body["samplers"]
     # No model loaded: every feature is off, each with a reason to show.
-    assert body["img2img"] is False and body["inpaint"] is False and body["lora"] is False and body["hires"] is False
+    assert body["img2img"] is False and body["inpaint"] is False and body["lora"] is False and body["hires"] is False and body["upscale"] is False
     assert body["upscalers"] == ["Lanczos"]
-    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose", "lora", "hires"}
+    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose", "lora", "hires", "upscale"}
     assert all(isinstance(reason, str) and reason for reason in body["unavailable"].values())
 
 
