@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useRef, useState } from "react"
 import { Brush, Eraser, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -32,6 +32,7 @@ interface MaskEditorProps {
  */
 export function MaskEditor({ source, onChange, disabled, veiled = false, onVeilChange }: MaskEditorProps) {
   const t = useT()
+  const sizeId = useId()
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const drawingRef = useRef(false)
   const lastPointRef = useRef<{ x: number; y: number } | null>(null)
@@ -165,8 +166,9 @@ export function MaskEditor({ source, onChange, disabled, veiled = false, onVeilC
         </Button>
         {onVeilChange && <VeilToggle veiled={veiled} onChange={onVeilChange} />}
         <div className="flex min-w-40 flex-1 items-center gap-2">
-          <Label className="shrink-0 text-xs">{t("generate.maskBrushSize", { value: brushSize })}</Label>
+          <Label id={sizeId} className="shrink-0 text-xs">{t("generate.maskBrushSize", { value: brushSize })}</Label>
           <Slider
+            aria-labelledby={sizeId}
             min={4}
             max={maxBrush}
             step={1}

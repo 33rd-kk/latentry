@@ -139,7 +139,7 @@
     "sourceModeUpscale": "Upscale",
     "upscaleHint": "Makes this picture larger and redraws its detail at the new size, from the prompt above. Width and Height below are not used.",
     "strength": "Strength: {value}",
-    "strengthHint": "Low keeps the source; high redraws more. Output keeps the source's aspect ratio at the width × height area above.",
+    "strengthHint": "Low keeps the source; high redraws more. Output keeps the source's aspect ratio at the width × height area below.",
     "poseHint": "Borrows the reference's composition and silhouette and redraws the rest. If the reference's hair, skin or clothes show through, raise it; if the pose drifts, lower it. Exact limb or finger angles aren't kept.",
     "maskDraw": "Draw mask",
     "maskOn": "Mask set",

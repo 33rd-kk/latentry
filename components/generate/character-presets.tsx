@@ -81,8 +81,10 @@ export function CharacterPresets({ suggestedTags, artist, negativePrompt, seed, 
     <div className="space-y-2">
       <div className="flex items-center gap-2">
         <UserRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <Select value={selectedId} onValueChange={setSelectedId} disabled={disabled || presets.length === 0}>
-          <SelectTrigger className="h-8 flex-1 text-xs">
+        {/* A chosen character that is gone (a temporary one, once secret mode
+            is off) leaves the placeholder, not an empty box. */}
+        <Select value={selected ? selectedId : ""} onValueChange={setSelectedId} disabled={disabled || presets.length === 0}>
+          <SelectTrigger className="h-8 flex-1 text-xs" aria-label={t("generate.characterPick")}>
             <SelectValue placeholder={presets.length ? t("generate.characterPick") : t("generate.characterNone")} />
           </SelectTrigger>
           <SelectContent>

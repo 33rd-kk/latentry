@@ -65,6 +65,10 @@ use **Use as source** under a result. Then choose what it is for:
 - **Pose reference**: the reference's composition and silhouette carry over,
   the rest is redrawn (strength starts at 0.85). For exact limbs, use the
   [skeleton pose](pose.md) instead.
+- **Upscale**: the picture itself is made larger; see
+  [Upscale a picture](#upscale-a-picture).
+
+While a source is set, the **Hires fix** section is hidden.
 
 ### Inpainting: redraw only part of it
 
@@ -88,8 +92,9 @@ overwritten with an empty picture (see
 ### Tags from the source
 
 **Extract tags** reads the source's WD14 tags (a tagger must be set up; see
-[Settings](settings.md)) and sorts them into groups: character, hair, eyes,
-body, outfit, expression, pose, scene. Character groups start selected; click
+[Settings](settings.md)) and sorts them into groups: character, subject,
+hair, eyes, body, outfit, expression, pose, scene / other. The groups that
+make the character (hair, eyes, body, outfit) start selected; click
 a tag or a group name to toggle, then **Add to prompt**. For a pose
 reference, only the pose group starts selected, so the reference's hair or
 outfit does not carry over.

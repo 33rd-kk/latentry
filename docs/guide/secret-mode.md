@@ -46,7 +46,8 @@ reloaded). Deleting a character deletes it for good, in either mode.
   picture blurs and hides again, and so does coming back to it or closing
   the viewer.
 - **Compare** blurs both pictures and hides their differing settings and
-  tags. **Show** reveals them until the comparison is closed.
+  tags. **Show for this comparison** reveals them until the comparison is
+  closed.
 - **Analyze with WD14** still works and saves the tags into the file. The
   panel says how many tags it found instead of listing them.
 

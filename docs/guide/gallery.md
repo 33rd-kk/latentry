@@ -45,8 +45,10 @@ Type in **Search prompts, tags, models, file names**:
   `-model:pony`, `-lora:detail`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
   just text.
 
-**Show search tips** under the box repeats this. **Refresh** picks up
-pictures that arrived from elsewhere.
+While you use the search box, the same tips show under it. **Hide tips**
+turns them off (this browser remembers that), and the **?** next to the box
+(**Show search tips**) brings them back. **Refresh** picks up pictures that
+arrived from elsewhere.
 
 ## Order and filters
 
@@ -70,7 +72,8 @@ Latentry's memory only, never written to disk, and forgotten when Latentry
 stops. Folders of more than 20,000 pictures cannot use these orders.
 
 **Filters** opens the rest; each filter you set shows as a chip under the
-toolbar, with × to remove it (or **Clear all**):
+toolbar, with × to remove it (with two or more, **Clear all** removes them
+all):
 
 - **Shape**: portrait, landscape or square.
 - **File type**: PNG, WebP, JPG.

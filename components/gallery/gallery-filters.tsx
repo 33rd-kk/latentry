@@ -89,7 +89,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
         {secret ? (
           <p className="flex h-8 items-center text-sm text-muted-foreground">{t("gallery.filter.secretHidden")}</p>
         ) : (
-          <OptionSelect value={chosen} all={all} options={options.map((name) => ({ value: name, label: name }))} onChange={(name) => onChange({ [key]: name })} />
+          <OptionSelect label={label} value={chosen} all={all} options={options.map((name) => ({ value: name, label: name }))} onChange={(name) => onChange({ [key]: name })} />
         )}
       </Field>
     )
@@ -127,6 +127,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           </Field>
           <Field label={t("gallery.filter.since")}>
             <OptionSelect
+              label={t("gallery.filter.since")}
               value={query.since}
               all={t("gallery.filter.anyTime")}
               options={SINCE.map((since) => ({ value: since, label: t(`gallery.filter.${since}`) }))}
@@ -135,6 +136,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           </Field>
           <Field label={t("gallery.filter.resolution")}>
             <OptionSelect
+              label={t("gallery.filter.resolution")}
               value={query.resolution}
               all={t("gallery.filter.anyResolution")}
               options={RESOLUTIONS.map((resolution) => ({ value: resolution, label: t(`gallery.filter.${resolution}`) }))}
@@ -145,6 +147,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           {nameField("lora", t("gallery.filter.lora"), t("gallery.filter.allLoras"), facets.loras, reading)}
           <Field label={t("gallery.filter.source")}>
             <OptionSelect
+              label={t("gallery.filter.source")}
               value={query.source}
               all={t("gallery.filter.allSources")}
               options={SOURCES.map((source) => ({ value: source, label: t(`gallery.filter.${source}`) }))}
@@ -153,6 +156,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           </Field>
           <Field label={t("gallery.backend")}>
             <OptionSelect
+              label={t("gallery.backend")}
               value={query.backend}
               all={t("gallery.allBackends")}
               options={backends.map((id) => ({ value: id, label: id }))}
@@ -161,6 +165,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           </Field>
           <Field label={t("gallery.filter.profileLabel")}>
             <OptionSelect
+              label={t("gallery.filter.profileLabel")}
               value={query.profile}
               all={t("gallery.allProfiles")}
               options={profiles.map((profile) => ({ value: profile.id, label: profile.label }))}
@@ -169,6 +174,7 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
           </Field>
           <Field label={t("gallery.filter.group")} hint={t("gallery.filter.groupHint")}>
             <OptionSelect
+              label={t("gallery.filter.group")}
               value={query.group}
               all={t("gallery.filter.noGroup")}
               options={GROUPS.map((group) => ({ value: group, label: t(`gallery.filter.group-${group}`) }))}
@@ -275,11 +281,14 @@ function ToggleChip({ pressed, onClick, children }: { pressed: boolean; onClick:
 
 /** A select whose first entry means "no filter". */
 function OptionSelect<T extends string>({
+  label,
   value,
   all,
   options,
   onChange,
 }: {
+  /** The field it sits in, as its name: the Label above it is not tied to it. */
+  label: string
   value: T | undefined
   all: string
   options: { value: T; label: string }[]
@@ -287,7 +296,7 @@ function OptionSelect<T extends string>({
 }) {
   return (
     <Select value={value ?? ALL} onValueChange={(next) => onChange(next === ALL ? undefined : (next as T))}>
-      <SelectTrigger className="w-full">
+      <SelectTrigger className="w-full" aria-label={label}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

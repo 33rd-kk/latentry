@@ -31,6 +31,9 @@ picture.
   **Log**. An engine still running a version other than the one in
   Latentry's folder was started before an update; Setup says so, and a stop
   and start runs the new one.
+- **Show the LoRA list on paired devices** (off by default): phones and
+  other paired devices get **Add a LoRA** on the Generate page too. The list
+  shows the names of the LoRA files on this computer.
 
 The engine decides once at start how to use the GPU, from the memory that
 is free then:

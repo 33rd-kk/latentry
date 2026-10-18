@@ -95,8 +95,11 @@ been taken over through their extensions.
 - Pages are not cached by the browser. What you type is kept in the browser
   only as the form you see and the characters you save, and not at all in
   [secret mode](secret-mode.md).
-- A secret run saves nothing. On ComfyUI it also blanks the pictures it
-  uploaded and deletes the run from ComfyUI's history.
+- A secret run leaves nothing in the browser, and the server forgets it a
+  minute after it ends. On ComfyUI it also blanks the pictures it uploaded
+  and deletes the run from ComfyUI's history. Its pictures are still saved
+  to the gallery folder, as any run's are (see
+  [what secret mode does not do](secret-mode.md#what-it-does-not-do)).
 - The settings file, the pairing key, the paired-device list and the
   folder-name key can be read only by your account: mode 600, or on Windows
   an access list with only you (and Windows itself).
@@ -111,7 +114,8 @@ See [Privacy](privacy.md).
   they can be read back. What Latentry writes into them holds no paths,
   location or camera data: model and LoRA names are file names only.
 - A ComfyUI backend's full graph is removed from the saved picture.
-- Pictures from a secret run are not saved.
+- Pictures from a secret run are saved like any other, prompt included;
+  move or delete the file to keep one from being shared.
 
 ## What Latentry does not protect against
 
