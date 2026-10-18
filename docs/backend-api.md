@@ -285,6 +285,7 @@ Nothing to install on the ComfyUI side. Latentry uses:
 | `GET /system_stats` | Health |
 | `GET /queue` | Busy state; which prompt is running, for cancel |
 | `GET /object_info/CheckpointLoaderSimple`, `/KSampler`, `/LoraLoader` | The checkpoints, samplers, schedulers and LoRA files |
+| `GET /object_info/UpscaleModelLoader` | The upscale models hires fix can use, offered by file name only |
 | `POST /prompt` | One graph per picture, built by Latentry |
 | `GET /ws?clientId=…` | Progress (`progress`, `executing`, `execution_success`, `execution_error`, `execution_interrupted`) |
 | `GET /history/{prompt_id}` | When the prompt is done (polled when the socket cannot be opened), and its output |
@@ -300,7 +301,12 @@ two `CLIPTextEncode` → `EmptyLatentImage` → `KSampler` → `VAEDecode` →
 latent and the sampler's `denoise` is the strength; to inpaint,
 `LoadImageMask` (red channel: Latentry's mask as white on black, blurred by
 `mask_blur`) → `SetLatentNoiseMask` on top. The source is uploaded at the
-size the run draws, fitted to its aspect. The sampler and scheduler named `Default` are `euler` and
+size the run draws, fitted to its aspect. With hires fix (txt2img only), the
+first `KSampler`'s result goes through `VAEDecode` → (`UpscaleModelLoader` →
+`ImageUpscaleWithModel`, when an upscale model is chosen) → `ImageScale`
+(lanczos, to the exact size) → `VAEEncode` → a second `KSampler` with the
+same seed, prompts and skeleton at `hr_denoise`; its steps follow the first
+sampler's on the progress bar. The sampler and scheduler named `Default` are `euler` and
 `normal`; a random seed is picked by Latentry, so the saved picture says
 which one was used.
 
