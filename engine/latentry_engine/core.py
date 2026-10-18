@@ -31,10 +31,15 @@ from .pictures import (
     encode_png,
     fit_to_image,
     flatten,
+    hires_schedule,
+    hires_size,
     img2img_steps,
     mask_from_alpha,
     snap,
 )
+
+# The only upscaler: no model to fetch or trust, and the same as Latentry's default.
+UPSCALERS = ["Lanczos"]
 from .pipelines import EngineError, Loaded
 from .prompts import encode_sdxl
 
@@ -65,10 +70,23 @@ class GenerateRequest:
     # size: it is letterboxed onto the run's.
     pose_skeleton: Image.Image | None = None
     pose_strength: float = 1.0
+    # Hires fix (txt2img only): each picture upscaled by hr_scale with Lanczos,
+    # then redrawn for hr_steps (0: as many as the first pass) at hr_denoise.
+    hr_scale: float | None = None
+    hr_steps: int = 0
+    hr_denoise: float = 0.4
     # Resolved by loras.resolve, and already taken out of `prompt`.
     loras: list[loras.LoraCall] = field(default_factory=list)
     # Say each LoRA's hash in the image events (A1111's "Lora hashes").
     lora_hashes: bool = False
+
+
+def _tile_large(vae, width: int, height: int) -> None:
+    """Large canvases decode tile by tile; small ones in one go (faster)."""
+    if width * height > 1536 * 1536:
+        vae.enable_tiling()
+    else:
+        vae.disable_tiling()
 
 
 def _with_loras(emit: Emit, applied: list[dict]) -> Emit:
@@ -140,6 +158,8 @@ class Engine:
             "pose_control": self._pose_supported(),
             "lora": self.loaded is not None,
             "tagger": False,
+            "hires": family in (FAMILY_SDXL, FAMILY_ANIMA),
+            "upscalers": UPSCALERS,
             # Why each feature is off, for Latentry to show (docs/backend-api.md).
             "unavailable": self._unavailable(family),
         }
@@ -147,7 +167,7 @@ class Engine:
     def _unavailable(self, family: str | None) -> dict[str, str]:
         if self.loaded is None:
             reason = "No model is loaded. Choose one in Latentry's settings."
-            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason}
+            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason, "hires": reason}
         reasons: dict[str, str] = {}
         if family == FAMILY_ANIMA:
             reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
@@ -181,6 +201,11 @@ class Engine:
             raise EngineError("This model cannot inpaint.")
         if request.pose_skeleton is not None and not self._pose_supported():
             raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
+        if request.hr_scale is not None and request.init_image is not None:
+            raise EngineError("Hires fix redraws a picture drawn from the prompt; it does not go with a source image.")
+        if request.hr_scale is not None and request.pose_skeleton is not None and self.loaded.family == FAMILY_ANIMA:
+            # The pose adapter adds the skeleton at the first pass's size.
+            raise EngineError("On Anima, hires fix and a pose do not go together yet. Turn one off, or use an SDXL model.")
         # Worked out before the first step, so a run that cannot read a
         # LoRA's file fails before it starts.
         applied = loras.applied_list(request.loras, request.lora_hashes)
@@ -212,11 +237,20 @@ class Engine:
         steps = img2img_steps(request.num_inference_steps, request.strength, loaded.family) if source is not None else request.num_inference_steps
         skeleton = letterbox(request.pose_skeleton, (width, height)) if pose else None
 
-        # Large canvases decode tile by tile; small ones in one go (faster).
-        if width * height > 1536 * 1536:
-            pipe.vae.enable_tiling()
-        else:
-            pipe.vae.disable_tiling()
+        # Hires fix: the img2img pipeline on the same weights (and LoRAs),
+        # asked for a schedule long enough to run the hires steps exactly.
+        hires = request.hr_scale is not None and source is None
+        hires_steps = 0
+        if hires:
+            hires_width, hires_height = hires_size(width, height, request.hr_scale)
+            hires_schedule_steps = hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, loaded.family)
+            hires_steps = img2img_steps(hires_schedule_steps, request.hr_denoise, loaded.family)
+            hires_pipe = self._variant("img2img", pose)
+            hires_pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
+            hires_skeleton = letterbox(request.pose_skeleton, (hires_width, hires_height)) if pose else None
+        total_steps = steps + hires_steps
+
+        _tile_large(pipe.vae, width, height)
 
         with loaded.lora_keeper.applied(pipe, request.loras):
             device = getattr(pipe, "_execution_device", self.plan.device)
@@ -224,10 +258,12 @@ class Engine:
             seeds = self._seeds(request)
             generator_device = "cpu" if self.plan.offload != "none" else self.plan.device
             done = 0
-            batch_size = self.pose_batch_size if pose else self.batch_size
+            # With hires fix, one picture at a time: each gets its second pass
+            # before the next, and only one large canvas is on the GPU.
+            batch_size = 1 if hires else self.pose_batch_size if pose else self.batch_size
             while done < len(seeds):
                 batch = seeds[done : done + batch_size]
-                emit("start", {"index": done, "total": len(seeds), "steps": steps, "run_id": run_id})
+                emit("start", {"index": done, "total": len(seeds), "steps": total_steps, "run_id": run_id})
 
                 def on_step(pipeline, step, timestep, kwargs, first=done):
                     if cancel.is_set():
@@ -271,6 +307,33 @@ class Engine:
                     continue
                 if cancel.is_set():
                     raise Cancelled()
+                if hires:
+                    seed = batch[0]
+
+                    def on_hires_step(pipeline, step, timestep, kwargs, first=done):
+                        if cancel.is_set():
+                            pipeline._interrupt = True
+                        emit("step", {"index": first, "step": steps + step + 1})
+                        return kwargs
+
+                    hires_arguments = {
+                        **embeds,
+                        "image": images[0].resize((hires_width, hires_height), Image.Resampling.LANCZOS),
+                        "strength": request.hr_denoise,
+                        "num_inference_steps": hires_schedule_steps,
+                        "guidance_scale": request.guidance_scale,
+                        "generator": torch.Generator(generator_device).manual_seed(seed),
+                        "callback_on_step_end": on_hires_step,
+                    }
+                    if hires_skeleton is not None:
+                        hires_arguments.update(control_image=hires_skeleton, controlnet_conditioning_scale=request.pose_strength)
+                    _tile_large(hires_pipe.vae, hires_width, hires_height)
+                    try:
+                        images = hires_pipe(**hires_arguments).images
+                    finally:
+                        _tile_large(pipe.vae, width, height)
+                    if cancel.is_set():
+                        raise Cancelled()
                 for offset, (image, seed) in enumerate(zip(images, batch)):
                     if mask is not None and source is not None:
                         # Outside the mask, the source's own pixels, exactly.
@@ -281,7 +344,7 @@ class Engine:
                         "total": len(seeds),
                         "seed": seed,
                         "image_base64": encode_png(image),
-                        "steps_observed": steps,
+                        "steps_observed": total_steps,
                         "timings": {"batch": time.time() - started, "batch_size": len(batch)},
                     })
                 done += len(batch)
@@ -298,6 +361,13 @@ class Engine:
         if source is not None:
             source = source.resize((width, height), Image.Resampling.LANCZOS)
         steps = img2img_steps(request.num_inference_steps, request.strength, loaded.family) if source is not None else request.num_inference_steps
+        hires = request.hr_scale is not None and source is None
+        hires_steps = 0
+        if hires:
+            hires_width, hires_height = hires_size(width, height, request.hr_scale, 16)
+            hires_schedule_steps = hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, loaded.family)
+            hires_steps = img2img_steps(hires_schedule_steps, request.hr_denoise, loaded.family)
+        total_steps = steps + hires_steps
 
         guider = getattr(pipe, "guider", None)
         if guider is not None and hasattr(guider, "guidance_scale"):
@@ -305,14 +375,15 @@ class Engine:
         # The modular pipeline has no step callback; count the transformer's
         # forward passes instead (one per guidance condition per step).
         per_step = max(1, int(getattr(guider, "num_conditions", 1) or 1))
-        state = {"forwards": 0, "index": 0}
+        # `offset`: the steps already run for this picture (hires fix's second pass follows the first).
+        state = {"forwards": 0, "index": 0, "offset": 0}
 
         def hook(module, args):
             if cancel.is_set():
                 raise Cancelled()
             state["forwards"] += 1
             if state["forwards"] % per_step == 0:
-                emit("step", {"index": state["index"], "step": state["forwards"] // per_step})
+                emit("step", {"index": state["index"], "step": state["offset"] + state["forwards"] // per_step})
 
         scopes = contextlib.ExitStack()
         try:
@@ -332,8 +403,8 @@ class Engine:
         try:
             seeds = self._seeds(request)
             for index, seed in enumerate(seeds):
-                state.update(forwards=0, index=index)
-                emit("start", {"index": index, "total": len(seeds), "steps": steps, "run_id": run_id})
+                state.update(forwards=0, index=index, offset=0)
+                emit("start", {"index": index, "total": len(seeds), "steps": total_steps, "run_id": run_id})
                 arguments = {
                     "prompt": request.prompt,
                     "negative_prompt": request.negative_prompt,
@@ -347,12 +418,26 @@ class Engine:
                 started = time.time()
                 output = pipe(**arguments)
                 image = output.images[0] if hasattr(output, "images") else output.get("images")[0]
+                if hires:
+                    state.update(forwards=0, offset=steps)
+                    output = pipe(
+                        **{
+                            **arguments,
+                            "width": hires_width,
+                            "height": hires_height,
+                            "image": image.resize((hires_width, hires_height), Image.Resampling.LANCZOS),
+                            "strength": request.hr_denoise,
+                            "num_inference_steps": hires_schedule_steps,
+                            "generator": torch.Generator(self.plan.device).manual_seed(seed),
+                        }
+                    )
+                    image = output.images[0] if hasattr(output, "images") else output.get("images")[0]
                 emit("image", {
                     "index": index,
                     "total": len(seeds),
                     "seed": seed,
                     "image_base64": encode_png(image),
-                    "steps_observed": steps,
+                    "steps_observed": total_steps,
                     "timings": {"image": time.time() - started},
                 })
         finally:

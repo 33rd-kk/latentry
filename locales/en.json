@@ -222,7 +222,7 @@
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
         "inpaint": "The server's /api/health has \"inpaint\": false or no answer for it. Drop that field (or set it to true) and accept \"mask_base64\" and \"mask_blur\" on /api/generate.",
         "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md.",
-        "hires": "The server's /api/health does not say \"hires\": true. To use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md."
+        "hires": "The server's /api/health does not say \"hires\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md."
       }
     }
   },

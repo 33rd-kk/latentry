@@ -51,8 +51,9 @@ def test_health_needs_no_token_and_says_what_is_off(client: TestClient) -> None:
     assert body["model"] is None
     assert "Default" in body["samplers"]
     # No model loaded: every feature is off, each with a reason to show.
-    assert body["img2img"] is False and body["inpaint"] is False and body["lora"] is False
-    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose", "lora"}
+    assert body["img2img"] is False and body["inpaint"] is False and body["lora"] is False and body["hires"] is False
+    assert body["upscalers"] == ["Lanczos"]
+    assert set(body["unavailable"]) == {"img2img", "inpaint", "pose", "lora", "hires"}
     assert all(isinstance(reason, str) and reason for reason in body["unavailable"].values())
 
 
@@ -225,3 +226,18 @@ def test_pose_takes_one_person_everyone_or_some(client: TestClient, person: obje
 def test_generate_caps_the_prompt(client: TestClient) -> None:
     body = {"prompt": "x" * (server.MAX_PROMPT_CHARS + 1)}
     assert client.post("/api/generate", json=body, headers=auth()).status_code == 422
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [{"hr_scale": 0.5}, {"hr_scale": 5}, {"hr_scale": 2, "hr_steps": 201}, {"hr_scale": 2, "hr_denoise": 0}, {"hr_scale": 2, "hr_upscaler": "R-ESRGAN 4x+"}],
+)
+def test_generate_checks_the_hires_fields(client: TestClient, fields: dict) -> None:
+    # Lanczos is the only upscaler; the rest out of range.
+    assert client.post("/api/generate", json={"prompt": "x", **fields}, headers=auth()).status_code == 422
+
+
+def test_generate_reads_the_hires_fields() -> None:
+    body = server.GenerateBody(prompt="x", hr_scale=1.5, hr_steps=12, hr_denoise=0.35, hr_upscaler="Lanczos")
+    assert (body.hr_scale, body.hr_steps, body.hr_denoise) == (1.5, 12, 0.35)
+    assert server.GenerateBody(prompt="x").hr_scale is None

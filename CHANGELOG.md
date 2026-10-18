@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Hires fix on Latentry's engine**: SDXL and Anima models get the Hires fix
+  section too. The engine upscales with Lanczos (no upscale model to fetch)
+  and redraws with the img2img pipeline on the same weights and LoRAs, one
+  picture at a time, running exactly the hires steps asked for, as A1111
+  and ComfyUI do. With SDXL the second pass follows the skeleton too; on
+  Anima, hires fix and a pose do not go together yet. A running engine
+  picks it up after a stop and start.
+
 - **Hires fix on ComfyUI**: the built-in graph gets the same Hires fix
   section, upscaling with Lanczos or an upscale model from ComfyUI's
   `upscale_models` folder (listed by file name, so its folders stay on that
