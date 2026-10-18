@@ -130,6 +130,10 @@ it was made with, its prompt and negative prompt as tags, and its WD14 tags. In
 [secret mode](secret-mode.md) thumbnails are blurred and the panel hides all
 of that until you choose **Show for this picture**.
 
+**Size** is the picture's own. When it was drawn smaller and then enlarged
+(hires fix or Upscale), **Drawn at** gives the size it was drawn at, the one
+its settings name and **Generate with these settings** uses.
+
 From the panel:
 
 - **Generate with these settings**: the prompts and seed go to the form (and,

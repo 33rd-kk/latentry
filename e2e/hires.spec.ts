@@ -37,4 +37,17 @@ test('hires fix is sent with the chosen upscaler and kept in the picture', async
   expect(items).toHaveLength(1)
   expect(items[0].meta?.hires).toEqual({ scale: 2, steps: 0, denoise: 0.4, upscaler: 'R-ESRGAN 4x+' })
   expect(items[0].meta?.strength).toBeUndefined()
+  const meta = items[0].meta as { width?: number; height?: number }
+
+  // The side panel: the file's own size, and the size it was drawn at beside it.
+  await page.goto('/gallery')
+  await page.getByPlaceholder('Search prompts, tags, models, file names').fill(PROMPT)
+  const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
+  await expect(thumbs).toHaveCount(1)
+  await thumbs.first().click()
+  const drawn = page.getByText('Drawn at', { exact: true })
+  if (!(await page.getByRole('button', { name: 'Upscale', exact: true }).isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await expect(page.getByText('64×96', { exact: true })).toBeVisible()
+  await expect(drawn).toBeVisible()
+  await expect(page.getByText(`${meta.width}×${meta.height}`, { exact: true })).toBeVisible()
 })

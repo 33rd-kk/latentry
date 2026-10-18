@@ -346,6 +346,7 @@
     "mode": "Mode",
     "seed": "Seed",
     "size": "Size",
+    "drawnSize": "Drawn at",
     "steps": "Steps",
     "cfg": "CFG",
     "sampler": "Sampler",
