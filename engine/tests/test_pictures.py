@@ -8,6 +8,7 @@ from __future__ import annotations
 import base64
 import io
 
+import pytest
 from PIL import Image
 
 from latentry_engine import pictures
@@ -62,6 +63,30 @@ def test_fit_to_image_keeps_the_source_aspect_at_the_requested_area():
     # 1448.2 / 16 rounds up to 91 sixteens; 724.1 / 16 down to 45.
     assert pictures.fit_to_image(wide, 1024, 1024, 16) == (1456, 720)
     assert pictures.fit_to_image(Image.new("RGB", (64, 64)), 100, 100) == (256, 256)
+
+
+def test_hires_size_scales_past_the_first_pass_limit():
+    # Latentry's hiresSize: 832 x 1216 at 1.5 is 1248 x 1824 (multiples of 8).
+    assert pictures.hires_size(832, 1216, 1.5) == (1248, 1824)
+    assert pictures.hires_size(832, 1216, 1.5, 16) == (1248, 1824)
+    # Past snap()'s 2048, up to 4096 a side.
+    assert pictures.hires_size(1024, 1536, 2) == (2048, 3072)
+    assert pictures.hires_size(2048, 2048, 4) == (4096, 4096)
+
+
+@pytest.mark.parametrize("family", [FAMILY_SDXL, FAMILY_ANIMA])
+@pytest.mark.parametrize("steps,denoise", [(10, 0.4), (28, 0.35), (20, 1.0), (1, 0.05), (30, 0.55)])
+def test_hires_schedule_runs_the_steps_asked_for(family, steps, denoise):
+    asked = pictures.hires_schedule(steps, denoise, family)
+    assert pictures.img2img_steps(asked, denoise, family) == steps
+    # The shortest schedule that does.
+    assert asked == steps or pictures.img2img_steps(asked - 1, denoise, family) < steps
+
+
+def test_hires_schedule_stops_at_the_schedulers_length():
+    asked = pictures.hires_schedule(200, 0.01, FAMILY_SDXL)
+    assert asked == pictures.MAX_SCHEDULE_STEPS
+    assert pictures.img2img_steps(asked, 0.01, FAMILY_SDXL) == 10
 
 
 def test_img2img_steps_follow_each_pipeline():

@@ -61,3 +61,31 @@ def img2img_steps(steps: int, strength: float, family: str) -> int:
         return max(1, min(int(steps * strength), steps))
     init = min(steps * strength, steps)
     return max(1, steps - int(max(steps - init, 0)))
+
+
+# Hires fix's size is not snapped to 2048 like a first pass: Latentry allows
+# up to 4096 a side, and decodes large canvases tile by tile.
+MAX_HIRES_SIDE = 4096
+# The most steps a schedule is asked for, so a low denoise cannot ask for
+# thousands (the schedulers train on 1000 timesteps).
+MAX_SCHEDULE_STEPS = 1000
+
+
+def hires_size(width: int, height: int, scale: float, multiple: int = 8) -> tuple[int, int]:
+    """The size hires fix redraws at: each side scaled and rounded to the multiple (Latentry's hiresSize)."""
+
+    def side(value: int) -> int:
+        return max(multiple, min(MAX_HIRES_SIDE, round(value * scale / multiple) * multiple))
+
+    return side(width), side(height)
+
+
+def hires_schedule(steps: int, denoise: float, family: str) -> int:
+    """The step count to ask img2img for so that it runs `steps` at `denoise`.
+
+    A1111 and ComfyUI run exactly the hires steps asked for; diffusers' img2img
+    runs only the tail of its schedule, so it is asked for a longer one."""
+    asked = steps
+    while asked < MAX_SCHEDULE_STEPS and img2img_steps(asked, denoise, family) < steps:
+        asked += 1
+    return asked

@@ -122,7 +122,7 @@ bar counts both passes.
   works everywhere and needs nothing extra. An A1111 or Forge web UI also
   offers its own upscalers (R-ESRGAN and the like) and its latent modes;
   ComfyUI offers the upscale models in its `models/upscale_models` folder,
-  listed by file name.
+  listed by file name. Latentry's engine has Lanczos only.
 - **Upscale by**: how much larger, with the size it ends at.
 - **Hires steps**: the steps of the second pass. At 0 it runs as many as the
   first.

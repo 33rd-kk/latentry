@@ -28,7 +28,7 @@ import threading
 import uuid
 from pathlib import Path
 from queue import Empty, Queue
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 import poseorbit
 import poseorbit.api
@@ -69,6 +69,12 @@ class GenerateBody(BaseModel):
     pose_image_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
     pose_is_skeleton: bool = False
     pose_strength: float = Field(1.0, ge=0, le=2)
+    # Hires fix (docs/backend-api.md): upscale by hr_scale, then redraw for
+    # hr_steps (0: as many as the first pass) at hr_denoise. Lanczos only.
+    hr_scale: float | None = Field(None, ge=1, le=4)
+    hr_steps: int = Field(0, ge=0, le=200)
+    hr_denoise: float = Field(0.4, ge=0.01, le=1)
+    hr_upscaler: Literal["Lanczos"] = "Lanczos"
     # Say each applied LoRA's hash in the image events. Off unless asked:
     # a hash identifies the file on this machine.
     lora_hashes: bool = False
@@ -264,6 +270,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 mask_blur=body.mask_blur,
                 pose_skeleton=pose_skeleton(body, (body.width, body.height)),
                 pose_strength=body.pose_strength,
+                hr_scale=body.hr_scale,
+                hr_steps=body.hr_steps,
+                hr_denoise=body.hr_denoise,
                 loras=calls,
                 lora_hashes=body.lora_hashes,
             )
