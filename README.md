@@ -19,8 +19,10 @@ made, then sends those settings back to the form to make it again.
 ## What it does
 
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
-  reference) and inpainting with a painted mask. Runs live on the server, so
-  a reload or a second tab picks up a run in progress.
+  reference) and inpainting with a painted mask. Hires fix redraws a new
+  picture at a larger size, and Upscale does the same to one already in the
+  gallery. Runs live on the server, so a reload or a second tab picks up a
+  run in progress.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
   pose in 3D and frame it, then generate along that skeleton. Works on the
@@ -97,10 +99,10 @@ says how. Check your own setup, backends included, with
 
 | Kind | What | Notes |
 |---|---|---|
-| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). 3D pose turning. |
-| `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose (if the server offers it), precise cancel |
-| `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint. No pose control. |
-| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |
+| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). Hires fix and Upscale with Lanczos. 3D pose turning. |
+| `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose, hires fix, Upscale (each if the server offers it), precise cancel |
+| `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint, hires fix and Upscale with the web UI's upscalers. No pose control. |
+| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Hires fix and Upscale with Lanczos or an upscale model. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |
 
 Use the built-in engine, the servers you already run, or both.
 

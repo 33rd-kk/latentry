@@ -2,50 +2,63 @@
 
 ## Unreleased
 
-- **The real size in the gallery**: the side panel's Size is now the
-  picture's own size. For a picture made with hires fix or Upscale, whose
-  settings name the smaller size it was drawn at, a **Drawn at** line shows
-  that one too.
+## 0.9.0 (2026-10-18)
 
-- **Upscale on Latentry's engine**: SDXL and Anima models can upscale a
-  picture too. The engine enlarges it with Lanczos from its own size (up to
-  4096 a side) and redraws it once with img2img, running exactly the hires
-  steps, one picture at a time and decoded in tiles. A running engine picks
-  it up after a stop and start.
+**Upgrading from 0.8.2**: after the usual update, stop and start the engine
+on Setup once, so it runs engine 0.7.0 with hires fix and Upscale (Setup
+says so while the old one runs). There is nothing new to install.
+
+**Hires fix**
+
+- **A Hires fix section on Generate**: each picture drawn from the prompt
+  (with or without a skeleton pose) is upscaled and redrawn at the larger
+  size: choose the upscaler, how much larger, the hires steps (0: as many as
+  the first pass) and the denoising strength. Off by default. The progress
+  bar counts both passes, and the second pass runs exactly the hires steps
+  on every backend.
+- **On A1111 / Forge** it is the web UI's own hires fix, with its upscalers
+  (Lanczos, R-ESRGAN and the like) and latent modes. Only upscalers already
+  on disk are offered, so none makes the web UI download a model. Forge and
+  its forks get the fields their second pass needs and the first pass's CFG.
+- **On ComfyUI** the built-in graph upscales with Lanczos or an upscale model
+  from ComfyUI's `upscale_models` folder (listed by file name, so its
+  folders stay on that machine), then samples again with the same prompts,
+  LoRAs and skeleton. A workflow from the folder keeps its own passes.
+- **On Latentry's engine** SDXL and Anima models upscale with Lanczos (no
+  upscale model to fetch) and redraw on the same weights and LoRAs, one
+  picture at a time, decoding the larger picture in tiles. With SDXL the
+  second pass follows the skeleton too; on Anima, hires fix and a pose do
+  not go together yet.
+- **Saved like A1111**: the picture records the size it was drawn at with
+  `Hires upscale`, `Hires steps` and `Hires upscaler`, so other tools read it,
+  and the gallery's **Generate with these settings** turns hires fix back on.
+  Reading an A1111 picture no longer takes its hires `Denoising strength`
+  for an img2img source's.
+
+**Upscale**
 
 - **Upscale a picture from the gallery**: a new **Upscale** button in the
-  gallery's side panel (and a third mode of the source image) makes a
-  finished picture larger and redraws its detail, hires fix for a picture
-  that already exists. The picture's own prompts come along. On A1111 /
-  Forge the Extras tab enlarges it with the chosen upscaler before img2img;
-  on ComfyUI the graph does, with Lanczos or an upscale model. The saved
-  picture records the mode `upscale`, its size before and its hires
-  settings, which the side panel now shows.
+  side panel (and a third mode of the source image) makes a finished picture
+  larger and redraws its detail, hires fix for a picture that already exists.
+  The picture's own prompts come along. A1111 / Forge enlarge it in the
+  Extras tab with the chosen upscaler, ComfyUI in the graph with Lanczos or
+  an upscale model, Latentry's engine with Lanczos; then one redraw at the
+  hires denoise. Up to 4096 pixels a side.
+- **Recorded as an upscale**: the saved picture says mode `upscale`, the
+  size it had before and its hires settings.
 
-- **Hires fix on Latentry's engine**: SDXL and Anima models get the Hires fix
-  section too. The engine upscales with Lanczos (no upscale model to fetch)
-  and redraws with the img2img pipeline on the same weights and LoRAs, one
-  picture at a time, running exactly the hires steps asked for, as A1111
-  and ComfyUI do. With SDXL the second pass follows the skeleton too; on
-  Anima, hires fix and a pose do not go together yet. A running engine
-  picks it up after a stop and start.
+**Gallery**
 
-- **Hires fix on ComfyUI**: the built-in graph gets the same Hires fix
-  section, upscaling with Lanczos or an upscale model from ComfyUI's
-  `upscale_models` folder (listed by file name, so its folders stay on that
-  machine), then sampling again with the same prompts, LoRAs and skeleton.
-  The progress bar counts both samplers and leaves out the upscale model's
-  own progress. A workflow from the folder keeps its own passes.
+- **The real size**: the side panel's Size is now the picture's own size. For
+  a picture drawn smaller and then enlarged, a **Drawn at** line shows the
+  size its settings name. The panel also shows a picture's hires settings.
 
-- **Hires fix on A1111 / Forge**: a new Hires fix section on Generate
-  upscales each txt2img picture and redraws it at the larger size, with
-  the web UI's own upscalers (Lanczos, R-ESRGAN and the like, and its latent
-  modes). Only upscalers already on disk are offered, so none makes the web
-  UI download a model. Off by default. The progress bar counts both passes, and the
-  saved picture records the hires settings as A1111 does, so the gallery's
-  **Generate with these settings** brings them back. The backend API gains
-  `hires`, `upscalers` and the `hr_*` fields for servers that want to offer
-  it.
+**Backend API**
+
+- `/api/health` may answer `hires`, `upscale` and `upscalers`, and
+  `/api/generate` takes `hr_scale`, `hr_steps`, `hr_denoise`, `hr_upscaler`
+  and `upscale`, for diffusers-compatible servers that want to offer them
+  (see docs/backend-api.md).
 
 ## 0.8.2 (2026-10-14)
 
