@@ -36,6 +36,7 @@
 import { randomInt, randomUUID } from 'node:crypto'
 import { FormData, fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
+import { hiresSize, hiresSteps, LANCZOS } from '@/lib/diffusion/hires'
 import { SECRET_GRACE_MS } from '@/lib/diffusion/job-store'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { engineBackends } from '@/lib/engine/supervisor'
@@ -74,6 +75,9 @@ export const MAX_PICTURE_BYTES = MAX_REQUEST_BODY_BYTES
 const GRAPH_CHUNKS = ['prompt', 'workflow']
 /** The node the picture is read from. */
 export const OUTPUT_NODE = '7'
+/** The built-in graph's samplers: the first pass, and hires fix's second. Their progress is the run's. */
+const FIRST_SAMPLER = '5'
+const HIRES_SAMPLER = '43'
 
 /** The HTTP and socket the adapter needs, separable so the verify script can play a ComfyUI. */
 export interface ComfyTransport {
@@ -228,6 +232,8 @@ interface StaticInfo {
   loras: string[] | null
   /** ControlNetLoader's files; null when ComfyUI has no such node (or no ControlNetApplyAdvanced). */
   controlnets: string[] | null
+  /** UpscaleModelLoader's files, folders included; empty without the node. */
+  upscaleModels: string[]
 }
 
 /** Finds a running engine to draw skeletons with; null when none runs. Separable for the verify script. */
@@ -279,6 +285,26 @@ export function resolveLoras(calls: LoraUse[], files: string[]): { found: { file
   return { found, missing }
 }
 
+/**
+ * The hires fix upscalers, as the page lists them: Lanczos, then the upscale
+ * models by file name only (the folders under ComfyUI's models folder stay
+ * here), each name once.
+ */
+export function upscalerNames(files: string[]): string[] {
+  const names = new Set<string>([LANCZOS])
+  for (const file of files) {
+    const name = modelFileName(file)
+    if (name) names.add(name)
+  }
+  return [...names]
+}
+
+/** The upscale model file a listed name stands for: null for Lanczos, undefined when there is none by that name. */
+export function resolveUpscaler(name: string, files: string[]): string | null | undefined {
+  if (name === LANCZOS) return null
+  return files.find((file) => modelFileName(file) === name)
+}
+
 type GraphNode = { class_type: string; inputs: Record<string, unknown> }
 
 /**
@@ -288,7 +314,10 @@ type GraphNode = { class_type: string; inputs: Record<string, unknown> }
  * the uploaded source encoded by the checkpoint's VAE (denoise = strength),
  * and with a mask too, only the mask's white is redrawn (SetLatentNoiseMask).
  * With `pose`, both prompts go through ControlNetApplyAdvanced with the
- * uploaded skeleton before KSampler. Pure, so the verify script can read it.
+ * uploaded skeleton before KSampler. With hires fix (txt2img only), the
+ * picture is decoded, upscaled (by `upscaleModel`, then Lanczos to the exact
+ * size) and sampled again (node HIRES_SAMPLER) before the decode. Pure, so
+ * the verify script can read it.
  */
 export function buildComfyGraph(
   request: GenerateRequest,
@@ -301,6 +330,8 @@ export function buildComfyGraph(
     images?: { source: string; mask?: string; strength: number }
     /** The uploaded skeleton, the ControlNet file to follow it with, and how strongly. */
     pose?: { image: string; controlnet: string; strength: number }
+    /** Hires fix's upscale model file, as ComfyUI lists it; without one, Lanczos. */
+    upscaleModel?: string
   }
 ): Record<string, GraphNode> {
   const snap = (value: number) => Math.max(options.sizeMultiple, Math.round(value / options.sizeMultiple) * options.sizeMultiple)
@@ -356,22 +387,40 @@ export function buildComfyGraph(
     positive = ['34', 0]
     negative = ['34', 1]
   }
-  graph['5'] = {
+  const sampler = (steps: number, denoise: number, latentImage: [string, number]): GraphNode => ({
     class_type: 'KSampler',
     inputs: {
       seed: options.seed,
-      steps: request.num_inference_steps,
+      steps,
       cfg: request.guidance_scale,
       sampler_name: request.sampler && request.sampler !== DEFAULT ? request.sampler : DEFAULT_SAMPLER,
       scheduler: request.scheduler && request.scheduler !== DEFAULT ? request.scheduler : DEFAULT_SCHEDULER,
-      denoise: images ? images.strength : 1,
+      denoise,
       model,
       positive,
       negative,
-      latent_image: latent,
+      latent_image: latentImage,
     },
+  })
+  graph['5'] = sampler(request.num_inference_steps, images ? images.strength : 1, latent)
+  let last: [string, number] = ['5', 0]
+  // Hires fix: decode, upscale (with a model, then to the exact size), encode,
+  // and sample again with the same prompts (and skeleton) at hr_denoise.
+  if (request.hr_scale !== undefined && !images) {
+    const size = hiresSize(snap(request.width), snap(request.height), request.hr_scale, options.sizeMultiple)
+    graph['40'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
+    let pixels: [string, number] = ['40', 0]
+    if (options.upscaleModel) {
+      graph['44'] = { class_type: 'UpscaleModelLoader', inputs: { model_name: options.upscaleModel } }
+      graph['45'] = { class_type: 'ImageUpscaleWithModel', inputs: { upscale_model: ['44', 0], image: pixels } }
+      pixels = ['45', 0]
+    }
+    graph['41'] = { class_type: 'ImageScale', inputs: { image: pixels, upscale_method: 'lanczos', width: size.width, height: size.height, crop: 'disabled' } }
+    graph['42'] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae: ['1', 2] } }
+    graph[HIRES_SAMPLER] = sampler(hiresSteps(request), request.hr_denoise ?? 0.4, ['42', 0])
+    last = [HIRES_SAMPLER, 0]
   }
-  graph['6'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
+  graph['6'] = { class_type: 'VAEDecode', inputs: { samples: last, vae: ['1', 2] } }
   graph[OUTPUT_NODE] = { class_type: 'PreviewImage', inputs: { images: ['6', 0] } }
   return graph
 }
@@ -425,12 +474,13 @@ export class ComfyUIAdapter implements BackendAdapter {
     const key = `${this.config.id}|${this.config.url}`
     const cached = staticInfo.get(key)
     if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
-    const [checkpoints, sampler, loras, controlnets, apply] = await Promise.all([
+    const [checkpoints, sampler, loras, controlnets, apply, upscalers] = await Promise.all([
       this.getOrNull('/object_info/CheckpointLoaderSimple'),
       this.getOrNull('/object_info/KSampler'),
       this.getOrNull('/object_info/LoraLoader'),
       this.getOrNull('/object_info/ControlNetLoader'),
       this.getOrNull(`/object_info/${CONTROLNET_APPLY}`),
+      this.getOrNull('/object_info/UpscaleModelLoader'),
     ])
     const canApply = !!apply && typeof apply === 'object' && CONTROLNET_APPLY in apply
     const info: StaticInfo = {
@@ -440,6 +490,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       schedulers: comboOptions(sampler, 'KSampler', 'scheduler') ?? [],
       loras: comboOptions(loras, 'LoraLoader', 'lora_name'),
       controlnets: canApply ? comboOptions(controlnets, 'ControlNetLoader', 'control_net_name') : null,
+      upscaleModels: comboOptions(upscalers, 'UpscaleModelLoader', 'model_name') ?? [],
     }
     // Only a complete answer is cached; a ComfyUI still starting is asked again.
     if (checkpoints !== null && sampler !== null) staticInfo.set(key, info)
@@ -496,12 +547,13 @@ export class ComfyUIAdapter implements BackendAdapter {
         tag: false,
         presets: false,
         preciseCancel: true,
-        hires: false,
+        // On the built-in graph, from core nodes only; a workflow keeps its own passes.
+        hires: alive,
       },
       hints: comfyHints(alive, pose),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
-      upscalers: [],
+      upscalers: alive ? upscalerNames(info.upscaleModels) : [],
       ...(problem ? { problem } : {}),
     }
   }
@@ -563,6 +615,9 @@ export class ComfyUIAdapter implements BackendAdapter {
     }
     const checkpoint = workflow ? (this.config.model ?? '') : this.checkpointFrom(info)
     if (!workflow && !checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
+    // Named as the page lists it; the file, folders and all, is looked up here.
+    const upscaleModel = request.hr_scale !== undefined ? resolveUpscaler(request.hr_upscaler ?? LANCZOS, info.upscaleModels) : null
+    if (upscaleModel === undefined) return { ok: false, status: 400, error: `Upscaler not found on this backend: ${request.hr_upscaler}` }
 
     const inflight: Inflight = { runId: null, cancelRequested: false, secret: request.secret === true, promptIds: [], uploads: [] }
     let drawn = request
@@ -605,7 +660,7 @@ export class ComfyUIAdapter implements BackendAdapter {
 
     inflightRuns.set(this.config.id, inflight)
     const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
-    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose }, workflow) }
+    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose }, workflow, upscaleModel ?? undefined) }
   }
 
   /**
@@ -685,7 +740,8 @@ export class ComfyUIAdapter implements BackendAdapter {
     firstSeed: number,
     inflight: Inflight,
     uploaded: { images?: { source: string; mask?: string; strength: number }; pose?: { image: string; strength: number } },
-    workflow?: ComfyGraph
+    workflow?: ComfyGraph,
+    upscaleModel?: string
   ): AsyncGenerator<BackendEvent> {
     const total = request.image_count
     const clientId = randomUUID()
@@ -748,6 +804,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             sizeMultiple,
             ...(uploaded.images ? { images: uploaded.images } : {}),
             ...(uploaded.pose ? { pose: { ...uploaded.pose, controlnet: this.config.controlnet?.trim() ?? '' } } : {}),
+            ...(upscaleModel ? { upscaleModel } : {}),
           })
         }
         let queued: { status: number; body: unknown }
@@ -764,7 +821,10 @@ export class ComfyUIAdapter implements BackendAdapter {
         }
         inflight.runId = promptId
         inflight.promptIds.push(promptId)
-        yield { type: 'start', index, total, steps: request.num_inference_steps, runId: promptId }
+        // Hires fix on the built-in graph: the bar runs on through the second
+        // sampler, and the upscale model's own progress (tiles) is not steps.
+        const hires = !workflow && request.hr_scale !== undefined
+        yield { type: 'start', index, total, steps: request.num_inference_steps + (hires ? hiresSteps(request) : 0), runId: promptId }
 
         // Wait for the prompt to finish: the socket says so first, /history in any case.
         let ended: 'done' | 'cancelled' | { error: string } | null = null
@@ -777,9 +837,10 @@ export class ComfyUIAdapter implements BackendAdapter {
             const message = inbox.shift() as { type?: unknown; data?: Record<string, unknown> } | null
             const data = message?.data ?? {}
             if (data.prompt_id !== promptId) continue
-            if (message?.type === 'progress' && typeof data.value === 'number' && data.value > lastStep) {
-              lastStep = data.value
-              yield { type: 'step', index, step: data.value }
+            const offset = !hires ? 0 : data.node === FIRST_SAMPLER ? 0 : data.node === HIRES_SAMPLER ? request.num_inference_steps : null
+            if (message?.type === 'progress' && typeof data.value === 'number' && offset !== null && offset + data.value > lastStep) {
+              lastStep = offset + data.value
+              yield { type: 'step', index, step: lastStep }
             } else if (message?.type === 'execution_interrupted') {
               ended = 'cancelled'
             } else if (message?.type === 'execution_error') {

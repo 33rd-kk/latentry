@@ -20,6 +20,8 @@ import {
   ComfyUIAdapter,
   OUTPUT_NODE,
   resolveLoras,
+  resolveUpscaler,
+  upscalerNames,
   withoutLoraCalls,
   type ComfyTransport,
 } from '../lib/backends/comfyui'
@@ -57,7 +59,20 @@ async function collect(events: AsyncIterable<BackendEvent>): Promise<BackendEven
  * when there is one, else in /history), unless `hold` keeps it running until
  * an interrupt.
  */
-async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?: boolean; refuse?: unknown; fail?: string; controlnet?: boolean } = {}) {
+async function scriptedComfy(
+  options: {
+    socket?: boolean
+    busy?: boolean
+    hold?: boolean
+    refuse?: unknown
+    fail?: string
+    controlnet?: boolean
+    /** UpscaleModelLoader's files; without them, ComfyUI has no such node. */
+    upscalers?: string[]
+    /** The progress messages each prompt sends (its prompt_id is added), in place of two steps. */
+    progress?: Record<string, unknown>[]
+  } = {}
+) {
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123' } }).png().toBuffer(), {
     prompt: '{"1":{"class_type":"CheckpointLoaderSimple","inputs":{"ckpt_name":"secret/folder/base.safetensors"}}}',
     workflow: '{"nodes":[]}',
@@ -107,6 +122,7 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
         return { status: 200, body: options.controlnet ? combo('ControlNetLoader', 'control_net_name', [['sdxl/openpose.safetensors']]) : {} }
       }
       if (path === '/object_info/ControlNetApplyAdvanced') return { status: 200, body: options.controlnet ? { ControlNetApplyAdvanced: { input: { required: {} } } } : {} }
+      if (path === '/object_info/UpscaleModelLoader') return { status: 200, body: options.upscalers ? combo('UpscaleModelLoader', 'model_name', [options.upscalers]) : {} }
       const match = /^\/history\/(.+)$/.exec(path)
       if (match) {
         const id = decodeURIComponent(match[1])
@@ -125,8 +141,11 @@ async function scriptedComfy(options: { socket?: boolean; busy?: boolean; hold?:
         running.add(id)
         if (!state.hold) {
           setTimeout(() => {
-            send?.({ type: 'progress', data: { value: 1, max: 2, prompt_id: id } })
-            send?.({ type: 'progress', data: { value: 2, max: 2, prompt_id: id } })
+            if (options.progress) for (const data of options.progress) send?.({ type: 'progress', data: { ...data, prompt_id: id } })
+            else {
+              send?.({ type: 'progress', data: { value: 1, max: 2, prompt_id: id } })
+              send?.({ type: 'progress', data: { value: 2, max: 2, prompt_id: id } })
+            }
             send?.({ type: 'progress', data: { value: 9, max: 9, prompt_id: 'someone-else' } })
             finish(id, options.fail ? 'error' : 'success')
           }, 5)
@@ -204,7 +223,8 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: false }, 'capabilities: txt2img, img2img and inpaint with LoRAs, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix, cancel of our own prompt')
+  eq(status.upscalers, ['Lanczos'], 'without UpscaleModelLoader, hires fix upscales with Lanczos only')
   eq(status.hints, { pose: { reason: 'setup', need: 'engine' } }, 'pose is explained: no engine runs to draw the skeleton')
   const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
   eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
@@ -382,6 +402,60 @@ async function main() {
     pose: { image: 'p.png', controlnet: 'cn', strength: 1 },
   })
   eq([poseInpaint['5'].inputs.latent_image, poseInpaint['5'].inputs.positive], [['31', 0], ['34', 0]], 'a pose with inpaint: the masked latent, followed by the skeleton')
+
+  // ── Hires fix ──
+  const HIRES: GenerateRequest = { ...REQUEST, hr_scale: 1.5, hr_steps: 3, hr_denoise: 0.35, hr_upscaler: 'Lanczos' }
+  const lanczos = buildComfyGraph(HIRES, { checkpoint: 'c', loras: [], seed: 7, sizeMultiple: 8 })
+  eq(
+    ['40', '41', '42', '43', '44', '45', '6'].map((id) => lanczos[id]?.class_type ?? null),
+    ['VAEDecode', 'ImageScale', 'VAEEncode', 'KSampler', null, null, 'VAEDecode'],
+    'hires fix with Lanczos: decode, scale, encode, sample again, then the decode that is saved'
+  )
+  eq(lanczos['41'].inputs, { image: ['40', 0], upscale_method: 'lanczos', width: 1248, height: 1824, crop: 'disabled' }, 'scaled to the first size (snapped) times the scale, on the profile\'s multiple')
+  eq(
+    [lanczos['43'].inputs.seed, lanczos['43'].inputs.steps, lanczos['43'].inputs.denoise, lanczos['43'].inputs.latent_image, lanczos['43'].inputs.positive, lanczos['6'].inputs.samples],
+    [7, 3, 0.35, ['42', 0], ['2', 0], ['43', 0]],
+    'the second pass: same seed and prompts, its own steps at the hires denoise'
+  )
+  eq(buildComfyGraph({ ...HIRES, hr_steps: 0 }, { checkpoint: 'c', loras: [], seed: 7, sizeMultiple: 8 })['43'].inputs.steps, 2, '0 hires steps runs as many as the first pass')
+  const modelled = buildComfyGraph(HIRES, { checkpoint: 'c', loras: [], seed: 7, sizeMultiple: 8, upscaleModel: 'sr/RealESRGAN_x4plus.pth' })
+  eq(
+    [modelled['44'].inputs, modelled['45'].inputs, modelled['41'].inputs.image],
+    [{ model_name: 'sr/RealESRGAN_x4plus.pth' }, { upscale_model: ['44', 0], image: ['40', 0] }, ['45', 0]],
+    'with an upscale model: its upscale first, then Lanczos to the exact size'
+  )
+  const posedHires = buildComfyGraph(HIRES, { checkpoint: 'c', loras: [], seed: 7, sizeMultiple: 8, pose: { image: 'p.png', controlnet: 'cn', strength: 1 } })
+  eq([posedHires['43'].inputs.positive, posedHires['43'].inputs.negative], [['34', 0], ['34', 1]], 'with a pose, the second pass follows the skeleton too')
+  eq('43' in buildComfyGraph(HIRES, { checkpoint: 'c', loras: [], seed: 7, sizeMultiple: 8, images: { source: 's.png', strength: 0.6 } }), false, 'never on img2img')
+  eq(
+    [upscalerNames(['sr/4x.pth', 'b.safetensors', 'other/4x.pth']), resolveUpscaler('4x.pth', ['sr/4x.pth']), resolveUpscaler('Lanczos', ['sr/4x.pth']), resolveUpscaler('gone.pth', [])],
+    [['Lanczos', '4x.pth', 'b.safetensors'], 'sr/4x.pth', null, undefined],
+    'upscalers listed by file name, each once, and found again by it'
+  )
+
+  const upscaling = await scriptedComfy({
+    socket: true,
+    upscalers: ['sr/RealESRGAN_x4plus.pth'],
+    progress: [
+      { node: '5', value: 1, max: 2 },
+      { node: '5', value: 2, max: 2 },
+      { node: '45', value: 1, max: 9 },
+      { node: '43', value: 1, max: 3 },
+      { node: '43', value: 3, max: 3 },
+    ],
+  })
+  const hiresAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'hires' }, upscaling.transport)
+  eq((await hiresAdapter.status()).upscalers, ['Lanczos', 'RealESRGAN_x4plus.pth'], 'its upscale models by file name: the folders stay here')
+  const hiresRun = await hiresAdapter.start({ ...HIRES, image_count: 1, hr_upscaler: 'RealESRGAN_x4plus.pth' })
+  const hiresEvents = hiresRun.ok ? await collect(hiresRun.value) : []
+  eq(
+    hiresEvents.map((event) => (event.type === 'start' ? `start ${event.steps}` : event.type === 'step' ? `step ${event.step}` : event.type)),
+    ['start 5', 'step 1', 'step 2', 'step 3', 'step 5', 'image', 'done'],
+    'one bar of 2 + 3 steps: the second sampler after the first, the upscale model\'s tiles not counted'
+  )
+  eq(upscaling.graphs[0]['44']?.inputs.model_name, 'sr/RealESRGAN_x4plus.pth', 'the file is found again by its name')
+  const noUpscaler = await hiresAdapter.start({ ...HIRES, hr_upscaler: 'gone.pth' })
+  eq(noUpscaler.ok ? null : [noUpscaler.status, noUpscaler.error], [400, 'Upscaler not found on this backend: gone.pth'], 'an upscaler it does not have is refused')
 
   const asked: unknown[] = []
   const engine = { pose: async (request: unknown) => (asked.push(request), { ok: true as const, value: { people: [] } }) }

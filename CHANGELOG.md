@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Hires fix on ComfyUI**: the built-in graph gets the same Hires fix
+  section, upscaling with Lanczos or an upscale model from ComfyUI's
+  `upscale_models` folder (listed by file name, so its folders stay on that
+  machine), then sampling again with the same prompts, LoRAs and skeleton.
+  The progress bar counts both samplers and leaves out the upscale model's
+  own progress. A workflow from the folder keeps its own passes.
+
 - **Hires fix on A1111 / Forge**: a new Hires fix section on Generate
   upscales each txt2img picture and redraws it at the larger size, with
   the web UI's own upscalers (Lanczos, R-ESRGAN and the like, and its latent
