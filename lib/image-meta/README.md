@@ -1,7 +1,9 @@
 # image-meta
 
 Reads the settings an AI picture was made with: prompt, negative prompt,
-seed, steps, CFG, sampler, model, LoRAs. It also writes them into PNG text
+seed, steps, CFG, sampler, model, LoRAs, hires fix (A1111's `Hires upscale`,
+`Hires steps`, `Hires upscaler`, whose `Denoising strength` is then the
+hires pass's). It also writes them into PNG text
 chunks. It is part of Latentry for now, kept separate so it can become its
 own package.
 

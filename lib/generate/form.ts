@@ -2,6 +2,7 @@
 // storage, and laying a gallery picture's settings over it. No React here, so
 // the verify scripts can pin it down.
 
+import { HIRES_DEFAULTS } from '@/lib/diffusion/hires'
 import { formatForProfile, getProfile, isProfileId, type Profile, type ProfileId } from '@/lib/profiles'
 import { preferences, type HandoffSettings } from '@/lib/storage'
 
@@ -35,6 +36,13 @@ export interface FormState {
   presetName: string
   /** A ComfyUI backend's workflow from its folder, by name; "" for the built-in graph. */
   workflow: string
+  /** Hires fix on txt2img runs (off by default), and its settings, kept while it is off. */
+  hires: boolean
+  hrScale: number
+  /** 0: as many as the first pass. */
+  hrSteps: number
+  hrDenoise: number
+  hrUpscaler: string
 }
 
 export function defaultForm(profile: Profile): FormState {
@@ -54,6 +62,11 @@ export function defaultForm(profile: Profile): FormState {
     cfg: profile.defaults.cfg,
     presetName: CUSTOM_PRESET,
     workflow: '',
+    hires: false,
+    hrScale: HIRES_DEFAULTS.scale,
+    hrSteps: HIRES_DEFAULTS.steps,
+    hrDenoise: HIRES_DEFAULTS.denoise,
+    hrUpscaler: HIRES_DEFAULTS.upscaler,
   }
 }
 
@@ -82,6 +95,11 @@ export function readStoredForm(backendId: string, fallbackProfile: ProfileId): F
     cfg: number(raw.cfg, base.cfg),
     presetName: text(raw.presetName, base.presetName),
     workflow: text(raw.workflow, base.workflow),
+    hires: typeof raw.hires === 'boolean' ? raw.hires : base.hires,
+    hrScale: number(raw.hrScale, base.hrScale),
+    hrSteps: number(raw.hrSteps, base.hrSteps),
+    hrDenoise: number(raw.hrDenoise, base.hrDenoise),
+    hrUpscaler: text(raw.hrUpscaler, base.hrUpscaler),
   }
 }
 
@@ -146,6 +164,16 @@ export function applySettings(form: FormState, settings: HandoffSettings, sameBa
     ...(settings.cfg !== undefined ? { cfg: settings.cfg } : {}),
     ...(settings.sampler ? { sampler: settings.sampler } : {}),
     ...(settings.scheduler ? { scheduler: settings.scheduler } : {}),
+    // On exactly when the picture was drawn with it: its size is the first pass's.
+    ...(settings.hires
+      ? {
+          hires: true,
+          hrScale: settings.hires.scale,
+          hrSteps: settings.hires.steps,
+          hrDenoise: settings.hires.denoise,
+          hrUpscaler: settings.hires.upscaler,
+        }
+      : { hires: false }),
     presetName: CUSTOM_PRESET,
   }
 }

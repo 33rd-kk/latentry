@@ -9,6 +9,7 @@ import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
+import { toGenerateRequest } from '../lib/api'
 import { A1111Adapter } from '../lib/backends/a1111'
 import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
@@ -139,6 +140,13 @@ async function main() {
 
   const t2i = await toA1111Payload(REQUEST, 8)
   eq(t2i?.path, '/sdapi/v1/txt2img', 'no source is txt2img')
+  check(!('enable_hr' in (t2i?.body ?? {})) && !('denoising_strength' in (t2i?.body ?? {})), 'no hires fix unless asked')
+  const hires = await toA1111Payload({ ...REQUEST, hr_scale: 1.5, hr_steps: 0, hr_denoise: 0.35, hr_upscaler: 'R-ESRGAN 4x+' }, 8)
+  eq(
+    [hires?.path, hires?.body.enable_hr, hires?.body.hr_scale, hires?.body.hr_upscaler, hires?.body.hr_second_pass_steps, hires?.body.denoising_strength, hires?.body.hr_additional_modules, hires?.body.hr_cfg],
+    ['/sdapi/v1/txt2img', true, 1.5, 'R-ESRGAN 4x+', 0, 0.35, ['Use same choices'], 5],
+    'hires fix in the web UI\'s fields; 0 steps is its own "as many as the first pass"; Forge needs its modules named, and the first pass\'s CFG'
+  )
   eq([t2i?.body.n_iter, t2i?.body.batch_size, 'sampler_name' in (t2i?.body ?? {}), t2i?.body.scheduler], [2, 1, false, 'Karras'], 'one image per iteration; Default is left to the web UI')
 
   const source = await sharp({ create: { width: 600, height: 900, channels: 3, background: '#888' } }).png().toBuffer()
@@ -200,6 +208,43 @@ async function main() {
     staleEvents.map((event) => (event.type === 'start' ? `start:${event.index}:${event.steps}` : event.type === 'step' ? `step:${event.step}` : event.type)),
     ['start:0:20', 'start:0:11', 'step:4', 'image', 'done'],
     'a step count that changes after the start is announced again'
+  )
+
+  // Hires fix: the web UI counts each pass from one; the bar runs on through both.
+  const hiresRun = async (id: string, hrSteps: number, progress: Record<string, unknown>[]) => {
+    const webUi = scriptedWebUi({ progress, pollsBeforeDone: progress.length - 1, result: { status: 200, body: { images: [png.toString('base64')], info: '{"all_seeds":[9]}' } } })
+    const run = await new A1111Adapter({ id, kind: 'a1111', url: 'http://web.ui', profile: 'sdxl' }, webUi.transport).start({
+      ...REQUEST,
+      image_count: 1,
+      hr_scale: 2,
+      hr_steps: hrSteps,
+      hr_denoise: 0.4,
+      hr_upscaler: 'Lanczos',
+    })
+    const events = run.ok ? await collect(run.value) : []
+    return events.map((event) => (event.type === 'start' ? `start:${event.steps}` : event.type === 'step' ? `step:${event.step}` : event.type))
+  }
+  eq(
+    await hiresRun('hires-own', 15, [
+      { job_count: 0, job_timestamp: 'old', sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr', sampling_step: 10, sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr', sampling_step: 20, sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr', sampling_step: 3, sampling_steps: 15 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr', sampling_step: 15, sampling_steps: 15 },
+      { job_count: 0, job_timestamp: 'hr', sampling_steps: 15 },
+    ]),
+    ['start:35', 'step:10', 'step:20', 'step:23', 'step:35', 'image', 'done'],
+    'hires fix with its own step count: one bar of 20 + 15, the second pass after the first'
+  )
+  eq(
+    await hiresRun('hires-same', 0, [
+      { job_count: 0, job_timestamp: 'old', sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr2', sampling_step: 12, sampling_steps: 20 },
+      { job_count: 1, job_no: 0, job_timestamp: 'hr2', sampling_step: 4, sampling_steps: 20 },
+      { job_count: 0, job_timestamp: 'hr2', sampling_steps: 20 },
+    ]),
+    ['start:40', 'step:12', 'step:24', 'image', 'done'],
+    'hires fix with the same count: the step starting over begins the second pass'
   )
   // Asked after the run: every status call polls progress too, which would
   // otherwise use up the scripted "before" state.
@@ -281,6 +326,20 @@ async function main() {
   applyEvent(loraJob, { type: 'image', index: 0, seed: 4, imageBase64: 'AA==', loras: [{ name: 'style', weight: 0.6, hash: 'abcdef012345' }] })
   eq(recordFor(loraJob, loraJob.images[1], created, null).loras, [{ name: 'style', weight: 0.6 }], 'the record never keeps a hash')
   eq('loras' in recordFor(job, job.images[0], created, null), false, 'a record without applied LoRAs has no loras')
+  const hiresJob = startJob({
+    backend: 'hires',
+    total: 1,
+    steps: 1,
+    context: { ...job.context, request: { ...REQUEST, hr_scale: 2, hr_steps: 10, hr_denoise: 0.4, hr_upscaler: 'Lanczos' } },
+  })
+  applyEvent(hiresJob, { type: 'image', index: 0, seed: 7, imageBase64: 'AA==' })
+  const hiresRecord = recordFor(hiresJob, hiresJob.images[0], created, { width: 1664, height: 2432 })
+  eq(
+    [hiresRecord.width, hiresRecord.height, hiresRecord.hires, 'strength' in hiresRecord],
+    [832, 1216, { scale: 2, steps: 10, denoise: 0.4, upscaler: 'Lanczos' }, false],
+    'a hires record keeps the first pass\'s size, as A1111 does, and its hires settings'
+  )
+  eq('hires' in recordFor(job, job.images[0], created, null), false, 'a record without hires fix has none')
   eq(toSnapshot(job).imageCount, 2, 'the snapshot counts images without carrying them')
 
   const other = startJob({ backend: 'b2', total: 1, steps: 1, context: job.context })
@@ -314,23 +373,24 @@ async function main() {
   eq(diffusersHints(null), {}, 'a server that did not answer gets no feature hints')
   eq(
     diffusersHints({ model: 'anima' }),
-    { pose: { reason: 'not-reported' } },
-    'a server silent about pose is told to report pose_control; img2img and inpaint stay on'
+    { pose: { reason: 'not-reported' }, hires: { reason: 'not-reported' } },
+    'a server silent about pose and hires fix is told to report them; img2img and inpaint stay on'
   )
-  eq(diffusersHints({ pose_control: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
-  eq(diffusersHints({ pose_control: true }), {}, 'a server with pose and default img2img/inpaint has no hints')
+  eq(diffusersHints({ pose_control: true, hires: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
+  eq(diffusersHints({ pose_control: true, hires: true }), {}, 'a server with pose, hires fix and default img2img/inpaint has no hints')
+  eq(diffusersHints({ pose_control: true, hires: false }), { hires: { reason: 'declined' } }, 'hires fix said no to is declined')
   eq(
-    diffusersHints({ pose_control: false, inpaint: false, unavailable: { pose: 'Needs a 28-layer model.' } }),
+    diffusersHints({ pose_control: false, inpaint: false, hires: true, unavailable: { pose: 'Needs a 28-layer model.' } }),
     { inpaint: { reason: 'declined' }, pose: { reason: 'declined', detail: 'Needs a 28-layer model.' } },
     "an explicit false is declined, with the server's reason when it gives one"
   )
   eq(
-    diffusersHints({ unavailable: { pose: 'Adapter weights missing.' } }),
+    diffusersHints({ hires: true, unavailable: { pose: 'Adapter weights missing.' } }),
     { pose: { reason: 'declined', detail: 'Adapter weights missing.' } },
     'a reason without the flag still counts as the server declining'
   )
-  eq(diffusersHints({ pose_control: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
-  eq(diffusersHints({ unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
+  eq(diffusersHints({ pose_control: true, hires: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
+  eq(diffusersHints({ hires: true, unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
   eq(hintDetail('  two\nlines\t here  '), 'two lines here', 'a reason is folded onto one line')
   eq(hintDetail(''), undefined, 'an empty reason is none')
   eq(hintDetail(42), undefined, 'a reason that is not text is none')
@@ -372,6 +432,45 @@ async function main() {
   eq([lockedUi.alive, lockedUi.problem], [false, { reason: 'auth', status: 401, detail: 'Not authenticated' }], 'A1111 started with --api-auth and no token: down, as a login')
   const upUi = await new A1111Adapter({ id: 'up', kind: 'a1111', url: 'http://web.ui', profile: 'generic' }, scriptedWebUi({ progress: [{}], pollsBeforeDone: 0, result: { status: 200, body: {} } }).transport).status()
   eq([upUi.alive, upUi.problem], [true, undefined], 'an A1111 that answers has no problem')
+  eq([upUi.capabilities.hires, upUi.upscalers], [true, ['Lanczos']], 'an A1111 that lists no upscalers still has its built-in Lanczos')
+  const upscaling: A1111Transport = {
+    get: async (path) =>
+      path.startsWith('/sdapi/v1/progress')
+        ? { status: 200, body: { state: {} } }
+        : path === '/sdapi/v1/samplers'
+          ? { status: 200, body: [{ name: 'Euler a' }] }
+          : path === '/sdapi/v1/upscalers'
+            ? {
+                status: 200,
+                body: [
+                  { name: 'None', model_path: null },
+                  { name: 'Lanczos', model_path: null },
+                  { name: 'ESRGAN', model_path: 'https://github.com/cszn/KAIR/releases/download/v1.0/ESRGAN.pth' },
+                  { name: 'R-ESRGAN 4x+', model_path: 'C:\\webui\\models\\RealESRGAN\\RealESRGAN_x4plus.pth' },
+                ],
+              }
+            : path === '/sdapi/v1/latent-upscale-modes'
+              ? { status: 200, body: [{ name: 'Latent' }] }
+              : { status: 404, body: null },
+    post: async () => ({ status: 404, body: null }),
+    sleep: async () => {},
+  }
+  eq(
+    (await new A1111Adapter({ id: 'upscaling', kind: 'a1111', url: 'http://web.ui', profile: 'generic' }, upscaling).status()).upscalers,
+    ['Lanczos', 'R-ESRGAN 4x+', 'Latent'],
+    'its upscalers, then its latent modes; "None" is no upscaler, and one that would be downloaded is left out'
+  )
+
+  // ── Hires fix in a request ──
+  const parsed = (body: Record<string, unknown>) => toGenerateRequest({ prompt: 'x', width: 1024, height: 1024, ...body })
+  const asked = parsed({ hr_scale: 1.5, hr_steps: 12.4, hr_denoise: 0.3, hr_upscaler: 'R-ESRGAN 4x+' })
+  eq([asked?.hr_scale, asked?.hr_steps, asked?.hr_denoise, asked?.hr_upscaler], [1.5, 12, 0.3, 'R-ESRGAN 4x+'], 'hires fix fields are read')
+  eq('hr_scale' in (parsed({}) ?? {}), false, 'no hires fix unless asked')
+  eq(parsed({ hr_scale: 9, hr_denoise: 5, hr_steps: -3 })?.hr_scale, 4, 'the scale is held to 4096 a side')
+  eq(parsed({ width: 2048, hr_scale: 3 })?.hr_scale, 2, 'and to 4096 for the longer side')
+  eq(parsed({ hr_scale: 2, hr_upscaler: 'a\nb' })?.hr_upscaler, 'Lanczos', 'an upscaler name with control characters falls back to Lanczos')
+  eq('hr_scale' in (parsed({ hr_scale: 2, init_image_base64: 'AAAA' }) ?? {}), false, 'not with a source image: that run is img2img')
+  eq('hr_scale' in (parsed({ hr_scale: 2, workflow: 'mine' }) ?? {}), false, 'nor with a workflow, which has its own passes')
 
   // ── A1111's lists are per server ──
   const served = (name: string): A1111Transport => ({

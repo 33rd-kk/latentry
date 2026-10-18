@@ -192,6 +192,25 @@ async function main() {
   const hashed = formatA1111Parameters(base, [{ name: 'style', weight: 0.6, hash: 'abcdef012345' }, { name: 'b', weight: 1, hash: '0123456789ab' }])
   check(hashed.includes('Lora hashes: "style: abcdef012345, b: 0123456789ab"'), 'Lora hashes as A1111 writes them')
   eq(parseA1111Parameters(hashed).loras, ['style', 'b'], 'and read back as A1111 infotext')
+
+  // Hires fix: A1111's own fields, and its Denoising strength is the second pass's.
+  const hiresBase = { ...base, width: 832, height: 1216, hires: { scale: 1.5, steps: 0, denoise: 0.35, upscaler: 'R-ESRGAN 4x+' } }
+  const hiresText = formatA1111Parameters(hiresBase)
+  check(
+    hiresText.includes('Size: 832x1216') && hiresText.includes('Denoising strength: 0.35, Hires upscale: 1.5, Hires upscaler: R-ESRGAN 4x+') && !hiresText.includes('Hires steps'),
+    'hires fix written as A1111 does: the first pass\'s size, then its fields; no Hires steps when it is the first pass\'s count'
+  )
+  const hiresRead = parseA1111Parameters(hiresText)
+  eq([hiresRead.width, hiresRead.hires, hiresRead.strength], [832, hiresBase.hires, undefined], 'and read back: the denoising strength is not taken for an img2img source')
+  eq(
+    parseA1111Parameters('a\nSteps: 20, Sampler: Euler a, Seed: 1, Size: 512x768, Denoising strength: 0.7, Hires upscale: 2, Hires steps: 10, Hires upscaler: Latent').hires,
+    { scale: 2, steps: 10, denoise: 0.7, upscaler: 'Latent' },
+    "an A1111 picture's own hires fix"
+  )
+  eq(parseA1111Parameters('a\nSteps: 20, Seed: 1, Denoising strength: 0.6').strength, 0.6, 'without Hires upscale it is still img2img strength')
+  const hiresRecord = parseLatentryRecord(JSON.stringify({ ...hiresBase }))
+  eq(hiresRecord?.hires, hiresBase.hires, "Latentry's record keeps its hires fix")
+  eq(parseLatentryRecord(JSON.stringify({ ...base, hires: { scale: 'x' } }))?.hires, undefined, 'a malformed one is dropped')
   const record = (fields: object) => parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'x, <lora:mine:0.7>', ...fields }))?.loras
   eq(record({ kind: 'diffusers', loras: [{ name: 'applied', weight: 1 }] }), ['applied'], "Latentry's record: the LoRAs the backend applied, not the prompt's")
   eq(record({ kind: 'diffusers', loras: [] }), undefined, "Latentry's record: an empty list is none")

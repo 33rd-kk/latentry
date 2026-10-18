@@ -1,4 +1,5 @@
 import { adapterOr404, backendStatus, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
+import { hiresSteps } from '@/lib/diffusion/hires'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { consumeEvents, getCurrentJob, startJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
@@ -60,7 +61,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     const profile = typeof body.profile === 'string' ? body.profile : adapter.config.profile
     const steps = generate.init_image_base64
       ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, profile)
-      : generate.num_inference_steps
+      : generate.num_inference_steps + hiresSteps(generate)
     const job = startJob({
       backend: id,
       total: generate.image_count,

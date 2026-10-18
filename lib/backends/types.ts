@@ -46,10 +46,12 @@ export interface Capabilities {
   presets: boolean
   /** Cancel stops exactly the run that was asked about, never a later one. */
   preciseCancel: boolean
+  /** Hires fix: a txt2img run (pose included) upscaled and redrawn by the hr_* fields. */
+  hires: boolean
 }
 
 /** The features a backend can lack that the page explains instead of just hiding. */
-export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose'] as const
+export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'hires'] as const
 export type HintedFeature = (typeof HINTED_FEATURES)[number]
 
 /**
@@ -82,6 +84,8 @@ export interface BackendStatus {
   /** The values its sampler / scheduler fields accept; empty hides the field. */
   samplers: string[]
   schedulers: string[]
+  /** The values hr_upscaler accepts, as the backend lists them; empty while it has no hires fix. */
+  upscalers: string[]
   /** While it is down: why, when that is known. */
   problem?: BackendProblem
 }
@@ -120,6 +124,15 @@ export interface GenerateRequest {
   pose_image_base64?: string
   pose_is_skeleton?: boolean
   pose_strength?: number
+  /**
+   * Hires fix, txt2img only (pose included): each picture is upscaled by
+   * `hr_scale` with `hr_upscaler`, then redrawn at `hr_denoise` for `hr_steps`
+   * (0: as many as the first pass). All four are set together, or none.
+   */
+  hr_scale?: number
+  hr_steps?: number
+  hr_denoise?: number
+  hr_upscaler?: string
   /**
    * Ask for each applied LoRA's hash in the image events. Set by this server
    * from the settings (gallery.loraHashes), never taken from the browser.
