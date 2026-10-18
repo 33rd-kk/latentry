@@ -57,7 +57,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     negative_prompt: request.negative_prompt,
     seed: image.seed,
     // The size the picture actually came out at: img2img fits it to the source.
-    // With hires fix, the first pass's, as A1111 writes it beside "Hires upscale".
+    // With hires fix, the first pass's, as A1111 writes it beside "Hires upscale";
+    // with an upscale, its source's (the route puts it in the request).
     width: hires ? request.width : (size?.width ?? request.width),
     height: hires ? request.height : (size?.height ?? request.height),
     sampler: request.sampler,

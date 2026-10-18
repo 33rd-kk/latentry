@@ -44,6 +44,23 @@ export function useGalleryHandoff({ ready, editForm, backendRef, changeSource, c
           const sameBackend = item.settings.backend === backendRef.current
           editForm((form) => applySettings(form, item.settings, sameBackend))
         } else if (item.type === "source") {
+          // An upscale redraws the picture, so it goes with the words it was drawn
+          // from, spelled for this form's model. Saved prompts carry their artist
+          // and quality tags already.
+          if (item.prompt !== undefined) {
+            const prompt = item.prompt
+            const negative = item.negativePrompt
+            editForm((form) => {
+              const profile = getProfile(form.profile)
+              return {
+                ...form,
+                prompt: formatForProfile(prompt, profile),
+                artist: "",
+                quality: false,
+                ...(negative !== undefined ? { negativePrompt: formatForProfile(negative, profile) } : {}),
+              }
+            })
+          }
           fetchPicture(item.url)
             .then(toSourceImage)
             .then((picture) => {

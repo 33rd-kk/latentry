@@ -136,6 +136,8 @@
     "sourceMode": "What the source is for",
     "sourceModeVariation": "Variation / edit",
     "sourceModePose": "Pose reference",
+    "sourceModeUpscale": "Upscale",
+    "upscaleHint": "Makes this picture larger and redraws its detail at the new size, from the prompt above. Width and Height below are not used.",
     "strength": "Strength: {value}",
     "strengthHint": "Low keeps the source; high redraws more. Output keeps the source's aspect ratio at the width × height area above.",
     "poseHint": "Borrows the reference's composition and silhouette and redraws the rest. If the reference's hair, skin or clothes show through, raise it; if the pose drifts, lower it. Exact limb or finger angles aren't kept.",
@@ -201,7 +203,8 @@
         "img2img": "Source image",
         "inpaint": "Inpaint mask",
         "pose": "Skeleton pose",
-        "hires": "Hires fix"
+        "hires": "Hires fix",
+        "upscale": "Upscale"
       },
       "declined": "The server says it cannot do this with what it has loaded.",
       "declinedBecause": "The server says: {detail}",
@@ -222,7 +225,8 @@
         "img2img": "The server's /api/health has \"img2img\": false or no answer for it. Drop that field (or set it to true) and accept \"init_image_base64\" and \"strength\" on /api/generate.",
         "inpaint": "The server's /api/health has \"inpaint\": false or no answer for it. Drop that field (or set it to true) and accept \"mask_base64\" and \"mask_blur\" on /api/generate.",
         "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md.",
-        "hires": "The server's /api/health does not say \"hires\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md."
+        "hires": "The server's /api/health does not say \"hires\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md.",
+        "upscale": "The server's /api/health does not say \"upscale\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to upscale a source, answer that and accept \"upscale\": true with \"init_image_base64\" and the hr_* fields on /api/generate. See docs/backend-api.md."
       }
     }
   },
@@ -313,6 +317,8 @@
     "useAsSourceHint": "Sets this picture as the form's source image for a variation or edit. Prompts and settings stay as they are.",
     "useAsPose": "Use as pose reference",
     "useAsPoseHint": "Sets this picture as the form's pose reference: its pose carries over, but not its hair or outfit. Prompts and settings stay as they are.",
+    "upscale": "Upscale",
+    "upscaleHint": "Opens this picture in Generate to make it larger and redraw its detail (hires fix for a finished picture). Its prompts come along when it has them.",
     "reveal": "Show in folder",
     "revealHint": "Opens the folder in this computer's file manager, with the picture selected. Only from this computer.",
     "openApp": "Open in default app",
@@ -344,6 +350,8 @@
     "cfg": "CFG",
     "sampler": "Sampler",
     "strength": "Strength",
+    "hires": "Hires",
+    "hiresValue": "{scale}× {upscaler}, denoise {denoise}",
     "searchHintTerms": "Commas separate terms; every term must match. A term can be several words.",
     "searchHintExact": "Quotes match one tag exactly: not \"very long hair\". Tags sent from the viewer are quoted.",
     "searchHintSpelling": "Underscores and spaces are the same, and case does not matter.",

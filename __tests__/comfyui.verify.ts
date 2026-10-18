@@ -223,7 +223,7 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: true, upscale: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix and upscale, cancel of our own prompt')
   eq(status.upscalers, ['Lanczos'], 'without UpscaleModelLoader, hires fix upscales with Lanczos only')
   eq(status.hints, { pose: { reason: 'setup', need: 'engine' } }, 'pose is explained: no engine runs to draw the skeleton')
   const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
@@ -456,6 +456,47 @@ async function main() {
   eq(upscaling.graphs[0]['44']?.inputs.model_name, 'sr/RealESRGAN_x4plus.pth', 'the file is found again by its name')
   const noUpscaler = await hiresAdapter.start({ ...HIRES, hr_upscaler: 'gone.pth' })
   eq(noUpscaler.ok ? null : [noUpscaler.status, noUpscaler.error], [400, 'Upscaler not found on this backend: gone.pth'], 'an upscaler it does not have is refused')
+
+  // ── Upscale a source ──
+  const UPSCALE: GenerateRequest = { ...REQUEST, image_count: 1, upscale: true, hr_scale: 2, hr_steps: 6, hr_denoise: 0.3, hr_upscaler: 'Lanczos' }
+  const upGraph = buildComfyGraph(UPSCALE, { checkpoint: 'c', loras: [], seed: 4, sizeMultiple: 8, images: { source: 'latentry/s.png', strength: 0.6, size: { width: 400, height: 600 } } })
+  eq(
+    ['8', '9', '40', '41', '42', '43', '5', '6'].map((id) => upGraph[id]?.class_type ?? null),
+    ['LoadImage', null, null, 'ImageScale', 'VAEEncode', null, 'KSampler', 'VAEDecode'],
+    'upscale: the source, scaled and encoded, sampled once; no first pass'
+  )
+  eq(
+    [upGraph['41'].inputs.image, upGraph['41'].inputs.width, upGraph['41'].inputs.height, upGraph['5'].inputs.latent_image, upGraph['5'].inputs.denoise, upGraph['5'].inputs.steps],
+    [['8', 0], 800, 1200, ['42', 0], 0.3, 6],
+    'to the source size times the scale, redrawn at the hires denoise for the hires steps'
+  )
+  const upModelled = buildComfyGraph(UPSCALE, { checkpoint: 'c', loras: [], seed: 4, sizeMultiple: 8, upscaleModel: 'sr/4x.pth', images: { source: 's.png', strength: 0.6, size: { width: 400, height: 600 } } })
+  eq([upModelled['45'].inputs.image, upModelled['41'].inputs.image], [['8', 0], ['45', 0]], 'with an upscale model, it enlarges the source first')
+
+  const upscaler = await scriptedComfy({
+    socket: true,
+    upscalers: ['sr/RealESRGAN_x4plus.pth'],
+    progress: [
+      { node: '45', value: 1, max: 4 },
+      { node: '5', value: 3, max: 6 },
+      { node: '5', value: 6, max: 6 },
+    ],
+  })
+  const smallSource = await sharp({ create: { width: 400, height: 600, channels: 3, background: '#456' } }).png().toBuffer()
+  const upRun = await new ComfyUIAdapter({ ...CONFIG, id: 'upscaler' }, upscaler.transport).start({
+    ...UPSCALE,
+    hr_upscaler: 'RealESRGAN_x4plus.pth',
+    init_image_base64: smallSource.toString('base64'),
+  })
+  const upEvents = upRun.ok ? await collect(upRun.value) : []
+  eq(
+    upEvents.map((event) => (event.type === 'start' ? `start ${event.steps}` : event.type === 'step' ? `step ${event.step}` : event.type)),
+    ['start 6', 'step 3', 'step 6', 'image', 'done'],
+    'upscale: one bar of the hires steps; the upscale model\'s tiles not counted'
+  )
+  const uploadedSource = await sharp(upscaler.uploads[0]?.png ?? Buffer.alloc(0)).metadata().catch(() => null)
+  eq([uploadedSource?.width, uploadedSource?.height], [400, 600], 'the source goes up at its own size: ComfyUI enlarges it')
+  eq([upscaler.graphs[0]['44']?.inputs.model_name, upscaler.graphs[0]['41']?.inputs.width], ['sr/RealESRGAN_x4plus.pth', 800], 'with the model found by its name, to twice the size')
 
   const asked: unknown[] = []
   const engine = { pose: async (request: unknown) => (asked.push(request), { ok: true as const, value: { people: [] } }) }

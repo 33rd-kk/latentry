@@ -55,6 +55,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
 | `hires`, `upscalers` | no | `hires: true` enables hires fix (the `hr_*` fields below). `upscalers` lists the `hr_upscaler` values it takes; without it, `["Lanczos"]`. |
+| `upscale` | no | `true` enables Upscale: a source sent with `upscale: true` and the `hr_*` fields. |
 | `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint`, `pose` or `hires`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
 
 Any 2xx answer marks the backend as up.
@@ -112,6 +113,12 @@ steps.
   `num_inference_steps` when it is 0, as in A1111 and ComfyUI. All four
   come together or not at all. `start.steps` and the `step` count cover both
   passes, the second after the first.
+- **Upscale** (servers with `upscale: true`): `"upscale": true` with
+  `init_image_base64` and the four `hr_*` fields, and no mask or pose. The
+  source is upscaled from its own size by `hr_scale` (at most 4096 pixels a
+  side) with `hr_upscaler`, then redrawn once at `hr_denoise` for exactly
+  `hr_steps` steps (`num_inference_steps` when 0). `width`, `height` and
+  `strength` are not used. `start.steps` is that one pass.
 - **LoRAs** (servers with `lora: true`): the prompt's `<lora:name:weight>`
   calls, A1111-style. The server takes them out of the prompt, applies them,
   and lists them in each `image` event. `lora_hashes: true` asks for each
@@ -247,6 +254,7 @@ Start the web UI with `--api` (and `--api-auth user:password` if you set
 | `GET /sdapi/v1/samplers`, `/sdapi/v1/schedulers` | The sampler and scheduler lists |
 | `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers. `None` is left out, and so is any whose model is only a URL: using it would make the web UI download a model file (usually a pickled `.pth`). Without an answer, Lanczos only. |
 | `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. |
+| `POST /sdapi/v1/extra-single-image` | Upscale: enlarges the source to the exact size (`resize_mode: 1`) with the chosen upscaler before `img2img` redraws it at that size, with a schedule long enough to run exactly the hires steps. |
 | `POST /sdapi/v1/interrupt` | Cancel |
 | `GET /tagger/v1/interrogators`, `POST /tagger/v1/interrogate` | WD14 tagging, if the [tagger extension](https://github.com/picobyte/stable-diffusion-webui-wd14-tagger) is installed |
 

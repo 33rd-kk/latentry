@@ -15,10 +15,11 @@ const HEALTH_FLAG: Record<HintedFeature, string> = {
   inpaint: 'inpaint',
   pose: 'pose_control',
   hires: 'hires',
+  upscale: 'upscale',
 }
 
 /** Features a diffusers-compatible server must announce; the others are on unless it says no. */
-const OPT_IN: readonly HintedFeature[] = ['pose', 'hires']
+const OPT_IN: readonly HintedFeature[] = ['pose', 'hires', 'upscale']
 
 /** A server's own reason, as plain one-line text, or nothing usable. */
 export function hintDetail(value: unknown): string | undefined {

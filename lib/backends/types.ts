@@ -48,10 +48,12 @@ export interface Capabilities {
   preciseCancel: boolean
   /** Hires fix: a txt2img run (pose included) upscaled and redrawn by the hr_* fields. */
   hires: boolean
+  /** Upscale: the source picture itself upscaled and redrawn by the hr_* fields (`upscale: true`). */
+  upscale: boolean
 }
 
 /** The features a backend can lack that the page explains instead of just hiding. */
-export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'hires'] as const
+export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'hires', 'upscale'] as const
 export type HintedFeature = (typeof HINTED_FEATURES)[number]
 
 /**
@@ -133,6 +135,13 @@ export interface GenerateRequest {
   hr_steps?: number
   hr_denoise?: number
   hr_upscaler?: string
+  /**
+   * Upscale the source itself: with `init_image_base64` and the hr_* fields
+   * (no mask, no pose), the picture is upscaled by `hr_scale` from its own
+   * size and redrawn at `hr_denoise` for exactly `hr_steps` (0: the form's
+   * steps). `width` and `height` are not used.
+   */
+  upscale?: boolean
   /**
    * Ask for each applied LoRA's hash in the image events. Set by this server
    * from the settings (gallery.loraHashes), never taken from the browser.

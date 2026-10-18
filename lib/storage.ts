@@ -177,7 +177,8 @@ export type HandoffItem =
   /** A whole section at once; one item, so a long list cannot overflow the queue. */
   | { type: 'tags'; tags: string[]; target: 'positive' | 'negative' }
   | { type: 'settings'; settings: HandoffSettings }
-  | { type: 'source'; url: string; as: 'variation' | 'pose' }
+  /** A picture as the source; an upscale brings its own prompts when the picture says them. */
+  | { type: 'source'; url: string; as: 'variation' | 'pose' | 'upscale'; prompt?: string; negativePrompt?: string }
 
 let memoryHandoff: HandoffItem[] = []
 

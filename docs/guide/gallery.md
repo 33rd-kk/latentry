@@ -125,8 +125,8 @@ Tagging needs a tagger; see [Settings](settings.md).
 
 Click a picture to open it. Arrows or the keyboard move between pictures; the
 magnifier zooms; the download button saves it. The side panel shows the
-backend, model, mode, seed, size, steps, CFG, sampler and strength it was made
-with, its prompt and negative prompt as tags, and its WD14 tags. In
+backend, model, mode, seed, size, steps, CFG, sampler, strength and hires fix
+it was made with, its prompt and negative prompt as tags, and its WD14 tags. In
 [secret mode](secret-mode.md) thumbnails are blurred and the panel hides all
 of that until you choose **Show for this picture**.
 
@@ -139,6 +139,9 @@ From the panel:
   settings stay.
 - **Use as pose reference**: its pose carries over to the
   [skeleton pose](pose.md), not its hair or outfit.
+- **Upscale**: opens the picture in Generate to make it larger and redraw its
+  detail ([Upscale a picture](generate.md#upscale-a-picture)), with its own
+  prompts when it has them.
 - **Analyze with WD14**: read its tags now (saved into the file in a writable
   folder).
 - **Show in folder** and **Open in default app**: show the picture in this

@@ -1,7 +1,7 @@
 // Latentry's request in the A1111 web UI's field names, and the seeds out of
 // its answer. Used by ./a1111.ts.
 
-import { LANCZOS } from '@/lib/diffusion/hires'
+import { hiresSchedule, hiresSize, LANCZOS } from '@/lib/diffusion/hires'
 import { fitToImage } from '@/lib/profiles'
 import { alphaToMask, imageSize } from './images'
 import { stripDataUrl } from './http'
@@ -9,6 +9,13 @@ import type { GenerateRequest } from './types'
 
 /** The choice that leaves the sampler or scheduler to the web UI. */
 export const DEFAULT = 'Default'
+
+/** Where an A1111 run goes and with what; `extras` is an upscale's first call (POST /sdapi/v1/extra-single-image). */
+export interface A1111Payload {
+  path: string
+  body: Record<string, unknown>
+  extras?: Record<string, unknown>
+}
 
 /** A seed list from the `info` string (or object) a generate call returns. */
 export function seedsFromInfo(info: unknown): number[] {
@@ -24,11 +31,15 @@ export function seedsFromInfo(info: unknown): number[] {
   return Array.isArray(seeds) ? seeds.filter((seed): seed is number => typeof seed === 'number') : []
 }
 
-/** Our request in the web UI's field names; `null` when the source cannot be read. */
+/**
+ * Our request in the web UI's field names; `null` when the source cannot be
+ * read. An upscale also carries `extras`, the call that enlarges the source:
+ * its picture goes into `body.init_images` before `path` is called.
+ */
 export async function toA1111Payload(
   request: GenerateRequest,
   sizeMultiple: number
-): Promise<{ path: string; body: Record<string, unknown> } | null> {
+): Promise<A1111Payload | null> {
   const body: Record<string, unknown> = {
     prompt: request.prompt,
     negative_prompt: request.negative_prompt,
@@ -67,6 +78,29 @@ export async function toA1111Payload(
 
   const size = await imageSize(request.init_image_base64)
   if (!size) return null
+  if (request.upscale && request.hr_scale !== undefined) {
+    // Upscale: the extras tab enlarges the source with the chosen upscaler to
+    // the exact size, then img2img redraws that at the hires denoise. Its
+    // schedule is long enough to run exactly the hires steps.
+    const target = hiresSize(size.width, size.height, request.hr_scale, sizeMultiple)
+    const denoise = request.hr_denoise ?? 0.4
+    body.width = target.width
+    body.height = target.height
+    body.steps = hiresSchedule(request.hr_steps || request.num_inference_steps, denoise)
+    body.denoising_strength = denoise
+    body.resize_mode = 0
+    const extras = {
+      image: stripDataUrl(request.init_image_base64),
+      // 1: to this width and height, not by a factor.
+      resize_mode: 1,
+      upscaling_resize_w: target.width,
+      upscaling_resize_h: target.height,
+      upscaling_crop: false,
+      upscaler_1: request.hr_upscaler ?? LANCZOS,
+      show_extras_results: true,
+    }
+    return { path: '/sdapi/v1/img2img', body, extras }
+  }
   // Fit the output to the source's aspect, as the diffusers-compatible API
   // does server-side; the web UI would otherwise stretch it.
   const fitted = fitToImage(size, request.width, request.height, sizeMultiple)

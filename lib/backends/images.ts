@@ -24,16 +24,17 @@ export async function imageSize(base64: string): Promise<{ width: number; height
  * The source (and mask) at the size the run will draw: the requested area,
  * fitted to the source's aspect and the profile's multiple, as the other
  * backends do. The mask is white on black, softened by `maskBlur` pixels.
+ * An upscale keeps the source at its own size: the backend enlarges it.
  * Null when the source cannot be read.
  */
 export async function preparedImages(
-  request: { init_image_base64?: string; mask_base64?: string; mask_blur?: number; width: number; height: number },
+  request: { init_image_base64?: string; mask_base64?: string; mask_blur?: number; width: number; height: number; upscale?: boolean },
   sizeMultiple: number
 ): Promise<{ width: number; height: number; source: Buffer; mask?: Buffer } | null> {
   if (!request.init_image_base64) return null
   const size = await imageSize(request.init_image_base64)
   if (!size) return null
-  const { width, height } = fitToImage(size, request.width, request.height, sizeMultiple)
+  const { width, height } = request.upscale ? size : fitToImage(size, request.width, request.height, sizeMultiple)
   try {
     const source = await sharp(Buffer.from(stripDataUrl(request.init_image_base64), 'base64'))
       .resize(width, height, { fit: 'fill' })
