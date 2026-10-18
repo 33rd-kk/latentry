@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Upscale on Latentry's engine**: SDXL and Anima models can upscale a
+  picture too. The engine enlarges it with Lanczos from its own size (up to
+  4096 a side) and redraws it once with img2img, running exactly the hires
+  steps, one picture at a time and decoded in tiles. A running engine picks
+  it up after a stop and start.
+
 - **Upscale a picture from the gallery**: a new **Upscale** button in the
   gallery's side panel (and a third mode of the source image) makes a
   finished picture larger and redraws its detail, hires fix for a picture

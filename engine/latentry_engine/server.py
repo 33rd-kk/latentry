@@ -75,6 +75,8 @@ class GenerateBody(BaseModel):
     hr_steps: int = Field(0, ge=0, le=200)
     hr_denoise: float = Field(0.4, ge=0.01, le=1)
     hr_upscaler: Literal["Lanczos"] = "Lanczos"
+    # Upscale the source itself with the hr_* fields (docs/backend-api.md).
+    upscale: bool = False
     # Say each applied LoRA's hash in the image events. Off unless asked:
     # a hash identifies the file on this machine.
     lora_hashes: bool = False
@@ -273,6 +275,7 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 hr_scale=body.hr_scale,
                 hr_steps=body.hr_steps,
                 hr_denoise=body.hr_denoise,
+                upscale=body.upscale,
                 loras=calls,
                 lora_hashes=body.lora_hashes,
             )

@@ -49,7 +49,8 @@ next. It upscales with Lanczos only, so no upscale model is fetched or
 loaded. The second pass encodes and decodes the larger picture tile by
 tile, so it fits beside the model (and the pose ControlNet) on a 16 GB GPU.
 On Anima, hires fix and a skeleton pose do not go together yet; an SDXL
-model takes both.
+model takes both. [Upscale](generate.md#upscale-a-picture) works the same
+way on a source picture: Lanczos to the larger size, then one tiled redraw.
 
 ## Models
 

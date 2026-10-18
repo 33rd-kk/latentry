@@ -152,6 +152,8 @@ Steps) and **Denoising strength**. Width and Height are not used.
   chosen upscaler, then redraws it with img2img. Its latent modes are not
   offered here.
 - ComfyUI loads the picture at its own size and enlarges it in the graph.
+- Latentry's engine enlarges it with Lanczos and redraws it with SDXL or
+  Anima, one picture at a time.
 - The saved picture records the size it had before, its hires settings and
   the mode `upscale`.
 - A picture larger than 2048 pixels a side is shrunk to that when it is

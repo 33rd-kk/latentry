@@ -121,4 +121,39 @@ def test_hires_fix_is_refused_where_it_cannot_run(engine) -> None:
 def test_health_offers_hires_fix_with_lanczos(engine) -> None:
     engine, *_ = engine
     capabilities = engine.capabilities()
-    assert (capabilities["hires"], capabilities["upscalers"]) == (True, ["Lanczos"])
+    assert (capabilities["hires"], capabilities["upscale"], capabilities["upscalers"]) == (True, True, ["Lanczos"])
+
+
+def test_upscale_redraws_the_source_at_its_size_times_the_scale(engine) -> None:
+    engine, first, second, vae = engine
+    source = Image.new("RGB", (832, 1216), (200, 100, 50))
+    events = run(
+        engine,
+        GenerateRequest(prompt="x", width=512, height=512, seed=9, image_count=2, num_inference_steps=20, init_image=source, upscale=True, hr_scale=2, hr_steps=12, hr_denoise=0.35),
+    )
+    # The img2img pipeline only, past the first pass's 2048, one picture at a time.
+    assert first.calls == []
+    assert [call["image"].size for call in second.calls] == [(1664, 2432), (1664, 2432)]
+    assert {(call["strength"], call["num_inference_steps"]) for call in second.calls} == {(0.35, pictures.hires_schedule(12, 0.35, FAMILY_SDXL))}
+    assert [call["generator"][0].initial_seed() for call in second.calls] == [9, 10]
+    assert [call["num_images_per_prompt"] for call in second.calls] == [1, 1]
+    # One bar of exactly the hires steps; the canvas in tiles.
+    assert [data["steps"] for event, data in events if event == "start"] == [12, 12]
+    assert [data["step"] for event, data in events if event == "step"] == list(range(1, 13)) * 2
+    assert pictures.decode_image(next(data for event, data in events if event == "image")["image_base64"]).size == (1664, 2432)
+    assert vae.tiled == [True]
+
+
+def test_upscale_with_0_hires_steps_runs_the_forms_steps(engine) -> None:
+    engine, _first, second, _vae = engine
+    events = run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (64, 64)), upscale=True, hr_scale=1.5, hr_steps=0, hr_denoise=0.4, num_inference_steps=8))
+    assert [data["steps"] for event, data in events if event == "start"] == [8]
+    assert second.calls[0]["image"].size == (96, 96)
+
+
+def test_upscale_is_refused_without_its_parts(engine) -> None:
+    engine, *_ = engine
+    with pytest.raises(EngineError, match="source picture"):
+        run(engine, GenerateRequest(prompt="x", upscale=True, hr_scale=2))
+    with pytest.raises(EngineError, match="mask or a pose"):
+        run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (64, 64)), mask=Image.new("L", (64, 64)), upscale=True, hr_scale=2))

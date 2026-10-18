@@ -17,7 +17,7 @@ import contextlib
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import torch
@@ -75,6 +75,9 @@ class GenerateRequest:
     hr_scale: float | None = None
     hr_steps: int = 0
     hr_denoise: float = 0.4
+    # Upscale the source itself (with init_image and hr_scale): enlarged from
+    # its own size, then redrawn once like hires fix's second pass.
+    upscale: bool = False
     # Resolved by loras.resolve, and already taken out of `prompt`.
     loras: list[loras.LoraCall] = field(default_factory=list)
     # Say each LoRA's hash in the image events (A1111's "Lora hashes").
@@ -159,6 +162,7 @@ class Engine:
             "lora": self.loaded is not None,
             "tagger": False,
             "hires": family in (FAMILY_SDXL, FAMILY_ANIMA),
+            "upscale": family in (FAMILY_SDXL, FAMILY_ANIMA),
             "upscalers": UPSCALERS,
             # Why each feature is off, for Latentry to show (docs/backend-api.md).
             "unavailable": self._unavailable(family),
@@ -167,7 +171,7 @@ class Engine:
     def _unavailable(self, family: str | None) -> dict[str, str]:
         if self.loaded is None:
             reason = "No model is loaded. Choose one in Latentry's settings."
-            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason, "hires": reason}
+            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason, "hires": reason, "upscale": reason}
         reasons: dict[str, str] = {}
         if family == FAMILY_ANIMA:
             reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
@@ -201,7 +205,19 @@ class Engine:
             raise EngineError("This model cannot inpaint.")
         if request.pose_skeleton is not None and not self._pose_supported():
             raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
-        if request.hr_scale is not None and request.init_image is not None:
+        if request.upscale:
+            if request.init_image is None or request.hr_scale is None:
+                raise EngineError("Upscale needs a source picture and a scale.")
+            if request.mask is not None or request.pose_skeleton is not None:
+                raise EngineError("Upscale redraws the whole picture; it does not go with a mask or a pose.")
+            # An img2img run at the hires denoise, asked for a schedule that runs
+            # exactly the hires steps; its size comes from the source.
+            request = replace(
+                request,
+                strength=request.hr_denoise,
+                num_inference_steps=hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, self.loaded.family),
+            )
+        elif request.hr_scale is not None and request.init_image is not None:
             raise EngineError("Hires fix redraws a picture drawn from the prompt; it does not go with a source image.")
         if request.hr_scale is not None and request.pose_skeleton is not None and self.loaded.family == FAMILY_ANIMA:
             # The pose adapter adds the skeleton at the first pass's size.
@@ -230,7 +246,11 @@ class Engine:
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
 
         source = flatten(request.init_image) if request.init_image is not None else None
-        width, height = (fit_to_image(source, request.width, request.height) if source else (snap(request.width), snap(request.height)))
+        if request.upscale and source is not None:
+            # From the source's own size, past the first pass's 2048 (hires_size).
+            width, height = hires_size(source.width, source.height, request.hr_scale)
+        else:
+            width, height = (fit_to_image(source, request.width, request.height) if source else (snap(request.width), snap(request.height)))
         if source is not None:
             source = source.resize((width, height), Image.Resampling.LANCZOS)
         mask = mask_from_alpha(request.mask, (width, height)) if request.mask is not None else None
@@ -250,7 +270,13 @@ class Engine:
             hires_skeleton = letterbox(request.pose_skeleton, (hires_width, hires_height)) if pose else None
         total_steps = steps + hires_steps
 
-        _tile_large(pipe.vae, width, height)
+        if request.upscale:
+            # As hires fix's second pass: the larger canvas always in tiles.
+            pipe.vae.enable_tiling()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+        else:
+            _tile_large(pipe.vae, width, height)
 
         with loaded.lora_keeper.applied(pipe, request.loras):
             device = getattr(pipe, "_execution_device", self.plan.device)
@@ -260,7 +286,7 @@ class Engine:
             done = 0
             # With hires fix, one picture at a time: each gets its second pass
             # before the next, and only one large canvas is on the GPU.
-            batch_size = 1 if hires else self.pose_batch_size if pose else self.batch_size
+            batch_size = 1 if hires or request.upscale else self.pose_batch_size if pose else self.batch_size
             while done < len(seeds):
                 batch = seeds[done : done + batch_size]
                 emit("start", {"index": done, "total": len(seeds), "steps": total_steps, "run_id": run_id})
@@ -362,7 +388,10 @@ class Engine:
         pipe = loaded.pipe
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
         source = flatten(request.init_image) if request.init_image is not None else None
-        width, height = fit_to_image(source, request.width, request.height, 16) if source else (snap(request.width, 16), snap(request.height, 16))
+        if request.upscale and source is not None:
+            width, height = hires_size(source.width, source.height, request.hr_scale, 16)
+        else:
+            width, height = fit_to_image(source, request.width, request.height, 16) if source else (snap(request.width, 16), snap(request.height, 16))
         if source is not None:
             source = source.resize((width, height), Image.Resampling.LANCZOS)
         steps = img2img_steps(request.num_inference_steps, request.strength, loaded.family) if source is not None else request.num_inference_steps
@@ -405,6 +434,12 @@ class Engine:
             scopes.close()
             raise
         handle = pipe.transformer.register_forward_pre_hook(hook)
+        # An upscale's larger canvas in tiles, as hires fix's second pass.
+        tiled = getattr(pipe, "vae", None) if request.upscale else None
+        if tiled is not None:
+            tiled.enable_tiling()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
         try:
             seeds = self._seeds(request)
             for index, seed in enumerate(seeds):
@@ -457,4 +492,6 @@ class Engine:
                 })
         finally:
             handle.remove()
+            if tiled is not None:
+                tiled.disable_tiling()
             scopes.close()
