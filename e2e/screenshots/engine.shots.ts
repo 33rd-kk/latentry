@@ -29,7 +29,8 @@ const PICTURES: [string, string, number][] = [
   ['no humans, scenery, underwater, ruins, light rays, fish', '1216×832', 1008],
   ['no humans, still life, flowers in vase, books, tea cup, wooden table, window', '832×1216', 1009],
   ['2girls, full body, standing, side by side, hoodie, jeans, sneakers, waving, smile, simple background, white background', '1216×832', 1010],
-  ['1girl, solo, full body, standing, waving, smile, short hair, hoodie, jeans, sneakers, simple background, white background', '832×1216', 1011],
+  // One person in a scene: on a plain background this prompt drew a character sheet.
+  ['1girl, solo, full body, standing, waving, smile, looking at viewer, short brown hair, grey hoodie, blue jeans, sneakers, outdoors, park, trees, day', '832×1216', 1111],
 ]
 
 test('the engine draws the gallery', async ({ page }) => {
@@ -89,9 +90,12 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
   if (!(await usePose.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
   await usePose.click()
   await expect(page).toHaveURL(/\/$/)
-  // The form opens on the first backend; the skeleton needs the engine.
-  await page.getByRole('combobox').first().click()
-  await page.getByRole('option').filter({ has: page.getByText('engine', { exact: true }) }).click()
+  // The form opens on the backend chosen last; the skeleton needs the engine.
+  const picker = page.getByRole('combobox').first()
+  if (!(await picker.textContent())?.includes('engine')) {
+    await picker.click()
+    await page.getByRole('option').filter({ has: page.getByText('engine', { exact: true }) }).click()
+  }
   // Draw the skeleton from the reference, then open the 3D view.
   await page.getByRole('button', { name: "Use the source's pose" }).click()
   await expect(page.getByRole('img', { name: 'Skeleton pose' })).toBeVisible({ timeout: 120_000 })
