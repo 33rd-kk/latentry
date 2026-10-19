@@ -19,7 +19,10 @@ it again by what it shows or how it was made.
   reference) and inpainting with a painted mask. [Hires fix](guide/generate.md#hires-fix)
   redraws a new picture at a larger size, and
   [Upscale](guide/generate.md#upscale-a-picture) does the same to one already
-  in the gallery.
+  in the gallery. [Extend](guide/generate.md#extend-a-picture-outpainting)
+  grows a picture's canvas and draws the new area, and
+  [wildcards](guide/settings.md#wildcards) fill in parts of a prompt from a
+  folder of text files.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
   picture to follow (one, several or everyone), turn the pose in 3D and frame
   it, then generate along that skeleton. See
