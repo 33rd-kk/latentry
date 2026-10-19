@@ -435,7 +435,15 @@ export function buildComfyGraph(
     last = [HIRES_SAMPLER, 0]
   }
   graph['6'] = { class_type: 'VAEDecode', inputs: { samples: last, vae: ['1', 2] } }
-  graph[OUTPUT_NODE] = { class_type: 'PreviewImage', inputs: { images: ['6', 0] } }
+  let picture: [string, number] = ['6', 0]
+  // Inpaint (and Extend): the drawn picture only where the mask is white,
+  // the source's own pixels elsewhere, blended along the softened edge.
+  // Without it the kept part comes back through the VAE, a little changed.
+  if (images?.mask && !upscale) {
+    graph['35'] = { class_type: 'ImageCompositeMasked', inputs: { destination: ['8', 0], source: ['6', 0], x: 0, y: 0, resize_source: false, mask: ['30', 0] } }
+    picture = ['35', 0]
+  }
+  graph[OUTPUT_NODE] = { class_type: 'PreviewImage', inputs: { images: picture } }
   return graph
 }
 

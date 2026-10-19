@@ -341,8 +341,13 @@ async function main() {
     'inpaint graph: the source is loaded and encoded by the checkpoint\'s VAE, the mask (white = redraw) set on its latent'
   )
   eq([i2iGraph['5'].inputs.latent_image, i2iGraph['5'].inputs.denoise, '4' in i2iGraph], [['31', 0], 0.4, false], 'the sampler starts from it, with denoise as strength, and no empty latent')
+  eq(
+    [i2iGraph['35']?.inputs, i2iGraph[OUTPUT_NODE].inputs.images],
+    [{ destination: ['8', 0], source: ['6', 0], x: 0, y: 0, resize_source: false, mask: ['30', 0] }, ['35', 0]],
+    'and the drawn picture is pasted over the source only where the mask is white, so the kept part keeps its own pixels'
+  )
   const plainI2i = buildComfyGraph(REQUEST, { checkpoint: 'c', loras: [], seed: 1, sizeMultiple: 8, images: { source: 's.png', strength: 0.6 } })
-  eq([plainI2i['5'].inputs.latent_image, '30' in plainI2i], [['9', 0], false], 'img2img without a mask: the encoded source as it is')
+  eq([plainI2i['5'].inputs.latent_image, '30' in plainI2i, '35' in plainI2i, plainI2i[OUTPUT_NODE].inputs.images], [['9', 0], false, false, ['6', 0]], 'img2img without a mask: the encoded source as it is, and the decoded picture as it comes')
 
   const sourcePng = await sharp({ create: { width: 300, height: 200, channels: 3, background: '#468' } }).png().toBuffer()
   // Opaque (redraw) on the left half, transparent on the right.

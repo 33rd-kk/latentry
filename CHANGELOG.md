@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fixed**: on ComfyUI, inpainting and Extend left the part of the picture
+  that was meant to stay slightly changed, because it went through the VAE
+  once. The built-in graph now pastes the drawn area over the source's own
+  pixels, as Latentry's engine and A1111 do.
 - **Extend a picture (outpainting)**: a new **Extend** mode on the source
   image grows the canvas by up to 1024 pixels on each side and draws the new
   area, with a preview of the new canvas. It works on every backend that can
