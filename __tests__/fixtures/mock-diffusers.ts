@@ -5,6 +5,8 @@
 // 3D points. With `subsets` (the default) it takes a list of people and says
 // so with person_subsets, as poseorbit 0.2 does; without, one or everyone.
 // Every /api/pose body is recorded, so a test can check what the page asked for.
+// /api/generate streams `image_count` small PNGs, image i seeded `seed + i`
+// (a random seed starts at 1000), with two steps each.
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -15,8 +17,13 @@ export interface MockDiffusers {
   url: string
   /** Every POST /api/pose body, in order, without its picture. */
   poses: Record<string, unknown>[]
+  /** Every POST /api/generate body, in order, without its pictures. */
+  generates: Record<string, unknown>[]
   close(): Promise<void>
 }
+
+/** The steps each mock picture reports. */
+export const MOCK_GENERATE_STEPS = 2
 
 /** The people it finds, as fractions of the picture: [x0, y0, x1, y1]. */
 export const MOCK_PEOPLE: [number, number, number, number][] = [
@@ -48,6 +55,9 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
   sharp.cache(false)
   const skeleton = (await sharp({ create: { width: 64, height: 96, channels: 3, background: '#000000' } }).png().toBuffer()).toString('base64')
   const poses: Record<string, unknown>[] = []
+  const generates: Record<string, unknown>[] = []
+  const picture = (index: number) =>
+    sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 40 * index, g: 120, b: 200 } } }).png().toBuffer()
 
   const server: Server = createServer((request, response) => {
     let text = ''
@@ -63,6 +73,31 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
         return reply(200, { status: 'ok', model: 'mock-pose-model', pose_control: true, lora: false, tagger: false, busy: false })
       }
       if (route === 'GET /api/presets') return reply(200, { default: null, presets: [] })
+      if (route === 'POST /api/generate') {
+        let body: Record<string, unknown>
+        try {
+          body = JSON.parse(text)
+        } catch {
+          return reply(400, { error: 'Invalid JSON body' })
+        }
+        const { init_image_base64: _source, mask_base64: _mask, pose_image_base64: _pose, ...asked } = body
+        generates.push(asked)
+        const total = typeof body.image_count === 'number' ? body.image_count : 1
+        const first = typeof body.seed === 'number' && body.seed >= 0 ? body.seed : 1000
+        response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' })
+        const send = (event: string, data: unknown) => response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        void (async () => {
+          for (let index = 0; index < total; index++) {
+            send('start', { index, total, steps: MOCK_GENERATE_STEPS, run_id: `mock-run-${generates.length}` })
+            for (let step = 1; step <= MOCK_GENERATE_STEPS; step++) send('step', { index, step })
+            const image_base64 = (await picture(index)).toString('base64')
+            send('image', { index, total, seed: first + index, image_base64, steps_observed: MOCK_GENERATE_STEPS })
+          }
+          send('done', {})
+          response.end()
+        })()
+        return
+      }
       if (route === 'POST /api/pose') {
         let body: Record<string, unknown>
         try {
@@ -97,6 +132,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
   return {
     url: `http://127.0.0.1:${port}/`,
     poses,
+    generates,
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
   }
 }

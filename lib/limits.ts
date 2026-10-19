@@ -28,3 +28,10 @@ const PICTURE_ROUTES = /^\/api\/gen\/(?:tag|[^/]+\/(?:generate|pose))$/
 export function maxBodyBytes(pathname: string): number {
   return PICTURE_ROUTES.test(pathname) ? MAX_REQUEST_BODY_BYTES : MAX_JSON_BODY_BYTES
 }
+
+/**
+ * The most pictures one run may draw. The form's slider, the API and the
+ * A1111 payload use this; Latentry's engine has the same bound in
+ * engine/latentry_engine/server.py (GenerateBody.image_count).
+ */
+export const IMAGE_COUNT_MAX = 16

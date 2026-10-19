@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Runs of several pictures are tested**: browser and route tests now draw
+  two pictures in one run on an A1111 web UI and on a diffusers-compatible
+  server, and check that each is shown, seeded one after the other, and
+  saved. The limit of 16 pictures a run is one shared setting in the code.
 - **The guide checked against the app**: browser tests now walk through
   what the guide says about Generate, the gallery, pose, secret mode, Setup
   and pairing. Where they disagreed, the guide was corrected: a secret run's
