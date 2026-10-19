@@ -253,7 +253,21 @@ folder that is deleted afterwards, so your own settings, backends and
 pictures are never used. The page may not reach any other host. Install a
 browser once with `npx playwright install chromium`, or use one you have:
 `E2E_CHANNEL=msedge npm run test:e2e`. `E2E_KEEP=1` keeps the temp folder,
-with the traces of failed tests in it.
+with the traces of failed tests in it. The `docs-*` tests check what the
+guide says against the app.
+
+`npm run docs:screenshots` retakes the guide's `docs/assets/manual-*.webp`
+the same way (`e2e/screenshots/docs.shots.ts`). Its gallery is made from
+[poseorbit](https://github.com/33rd-kk/poseorbit)'s example pictures (a
+checkout next to this one, or `POSEORBIT_EXAMPLES`) and drawn stand-ins.
+Every `/api` answer has its paths and addresses replaced, and a shot that
+still shows this computer's user name, host name, folders or ports fails.
+`DOCS_SHOTS_ONLY=manual-viewer` retakes just one. With `DOCS_ENGINE_MODELS`
+(and the other `DOCS_ENGINE_*` settings described in
+`scripts/docs-screenshots.mjs`), the engine draws a fresh gallery into the
+temp folder instead, and the README's gallery and viewer shots, the 3D view,
+Setup and a ComfyUI workflow are taken from it (`e2e/screenshots/engine.shots.ts`).
+Stop your own engine first.
 
 Layout:
 

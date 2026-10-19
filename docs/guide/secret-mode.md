@@ -53,6 +53,8 @@ reloaded). Deleting a character deletes it for good, in either mode.
 
 ![The viewer in secret mode: the picture blurred, and Show for this picture in the side panel](../assets/manual-secret-panel.webp)
 
+![Results blurred in secret mode, with Show results](../assets/manual-secret-results.webp){ width="400" }
+
 **The generate page blurs pictures too.**
 
 - A run's results, and the full-size view of them, are blurred until

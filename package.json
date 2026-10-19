@@ -14,6 +14,7 @@
     "engine:lock": "node scripts/lock-engine.mjs",
     "banner": "node scripts/make-banner.mjs",
     "test:e2e": "node scripts/e2e.mjs",
+    "docs:screenshots": "node scripts/docs-screenshots.mjs",
     "coverage": "c8 node scripts/run-verify.mjs && node -e \"require('fs').rmSync('coverage/tmp', { recursive: true, force: true })\""
   },
   "dependencies": {

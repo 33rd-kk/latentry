@@ -15,6 +15,12 @@
   blank instead of saying there are none.
 - **Screen readers** now hear a name for every slider on Generate, for the
   gallery's filter menus and for the saved-characters menu.
+- **New screenshots in the guide**: the gallery and its viewer as they look
+  now, filters, Compare, hires fix, upscaling a source, secret mode on
+  Generate, pairing a phone, the 3D view, Setup with the engine running and
+  a ComfyUI workflow; the README's gallery and viewer shots are retaken too.
+  `npm run docs:screenshots` retakes them from a clean Latentry, with public
+  example pictures or a gallery the engine draws for the purpose.
 
 ## 0.9.0 (2026-10-18)
 

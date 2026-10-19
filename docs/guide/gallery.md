@@ -1,6 +1,6 @@
 # Gallery
 
-![The gallery](../assets/screenshot-gallery.webp)
+![The gallery with tags under the cards](../assets/manual-gallery.webp)
 
 Every finished picture is saved to the **save folder** with its settings
 embedded in the PNG (A1111's PNG Info reads them too). Other folders, such as
@@ -71,6 +71,8 @@ after that only new or changed files are read. What it reads is kept in
 Latentry's memory only, never written to disk, and forgotten when Latentry
 stops. Folders of more than 20,000 pictures cannot use these orders.
 
+![Filters open, with Portrait and PNG set and shown as chips under the panel](../assets/manual-filters.webp)
+
 **Filters** opens the rest; each filter you set shows as a chip under the
 toolbar, with × to remove it (with two or more, **Clear all** removes them
 all):
@@ -101,6 +103,8 @@ its pictures, and remove the **One stack** chip to go back. Stacking reads
 the folder first, the way the orders by date made do; what it keeps in
 memory is a hash of each prompt, not the prompt.
 
+![Two pictures of the same shape compared with a slider, and the settings that differ](../assets/manual-compare.webp){ width="640" }
+
 To compare two pictures, choose **Select**, pick two, and **Compare**. Two
 pictures of the same shape (an upscale, say) lie on top of each other with
 a slider between them. Others sit side by side. Below are the settings that
@@ -124,7 +128,7 @@ Tagging needs a tagger; see [Settings](settings.md).
 
 ## The viewer
 
-![The viewer's side panel](../assets/screenshot-viewer.webp)
+![The viewer: the picture, and its side panel with the actions and settings](../assets/manual-viewer.webp)
 
 Click a picture to open it. Arrows or the keyboard move between pictures; the
 magnifier zooms; the download button saves it. The side panel shows the

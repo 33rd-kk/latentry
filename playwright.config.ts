@@ -16,6 +16,8 @@ const ci = !!process.env.CI
 
 export default defineConfig({
   testDir: 'e2e',
+  // npm run docs:screenshots runs the shots for the guide instead of the tests.
+  testMatch: process.env.DOCS_SHOTS ? '**/*.shots.ts' : '**/*.spec.ts',
   // One server and one backend: runs share them, so they go one at a time.
   workers: 1,
   fullyParallel: false,
@@ -46,8 +48,10 @@ export default defineConfig({
         // A build of its own, so a running `npm start` keeps its .next.
         LATENTRY_DIST_DIR: '.next-e2e',
         LATENTRY_SETTINGS_FILE: path.join(root, 'settings.json'),
-        LATENTRY_RUNTIME_DIR: path.join(root, 'runtime'),
-        LATENTRY_ENGINE: 'off',
+        // docs:screenshots on the real engine uses its installed runtime; otherwise the engine is off.
+        ...(process.env.DOCS_ENGINE_RUNTIME
+          ? { LATENTRY_RUNTIME_DIR: process.env.DOCS_ENGINE_RUNTIME, HF_HUB_OFFLINE: '1' }
+          : { LATENTRY_RUNTIME_DIR: path.join(root, 'runtime'), LATENTRY_ENGINE: 'off' }),
         LATENTRY_HOST: '127.0.0.1',
         LATENTRY_NO_LOGO: '1',
         // The tests open pages and click far faster than a person, all from one

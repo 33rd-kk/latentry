@@ -26,6 +26,10 @@ your network:
 6. Type the code it shows on the other device, give the device a name if
    you like (for example "My phone"), and choose **Pair**.
 
+![The pairing card on Settings with a new code](../assets/manual-pairing.webp)
+
+![Pair this device on a phone: the code and an optional name](../assets/manual-pair-phone.webp){ width="260" }
+
 The code works once, for 10 minutes. A paired device stays paired for 30
 days; then it asks for a new code.
 
