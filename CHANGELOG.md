@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Extend a picture (outpainting)**: a new **Extend** mode on the source
+  image grows the canvas by up to 1024 pixels on each side and draws the new
+  area, with a preview of the new canvas. It works on every backend that can
+  inpaint: Latentry pads the picture and makes the mask itself, so the
+  backend gets an ordinary inpaint.
 - **The guide checked against the app**: browser tests now walk through
   what the guide says about Generate, the gallery, pose, secret mode, Setup
   and pairing. Where they disagreed, the guide was corrected: a secret run's

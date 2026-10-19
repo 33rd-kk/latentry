@@ -10,6 +10,7 @@ import { useSecretMode } from "@/components/app-header"
 import { BackendPicker } from "@/components/generate/backend-picker"
 import { SetupNotice } from "@/components/setup-notice"
 import { SourceImageSlot, type SourceImage, type SourceMode } from "@/components/generate/source-image-slot"
+import { ExtendControls } from "@/components/generate/extend-controls"
 import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
@@ -29,6 +30,7 @@ import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, DEFAULT } from "@/lib/generate/form"
+import { NO_SIDES, outpaintCanvas, outpaintFits, OUTPAINT_STRENGTH, type OutpaintSides } from "@/lib/generate/outpaint"
 import { isSecretMode } from "@/lib/secret-mode"
 import { MAX_REQUEST_BODY_BYTES } from "@/lib/limits"
 import { composePrompt, fitToImage, formatForProfile } from "@/lib/profiles"
@@ -95,13 +97,17 @@ export function GenerateClient() {
   // Inpaint mask over sourceImage; null means redraw the whole image.
   const [mask, setMask] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>("variation")
+  // Extend: how far the canvas grows on each side.
+  const [extendSides, setExtendSides] = useState<OutpaintSides>(NO_SIDES)
+  const modeStrength = (mode: SourceMode) =>
+    mode === "pose" ? profile.defaultPoseStrength : mode === "extend" ? OUTPAINT_STRENGTH : profile.defaultStrength
   // Each mode has its own sensible strength, so switching puts the slider at
   // that mode's starting point instead of carrying a variation's 0.6 into a
   // pose reference (where it would mostly copy the reference).
   const changeSourceMode = useCallback(
     (mode: SourceMode) => {
       setSourceMode(mode)
-      setStrength(mode === "pose" ? profile.defaultPoseStrength : profile.defaultStrength)
+      setStrength(mode === "pose" ? profile.defaultPoseStrength : mode === "extend" ? OUTPAINT_STRENGTH : profile.defaultStrength)
       setMask(null)
     },
     [profile]
@@ -190,8 +196,11 @@ export function GenerateClient() {
   const hires = Boolean(form?.hires && canHires)
   // Upscale redraws the source itself, larger: the source slot's third mode.
   const canUpscale = Boolean(capabilities?.upscale && capabilities.img2img)
-  const shownMode: SourceMode = sourceMode === "upscale" && !canUpscale ? "variation" : sourceMode
+  const shownMode: SourceMode =
+    (sourceMode === "upscale" && !canUpscale) || (sourceMode === "extend" && !capabilities?.inpaint) ? "variation" : sourceMode
   const upscaling = Boolean(sourceImage && canUpscale && shownMode === "upscale")
+  // Extend sends the source and the four amounts; the server pads and masks it.
+  const extending = Boolean(sourceImage && capabilities?.img2img && capabilities.inpaint && shownMode === "extend")
   // A1111's extras enlarge pixels: its latent modes are for hires fix only.
   const upscalers = useMemo(
     () => (upscaling && status?.kind === "a1111" ? (status.upscalers ?? []).filter((name) => !/^Latent\b/.test(name)) : (status?.upscalers ?? [])),
@@ -214,6 +223,10 @@ export function GenerateClient() {
       return
     }
     const useSource = Boolean(sourceImage && capabilities?.img2img)
+    if (extending && sourceImage && !outpaintFits(sourceImage, extendSides)) {
+      toast.error(t("generate.extendNothing"), { description: t("generate.extendNothingBody") })
+      return
+    }
     const body = JSON.stringify({
       prompt: composePrompt(form.prompt, { profile, artist: form.artist, quality: form.quality }),
       negative_prompt: formatForProfile(form.negativePrompt, profile),
@@ -231,6 +244,8 @@ export function GenerateClient() {
       ...(workflow ? { workflow } : {}),
       ...(upscaling && sourceImage
         ? { init_image_base64: sourceImage.dataUrl, upscale: true, ...hrFields }
+        : extending && sourceImage
+          ? { init_image_base64: sourceImage.dataUrl, strength, outpaint: extendSides }
         : {
             ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
             ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
@@ -291,7 +306,7 @@ export function GenerateClient() {
       abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, hrFields, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -329,6 +344,8 @@ export function GenerateClient() {
 
   const outputSize = upscaling && sourceImage
     ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple)
+    : extending && sourceImage
+      ? outpaintCanvas(sourceImage, extendSides)
     : sourceImage
       ? fitToImage(sourceImage, form.width, form.height, profile.sizeMultiple)
       : { width: form.width, height: form.height }
@@ -393,7 +410,7 @@ export function GenerateClient() {
                 value={sourceImage}
                 onChange={changeSource}
                 strength={strength}
-                defaultStrength={sourceMode === "pose" ? profile.defaultPoseStrength : profile.defaultStrength}
+                defaultStrength={modeStrength(shownMode)}
                 onStrengthChange={setStrength}
                 mask={mask}
                 onMaskChange={setMask}
@@ -413,6 +430,9 @@ export function GenerateClient() {
                       embedded={{ base: sourceImage, maxScale: HIRES_LIMITS.maxScale }}
                     />
                   )
+                }
+                extendControls={(veiled) =>
+                  sourceImage && <ExtendControls source={sourceImage} sides={extendSides} onChange={setExtendSides} veiled={veiled} disabled={isGenerating} />
                 }
                 disabled={isGenerating}
               />

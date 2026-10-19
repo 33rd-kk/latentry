@@ -69,6 +69,8 @@ use **Use as source** under a result. Then choose what it is for:
   [skeleton pose](pose.md) instead.
 - **Upscale**: the picture itself is made larger; see
   [Upscale a picture](#upscale-a-picture).
+- **Extend**: the canvas grows around the picture and the new area is drawn
+  (outpainting); see [Extend a picture](#extend-a-picture-outpainting).
 
 While a source is set, the **Hires fix** section is hidden.
 
@@ -90,6 +92,24 @@ On a ComfyUI backend, the source and mask are uploaded into ComfyUI's input
 folder under two names that each run reuses; after a secret run they are
 overwritten with an empty picture (see
 [Backends](../reference/backends.md#comfyui)).
+
+### Extend a picture (outpainting)
+
+![Extend on a source: Left and Right at 320 px, the new canvas 1056 × 608 previewed with the picture in place](../assets/manual-extend.webp){ width="420" }
+
+**Extend** (on backends that can inpaint) grows the canvas: **Left**,
+**Right**, **Top** and **Bottom** set how many pixels each side gains, and
+the preview shows the new canvas with the picture in place. Only the new
+area and a thin strip of the picture's edge (32 pixels, so the seam blends)
+are drawn; the rest of the picture stays as it is. The prompt should
+describe the whole new scene. Strength starts at 1.0, since the new area
+has nothing to keep.
+
+The canvas can be at most 2048 pixels a side, and each side grows by at
+most 1024; a slider stops where the canvas would pass that. The size is
+rounded up to a multiple of 16 on the right and bottom, so every backend
+draws it as it is. The width × height set below do not apply. The picture
+is saved with the mode `outpaint`.
 
 ### Tags from the source
 

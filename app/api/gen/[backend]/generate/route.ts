@@ -9,6 +9,8 @@ import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
 import { imageSize } from '@/lib/backends/images'
 import { workflowAccess } from '@/lib/backends/workflow-access'
+import { OUTPAINT_MAX_EDGE, outpaintSides } from '@/lib/generate/outpaint'
+import { prepareOutpaint } from '@/lib/generate/outpaint-image'
 
 export const runtime = 'nodejs'
 
@@ -53,6 +55,17 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   const release = tryAcquire(`gen:start:${id}`)
   if (!release) return jsonError(serverMessage('system.busyStarting'), 409)
   try {
+    // Extend: the source is padded and masked here, so the backend gets an
+    // ordinary inpaint and needs to know nothing about outpainting.
+    const sides = generate.init_image_base64 && !generate.upscale ? outpaintSides(body.outpaint) : null
+    if (sides) {
+      const prepared = await prepareOutpaint(generate.init_image_base64!, sides)
+      if (!prepared) return jsonError(serverMessage('generate.outpaintInvalid', { max: OUTPAINT_MAX_EDGE }), 400)
+      Object.assign(generate, { init_image_base64: prepared.image, mask_base64: prepared.mask, mask_blur: generate.mask_blur ?? 8, width: prepared.width, height: prepared.height })
+      delete generate.pose_image_base64
+      delete generate.pose_is_skeleton
+      delete generate.pose_strength
+    }
     const status = await backendStatus(adapter, 30 * 1000).catch(() => null)
     const started = await adapter.start(generate)
     // No `job` on this 409: the backend is busy with a run this server did not
@@ -82,7 +95,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
         kind: adapter.config.kind,
         // A workflow loads its own model unless one is set for the backend; status cannot say which.
         model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
-        mode: modeOf(generate),
+        mode: sides ? 'outpaint' : modeOf(generate),
       },
     })
 

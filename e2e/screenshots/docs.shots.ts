@@ -157,6 +157,21 @@ take('manual-upscale')('upscale a source', async ({ page }) => {
   await shotBetween(page, 'manual-upscale', page.getByText('Source image (img2img)', { exact: true }), page.getByText(/^Denoising strength: /), page.locator('[data-slot="card"]').first())
 })
 
+take('manual-extend')('extend a source', async ({ page }) => {
+  await openGenerate(page)
+  await page.locator('#prompt').fill('1girl, solo, grey hair, grey hoodie, waving, smile, full body, park, trees')
+  await page.locator('input[type="file"][accept="image/*"]').first().setInputFiles(path.join(root, 'reference.jpg'))
+  await page.getByRole('radio', { name: 'Extend' }).click()
+  for (const side of ['Left', 'Right']) {
+    const slider = page.getByRole('slider', { name: new RegExp(`^${side}:`) })
+    await slider.focus()
+    for (let step = 0; step < 4; step++) await slider.press('PageUp')
+    await slider.blur()
+  }
+  await expect(page.getByText(/^New canvas: /)).toBeVisible()
+  await shotBetween(page, 'manual-extend', page.getByText('Source image (img2img)', { exact: true }), page.getByText(/^Draws the new area/), page.locator('[data-slot="card"]').first())
+})
+
 take('manual-secret-results')('secret mode on Generate', async ({ page }) => {
   // Tall enough that nothing scrolls under the sticky header.
   await page.setViewportSize({ width: WIDTH, height: 1500 })
