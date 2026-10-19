@@ -10,6 +10,7 @@ import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { SliderLabel } from "@/components/generate/slider-label"
 import { CUSTOM_PRESET, DEFAULT, type FormState } from "@/lib/generate/form"
+import { IMAGE_COUNT_MAX } from "@/lib/limits"
 import type { Profile } from "@/lib/profiles"
 import type { BackendStatus, Preset } from "@/lib/backends/types"
 import { useT } from "@/lib/i18n"
@@ -150,7 +151,7 @@ export function SettingsSection({
         <SliderLabel id={`${sliderId}-3`} value={form.imageCount} defaultValue={1} onReset={() => update({ imageCount: 1 })}>
           {t("generate.imageCount", { value: form.imageCount })}
         </SliderLabel>
-        <Slider aria-labelledby={`${sliderId}-3`} min={1} max={16} step={1} value={[form.imageCount]} onValueChange={([value]) => update({ imageCount: value })} />
+        <Slider aria-labelledby={`${sliderId}-3`} min={1} max={IMAGE_COUNT_MAX} step={1} value={[form.imageCount]} onValueChange={([value]) => update({ imageCount: value })} />
       </div>
 
       {presetList.length > 0 && (

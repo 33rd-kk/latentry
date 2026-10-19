@@ -55,6 +55,7 @@ class GenerateBody(BaseModel):
     width: int = Field(1024, ge=64, le=4096)
     height: int = Field(1024, ge=64, le=4096)
     seed: int = -1
+    # IMAGE_COUNT_MAX in lib/limits.ts; keep the two in step.
     image_count: int = Field(1, ge=1, le=16)
     sampler: str = samplers.DEFAULT
     scheduler: str = samplers.DEFAULT

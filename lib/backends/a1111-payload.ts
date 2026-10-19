@@ -2,6 +2,7 @@
 // its answer. Used by ./a1111.ts.
 
 import { hiresSchedule, hiresSize, LANCZOS } from '@/lib/diffusion/hires'
+import { IMAGE_COUNT_MAX } from '@/lib/limits'
 import { fitToImage } from '@/lib/profiles'
 import { alphaToMask, imageSize } from './images'
 import { stripDataUrl } from './http'
@@ -46,7 +47,7 @@ export async function toA1111Payload(
     seed: request.seed,
     // One image per iteration, so progress (job_no) counts images.
     batch_size: 1,
-    n_iter: Math.max(1, Math.min(16, Math.floor(request.image_count))),
+    n_iter: Math.max(1, Math.min(IMAGE_COUNT_MAX, Math.floor(request.image_count))),
     steps: request.num_inference_steps,
     cfg_scale: request.guidance_scale,
     width: request.width,
