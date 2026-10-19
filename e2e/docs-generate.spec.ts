@@ -56,12 +56,12 @@ test('prompts are per backend until shared, and the negative prompt stays per ba
 })
 
 // "Source image": Variation / edit, Pose reference (strength starts at
-// 0.85) and Upscale; "Hires fix … with a source image the section is hidden".
-test('a source offers its three uses, and hides hires fix', async ({ page }) => {
+// 0.85), Upscale and Extend; "Hires fix … with a source image the section is hidden".
+test('a source offers its four uses, and hides hires fix', async ({ page }) => {
   await open(page)
   await expect(page.getByRole('switch', { name: 'Hires fix' })).toBeVisible()
   await chooseSource(page)
-  await expect(page.getByRole('radio')).toHaveText(['Variation / edit', 'Pose reference', 'Upscale'])
+  await expect(page.getByRole('radio')).toHaveText(['Variation / edit', 'Pose reference', 'Upscale', 'Extend'])
   await expect(page.getByRole('switch', { name: 'Hires fix' })).toBeHidden()
   await page.getByRole('radio', { name: 'Pose reference' }).click()
   await expect(page.getByText('Strength: 0.85')).toBeVisible()

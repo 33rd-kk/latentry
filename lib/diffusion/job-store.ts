@@ -66,7 +66,7 @@ export interface JobContext {
   profile: string
   kind: string
   model: string | null
-  mode: 'txt2img' | 'img2img' | 'inpaint' | 'pose' | 'upscale'
+  mode: 'txt2img' | 'img2img' | 'inpaint' | 'outpaint' | 'pose' | 'upscale'
   /** The prompt as typed, with its wildcards, when the page replaced any. */
   promptTemplate?: string
 }

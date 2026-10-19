@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Extend a picture (outpainting)**: a new **Extend** mode on the source
+  image grows the canvas by up to 1024 pixels on each side and draws the new
+  area, with a preview of the new canvas. It works on every backend that can
+  inpaint: Latentry pads the picture and makes the mask itself, so the
+  backend gets an ordinary inpaint.
 - **Wildcards**: `__name__` in a prompt takes one line of `name.txt` from
   a wildcards folder set on Settings, once per run (the same line again for
   the same fixed seed). `__folder/name__` reads from a subfolder, as in

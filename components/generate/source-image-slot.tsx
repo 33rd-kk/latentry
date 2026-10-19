@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useId, useRef, useState, type ReactNode } from "react"
-import { Brush, ImagePlus, Images, Loader2, Maximize2, PersonStanding, X } from "lucide-react"
+import { Brush, Expand, ImagePlus, Images, Loader2, Maximize2, PersonStanding, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { SliderLabel } from "@/components/generate/slider-label"
@@ -18,9 +18,10 @@ import { VeilToggle } from "./veil-toggle"
  * What the source is for. "variation" redraws this picture (whole, or the
  * masked part); "pose" only borrows its composition and silhouette for a new
  * picture, so it runs at a higher strength and has no mask; "upscale" makes
- * this picture larger and redraws its detail (hires fix for a finished one).
+ * this picture larger and redraws its detail (hires fix for a finished one);
+ * "extend" grows its canvas and draws the new area (outpainting).
  */
-export type SourceMode = "variation" | "pose" | "upscale"
+export type SourceMode = "variation" | "pose" | "upscale" | "extend"
 
 /** The img2img source as it will be sent: a PNG data URL plus its size, for the hint under the preview. */
 export interface SourceImage {
@@ -74,6 +75,8 @@ interface SourceImageSlotProps {
   /** Upscale is only offered where the backend can; its knobs come in `upscaleControls`. */
   canUpscale?: boolean
   upscaleControls?: ReactNode
+  /** Extend needs inpainting; its knobs are drawn by the caller, which is told whether the preview is blurred. */
+  extendControls?: (veiled: boolean) => ReactNode
   disabled?: boolean
 }
 
@@ -95,6 +98,7 @@ export function SourceImageSlot({
   canInpaint = true,
   canUpscale = false,
   upscaleControls,
+  extendControls,
   disabled,
 }: SourceImageSlotProps) {
   const t = useT()
@@ -207,7 +211,7 @@ export function SourceImageSlot({
               </Button>
             </div>
             <div className="flex gap-1" role="radiogroup" aria-label={t("generate.sourceMode")}>
-              {(canUpscale ? (["variation", "pose", "upscale"] as const) : (["variation", "pose"] as const)).map((option) => (
+              {(["variation", "pose", ...(canUpscale ? (["upscale"] as const) : []), ...(canInpaint && extendControls ? (["extend"] as const) : [])] as const).map((option) => (
                 <Button
                   key={option}
                   type="button"
@@ -226,7 +230,16 @@ export function SourceImageSlot({
                 >
                   {option === "pose" && <PersonStanding className="mr-1 h-3 w-3" />}
                   {option === "upscale" && <Maximize2 className="mr-1 h-3 w-3" />}
-                  {t(option === "pose" ? "generate.sourceModePose" : option === "upscale" ? "generate.sourceModeUpscale" : "generate.sourceModeVariation")}
+                  {option === "extend" && <Expand className="mr-1 h-3 w-3" />}
+                  {t(
+                    option === "pose"
+                      ? "generate.sourceModePose"
+                      : option === "upscale"
+                        ? "generate.sourceModeUpscale"
+                        : option === "extend"
+                          ? "generate.sourceModeExtend"
+                          : "generate.sourceModeVariation"
+                  )}
                 </Button>
               ))}
             </div>
@@ -234,6 +247,7 @@ export function SourceImageSlot({
               upscaleControls
             ) : (
             <div className="space-y-1.5">
+              {mode === "extend" && extendControls?.(veiled)}
               <SliderLabel
                 id={`${sliderId}-0`}
                 value={strength}
@@ -254,7 +268,7 @@ export function SourceImageSlot({
                 disabled={disabled}
               />
               <p className="text-xs text-muted-foreground">
-                {t(mode === "pose" ? "generate.poseHint" : "generate.strengthHint")}
+                {t(mode === "pose" ? "generate.poseHint" : mode === "extend" ? "generate.extendHint" : "generate.strengthHint")}
               </p>
             </div>
             )}
