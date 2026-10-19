@@ -22,6 +22,7 @@ import { HiresSection } from "@/components/generate/hires-section"
 import { WorkflowPicker } from "@/components/generate/workflow-picker"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
+import { useWildcards } from "@/hooks/use-wildcards"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
@@ -37,6 +38,8 @@ import { composePrompt, fitToImage, formatForProfile } from "@/lib/profiles"
 import type { CharacterPreset } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
 import { prependTags } from "@/lib/tags"
+import { expandWildcards } from "@/lib/wildcards/client"
+import { hasWildcards } from "@/lib/wildcards/syntax"
 import { useT } from "@/lib/i18n"
 
 /**
@@ -64,6 +67,7 @@ export function GenerateClient() {
   const { load: loadEngineModel } = engineModels
   const isEngine = Boolean(selectedId && engineModels.engines.includes(selectedId))
   const engineLoras = useEngineLoras()
+  const wildcards = useWildcards()
   // The LoRA picker has its own rule: a paired device gets it too when sharing is on.
   const pickLoras = Boolean(selectedId && engineLoras.engines.includes(selectedId))
   // The loaded model's family, to grey out LoRAs for the other one. A client
@@ -227,9 +231,19 @@ export function GenerateClient() {
       toast.error(t("generate.extendNothing"), { description: t("generate.extendNothingBody") })
       return
     }
+    // Wildcards are replaced first, once for the whole run, so the lines put
+    // in are respelled for the profile like the rest of the prompt.
+    const expanded = await expandWildcards(form.prompt, form.negativePrompt, form.seed)
+    if (!expanded.ok) {
+      toast.error(t("generate.wildcards.failed"), { description: expanded.error ? t.server(expanded.error) : t("generate.unreachable") })
+      return
+    }
+    const compose = (prompt: string) => composePrompt(prompt, { profile, artist: form.artist, quality: form.quality })
     const body = JSON.stringify({
-      prompt: composePrompt(form.prompt, { profile, artist: form.artist, quality: form.quality }),
-      negative_prompt: formatForProfile(form.negativePrompt, profile),
+      prompt: compose(expanded.prompt),
+      negative_prompt: formatForProfile(expanded.negativePrompt, profile),
+      // Kept with the picture, so the gallery can show what was typed.
+      ...(hasWildcards(form.prompt) ? { prompt_template: compose(form.prompt) } : {}),
       width: form.width,
       height: form.height,
       seed: form.seed,
@@ -403,6 +417,7 @@ export function GenerateClient() {
                     }
                   : undefined
               }
+              wildcardPicker={wildcards.available ? { names: wildcards.names, onOpen: wildcards.refresh } : undefined}
             />
 
             {capabilities?.img2img && (

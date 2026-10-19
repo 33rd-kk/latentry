@@ -148,6 +148,14 @@ take('manual-hires')('hires fix', async ({ page }) => {
   await shot(page, 'manual-hires', page.locator('div.rounded-md.border').filter({ has: hires }))
 })
 
+take('manual-wildcards')('wildcard picker', async ({ page }) => {
+  await openGenerate(page)
+  await page.locator('#prompt').fill('1girl, solo, __hair__, __outfit__, smile, full body, __places/outdoors__')
+  await page.locator('#prompt').blur()
+  await expect(page.getByRole('combobox', { name: 'Add a wildcard' })).toBeVisible()
+  await shotBetween(page, 'manual-wildcards', page.getByText('Positive prompt', { exact: true }), page.getByText(/^Prepended when generating/), page.locator('[data-slot="card"]').first())
+})
+
 take('manual-upscale')('upscale a source', async ({ page }) => {
   await openGenerate(page)
   await page.locator('#prompt').fill('1girl, solo, grey hair, grey hoodie, waving, smile, full body')

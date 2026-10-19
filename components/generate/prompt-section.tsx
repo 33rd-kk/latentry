@@ -5,9 +5,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
-import { callsLora, insertLora, type FormState } from "@/lib/generate/form"
+import { callsLora, insertLora, insertWildcard, type FormState } from "@/lib/generate/form"
 import type { EngineLora } from "@/hooks/use-engine-loras"
 import { LoraPicker } from "./lora-picker"
+import { WildcardPicker } from "./wildcard-picker"
 import type { Profile } from "@/lib/profiles"
 import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import type { PromptScope } from "@/lib/storage"
@@ -23,17 +24,19 @@ interface PromptSectionProps {
   appliesLoras: boolean
   /** Latentry's engine: its LoRAs, to put a call into the prompt from a list. */
   loraPicker?: { loras: EngineLora[] | null; family: string | null; onOpen: () => void }
+  /** The wildcards folder's names, when this client may use it. */
+  wildcardPicker?: { names: string[] | null; onOpen: () => void }
 }
 
 /** The words: artist (where the profile has a notation for one), prompt and negative prompt. */
-export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, appliesLoras, loraPicker }: PromptSectionProps) {
+export function PromptSection({ form, profile, update, promptScope, onPromptScopeChange, appliesLoras, loraPicker, wildcardPicker }: PromptSectionProps) {
   const t = useT()
   const promptRef = useRef<HTMLTextAreaElement>(null)
   // Where the caret was when the prompt lost focus: opening the picker takes
   // the focus, so the caret has to be remembered before that.
   const caretRef = useRef<number | null>(null)
-  const pickLora = (name: string) => {
-    const { prompt, caret } = insertLora(form.prompt, name, caretRef.current ?? undefined)
+  const insertAtCaret = (insert: typeof insertLora, name: string) => {
+    const { prompt, caret } = insert(form.prompt, name, caretRef.current ?? undefined)
     caretRef.current = caret
     update({ prompt })
     requestAnimationFrame(() => {
@@ -41,6 +44,8 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
       promptRef.current?.setSelectionRange(caret, caret)
     })
   }
+  const pickLora = (name: string) => insertAtCaret(insertLora, name)
+  const pickWildcard = (name: string) => insertAtCaret(insertWildcard, name)
   return (
     <>
       {profile.artistTemplate && (
@@ -59,6 +64,7 @@ export function PromptSection({ form, profile, update, promptScope, onPromptScop
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="prompt">{t("generate.positivePrompt")}</Label>
           <div className="flex flex-wrap items-center justify-end gap-4">
+            {wildcardPicker && <WildcardPicker {...wildcardPicker} onPick={pickWildcard} />}
             {loraPicker && <LoraPicker {...loraPicker} onPick={pickLora} />}
             <label className="flex items-center gap-2 text-xs text-muted-foreground" title={t("generate.sharedPromptHint")}>
               <Switch

@@ -40,6 +40,8 @@ export interface ImageMeta {
   created?: string
   /** LoRA (and LyCORIS) names, without folder or extension, each once. */
   loras?: string[]
+  /** Latentry only: the prompt as typed, with its wildcards, when it had any. */
+  promptTemplate?: string
 }
 
 /** The JSON stored under the `latentry` keyword. */
@@ -51,6 +53,8 @@ export interface LatentryRecord {
   model: string | null
   mode: string
   prompt: string
+  /** The prompt with its `__wildcards__`, before they were replaced; only when it had any. */
+  prompt_template?: string
   negative_prompt: string
   seed: number
   width: number
@@ -599,6 +603,7 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     mode: str(record.mode),
     created: str(record.created),
     loras: recordLoras(record),
+    ...(str(record.prompt_template) ? { promptTemplate: record.prompt_template } : {}),
   }
 }
 

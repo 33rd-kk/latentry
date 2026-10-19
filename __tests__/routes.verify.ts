@@ -2,7 +2,9 @@
  * The generate → save → gallery path through the API routes themselves, with
  * a mock A1111 web UI (fixtures/mock-a1111.ts) standing in for the backend:
  * a run is started, watched on its event stream, saved into the gallery's
- * save folder, listed and served. Settings and folders are a temp folder's.
+ * save folder, listed and served. A run of several pictures goes to a mock
+ * diffusers-compatible server (fixtures/mock-diffusers.ts). Settings and
+ * folders are a temp folder's.
  *
  * Run with: npm test -- routes
  */
@@ -12,13 +14,16 @@ import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { check, done, eq } from './assert'
 import { startMockA1111, MOCK_SEED } from './fixtures/mock-a1111'
+import { startMockDiffusers } from './fixtures/mock-diffusers'
 import { GET as backendsRoute } from '../app/api/gen/backends/route'
 import { POST as generateRoute } from '../app/api/gen/[backend]/generate/route'
 import { GET as jobRoute } from '../app/api/gen/[backend]/job/route'
 import { GET as streamRoute } from '../app/api/gen/[backend]/job/stream/route'
 import { GET as galleryRoute } from '../app/api/gallery/route'
 import { GET as pictureRoute } from '../app/api/gallery/[dir]/[name]/route'
+import { toGenerateRequest } from '../lib/api'
 import { getJob } from '../lib/diffusion/job-store'
+import { IMAGE_COUNT_MAX } from '../lib/limits'
 import { readSseFrames } from '../lib/diffusion/sse'
 import { PARAMETERS_KEY, readPngText } from '../lib/image-meta'
 
@@ -39,11 +44,15 @@ async function main(): Promise<void> {
   const scratch = mkdtempSync(path.join(tmpdir(), 'latentry-routes-'))
   const saveDir = path.join(scratch, 'out')
   const mock = await startMockA1111()
+  const many = await startMockDiffusers()
   writeFileSync(
     path.join(scratch, 'settings.json'),
     JSON.stringify({
       version: 1,
-      backends: [{ id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' }],
+      backends: [
+        { id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' },
+        { id: 'many', kind: 'diffusers', url: many.url, profile: 'generic' },
+      ],
       gallery: { saveDir, dirs: [] },
       engine: { autoStart: false },
     })
@@ -61,8 +70,11 @@ async function main(): Promise<void> {
     const backends = (await (await backendsRoute()).json()) as { backends: { id: string; alive: boolean; kind: string; model: string | null }[] }
     eq(
       backends.backends.map(({ id, kind, alive }) => ({ id, kind, alive })),
-      [{ id: 'mock', kind: 'a1111', alive: true }],
-      'the settings file\'s backend is the only one, and it answers'
+      [
+        { id: 'mock', kind: 'a1111', alive: true },
+        { id: 'many', kind: 'diffusers', alive: true },
+      ],
+      'the settings file\'s backends are the only ones, and they answer'
     )
     eq(backends.backends[0]?.model, 'mock-model.safetensors', 'with the model the web UI has loaded')
     check(!JSON.stringify(backends).includes(mock.url.replace(/\/$/, '')), 'the backend list carries no URL')
@@ -140,8 +152,29 @@ async function main(): Promise<void> {
     for (const name of ['../settings.json', '..', 'settings.json', 'missing.png']) {
       eq((await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/x`), params({ dir: '0', name }))).status, 404, `"${name}" is a 404`)
     }
+
+    // ── Several pictures in one run ──
+    const run = await generateRoute(
+      new Request(`${ORIGIN}/api/gen/many/generate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt: PROMPT, image_count: 2 }),
+      }),
+      params({ backend: 'many' })
+    )
+    eq(run.status, 200, 'a run of two pictures starts')
+    const runId = ((await run.json()) as { job?: { id?: string; total?: number } }).job?.id ?? ''
+    eq(many.generates[0]?.image_count, 2, 'the backend is asked for two')
+    await until(() => getJob('many', runId)?.status === 'done' && getJob('many', runId)?.pendingSaves === 0, 'the two-picture run to be saved')
+    const pair = getJob('many', runId)!
+    eq([pair.completed, pair.total, pair.images.map(({ seed }) => seed)], [2, 2, [1000, 1001]], 'both arrive, image i seeded seed + i')
+    const names = pair.images.map(({ saved_name }) => saved_name ?? '')
+    check(/_many_1000_0\.png$/.test(names[0]) && /_many_1001_1\.png$/.test(names[1]), `each saved under its seed and index (${names.join(', ')})`)
+    eq(readdirSync(saveDir).sort(), [saved, ...names].sort(), 'and both are in the save folder')
+    eq(toGenerateRequest({ prompt: PROMPT, image_count: 99 })?.image_count, IMAGE_COUNT_MAX, `a larger count is held to ${IMAGE_COUNT_MAX}`)
   } finally {
     await mock.close()
+    await many.close()
     rmSync(scratch, { recursive: true, force: true })
   }
 }

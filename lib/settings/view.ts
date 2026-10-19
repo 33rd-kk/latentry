@@ -32,6 +32,8 @@ export interface SettingsView {
     labels: Record<string, { label: string; auto: boolean }>
   }
   profiles: Partial<Record<ProfileId, ProfileOverride>>
+  /** The wildcards folder (null for none), and whether paired devices may use it. */
+  wildcards: { dir: string | null; share: boolean }
   sources: { backends: Source; tagger: Source; wd14: Source; saveDir: Source; dirs: Source; autoTag: Source }
   builtinProfiles: {
     id: ProfileId
@@ -80,6 +82,7 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       labels: Object.fromEntries(dirs.map((dir) => [dir.path, { label: dir.label, auto: dir.autoLabel }])),
     },
     profiles: settings.profiles ?? {},
+    wildcards: { dir: settings.wildcards?.dir ?? null, share: settings.wildcards?.share === true },
     sources: {
       backends: backendsSource(settings),
       tagger: settings.tagger !== undefined ? 'settings' : 'env',

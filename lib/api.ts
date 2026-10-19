@@ -4,7 +4,7 @@
 import { getAdapter } from '@/lib/backends'
 import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
 import { HIRES_DEFAULTS, HIRES_LIMITS, maxHiresScale } from '@/lib/diffusion/hires'
-import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
+import { IMAGE_COUNT_MAX, MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
 export const NO_STORE = { 'Cache-Control': 'no-store' }
 
@@ -81,7 +81,7 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     width: Math.round(num(body.width, 1024, 64, 4096)),
     height: Math.round(num(body.height, 1024, 64, 4096)),
     seed: Math.round(num(body.seed, -1, -1, 2 ** 32 - 1)),
-    image_count: Math.round(num(body.image_count, 1, 1, 16)),
+    image_count: Math.round(num(body.image_count, 1, 1, IMAGE_COUNT_MAX)),
     sampler: str(body.sampler, 'Default') || 'Default',
     scheduler: str(body.scheduler, 'Default') || 'Default',
     num_inference_steps: Math.round(num(body.num_inference_steps, 28, 1, 200)),

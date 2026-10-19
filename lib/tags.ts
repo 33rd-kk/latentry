@@ -3,6 +3,8 @@
 // `long_hair` or `long hair` -- depends on what the model was trained on, so
 // that is the profile's call (lib/profiles), and formatTags does the work.
 
+import { hasWildcards } from '@/lib/wildcards/syntax'
+
 /** How a profile writes the word breaks inside a tag; `asis` leaves them. */
 export const TAG_STYLES = ['underscore', 'space', 'asis'] as const
 export type TagStyle = (typeof TAG_STYLES)[number]
@@ -72,9 +74,10 @@ function formatToken(token: string, style: Exclude<TagStyle, 'asis'>, kept: (tag
   const core = token.trim()
   if (!core) return token
   const [, open, body, close] = core.match(WEIGHTED) ?? ['', '', core, '']
-  // LoRA and embedding calls, BREAK, face tags and the profile's own list are
-  // spelled exactly as they must be.
-  if (!body || body.startsWith('<') || /\bBREAK\b/.test(body) || FACE_TAG.test(body) || kept(body)) return token
+  // LoRA and embedding calls, BREAK, face tags, wildcards (the file name is
+  // spelled as it is on disk) and the profile's own list are spelled exactly
+  // as they must be.
+  if (!body || body.startsWith('<') || /\bBREAK\b/.test(body) || FACE_TAG.test(body) || hasWildcards(body) || kept(body)) return token
   const converted =
     style === 'space'
       ? // Only between word characters (or before a tag's `(qualifier)`), so
