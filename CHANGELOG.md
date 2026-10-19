@@ -8,6 +8,10 @@
   A1111's Dynamic Prompts extension, and **Add a wildcard** next to the
   prompt puts one in. The picture keeps the prompt as typed too. Paired
   devices can use wildcards only once **Use on paired devices** is on.
+- **Runs of several pictures are tested**: browser and route tests now draw
+  two pictures in one run on an A1111 web UI and on a diffusers-compatible
+  server, and check that each is shown, seeded one after the other, and
+  saved. The limit of 16 pictures a run is one shared setting in the code.
 - **The guide checked against the app**: browser tests now walk through
   what the guide says about Generate, the gallery, pose, secret mode, Setup
   and pairing. Where they disagreed, the guide was corrected: a secret run's

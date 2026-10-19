@@ -123,8 +123,8 @@ outfit does not carry over.
   the arrows swap them. Some profiles want multiples of 16.
 - **Seed**: -1 for random (the button sets it); a fixed seed repeats a
   picture. With several images, each takes the next seed.
-- **Steps**, **Image count**, **Sampler**, **Scheduler** and **Guidance
-  scale** (CFG). Backends with speed presets show **Speed preset** instead of
+- **Steps**, **Image count** (1 to 16 pictures in one run), **Sampler**,
+  **Scheduler** and **Guidance scale** (CFG). Backends with speed presets show **Speed preset** instead of
   sampler and steps; **Custom** brings them back.
 - A slider moved away from its default shows a small arrow at the end of its
   label: press it to put that one slider back to the profile's value.
