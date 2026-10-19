@@ -35,3 +35,16 @@ export function maxBodyBytes(pathname: string): number {
  * engine/latentry_engine/server.py (GenerateBody.image_count).
  */
 export const IMAGE_COUNT_MAX = 16
+
+/**
+ * The most runs that may wait behind a backend's current one. Each waits in
+ * the server's memory with its prompt and pictures, so the queue is kept short
+ * and bounded in bytes too (QUEUE_MAX_BYTES).
+ */
+export const QUEUE_MAX_RUNS = 8
+
+/**
+ * The most bytes of source, mask and pose pictures the runs waiting behind
+ * one backend may hold: two of the largest img2img requests.
+ */
+export const QUEUE_MAX_BYTES = 96 * 1024 * 1024

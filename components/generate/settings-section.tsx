@@ -20,7 +20,7 @@ interface SettingsSectionProps {
   profile: Profile
   status: BackendStatus
   update: (patch: Partial<FormState>) => void
-  disabled: boolean
+  disabled?: boolean
   /** With a source image only the tail of the schedule runs: how many steps that is, or null without one. */
   img2imgSteps: number | null
   presetList: Preset[]

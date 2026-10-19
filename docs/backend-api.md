@@ -132,7 +132,7 @@ Refusals come back before any streaming, as JSON with a `detail` (or
 
 | Status | When |
 |---|---|
-| `409` | A run is already in progress (one at a time). |
+| `409` | A run is already in progress (one at a time). Latentry keeps the run in its own queue and asks again every few seconds. |
 | `422` | A field is invalid (FastAPI's list form is understood). |
 | `401` | Missing or wrong token. |
 
@@ -266,8 +266,8 @@ Differences from the diffusers-compatible API:
   only sends it while the job on the web UI is the one it started (matched by
   `job_timestamp`). Images finished before the interrupt are kept.
 - **Busy means busy.** If the web UI is already generating (from its own tab,
-  say), Latentry refuses with "another client is generating" instead of
-  queueing behind it.
+  say), Latentry does not add to the web UI's queue. The run waits in
+  Latentry's queue and is sent once the web UI is free.
 - **No pose control.** ControlNet is not driven (yet).
 - **Hires fix is the web UI's own.** `hr_*` become `enable_hr`, `hr_scale`,
   `hr_upscaler`, `hr_second_pass_steps` and `denoising_strength` on
@@ -324,7 +324,8 @@ Differences from the diffusers-compatible API:
 - **The checkpoint is chosen by Latentry.** ComfyUI has no "loaded model": the
   backend's **Model** setting names it, else the first in ComfyUI's list.
 - **Busy means busy.** With another client's prompt running or queued,
-  Latentry refuses instead of queueing behind it.
+  Latentry does not add to ComfyUI's queue. The run waits in Latentry's
+  queue and is sent once ComfyUI is free.
 - **Cancel is precise.** Only Latentry's own prompt is interrupted (or taken
   off the queue), never another client's.
 - **What stays on the ComfyUI machine.** `PreviewImage` writes to ComfyUI's

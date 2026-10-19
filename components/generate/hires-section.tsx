@@ -18,7 +18,7 @@ interface HiresSectionProps {
   /** The upscaler as the backend accepts it. */
   upscaler: string
   sizeMultiple: number
-  disabled: boolean
+  disabled?: boolean
   /**
    * Upscale of a source picture: no switch or frame (it sits in the source
    * slot), sized from `base`, the source's size, and up to `maxScale`.

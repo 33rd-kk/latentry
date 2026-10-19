@@ -2,14 +2,16 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Download, Eye, EyeOff, FolderCheck, ImageUp } from "lucide-react"
+import { Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
 import type { SourceImage } from "@/components/generate/source-image-slot"
 import type { JobWatch } from "@/hooks/use-job-watch"
+import type { RunQueue } from "@/hooks/use-run-queue"
 import { useT } from "@/lib/i18n"
 
 // Never show the current-image bar as fully done from the step count alone —
@@ -17,13 +19,15 @@ import { useT } from "@/lib/i18n"
 const MAX_STEP_PERCENT = 99
 
 interface ResultsPanelProps {
-  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId">
+  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId" | "queued">
+  /** The runs this page has waiting behind the current one. */
+  queue: Pick<RunQueue, "items" | "cancel">
   /** Offered when the backend can start from a picture: a result becomes the source. */
   onUseAsSource?: (source: SourceImage) => void
 }
 
 /** The run's progress, its pictures, and the full-screen viewer for them. */
-export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
+export function ResultsPanel({ job, queue, onUseAsSource }: ResultsPanelProps) {
   const t = useT()
   const { results, progress, jobStatus, jobError, saveWarning, isGenerating, runId } = job
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
@@ -32,6 +36,8 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
   const secret = useSecretMode()
   const [shownRun, setShownRun] = useShownInSecret<string>()
   const veiled = secret && (runId === null || shownRun !== runId)
+  // Runs other pages queued: only how many, never what they draw.
+  const others = Math.max(0, job.queued - queue.items.length)
 
   const previewItems = useMemo<LightboxItem[]>(
     () =>
@@ -82,6 +88,32 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
               <Progress value={currentImagePercent ?? 0} indeterminate={currentImagePercent === null} />
             </div>
           </div>
+        )}
+
+        {(queue.items.length > 0 || others > 0) && (
+          <section className="mb-4 space-y-2" aria-label={t("generate.queue.title")}>
+            <p className="text-sm font-medium">{t("generate.queue.title")}</p>
+            <ol className="space-y-1">
+              {queue.items.map((item, index) => (
+                <li key={item.id} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.label || t("generate.queue.secretRun")}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {index > 0
+                      ? t("generate.queue.later")
+                      : item.waiting
+                        ? t("generate.queue.waitingBackend")
+                        : item.position > 1
+                          ? t("generate.queue.position", { ahead: item.position - 1 })
+                          : t("generate.queue.next")}
+                  </span>
+                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => void queue.cancel(item.id)} aria-label={t("generate.queue.cancel")}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ol>
+            {others > 0 && <p className="text-xs text-muted-foreground">{t("generate.queue.others", { count: others })}</p>}
+          </section>
         )}
 
         {/* Survives a reload along with the images, so a run that failed

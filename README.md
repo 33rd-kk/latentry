@@ -184,8 +184,9 @@ back to `.env.local`.
 - **Images are saved twice** if your backend also saves its own copy.
   Latentry's copy is the one with the settings embedded. Turn the backend's
   saving off if you do not want both.
-- **One run per backend at a time.** Different backends run in parallel; with
-  two GPUs, Latentry runs an engine on each.
+- **One run per backend at a time.** More wait in a queue and start in turn.
+  Different backends run in parallel; with two GPUs, Latentry runs an engine
+  on each.
 - **Models are never part of Latentry.** The Setup page downloads only what
   you pick, after showing its license. NoobAI XL, for one, is non-commercial.
 - **Settings can only be changed on the machine running Latentry**

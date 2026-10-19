@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { Loader2, RotateCcw, Wand2 } from "lucide-react"
+import { ListPlus, Loader2, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -27,6 +27,7 @@ import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-mode
 import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
+import { useRunQueue } from "@/hooks/use-run-queue"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
@@ -153,22 +154,27 @@ export function GenerateClient() {
   // ── The backend's run, and what the gallery sent over ────────────────────
   const job = useJobWatch(selectedId, refreshBackends, t)
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
+  const queue = useRunQueue(selectedId, attach, t)
   useGalleryHandoff({ ready, editForm, backendRef, changeSource, changeSourceMode, t })
 
   // Secret mode turned on while a run is on screen makes that run secret on
   // the server too (one way: turning it off again changes nothing there).
+  // So do the runs this page has waiting in the queue.
   const secret = useSecretMode()
-  const markedSecret = useRef<string | null>(null)
+  const markedSecret = useRef(new Set<string>())
   useEffect(() => {
     const backend = backendRef.current
-    if (!secret || !runId || !backend || markedSecret.current === runId) return
-    markedSecret.current = runId
-    void fetch(`/api/gen/${encodeURIComponent(backend)}/job/secret`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ job: runId }),
-    }).catch(() => {})
-  }, [secret, runId, backendRef])
+    if (!secret || !backend) return
+    for (const id of [runId, ...queue.items.map((item) => item.id)]) {
+      if (!id || markedSecret.current.has(id)) continue
+      markedSecret.current.add(id)
+      void fetch(`/api/gen/${encodeURIComponent(backend)}/job/secret`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ job: id }),
+      }).catch(() => {})
+    }
+  }, [secret, runId, queue.items, backendRef])
 
   // ── Generate and cancel ──────────────────────────────────────────────────
   // A ComfyUI workflow from the backend's folder draws from a prompt, and
@@ -278,8 +284,11 @@ export function GenerateClient() {
       })
       return
     }
+    // A run already going: this one waits in the queue, and the bars stay on
+    // the one running.
+    const queueing = isGenerating || queue.items.length > 0
     // Optimistic, so the bars appear on click; the first snapshot replaces it.
-    begin({
+    if (!queueing) begin({
       completed: 0,
       total: form.imageCount,
       currentStep: 0,
@@ -298,17 +307,16 @@ export function GenerateClient() {
       })
       const data = await response.json().catch(() => null)
 
-      // 409 with a job: this backend is already busy with a run this page had
-      // lost track of. Watch that one instead of reporting a failure.
-      if (response.status === 409 && data?.job?.id) {
-        attach(selectedId, data.job.id)
-        toast(t("generate.alreadyGenerating"), { description: t("generate.alreadyGeneratingBody") })
+      // 202: the backend is busy, and the run waits its turn in the queue.
+      if (response.status === 202 && data?.queued?.id) {
+        if (!queueing) abandon()
+        // In secret mode not even the start of the prompt is shown.
+        queue.add(selectedId, { id: data.queued.id, label: isSecretMode() ? null : form.prompt.trim().slice(0, 80), position: data.queued.position ?? 0, waiting: false })
         return
       }
-      // 409 without one: something else is using the backend (another app, or
-      // its own UI). There is nothing here to reattach to.
+      // 409: the queue is full, or the backend refused for its own reasons.
       if (response.status === 409) {
-        abandon()
+        if (!queueing) abandon()
         toast.error(t("generate.gpuBusy"), { description: data?.error ? t.server(data.error) : t("generate.gpuBusyBody") })
         return
       }
@@ -317,10 +325,10 @@ export function GenerateClient() {
       }
       attach(selectedId, data.job.id)
     } catch (error) {
-      abandon()
+      if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -389,7 +397,7 @@ export function GenerateClient() {
               }
             />
             {workflows.length > 0 && (
-              <WorkflowPicker workflows={workflows} value={workflow} onChange={(name) => update({ workflow: name })} disabled={isGenerating} />
+              <WorkflowPicker workflows={workflows} value={workflow} onChange={(name) => update({ workflow: name })} />
             )}
           </CardHeader>
           <CardContent className="space-y-4">
@@ -399,7 +407,6 @@ export function GenerateClient() {
               negativePrompt={form.negativePrompt}
               seed={form.seed}
               onApply={applyCharacter}
-              disabled={isGenerating}
             />
             <PromptSection
               form={form}
@@ -441,15 +448,13 @@ export function GenerateClient() {
                       upscalers={upscalers}
                       upscaler={upscaler}
                       sizeMultiple={profile.sizeMultiple}
-                      disabled={isGenerating}
                       embedded={{ base: sourceImage, maxScale: HIRES_LIMITS.maxScale }}
                     />
                   )
                 }
                 extendControls={(veiled) =>
-                  sourceImage && <ExtendControls source={sourceImage} sides={extendSides} onChange={setExtendSides} veiled={veiled} disabled={isGenerating} />
+                  sourceImage && <ExtendControls source={sourceImage} sides={extendSides} onChange={setExtendSides} veiled={veiled} />
                 }
-                disabled={isGenerating}
               />
             )}
             {sourceImage && capabilities?.img2img && tagger && (
@@ -459,7 +464,6 @@ export function GenerateClient() {
                 onAdd={addExtractedTags}
                 defaultGroups={sourceMode === "pose" ? POSE_GROUPS : CHARACTER_GROUPS}
                 hint={t(sourceMode === "pose" ? "generate.tagsHintPose" : "generate.tagsHint")}
-                disabled={isGenerating}
               />
             )}
             {capabilities?.pose && (
@@ -473,7 +477,6 @@ export function GenerateClient() {
                 onStrengthChange={setPoseStrength}
                 outputSize={outputSize}
                 source={sourceImage}
-                disabled={isGenerating}
               />
             )}
             {!capabilities?.pose && poseSkeleton && (
@@ -486,7 +489,6 @@ export function GenerateClient() {
               profile={profile}
               status={status}
               update={update}
-              disabled={isGenerating}
               img2imgSteps={sourceImage && capabilities?.img2img ? img2imgSteps(form.steps, strength, profile.id) : null}
               presetList={presetList}
               onPresetChange={applyPreset}
@@ -500,16 +502,15 @@ export function GenerateClient() {
                 upscalers={status.upscalers}
                 upscaler={upscaler}
                 sizeMultiple={profile.sizeMultiple}
-                disabled={isGenerating}
               />
             )}
 
             <div className="flex gap-2">
-              <Button onClick={handleGenerate} disabled={isGenerating || !status.alive || (isEngine && engineLoading)} className="flex-1">
+              <Button onClick={handleGenerate} disabled={!status.alive || (isEngine && engineLoading)} className="flex-1">
                 {isGenerating ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {t("generate.generating")}
+                    <ListPlus className="mr-2 h-4 w-4" />
+                    {t("generate.queue.add")}
                   </>
                 ) : (
                   <>
@@ -525,7 +526,7 @@ export function GenerateClient() {
               )}
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button type="button" variant="ghost" size="icon" onClick={formState.resetForm} disabled={isGenerating} aria-label={t("generate.reset")}>
+                  <Button type="button" variant="ghost" size="icon" onClick={formState.resetForm} aria-label={t("generate.reset")}>
                     <RotateCcw className="h-4 w-4" />
                   </Button>
                 </TooltipTrigger>
@@ -541,7 +542,7 @@ export function GenerateClient() {
           </CardContent>
         </Card>
 
-        <ResultsPanel job={job} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
+        <ResultsPanel job={job} queue={queue} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
       </div>
     </div>
   )

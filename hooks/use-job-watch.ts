@@ -34,6 +34,8 @@ export interface JobWatch {
   /** The run on screen, for what is tied to one run (secret mode's "Show"). */
   runId: string | null
   isGenerating: boolean
+  /** How many runs wait in this backend's queue, from any page; only the number. */
+  queued: number
   isCancelling: boolean
   setIsCancelling: (cancelling: boolean) => void
   /** The backend whose run is on screen, for handlers that must not be rebuilt. */
@@ -58,6 +60,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const [jobError, setJobError] = useState<string | null>(null)
   const [saveWarning, setSaveWarning] = useState<string | null>(null)
   const [runId, setRunId] = useState<string | null>(null)
+  const [queued, setQueued] = useState(0)
 
   // Refs rather than state: the handlers below must see the current values
   // without being rebuilt, which would drop the stream they are reading.
@@ -142,6 +145,9 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
         const wasRunning = statusRef.current === "running"
         // The backend is free again; say so now rather than at the next poll.
         refreshBackends()
+        // The next run in the queue may be starting: the page then shows it,
+        // as it would after a reload, and the count goes down.
+        void refreshRef.current()
         setJobError(error ?? null)
         setSaveWarning(saveError ?? null)
         setProgress((previous) => (previous ? { ...previous, currentStep: 0 } : previous))
@@ -164,7 +170,9 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     try {
       const response = await fetch(`/api/gen/${encodeURIComponent(backend)}/job`, { cache: "no-store" })
       if (!response.ok || backendRef.current !== backend) return
-      const job = (await response.json())?.job
+      const answer = await response.json()
+      setQueued(typeof answer?.queued === "number" ? answer.queued : 0)
+      const job = answer?.job
       if (!job) {
         if (statusRef.current === "running") {
           closeSource()
@@ -198,6 +206,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     setProgress(null)
     setJobError(null)
     setSaveWarning(null)
+    setQueued(0)
     applyStatus(null)
     if (selectedId) void refresh()
   }, [selectedId, applyStatus, closeSource, refresh])
@@ -250,6 +259,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     saveWarning,
     runId,
     isGenerating: jobStatus === "running",
+    queued,
     isCancelling,
     setIsCancelling,
     backendRef,

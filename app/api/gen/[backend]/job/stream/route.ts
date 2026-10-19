@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adapterOr404, jsonError } from '@/lib/api'
 import { encodeSseEvent } from '@/lib/diffusion/sse'
 import { getJob, isWatchable, subscribe, toSnapshot, type Job } from '@/lib/diffusion/job-store'
+import { getQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
 import { serverMessage } from '@/lib/i18n/core'
 import { sseSlot } from '@/lib/security/request-budget'
 
@@ -18,6 +19,9 @@ const KEEPALIVE_MS = 20 * 1000
  * exactly where it is.
  *
  * Events sent to the browser:
+ *   queued   — the run is still waiting: its place (1 is next), and whether the
+ *              backend is busy with a run this server did not start. Then,
+ *              once it starts, the events below, as for any run.
  *   snapshot — the whole job, images included; first on every (re)connect
  *   progress — completed/total, the step within the current image, and the
  *              gallery file name of each image once it is saved
@@ -117,24 +121,53 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
         }
       }
 
-      const job = getJob(backend, id)
-      // Past its window a run is over for every viewer, not only for /job.
-      if (!job || !isWatchable(job)) {
-        send('end', { status: 'gone', error: null })
-        close()
-        return
+      const watchJob = () => {
+        const job = getJob(backend, id)
+        // Past its window a run is over for every viewer, not only for /job.
+        if (!job || !isWatchable(job)) {
+          send('end', { status: 'gone', error: null })
+          close()
+          return
+        }
+
+        send('snapshot', toSnapshot(job, { includeImages: true }))
+        sentImages = job.images.length
+        lastProgress = JSON.stringify(progressOf(job))
+        if (ended(job)) {
+          sendEnd(job)
+          close()
+          return
+        }
+        unsubscribe = subscribe(backend, id, push)
       }
 
-      send('snapshot', toSnapshot(job, { includeImages: true }))
-      sentImages = job.images.length
-      lastProgress = JSON.stringify(progressOf(job))
-      if (ended(job)) {
-        sendEnd(job)
-        close()
-        return
+      // A run still in the queue: its place until it starts, then the run itself.
+      const waitInQueue = (run: QueuedRun) => {
+        let lastPlace = ''
+        const update = () => {
+          if (run.state === 'queued') {
+            const place = { position: positionOf(run), waiting: run.waitingSince !== null }
+            const key = JSON.stringify(place)
+            if (key !== lastPlace) {
+              lastPlace = key
+              send('queued', place)
+            }
+            return
+          }
+          unsubscribe()
+          if (run.state === 'started') return watchJob()
+          send('end', { status: run.state, error: run.error })
+          close()
+        }
+        unsubscribe = subscribeQueued(run, update)
+        update()
       }
 
-      unsubscribe = subscribe(backend, id, push)
+      const queued = getQueued(backend, id)
+      if (queued) waitInQueue(queued)
+      else watchJob()
+      if (closed) return
+
       request.signal.addEventListener('abort', close)
       keepAlive = setInterval(() => {
         if (closed) return

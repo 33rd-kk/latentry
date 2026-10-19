@@ -15,6 +15,8 @@ export interface MockA1111 {
   /** Holds generate answers back until release(), to see a run while it is running. */
   hold(): void
   release(): void
+  /** Reports a run of another client's in progress, as the web UI does while someone else generates. */
+  otherClient(busy: boolean): void
   close(): Promise<void>
 }
 
@@ -39,6 +41,7 @@ export async function startMockA1111(options: { port?: number; tagger?: boolean 
 
   const received: Record<string, unknown>[] = []
   let held = false
+  let otherBusy = false
   let waiting: (() => void)[] = []
 
   const server: Server = createServer((request, response) => {
@@ -52,8 +55,8 @@ export async function startMockA1111(options: { port?: number; tagger?: boolean 
       const route = `${request.method} ${(request.url ?? '').split('?')[0]}`
       switch (route) {
         case 'GET /sdapi/v1/progress':
-          // Never busy: the adapter refuses to start while another client is.
-          return reply(200, { state: { job_count: 0, job_no: 0, job_timestamp: '0', sampling_step: 0, sampling_steps: 0 } })
+          // Busy only when told: the adapter refuses to start while another client is.
+          return reply(200, { state: { job_count: otherBusy ? 1 : 0, job_no: 0, job_timestamp: otherBusy ? '20000101000000' : '0', sampling_step: 0, sampling_steps: 0 } })
         case 'GET /sdapi/v1/options':
           return reply(200, { sd_model_checkpoint: 'mock-model.safetensors' })
         case 'GET /sdapi/v1/samplers':
@@ -121,6 +124,9 @@ export async function startMockA1111(options: { port?: number; tagger?: boolean 
       held = true
     },
     release,
+    otherClient: (busy) => {
+      otherBusy = busy
+    },
     close: () => {
       release()
       server.closeAllConnections()

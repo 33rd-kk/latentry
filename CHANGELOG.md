@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **A queue for each backend**: while a run is going, **Generate** becomes
+  **Add to queue**, and the run starts as soon as the one before it ends (up
+  to 8 waiting on each backend). **Waiting** under the results lists the runs
+  this page added, and any of them can be taken out again. Other pages and
+  devices see only how many runs are waiting. A web UI or ComfyUI that is
+  busy with another client's run is waited for instead of refused. The queue
+  is held in memory only, and a second click no longer just shows the run
+  already going.
+
 ## 0.10.0 (2026-10-20)
 
 **Upgrading from 0.9.0**: nothing to do beyond the usual update. The engine

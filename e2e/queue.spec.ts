@@ -1,0 +1,63 @@
+// docs/guide/generate.md: while a run is going, Generate becomes Add to queue.
+// The page lists the runs it queued, and any of them can be taken out again.
+// Another page sees only how many wait. Cancelling the running run starts the
+// next one. Runs on the mock diffusers-compatible server, whose run with
+// UNTIL_CANCELLED in the prompt goes on until it is cancelled.
+
+import { expect, test, type Page } from '@playwright/test'
+import { UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
+
+/** `button`: what the main button says once there, Generate or, with a run going, Add to queue. */
+async function openOnPose(page: Page, button = 'Generate') {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  // The backend select is the first one on the page.
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option').filter({ has: page.getByText('pose', { exact: true }) }).click()
+  await expect(page.getByRole('button', { name: button, exact: true })).toBeEnabled()
+}
+
+test('runs wait their turn, can be taken out, and only their number is shown elsewhere', async ({ page, browser }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`queue first ${UNTIL_CANCELLED}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
+  await expect(cancel).toBeVisible()
+
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await expect(add).toBeEnabled()
+  await page.locator('#prompt').fill('queue second')
+  await add.click()
+  await page.locator('#prompt').fill('queue third')
+  await add.click()
+
+  const waiting = page.getByRole('region', { name: 'Waiting' })
+  const rows = waiting.getByRole('listitem')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0)).toContainText('queue second')
+  await expect(rows.nth(0)).toContainText('Starts next')
+  await expect(rows.nth(1)).toContainText('queue third')
+  await expect(rows.nth(1)).toContainText('After that')
+
+  // Taken out again: the one behind it starts next.
+  await rows.nth(0).getByRole('button', { name: 'Remove from the queue' }).click()
+  await expect(rows).toHaveCount(1)
+  await expect(rows.nth(0)).toContainText('queue third')
+  await expect(rows.nth(0)).toContainText('Starts next')
+
+  // Another page is told how many wait, not what.
+  const other = await (await browser.newContext()).newPage()
+  // It sees the run that is going, as after a reload, so its button queues too.
+  await openOnPose(other, 'Add to queue')
+  await expect(other.getByText('1 more waiting from other pages')).toBeVisible()
+  await expect(other.getByText('queue third')).toHaveCount(0)
+  await expect(other.getByRole('button', { name: 'Remove from the queue' })).toHaveCount(0)
+  await other.context().close()
+
+  // Stopping the running run starts the waiting one, which this page then shows.
+  await cancel.click()
+  await expect(waiting).toHaveCount(0)
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'In gallery' })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+})

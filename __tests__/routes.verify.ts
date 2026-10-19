@@ -18,6 +18,7 @@ import { startMockDiffusers } from './fixtures/mock-diffusers'
 import { GET as backendsRoute } from '../app/api/gen/backends/route'
 import { POST as generateRoute } from '../app/api/gen/[backend]/generate/route'
 import { GET as jobRoute } from '../app/api/gen/[backend]/job/route'
+import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
 import { GET as streamRoute } from '../app/api/gen/[backend]/job/stream/route'
 import { GET as galleryRoute } from '../app/api/gallery/route'
 import { GET as pictureRoute } from '../app/api/gallery/[dir]/[name]/route'
@@ -79,7 +80,7 @@ async function main(): Promise<void> {
     eq(backends.backends[0]?.model, 'mock-model.safetensors', 'with the model the web UI has loaded')
     check(!JSON.stringify(backends).includes(mock.url.replace(/\/$/, '')), 'the backend list carries no URL')
 
-    // ── Start a run, and refuse a second one while it runs ──
+    // ── Start a run, and queue a second one while it runs ──
     const generate = (body: unknown) =>
       generateRoute(
         new Request(`${ORIGIN}/api/gen/mock/generate`, {
@@ -102,11 +103,23 @@ async function main(): Promise<void> {
     eq([sent.prompt, sent.width, sent.height, sent.steps, sent.n_iter], [PROMPT, 512, 768, 12, 1], 'the backend gets the prompt and settings asked for')
 
     const second = await generate({ prompt: 'another' })
-    eq(second.status, 409, 'a second run while one is running is refused')
-    eq(((await second.json()) as { job?: { id?: string } }).job?.id, jobId, 'and points at the running one to reattach to')
+    eq(second.status, 202, 'a second run while one is running waits in the queue')
+    const queued = ((await second.json()) as { queued?: { id?: string; position?: number } }).queued
+    eq(queued?.position, 1, 'and is told it starts next')
+    check(!!queued?.id && queued.id !== jobId, 'under an id of its own')
 
-    const current = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { job?: { id?: string; status?: string } }
+    const current = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { job?: { id?: string; status?: string }; queued?: number }
     eq([current.job?.id, current.job?.status], [jobId, 'running'], '/job reports the running run')
+    eq(current.queued, 1, 'and how many wait behind it')
+    check(!JSON.stringify(current).includes(queued?.id ?? '-') && !JSON.stringify(current).includes('another'), 'but not which run waits, nor its prompt')
+
+    const cancelled = await cancelRoute(
+      new Request(`${ORIGIN}/api/gen/mock/cancel`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job: queued?.id }) }),
+      params({ backend: 'mock' })
+    )
+    eq(cancelled.status, 200, 'a waiting run is cancelled by its id')
+    const after = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { queued?: number }
+    eq(after.queued, 0, 'and leaves the queue')
 
     // ── Watch it on the event stream until it ends ──
     const stream = await streamRoute(new NextRequest(`${ORIGIN}/api/gen/mock/job/stream?id=${jobId}`), params({ backend: 'mock' }))

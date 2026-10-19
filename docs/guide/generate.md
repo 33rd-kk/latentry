@@ -213,9 +213,28 @@ Progress shows overall and per image. Each finished picture has:
 - **In gallery** (it was saved), **Use as source**, **Download**.
 - Click it to view it full screen.
 
-One run per backend at a time: a second click while it runs shows the run
-already in progress. **Cancel** stops it. Runs live on the server, so
-reloading the page, or opening it in another tab, picks up a run in progress.
+Runs live on the server, so reloading the page, or opening it in another
+tab, picks up a run in progress. **Cancel** stops it.
+
+### The queue
+
+A backend draws one run at a time. While one is going, **Generate** becomes
+**Add to queue**: change the prompt or the settings and add another run, up
+to 8 waiting on each backend. They start in turn, each as soon as the one
+before it ends, and their pictures are saved like any others.
+
+- **Waiting** under the results lists the runs this page added, with how
+  many runs are ahead of the first, and **×** to take one out again.
+- Another page or device sees only how many runs are waiting, not what they
+  draw, and cannot take them out.
+- The list is kept in the page only. After a reload the runs still start in
+  turn, but the page no longer lists them, so they can no longer be taken
+  out.
+- If the backend is busy with a run Latentry did not start (from its own
+  web UI, say), the first run says **Waiting for the backend** and starts
+  once it is free. After 30 minutes it gives up.
+- The queue is held in memory only. Stopping Latentry drops the runs that
+  were still waiting.
 
 ## Secret mode
 

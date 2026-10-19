@@ -81,6 +81,11 @@ reloaded, the run carries on and its pictures are still saved, but the page
 does not pick it up again. The server forgets the run, images and prompt,
 a minute after it ends.
 
+**Runs waiting in the queue stay with their page.** The page that queued a
+run is the only one told which it is, in secret mode or not, and in secret
+mode it does not show even the start of its prompt. Turning secret mode on
+while runs wait makes them secret runs once they start.
+
 **Turning it on during a run makes that run secret.** Turned on while a
 run is going, or within a minute of its end, the run becomes a secret one
 from then on: a reload, another tab or another device no longer picks it

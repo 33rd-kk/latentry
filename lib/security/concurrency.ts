@@ -1,8 +1,8 @@
 // In-process concurrency controls for the routes that drive a backend.
 //
-// A backend does one heavy thing at a time on one GPU. The routes already hand
-// back a run that is going instead of starting a second one, but that check is
-// not enough on its own: between "nothing is running" and the run being
+// A backend does one heavy thing at a time on one GPU. The routes already queue
+// a run asked for while one is going (lib/diffusion/run-queue.ts) instead of
+// starting a second, but that check is not enough on its own: between "nothing is running" and the run being
 // recorded there is an `await fetch` of up to 30 seconds, and two requests that
 // arrive inside it both get through. A lock taken synchronously, before the
 // first await, closes that.

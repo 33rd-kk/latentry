@@ -68,7 +68,8 @@ the run draws, and encodes the source with the checkpoint's VAE; **Strength**
 is how much is redrawn. One prompt per picture means **Cancel** stops the
 picture being drawn and skips the rest. It never sends a graph from the page,
 and it never cancels another client's prompt. While someone else's prompt is
-queued, a run is refused rather than queued behind it.
+queued, a run waits in [Latentry's queue](../guide/generate.md#the-queue)
+until ComfyUI is free, rather than going into ComfyUI's queue behind it.
 
 ### Pose
 
