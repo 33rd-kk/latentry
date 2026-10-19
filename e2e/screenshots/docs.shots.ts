@@ -6,40 +6,21 @@
 // anything that names this computer, and fails rather than save one that does.
 
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
-import { hostname, userInfo } from 'node:os'
 import path from 'node:path'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
 import sharp from 'sharp'
 import { LATENTRY_KEY, writePngText } from '../../lib/image-meta/png'
+import { generic, onEngine, openGenerate as openOn, out, root, shot, shotBetween, take, WIDTH } from './shared'
 
-const root = process.env.E2E_ROOT!
-const out = process.env.DOCS_SHOTS_OUT!
-const only = process.env.DOCS_SHOTS_ONLY
+// The real engine's shots are in engine.shots.ts.
+test.skip(onEngine)
+
 // poseorbit's docs/assets/examples, published under its licence with the
 // package; a checkout next to this one, or POSEORBIT_EXAMPLES.
 const examples = process.env.POSEORBIT_EXAMPLES || path.resolve('..', 'poseorbit', 'docs', 'assets', 'examples')
 const reference = path.join(examples, 'reference.jpg')
 
-const WIDTH = 1280
-const SCALE = 1.25
-const ports = ['E2E_PORT', 'E2E_MOCK_PORT', 'E2E_COMFY_PORT', 'E2E_POSE_PORT', 'E2E_POSE_SINGLE_PORT'].map((name) => process.env[name]!)
-
-/** What must never be in a published shot. */
-const forbidden = [
-  userInfo().username,
-  hostname(),
-  root,
-  root.replaceAll('\\', '/'),
-  'AppData',
-  'latentry-docs-',
-  '127.0.0.1',
-  ...ports.map((port) => `:${port}`),
-  // Ports the author's own backends listen on.
-  ':55355',
-  ':55356',
-].filter((text) => text && text.length > 2)
-
-test.use({ viewport: { width: WIDTH, height: 820 }, deviceScaleFactor: SCALE, colorScheme: 'light' })
+const openGenerate = (page: Page, backend = 'forge') => openOn(page, backend)
 
 // ---- the gallery's pictures ----------------------------------------------
 
@@ -114,80 +95,6 @@ test.beforeAll(async () => {
   // The compare dialog's pair: the same shape, two prompts.
   copyFileSync(reference, path.join(root, 'reference.jpg'))
 })
-
-// ---- privacy: rewrite, then check ----------------------------------------
-
-/** Swaps this computer's paths and the mocks' addresses in every /api answer for generic ones. */
-async function generic(page: Page) {
-  await page.route(/\/api\//, async (route) => {
-    const request = route.request()
-    if (request.method() !== 'GET' || /\/stream$/.test(new URL(request.url()).pathname)) return route.fallback()
-    const response = await route.fetch()
-    const type = response.headers()['content-type'] ?? ''
-    if (!type.includes('json')) return route.fulfill({ response })
-    let body = await response.text()
-    for (const form of [root, root.replaceAll('\\', '/'), JSON.stringify(root).slice(1, -1)]) body = body.split(form).join('C:\\\\latentry')
-    body = body.replace(/127\.0\.0\.1:\d+/g, 'localhost:7860')
-    return route.fulfill({ response, body })
-  })
-}
-
-async function checkClean(page: Page) {
-  const seen = await page.evaluate(() => {
-    const parts = [document.body.innerText]
-    for (const field of document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')) parts.push(field.value, field.placeholder)
-    for (const element of document.querySelectorAll('[title], [alt], [aria-label]')) {
-      parts.push(element.getAttribute('title') ?? '', element.getAttribute('alt') ?? '', element.getAttribute('aria-label') ?? '')
-    }
-    return parts.join('\n')
-  })
-  for (const text of forbidden) expect(seen.includes(text), `the page shows "${text}"`).toBe(false)
-}
-
-async function writeWebp(name: string, png: Buffer) {
-  await sharp(png).webp({ quality: 84 }).toFile(path.join(out, `${name}.webp`))
-}
-
-/** The whole window, or one part of the page. */
-async function shot(page: Page, name: string, target?: Locator) {
-  await checkClean(page)
-  // Let lazy thumbnails and transitions settle (a run's stream keeps the network busy).
-  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {})
-  await page.waitForTimeout(400)
-  const png = target ? await target.screenshot({ animations: 'disabled' }) : await page.screenshot({ animations: 'disabled' })
-  await writeWebp(name, png)
-}
-
-/** From the top of one locator to the bottom of another, across the page's width or the given column. */
-async function shotBetween(page: Page, name: string, top: Locator, bottom: Locator, column?: Locator) {
-  await checkClean(page)
-  await page.waitForTimeout(400)
-  const a = (await top.boundingBox())!
-  const b = (await bottom.boundingBox())!
-  const c = column ? (await column.boundingBox())! : { x: 0, width: WIDTH }
-  const pad = 12
-  const png = await page.screenshot({
-    animations: 'disabled',
-    fullPage: true,
-    clip: { x: Math.max(0, c.x - pad), y: Math.max(0, a.y - pad), width: Math.min(WIDTH, c.width + 2 * pad), height: b.y + b.height - a.y + 2 * pad },
-  })
-  await writeWebp(name, png)
-}
-
-const take = (name: string) => (only && !name.includes(only) ? test.skip : test)
-
-async function openGenerate(page: Page, backend = 'forge') {
-  await generic(page)
-  await page.goto('/')
-  const generate = page.getByRole('button', { name: 'Generate', exact: true })
-  await expect(generate).toBeEnabled()
-  const picker = page.getByRole('combobox').first()
-  if (!(await picker.textContent())?.includes(backend)) {
-    await picker.click()
-    await page.getByRole('option').filter({ has: page.getByText(backend, { exact: true }) }).click()
-    await expect(generate).toBeEnabled()
-  }
-}
 
 async function openGallery(page: Page) {
   await generic(page)

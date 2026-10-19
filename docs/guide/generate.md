@@ -21,6 +21,8 @@ form, so switching backends and back keeps what you typed.
   only, so the source image is hidden while one is chosen. See
   [Backends](../reference/backends.md#your-own-workflows).
 
+![A workflow from the folder chosen on a ComfyUI backend, with the note under it](../assets/manual-workflow.webp){ width="420" }
+
 ## Prompts
 
 - **Artist**: a name, added to the prompt the way the profile writes it

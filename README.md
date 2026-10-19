@@ -262,7 +262,12 @@ the same way (`e2e/screenshots/docs.shots.ts`). Its gallery is made from
 checkout next to this one, or `POSEORBIT_EXAMPLES`) and drawn stand-ins.
 Every `/api` answer has its paths and addresses replaced, and a shot that
 still shows this computer's user name, host name, folders or ports fails.
-`DOCS_SHOTS_ONLY=manual-viewer` retakes just one.
+`DOCS_SHOTS_ONLY=manual-viewer` retakes just one. With `DOCS_ENGINE_MODELS`
+(and the other `DOCS_ENGINE_*` settings described in
+`scripts/docs-screenshots.mjs`), the engine draws a fresh gallery into the
+temp folder instead, and the README's gallery and viewer shots, the 3D view,
+Setup and a ComfyUI workflow are taken from it (`e2e/screenshots/engine.shots.ts`).
+Stop your own engine first.
 
 Layout:
 
