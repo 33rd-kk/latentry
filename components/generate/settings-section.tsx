@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useId, useState } from "react"
 import { ArrowLeftRight, Dices } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -43,6 +43,7 @@ export function SettingsSection({
   scheduler,
 }: SettingsSectionProps) {
   const t = useT()
+  const sliderId = useId()
   const selectedPreset = presetList.find((preset) => preset.name === form.presetName) ?? null
   return (
     <>
@@ -64,10 +65,10 @@ export function SettingsSection({
         </div>
         <div className="flex items-end gap-2">
           <div className="flex-1 space-y-1.5">
-            <SliderLabel value={form.width} defaultValue={profile.defaults.width} onReset={() => update({ width: profile.defaults.width })}>
+            <SliderLabel id={`${sliderId}-0`} value={form.width} defaultValue={profile.defaults.width} onReset={() => update({ width: profile.defaults.width })}>
               {t("generate.width", { value: form.width })}
             </SliderLabel>
-            <Slider min={256} max={2048} step={64} value={[form.width]} onValueChange={([value]) => update({ width: value })} />
+            <Slider aria-labelledby={`${sliderId}-0`} min={256} max={2048} step={64} value={[form.width]} onValueChange={([value]) => update({ width: value })} />
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -85,10 +86,10 @@ export function SettingsSection({
             <TooltipContent>{t("generate.swapDimensions")}</TooltipContent>
           </Tooltip>
           <div className="flex-1 space-y-1.5">
-            <SliderLabel value={form.height} defaultValue={profile.defaults.height} onReset={() => update({ height: profile.defaults.height })}>
+            <SliderLabel id={`${sliderId}-1`} value={form.height} defaultValue={profile.defaults.height} onReset={() => update({ height: profile.defaults.height })}>
               {t("generate.height", { value: form.height })}
             </SliderLabel>
-            <Slider min={256} max={2048} step={64} value={[form.height]} onValueChange={([value]) => update({ height: value })} />
+            <Slider aria-labelledby={`${sliderId}-1`} min={256} max={2048} step={64} value={[form.height]} onValueChange={([value]) => update({ height: value })} />
           </div>
         </div>
         {(form.width % profile.sizeMultiple !== 0 || form.height % profile.sizeMultiple !== 0) && (
@@ -125,6 +126,7 @@ export function SettingsSection({
           {/* With a source, only the tail of the schedule runs; the label says
               so, or it would disagree with the progress bar's count. */}
           <SliderLabel
+            id={`${sliderId}-2`}
             value={form.steps}
             defaultValue={profile.defaults.steps}
             onReset={() => update({ steps: profile.defaults.steps, presetName: CUSTOM_PRESET })}
@@ -134,6 +136,7 @@ export function SettingsSection({
               : t("generate.steps", { value: form.steps })}
           </SliderLabel>
           <Slider
+            aria-labelledby={`${sliderId}-2`}
             min={1}
             max={100}
             step={1}
@@ -144,10 +147,10 @@ export function SettingsSection({
       </div>
 
       <div className="space-y-1.5">
-        <SliderLabel value={form.imageCount} defaultValue={1} onReset={() => update({ imageCount: 1 })}>
+        <SliderLabel id={`${sliderId}-3`} value={form.imageCount} defaultValue={1} onReset={() => update({ imageCount: 1 })}>
           {t("generate.imageCount", { value: form.imageCount })}
         </SliderLabel>
-        <Slider min={1} max={16} step={1} value={[form.imageCount]} onValueChange={([value]) => update({ imageCount: value })} />
+        <Slider aria-labelledby={`${sliderId}-3`} min={1} max={16} step={1} value={[form.imageCount]} onValueChange={([value]) => update({ imageCount: value })} />
       </div>
 
       {presetList.length > 0 && (
@@ -211,6 +214,7 @@ export function SettingsSection({
 
       <div className="space-y-1.5">
         <SliderLabel
+          id={`${sliderId}-4`}
           value={form.cfg}
           defaultValue={profile.defaults.cfg}
           shown={profile.defaults.cfg.toFixed(1)}
@@ -218,7 +222,7 @@ export function SettingsSection({
         >
           {t("generate.guidanceScale", { value: form.cfg.toFixed(1) })}
         </SliderLabel>
-        <Slider min={1} max={15} step={0.1} value={[form.cfg]} onValueChange={([value]) => update({ cfg: value })} />
+        <Slider aria-labelledby={`${sliderId}-4`} min={1} max={15} step={0.1} value={[form.cfg]} onValueChange={([value]) => update({ cfg: value })} />
       </div>
     </>
   )

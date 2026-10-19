@@ -96,6 +96,23 @@ test('the engine card: start, stop and the switches', async ({ page }) => {
 
   await page.getByRole('switch', { name: 'Start the engine with Latentry' }).click()
   await expect.poll(() => calls.at(-1)).toEqual({ method: 'PUT', path: '/api/settings', body: { engine: { autoStart: true } } })
+
+  // generate.md and network.md send people here for the LoRA list on paired devices.
+  await page.getByRole('switch', { name: 'Show the LoRA list on paired devices' }).click()
+  await expect.poll(() => calls.at(-1)).toEqual({ method: 'PUT', path: '/api/settings', body: { engine: { shareLoras: true } } })
+})
+
+test('packages installed with LATENTRY_ENGINE_PACKAGES=latest are said to be unpinned', async ({ page }) => {
+  await fakeEngine(page)
+  // Registered last, so it answers before the fake above.
+  await page.route(/\/api\/engine$/, (route) => {
+    const unpinned = status(false)
+    unpinned.installed.unpinned = 'latest' as never
+    unpinned.installed.lock = null as never
+    return route.fulfill({ json: unpinned })
+  })
+  await page.goto('/setup')
+  await expect(page.getByText(/^Python packages are the newest ones, not pinned \(LATENTRY_ENGINE_PACKAGES=latest\)/)).toBeVisible()
 })
 
 test('models: load one, download after accepting, choose a tagger, set the folder', async ({ page }) => {

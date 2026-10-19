@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **The guide checked against the app**: browser tests now walk through
+  what the guide says about Generate, the gallery, pose, secret mode, Setup
+  and pairing. Where they disagreed, the guide was corrected: a secret run's
+  pictures are saved to the gallery (the threat model said they were not),
+  and Settings now describes the folders' display names and the pairing
+  card, and the guide's Setup page the switch for the LoRA list on paired
+  devices.
+- **Fixed**: a prompt typed just before switching backends was lost from
+  the first backend's form.
+- **Fixed**: once secret mode was turned off, the saved-characters box went
+  blank instead of saying there are none.
+- **Screen readers** now hear a name for every slider on Generate, for the
+  gallery's filter menus and for the saved-characters menu.
+
 ## 0.9.0 (2026-10-18)
 
 **Upgrading from 0.8.2**: after the usual update, stop and start the engine

@@ -56,7 +56,10 @@ tagger. The built-in model needs a folder with `model.onnx` and
   created if missing. Empty: pictures are not saved (download them one by
   one).
 - **Other folders (read-only)**: other tools' output to browse. Latentry
-  never writes to these.
+  never writes to these. **Add folder** adds one.
+- **Display name**, next to each folder: what the gallery's tabs and other
+  devices call it (up to 40 characters). Left empty, the folder gets a
+  made-up name such as "Amber Fox" that stays the same.
 - **Tag every saved image with WD14 as it arrives.**
 - **Write LoRA hashes into saved images** (off by default). A picture made
   with LoRAs on Latentry's engine then carries A1111's "Lora hashes", which
@@ -64,7 +67,8 @@ tagger. The built-in model needs a folder with `model.onnx` and
   file on this computer, so anyone you share the picture with can tell which
   files you have. Off, the picture still names the LoRAs and their weights.
 
-The browser never sees these paths; it only names folders by number.
+The browser never sees these paths or the folders' own names; it only
+knows folders by number and display name.
 
 ## Model profile defaults
 
@@ -84,3 +88,10 @@ and a form reset.
   covers `score_9` and `score_8_up`. `-` keeps nothing.
 
 **Save** keeps the changes; **Discard** drops them.
+
+## Phones and other computers
+
+The pairing card: whether Latentry listens on this computer only or is open
+to your network, **Add a device** for a one-time code, the paired devices
+with **Remove**, and **Forget all devices**. See
+[Other devices and security](network.md#use-it-from-a-phone-or-another-computer).

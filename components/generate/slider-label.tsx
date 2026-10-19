@@ -16,6 +16,8 @@ interface SliderLabelProps {
   shown?: string
   onReset: () => void
   disabled?: boolean
+  /** The label's id, for the slider's aria-labelledby. */
+  id?: string
 }
 
 /**
@@ -24,12 +26,12 @@ interface SliderLabelProps {
  * slider unnoticed; this shows it moved and puts it back. The row keeps its
  * height either way, so the form does not jump when the button appears.
  */
-export function SliderLabel({ children, value, defaultValue, shown, onReset, disabled }: SliderLabelProps) {
+export function SliderLabel({ children, value, defaultValue, shown, onReset, disabled, id }: SliderLabelProps) {
   const t = useT()
   const label = t("generate.resetTo", { value: shown ?? String(defaultValue) })
   return (
     <div className="flex h-5 items-center justify-between gap-2">
-      <Label>{children}</Label>
+      <Label id={id}>{children}</Label>
       {value !== defaultValue && (
         <Tooltip>
           <TooltipTrigger asChild>

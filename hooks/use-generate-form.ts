@@ -21,6 +21,22 @@ function subscribePromptScope(listener: () => void) {
   }
 }
 
+/**
+ * Saves a backend's form. A shared prompt is kept apart, and the backend's
+ * own prompt stays as it was, for when the prompt goes back to per backend.
+ */
+function persistForm(owned: { owner: string; form: FormState }, scope: PromptScope) {
+  if (scope === "shared") {
+    const own = preferences.getForm(owned.owner)
+    preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
+    preferences.setForm(owned.owner, {
+      ...owned.form,
+      prompt: typeof own?.prompt === "string" ? own.prompt : owned.form.prompt,
+      artist: typeof own?.artist === "string" ? own.artist : owned.form.artist,
+    })
+  } else preferences.setForm(owned.owner, { ...owned.form })
+}
+
 /** Whether the prompt is per backend or shared, read live. */
 function usePromptScope(): PromptScope {
   return useSyncExternalStore(subscribePromptScope, preferences.getPromptScope, () => "backend")
@@ -89,22 +105,11 @@ export function useGenerateForm(backends: BackendStatus[], loaded: boolean): Gen
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Persist on every change, debounced so typing does not hit localStorage on
-  // each keystroke. A shared prompt is kept apart, and the backend's own
-  // prompt stays as it was, for when the prompt goes back to per backend.
+  // each keystroke.
   const promptScope = usePromptScope()
   useEffect(() => {
     if (!owned) return
-    const timer = setTimeout(() => {
-      if (promptScope === "shared") {
-        const own = preferences.getForm(owned.owner)
-        preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
-        preferences.setForm(owned.owner, {
-          ...owned.form,
-          prompt: typeof own?.prompt === "string" ? own.prompt : owned.form.prompt,
-          artist: typeof own?.artist === "string" ? own.artist : owned.form.artist,
-        })
-      } else preferences.setForm(owned.owner, { ...owned.form })
-    }, 300)
+    const timer = setTimeout(() => persistForm(owned, promptScope), 300)
     return () => clearTimeout(timer)
   }, [owned, promptScope])
 
@@ -126,9 +131,10 @@ export function useGenerateForm(backends: BackendStatus[], loaded: boolean): Gen
 
   const selectBackend = useCallback(
     (id: string) => {
-      // The next form reads the shared prompt at once; the debounced save above
-      // may not have run yet, and the last words typed would stay behind.
-      if (owned && promptScope === "shared") preferences.setSharedPrompt({ prompt: owned.form.prompt, artist: owned.form.artist })
+      // The debounced save above may not have run yet, and the switch cancels
+      // it: save now, or the last words typed would stay behind (on this
+      // backend's form, or in the shared prompt the next form reads at once).
+      if (owned) persistForm(owned, promptScope)
       setSelectedId(id)
       preferences.setSelectedBackend(id)
     },

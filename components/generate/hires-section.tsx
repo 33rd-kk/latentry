@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
@@ -32,6 +33,7 @@ interface HiresSectionProps {
  */
 export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, disabled, embedded }: HiresSectionProps) {
   const t = useT()
+  const sliderId = useId()
   const base = embedded?.base ?? { width: form.width, height: form.height }
   const maxScale = Math.max(1, Math.floor(Math.min(embedded?.maxScale ?? 2, maxHiresScale(base.width, base.height)) * 20) / 20)
   const scale = Math.min(form.hrScale, maxScale)
@@ -70,6 +72,7 @@ export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, 
           )}
           <div className="space-y-1.5">
             <SliderLabel
+              id={`${sliderId}-0`}
               value={scale}
               defaultValue={Math.min(HIRES_DEFAULTS.scale, maxScale)}
               shown={Math.min(HIRES_DEFAULTS.scale, maxScale).toFixed(2)}
@@ -77,19 +80,20 @@ export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, 
             >
               {t("generate.hires.scale", { value: scale.toFixed(2), width: target.width, height: target.height })}
             </SliderLabel>
-            <Slider min={1} max={maxScale} step={0.05} value={[scale]} onValueChange={([value]) => update({ hrScale: value })} />
+            <Slider aria-labelledby={`${sliderId}-0`} min={1} max={maxScale} step={0.05} value={[scale]} onValueChange={([value]) => update({ hrScale: value })} />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <SliderLabel value={form.hrSteps} defaultValue={HIRES_DEFAULTS.steps} onReset={() => update({ hrSteps: HIRES_DEFAULTS.steps })}>
+              <SliderLabel id={`${sliderId}-1`} value={form.hrSteps} defaultValue={HIRES_DEFAULTS.steps} onReset={() => update({ hrSteps: HIRES_DEFAULTS.steps })}>
                 {form.hrSteps
                   ? t("generate.hires.steps", { value: form.hrSteps })
                   : t("generate.hires.stepsSame", { value: form.steps })}
               </SliderLabel>
-              <Slider min={0} max={100} step={1} value={[form.hrSteps]} onValueChange={([value]) => update({ hrSteps: value })} />
+              <Slider aria-labelledby={`${sliderId}-1`} min={0} max={100} step={1} value={[form.hrSteps]} onValueChange={([value]) => update({ hrSteps: value })} />
             </div>
             <div className="space-y-1.5">
               <SliderLabel
+                id={`${sliderId}-2`}
                 value={form.hrDenoise}
                 defaultValue={HIRES_DEFAULTS.denoise}
                 shown={HIRES_DEFAULTS.denoise.toFixed(2)}
@@ -97,7 +101,7 @@ export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, 
               >
                 {t("generate.hires.denoise", { value: form.hrDenoise.toFixed(2) })}
               </SliderLabel>
-              <Slider min={0.05} max={1} step={0.01} value={[form.hrDenoise]} onValueChange={([value]) => update({ hrDenoise: value })} />
+              <Slider aria-labelledby={`${sliderId}-2`} min={0.05} max={1} step={0.01} value={[form.hrDenoise]} onValueChange={([value]) => update({ hrDenoise: value })} />
             </div>
           </div>
         </>

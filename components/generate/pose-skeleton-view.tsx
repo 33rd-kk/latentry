@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { RefreshCw, Rotate3d, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SliderLabel } from "@/components/generate/slider-label"
@@ -54,6 +55,7 @@ export function PoseSkeletonView({
   disabled,
 }: PoseSkeletonViewProps) {
   const t = useT()
+  const sliderId = useId()
   const fewJoints = style === "openpose" && jointsInFrame !== null && jointsInFrame < FEW_JOINTS
   // A skeleton drawn for another size still works (the backend letterboxes it),
   // but it no longer lines up edge to edge; say so rather than silently shift it.
@@ -90,6 +92,7 @@ export function PoseSkeletonView({
         </div>
         <div className="space-y-1.5">
           <SliderLabel
+            id={`${sliderId}-0`}
             value={strength}
             defaultValue={defaultStrength}
             shown={defaultStrength.toFixed(2)}
@@ -98,7 +101,7 @@ export function PoseSkeletonView({
           >
             {t("generate.poseStrength", { value: strength.toFixed(2) })}
           </SliderLabel>
-          <Slider min={0} max={2} step={0.05} value={[strength]} onValueChange={([v]) => onStrengthChange(v)} disabled={disabled} />
+          <Slider aria-labelledby={`${sliderId}-0`} min={0} max={2} step={0.05} value={[strength]} onValueChange={([v]) => onStrengthChange(v)} disabled={disabled} />
           <p className="text-xs text-muted-foreground">{t("generate.poseSkeletonHint")}</p>
           {/* The answer decides what the 3D view can do; say what is missing rather than just leave it out. */}
           {hasReference && !limits && <p className="text-xs text-muted-foreground">{t("generate.pose3dUnavailable")}</p>}

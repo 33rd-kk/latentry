@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useRef, useState, type ReactNode } from "react"
+import { useCallback, useId, useRef, useState, type ReactNode } from "react"
 import { Brush, ImagePlus, Images, Loader2, Maximize2, PersonStanding, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
@@ -98,6 +98,7 @@ export function SourceImageSlot({
   disabled,
 }: SourceImageSlotProps) {
   const t = useT()
+  const sliderId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragActive, setIsDragActive] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -234,6 +235,7 @@ export function SourceImageSlot({
             ) : (
             <div className="space-y-1.5">
               <SliderLabel
+                id={`${sliderId}-0`}
                 value={strength}
                 defaultValue={defaultStrength}
                 shown={defaultStrength.toFixed(2)}
@@ -243,6 +245,7 @@ export function SourceImageSlot({
                 {t("generate.strength", { value: strength.toFixed(2) })}
               </SliderLabel>
               <Slider
+                aria-labelledby={`${sliderId}-0`}
                 min={0.05}
                 max={1}
                 step={0.05}
