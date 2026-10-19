@@ -125,7 +125,15 @@ export function callsLora(prompt: string): boolean {
  * set off from its neighbours by commas; and where the caret goes after it.
  */
 export function insertLora(prompt: string, name: string, at = prompt.length): { prompt: string; caret: number } {
-  const tag = `<lora:${name}:1>`
+  return insertTag(prompt, `<lora:${name}:1>`, at)
+}
+
+/** The prompt with `__name__` put in at `at`, as insertLora does a LoRA call. */
+export function insertWildcard(prompt: string, name: string, at = prompt.length): { prompt: string; caret: number } {
+  return insertTag(prompt, `__${name}__`, at)
+}
+
+function insertTag(prompt: string, tag: string, at: number): { prompt: string; caret: number } {
   const before = prompt.slice(0, Math.max(0, Math.min(at, prompt.length)))
   const after = prompt.slice(before.length)
   const head = !before.trim() ? before : /,\s*$/.test(before) ? before.replace(/,\s*$/, ', ') : `${before.trimEnd()}, `

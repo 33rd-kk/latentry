@@ -39,7 +39,7 @@ form, so switching backends and back keeps what you typed.
   you generate, both prompts are sent in the spelling the profile's model
   family was trained on. A prompt or tags sent from the gallery arrive in that
   spelling too. Score tags, face tags such as `^_^`, LoRA calls, `BREAK` and
-  sentences are left as written. Change this per profile on
+  sentences and wildcards are left as written. Change this per profile on
   [Settings](settings.md).
 - **LoRAs**: call one in the prompt as `<lora:name:0.8>`. An A1111 web UI,
   ComfyUI (which loads the file of that name from its LoRA list) and
@@ -51,6 +51,22 @@ form, so switching backends and back keeps what you typed.
   is the names of your LoRA files. The engine refuses a run that calls a LoRA it does
   not have, instead of running without it. Other backends read the tag as
   plain words, and the prompt shows a note saying so.
+- **Wildcards**: write `__name__` in the prompt (or the negative prompt),
+  and each run takes one line of `name.txt` from the wildcards folder set
+  on [Settings](settings.md#wildcards); `__folder/name__` reads from a
+  subfolder, as in A1111's Dynamic Prompts extension. **Add a wildcard** next
+  to the prompt lists them and puts one in at the cursor. A line is picked
+  once per run, so all the pictures of a run share it. With a fixed seed the
+  same lines come back, so a run can be drawn again; with -1 each run picks
+  anew. A line may hold wildcards of its own, up to 3 levels. The lines are
+  respelled for the profile like the rest of the prompt. A wildcard with no
+  file stops the run and says which one. The picture keeps the prompt with
+  the lines filled in, and the viewer shows the prompt as typed under
+  **Wildcards**. On paired devices wildcards work only if **Use on paired
+  devices** is on (Settings > Wildcards).
+
+  ![The positive prompt with three wildcards, __hair__, __outfit__ and __places/outdoors__, and the Add a wildcard button above it](../assets/manual-wildcards.webp){ width="560" }
+
 - **Saved characters**: save the tags that make a character, together with
   the artist, negative prompt and seed, and apply them to any form later. In
   [secret mode](secret-mode.md) a new one is only kept until secret mode is

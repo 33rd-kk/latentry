@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Wildcards**: `__name__` in a prompt takes one line of `name.txt` from
+  a wildcards folder set on Settings, once per run (the same line again for
+  the same fixed seed). `__folder/name__` reads from a subfolder, as in
+  A1111's Dynamic Prompts extension, and **Add a wildcard** next to the
+  prompt puts one in. The picture keeps the prompt as typed too. Paired
+  devices can use wildcards only once **Use on paired devices** is on.
 - **The guide checked against the app**: browser tests now walk through
   what the guide says about Generate, the gallery, pose, secret mode, Setup
   and pairing. Where they disagreed, the guide was corrected: a secret run's

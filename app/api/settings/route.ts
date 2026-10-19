@@ -57,6 +57,11 @@ export async function PUT(request: Request) {
     const result = await checkDir(backend.workflowsDir)
     if (result !== 'ok') errors[`backends.${index}.workflowsDir`] = `settings.dir.${result}`
   }
+  const wildcardsDir = (body as SettingsInput).wildcards ? checked.settings.wildcards?.dir : null
+  if (wildcardsDir) {
+    const result = await checkDir(wildcardsDir)
+    if (result !== 'ok') errors['wildcards.dir'] = `settings.dir.${result}`
+  }
   const modelDir = checked.settings.wd14?.modelDir
   if (modelDir && !hasModel(modelDir)) errors['wd14.modelDir'] = 'settings.wd14Missing'
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })

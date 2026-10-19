@@ -9,6 +9,7 @@ import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
 import { imageSize } from '@/lib/backends/images'
 import { workflowAccess } from '@/lib/backends/workflow-access'
+import { hasWildcards } from '@/lib/wildcards/syntax'
 
 export const runtime = 'nodejs'
 
@@ -60,6 +61,9 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     if (!started.ok) return jsonError(started.error, started.status)
 
     const profile = typeof body.profile === 'string' ? body.profile : adapter.config.profile
+    // Only for the record: the backend is sent the prompt with its wildcards replaced.
+    const template = body.prompt_template
+    const promptTemplate = typeof template === 'string' && template.length <= 10_000 && hasWildcards(template) ? template : undefined
     // An upscale runs only its redraw; hires fix both passes.
     const steps = generate.upscale
       ? hiresSteps(generate)
@@ -83,6 +87,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
         // A workflow loads its own model unless one is set for the backend; status cannot say which.
         model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
         mode: modeOf(generate),
+        ...(promptTemplate ? { promptTemplate } : {}),
       },
     })
 

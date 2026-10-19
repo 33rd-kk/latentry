@@ -89,6 +89,19 @@ and a form reset.
 
 **Save** keeps the changes; **Discard** drops them.
 
+## Wildcards
+
+**Wildcards folder** is an existing folder of `.txt` files, one choice per
+line, for `__name__` in a prompt (see [Generate](generate.md#prompts)).
+Subfolders work as `__folder/name__`, up to 3 deep. Lines starting with `#`
+and blank lines are skipped, and a file over 1 MB is not read. Latentry only
+reads the folder. Leave it empty for no wildcards.
+
+**Use on paired devices** is off by default. While it is off, the picker and
+wildcards are on this computer only. On, paired phones and computers can
+list the wildcards' names and use them, so they see your file names and the
+lines that end up in their prompts.
+
 ## Phones and other computers
 
 The pairing card: whether Latentry listens on this computer only or is open

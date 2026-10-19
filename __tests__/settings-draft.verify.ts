@@ -44,6 +44,7 @@ const view: SettingsView = {
     },
   },
   profiles: { sdxl: { steps: 30, artistTemplate: null, keepTags: '' }, anima: { negativePrompt: ' blurry ' } },
+  wildcards: { dir: '/wildcards', share: false },
   sources: { backends: 'settings', tagger: 'env', wd14: 'settings', saveDir: 'settings', dirs: 'settings', autoTag: 'env' },
   builtinProfiles: [
     { id: 'sdxl', ...builtin },
@@ -52,7 +53,7 @@ const view: SettingsView = {
 }
 
 const draft = toDraft(view)
-const all = new Set<Part>(['backends', 'tagger', 'wd14', 'gallery', 'profiles'])
+const all = new Set<Part>(['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'wildcards'])
 
 // ── From the view to the draft ──
 eq(
@@ -77,7 +78,12 @@ eq(
 // ── Only what changed is sent ──
 eq(toInput(draft, new Set()), {}, 'nothing changed, nothing sent')
 eq(Object.keys(toInput(draft, new Set<Part>(['tagger']))), ['tagger'], 'only the changed part')
-eq(Object.keys(toInput(draft, all)), ['backends', 'tagger', 'wd14', 'gallery', 'profiles'], 'every part when all changed')
+eq(Object.keys(toInput(draft, all)), ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'wildcards'], 'every part when all changed')
+
+// ── Wildcards ──
+eq([draft.wildcardsDir, draft.wildcardsShare], ['/wildcards', false], 'the wildcards folder and its sharing come from the view')
+eq(toInput(draft, new Set<Part>(['wildcards'])).wildcards, { dir: '/wildcards', share: false }, 'and go back as typed')
+eq(toInput({ ...draft, wildcardsDir: ' ', wildcardsShare: true }, new Set<Part>(['wildcards'])).wildcards, { dir: null, share: true }, 'an empty folder turns wildcards off')
 
 // ── Backends ──
 const backends = (d: Draft) => toInput(d, new Set<Part>(['backends'])).backends as Record<string, unknown>[]
