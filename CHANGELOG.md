@@ -2,10 +2,13 @@
 
 ## Unreleased
 
-- **Fixed**: on ComfyUI, inpainting and Extend left the part of the picture
-  that was meant to stay slightly changed, because it went through the VAE
-  once. The built-in graph now pastes the drawn area over the source's own
-  pixels, as Latentry's engine and A1111 do.
+## 0.10.0 (2026-10-20)
+
+**Upgrading from 0.9.0**: nothing to do beyond the usual update. The engine
+is unchanged (still 0.7.0).
+
+**Generate**
+
 - **Extend a picture (outpainting)**: a new **Extend** mode on the source
   image grows the canvas by up to 1024 pixels on each side and draws the new
   area, with a preview of the new canvas. It works on every backend that can
@@ -17,10 +20,11 @@
   A1111's Dynamic Prompts extension, and **Add a wildcard** next to the
   prompt puts one in. The picture keeps the prompt as typed too. Paired
   devices can use wildcards only once **Use on paired devices** is on.
-- **Runs of several pictures are tested**: browser and route tests now draw
-  two pictures in one run on an A1111 web UI and on a diffusers-compatible
-  server, and check that each is shown, seeded one after the other, and
-  saved. The limit of 16 pictures a run is one shared setting in the code.
+- **Screen readers** now hear a name for every slider on Generate, for the
+  gallery's filter menus and for the saved-characters menu.
+
+**Manual and tests**
+
 - **The guide checked against the app**: browser tests now walk through
   what the guide says about Generate, the gallery, pose, secret mode, Setup
   and pairing. Where they disagreed, the guide was corrected: a secret run's
@@ -28,18 +32,28 @@
   and Settings now describes the folders' display names and the pairing
   card, and the guide's Setup page the switch for the LoRA list on paired
   devices.
-- **Fixed**: a prompt typed just before switching backends was lost from
-  the first backend's form.
-- **Fixed**: once secret mode was turned off, the saved-characters box went
-  blank instead of saying there are none.
-- **Screen readers** now hear a name for every slider on Generate, for the
-  gallery's filter menus and for the saved-characters menu.
 - **New screenshots in the guide**: the gallery and its viewer as they look
   now, filters, Compare, hires fix, upscaling a source, secret mode on
   Generate, pairing a phone, the 3D view, Setup with the engine running and
   a ComfyUI workflow; the README's gallery and viewer shots are retaken too.
   `npm run docs:screenshots` retakes them from a clean Latentry, with public
   example pictures or a gallery the engine draws for the purpose.
+- **Runs of several pictures are tested**: browser and route tests now draw
+  two pictures in one run on an A1111 web UI and on a diffusers-compatible
+  server, and check that each is shown, seeded one after the other, and
+  saved. The limit of 16 pictures a run is one shared setting in the code.
+
+**Fixed**
+
+- **The untouched part of a ComfyUI inpaint**: inpainting and Extend on
+  ComfyUI left the part of the picture that was meant to stay slightly
+  changed, because it went through the VAE once. The built-in graph now
+  pastes the drawn area over the source's own pixels, as Latentry's engine
+  and A1111 do.
+- **A prompt typed just before switching backends** was lost from the first
+  backend's form.
+- **The saved-characters box** went blank once secret mode was turned off,
+  instead of saying there are none.
 
 ## 0.9.0 (2026-10-18)
 

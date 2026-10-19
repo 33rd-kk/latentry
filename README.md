@@ -21,8 +21,9 @@ made, then sends those settings back to the form to make it again.
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
   reference) and inpainting with a painted mask. Hires fix redraws a new
   picture at a larger size, and Upscale does the same to one already in the
-  gallery. Runs live on the server, so a reload or a second tab picks up a
-  run in progress.
+  gallery, and Extend grows a picture's canvas and draws the new area.
+  `__wildcards__` in a prompt take a line from a folder of text files. Runs
+  live on the server, so a reload or a second tab picks up a run in progress.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
   pose in 3D and frame it, then generate along that skeleton. Works on the
