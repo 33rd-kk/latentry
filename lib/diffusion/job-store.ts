@@ -67,6 +67,8 @@ export interface JobContext {
   kind: string
   model: string | null
   mode: 'txt2img' | 'img2img' | 'inpaint' | 'pose' | 'upscale'
+  /** The prompt as typed, with its wildcards, when the page replaced any. */
+  promptTemplate?: string
 }
 
 export interface Job extends Omit<JobSnapshot, 'imageCount' | 'images'> {
@@ -244,7 +246,7 @@ export function keptFor(job: Job): number {
 export function forget(job: Job): void {
   if (jobs.get(job.backend) === job) jobs.delete(job.backend)
   job.images = []
-  job.context = { ...job.context, request: { ...job.context.request, prompt: '', negative_prompt: '' } }
+  job.context = { ...job.context, request: { ...job.context.request, prompt: '', negative_prompt: '' }, promptTemplate: undefined }
   // A stream still open on it sees it gone and closes.
   notify(job)
 }

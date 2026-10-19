@@ -7,7 +7,7 @@ import type { ProfileId } from '@/lib/profiles'
 import type { SettingsView } from './view'
 
 export type Source = 'settings' | 'env'
-export type Part = 'backends' | 'tagger' | 'wd14' | 'gallery' | 'profiles'
+export type Part = 'backends' | 'tagger' | 'wd14' | 'gallery' | 'profiles' | 'wildcards'
 
 export interface BackendDraft {
   /** Stable React key; the id itself is editable. */
@@ -45,6 +45,8 @@ export interface Draft {
   autoTag: boolean
   loraHashes: boolean
   profiles: Partial<Record<ProfileId, ProfileDraft>>
+  wildcardsDir: string
+  wildcardsShare: boolean
 }
 
 /** Edits one part of the draft, marking that part as changed. */
@@ -118,6 +120,8 @@ export function toDraft(view: SettingsView): Draft {
     autoTag: view.gallery.autoTag,
     loraHashes: view.gallery.loraHashes,
     profiles,
+    wildcardsDir: view.wildcards.dir ?? '',
+    wildcardsShare: view.wildcards.share,
   }
 }
 
@@ -176,5 +180,6 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
     }
     body.profiles = profiles
   }
+  if (dirty.has('wildcards')) body.wildcards = { dir: draft.wildcardsDir.trim() || null, share: draft.wildcardsShare }
   return body
 }

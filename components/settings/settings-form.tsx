@@ -11,6 +11,7 @@ import { GallerySection } from "./gallery-section"
 import { PairingCard } from "./pairing-card"
 import { ProfilesSection } from "./profiles-section"
 import { TaggerSection } from "./tagger-section"
+import { WildcardsSection } from "./wildcards-section"
 
 export function SettingsForm() {
   const t = useT()
@@ -64,6 +65,7 @@ export function SettingsForm() {
       />
       <GallerySection view={view} draft={draft} errors={errors} change={change} onUseEnv={() => void save({ gallery: null })} />
       <ProfilesSection view={view} profiles={draft.profiles} errors={errors} change={change} />
+      <WildcardsSection draft={draft} errors={errors} change={change} />
 
       {/* ── Phones and other computers ── */}
       <PairingCard />

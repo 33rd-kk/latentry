@@ -38,6 +38,10 @@ writeFileSync(
     9: { class_type: 'SaveImage', inputs: { filename_prefix: 'ComfyUI', images: ['8', 0] } },
   })
 )
+// Wildcards with one line each, so a test knows what a run's prompt becomes.
+mkdirSync(path.join(root, 'wildcards', 'places'), { recursive: true })
+writeFileSync(path.join(root, 'wildcards', 'weather.txt'), '# one choice per line\nlight rain\n')
+writeFileSync(path.join(root, 'wildcards', 'places', 'coast.txt'), 'rocky coast\n')
 writeFileSync(
   path.join(root, 'settings.json'),
   JSON.stringify({
@@ -51,6 +55,7 @@ writeFileSync(
     ],
     gallery: { saveDir: path.join(root, 'out'), dirs: [], autoTag: false },
     engine: { autoStart: false },
+    wildcards: { dir: path.join(root, 'wildcards') },
   })
 )
 

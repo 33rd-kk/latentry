@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Wildcards**: `__name__` in a prompt takes one line of `name.txt` from
+  a wildcards folder set on Settings, once per run (the same line again for
+  the same fixed seed). `__folder/name__` reads from a subfolder, as in
+  A1111's Dynamic Prompts extension, and **Add a wildcard** next to the
+  prompt puts one in. The picture keeps the prompt as typed too. Paired
+  devices can use wildcards only once **Use on paired devices** is on.
 - **Runs of several pictures are tested**: browser and route tests now draw
   two pictures in one run on an A1111 web UI and on a diffusers-compatible
   server, and check that each is shown, seeded one after the other, and

@@ -39,6 +39,12 @@ if (engineModels && (!process.env.DOCS_ENGINE_MODEL || !process.env.DOCS_ENGINE_
 }
 const root = mkdtempSync(path.join(tmpdir(), 'latentry-docs-'))
 mkdirSync(path.join(root, 'out'))
+// A small wildcards folder, for the picker's shot.
+mkdirSync(path.join(root, 'wildcards', 'places'), { recursive: true })
+writeFileSync(path.join(root, 'wildcards', 'hair.txt'), 'short brown hair\nlong black hair\nsilver bob cut\n')
+writeFileSync(path.join(root, 'wildcards', 'outfit.txt'), 'grey hoodie, blue jeans\nsummer dress\nschool uniform\n')
+writeFileSync(path.join(root, 'wildcards', 'weather.txt'), 'sunny\nlight rain\nsnow\n')
+writeFileSync(path.join(root, 'wildcards', 'places', 'outdoors.txt'), 'park, trees\nbeach\ncity street, night\n')
 // Ids as a reader would name their own backends; the kinds are the mocks'.
 writeFileSync(
   path.join(root, 'settings.json'),
@@ -54,6 +60,7 @@ writeFileSync(
           { id: 'diffusers', kind: 'diffusers', url: `http://127.0.0.1:${posePort}/`, profile: 'illustrious' },
         ],
     gallery: { saveDir: path.join(root, 'out'), dirs: [], autoTag: false },
+    wildcards: { dir: path.join(root, 'wildcards') },
     engine: engineModels
       ? { autoStart: true, modelsDir: engineModels, model: process.env.DOCS_ENGINE_MODEL, basePort: Number(process.env.DOCS_ENGINE_PORT || 7871) }
       : { autoStart: false },

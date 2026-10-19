@@ -87,6 +87,17 @@ export interface EngineSettings {
   shareLoras?: boolean
 }
 
+/** Wildcards: `__name__` in a prompt takes a line of `name.txt` in this folder. */
+export interface WildcardsSettings {
+  dir?: string | null
+  /**
+   * Let paired devices use the wildcards (and list their names), not only
+   * clients that may change settings. Off unless turned on: the files are the
+   * user's own, and a wildcard's line ends up in a paired device's prompt.
+   */
+  share?: boolean
+}
+
 export interface Settings {
   version: typeof SETTINGS_VERSION
   backends?: StoredBackend[]
@@ -99,6 +110,7 @@ export interface Settings {
   gallery?: GallerySettings
   profiles?: Partial<Record<ProfileId, ProfileOverride>>
   engine?: EngineSettings
+  wildcards?: WildcardsSettings
 }
 
 export const EMPTY_SETTINGS: Settings = { version: SETTINGS_VERSION }
@@ -190,6 +202,7 @@ export interface SettingsInput {
   gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown; labels?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
   engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown; shareLoras?: unknown } | null
+  wildcards?: { dir?: unknown; share?: unknown } | null
 }
 
 /**
@@ -434,6 +447,22 @@ export function validateSettings(
     next.engine = engine
   }
 
+  // Wildcards
+  if (input.wildcards === undefined) {
+    if (current.wildcards) next.wildcards = current.wildcards
+  } else if (input.wildcards !== null) {
+    const wildcards: WildcardsSettings = {}
+    const { dir, share } = input.wildcards
+    if (dir === null || dir === '') wildcards.dir = null
+    else if (typeof dir === 'string') {
+      const error = folderError(dir.trim(), env)
+      if (error) errors['wildcards.dir'] = error
+      else wildcards.dir = dir.trim()
+    } else if (dir !== undefined) errors['wildcards.dir'] = 'settings.errorAbsolute'
+    if (share !== undefined) wildcards.share = share === true
+    next.wildcards = wildcards
+  }
+
   return Object.keys(errors).length ? { ok: false, errors } : { ok: true, settings: next }
 }
 
@@ -456,7 +485,7 @@ export function parseStoredSettings(raw: unknown, env: Env = process.env): Setti
   // A hand-edited file with one bad field: keep the parts that are fine.
   const parts: SettingsInput = {}
   const record = raw as Record<string, unknown>
-  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine'] as const) {
+  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine', 'wildcards'] as const) {
     if (record[part] === undefined) continue
     const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS, env)
     if (one.ok) Object.assign(parts, { [part]: record[part] })

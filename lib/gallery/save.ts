@@ -41,7 +41,7 @@ export function fileNameFor(backend: string, seed: number, index: number, date: 
 }
 
 export function recordFor(job: Job, image: JobImage, created: Date, size: { width: number; height: number } | null): LatentryRecord {
-  const { request, profile, kind, model, mode } = job.context
+  const { request, profile, kind, model, mode, promptTemplate } = job.context
   const hires: HiresUse | null =
     request.hr_scale !== undefined
       ? { scale: request.hr_scale, steps: request.hr_steps ?? 0, denoise: request.hr_denoise ?? 0.4, upscaler: request.hr_upscaler ?? 'Lanczos' }
@@ -54,6 +54,7 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     model,
     mode,
     prompt: request.prompt,
+    ...(promptTemplate ? { prompt_template: promptTemplate } : {}),
     negative_prompt: request.negative_prompt,
     seed: image.seed,
     // The size the picture actually came out at: img2img fits it to the source.

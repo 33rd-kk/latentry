@@ -155,6 +155,8 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     if (meta.backend) facts.push([t("gallery.backend"), `${meta.backend}${meta.profile ? ` · ${meta.profile}` : ""}`])
     if (meta.model) facts.push([t("gallery.model"), meta.model])
     if (meta.loras?.length) facts.push([t("gallery.loras"), meta.loras.join(", ")])
+    // The prompt as typed, wildcards and all; hidden with the prompt.
+    if (meta.promptTemplate && !hidden) facts.push([t("gallery.promptTemplate"), meta.promptTemplate])
     if (meta.mode) facts.push([t("gallery.mode"), meta.mode])
     if (meta.seed !== undefined) facts.push([t("gallery.seed"), meta.seed])
     // The file's own size first. The settings name the size it was drawn at,

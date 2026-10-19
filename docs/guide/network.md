@@ -164,8 +164,10 @@ Good to know:
   made-up one such as "Amber Fox", models by their file name only, and
   error messages with paths in them as `<path>`. The LoRA list (file names)
   goes to them only if **Show the LoRA list on paired devices** is on
-  (Setup > Engine), and a ComfyUI backend's workflow names only if **Show
-  workflow names on paired devices** is on for it (Settings > Backends).
+  (Setup > Engine), a ComfyUI backend's workflow names only if **Show
+  workflow names on paired devices** is on for it (Settings > Backends), and
+  the wildcards (their names, and their lines in a prompt) only if **Use on
+  paired devices** is on (Settings > Wildcards).
 - The built-in engine listens on 127.0.0.1 with a random token only Latentry
   holds, and answers only requests addressed to this computer.
 - Backend tokens are only sent to the server they were set up for.
