@@ -8,7 +8,8 @@
 // /api/generate streams `image_count` small PNGs, image i seeded `seed + i`
 // (a random seed starts at 1000), with two steps each. A prompt with
 // UNTIL_CANCELLED in it never finishes: it steps on until /api/cancel names
-// its run, for tests of a run that is still going.
+// its run, for tests of a run that is still going. One with NO_MODEL is
+// refused with 409, as Latentry's engine refuses a run with no model loaded.
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -26,6 +27,9 @@ export interface MockDiffusers {
 
 /** In a prompt, keeps the run going until it is cancelled. */
 export const UNTIL_CANCELLED = 'mock: until cancelled'
+
+/** In a prompt, has the run refused as the engine refuses one with no model loaded. */
+export const NO_MODEL = 'mock: no model'
 
 /** The steps each mock picture reports. */
 export const MOCK_GENERATE_STEPS = 2
@@ -96,6 +100,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
         } catch {
           return reply(400, { error: 'Invalid JSON body' })
         }
+        if (typeof body.prompt === 'string' && body.prompt.includes(NO_MODEL)) return reply(409, { detail: 'No model is loaded' })
         const { init_image_base64: _source, mask_base64: _mask, pose_image_base64: _pose, ...asked } = body
         generates.push(asked)
         const total = typeof body.image_count === 'number' ? body.image_count : 1

@@ -1,6 +1,6 @@
 import { adapterOr404, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
 import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
-import { launchRun, type RunInput } from '@/lib/diffusion/launch'
+import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { enqueue, positionOf, pump, queueLength } from '@/lib/diffusion/run-queue'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { serverMessage } from '@/lib/i18n/core'
@@ -80,8 +80,9 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     const started = await launchRun(adapter, input)
     if (started.ok) return json({ job: toSnapshot(started.value) })
     // Busy with a run this server did not start (another client on the web
-    // UI): wait for it rather than refuse.
-    if (started.status === 409) return queueRun(id, input)
+    // UI): wait for it rather than refuse. Any other 409 (the engine with no
+    // model loaded) goes back to the page as it is.
+    if (started.status === 409 && (await isBusy(adapter))) return queueRun(id, input)
     return jsonError(started.error, started.status)
   } finally {
     release?.()

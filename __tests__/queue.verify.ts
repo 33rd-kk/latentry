@@ -10,6 +10,7 @@ import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { check, done, eq } from './assert'
 import { startMockA1111 } from './fixtures/mock-a1111'
+import { NO_MODEL, startMockDiffusers } from './fixtures/mock-diffusers'
 import { POST as generateRoute } from '../app/api/gen/[backend]/generate/route'
 import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
 import { GET as jobRoute } from '../app/api/gen/[backend]/job/route'
@@ -64,11 +65,15 @@ function watch(id: string) {
 async function main(): Promise<void> {
   const scratch = mkdtempSync(path.join(tmpdir(), 'latentry-queue-'))
   const mock = await startMockA1111()
+  const engine = await startMockDiffusers()
   writeFileSync(
     path.join(scratch, 'settings.json'),
     JSON.stringify({
       version: 1,
-      backends: [{ id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' }],
+      backends: [
+        { id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' },
+        { id: 'engine', kind: 'diffusers', url: engine.url, profile: 'generic' },
+      ],
       gallery: { saveDir: null, dirs: [] },
       engine: { autoStart: false },
     })
@@ -149,8 +154,18 @@ async function main(): Promise<void> {
     await patientStream.finished
     eq(patientStream.events.at(-1)?.data.status, 'done', 'and it runs to the end')
     eq(mock.received.length, 4, 'four runs reached the backend: first, third, secret, and this one')
+
+    // ── A 409 that is not "busy" is not waited for ──
+    const noModel = await generateRoute(
+      new Request(`${ORIGIN}/api/gen/engine/generate`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt: `nothing loaded ${NO_MODEL}` }) }),
+      params({ backend: 'engine' })
+    )
+    eq(noModel.status, 409, 'a backend that refuses without being busy (no model loaded) is not queued behind')
+    eq(((await noModel.json()) as { error?: string }).error, 'No model is loaded', 'and the page is told why')
+    eq(queueLength('engine'), 0, 'nothing waits on it')
   } finally {
     await mock.close()
+    await engine.close()
     rmSync(scratch, { recursive: true, force: true })
   }
 }

@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { getAdapter } from '@/lib/backends'
 import type { Outcome } from '@/lib/backends/types'
 import { getCurrentJob, onBackendIdle } from '@/lib/diffusion/job-store'
-import { inputBytes, launchRun, type RunInput } from '@/lib/diffusion/launch'
+import { inputBytes, isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { serverMessage } from '@/lib/i18n/core'
 import { QUEUE_MAX_BYTES, QUEUE_MAX_RUNS } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
@@ -198,13 +198,17 @@ async function next(backend: string): Promise<void> {
     const result = await launchRun(adapter, head.input, head.id)
     if (!result.ok) {
       const now = Date.now()
-      // Busy: someone else's run on the web UI, or our last run letting go.
+      // A 409 is not always "busy": Latentry's engine also says it for "no
+      // model is loaded", which no amount of waiting fixes. Only a backend
+      // that says it is busy (someone else's run on the web UI) is waited for.
       if (result.status === 409 && !head.cancelOnStart) {
         // The first refusal is usually our own last run letting go.
         if (!retried.has(head)) {
           retried.add(head)
           return later(backend, SHORT_RETRY_MS)
         }
+      }
+      if (result.status === 409 && !head.cancelOnStart && (await isBusy(adapter))) {
         if (head.waitingSince === null) {
           head.waitingSince = now
           notify(head)

@@ -70,3 +70,12 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
   void consumeEvents(job, started.value, saveToGallery)
   return { ok: true, value: job }
 }
+
+/**
+ * True when the backend says it is busy with a run. A refusal with 409 means
+ * that on a web UI or ComfyUI, but Latentry's engine also answers 409 when no
+ * model is loaded; the queue waits only for the first.
+ */
+export async function isBusy(adapter: BackendAdapter): Promise<boolean> {
+  return (await adapter.status().catch(() => null))?.busy === true
+}
