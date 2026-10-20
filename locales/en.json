@@ -81,6 +81,14 @@
       "otherFamily": "Made for {family} models",
       "license": "Licence: {license}"
     },
+    "earlier": {
+      "title": "Earlier",
+      "run": "A run",
+      "count": "pictures: {count}",
+      "imageAlt": "Earlier picture, seed {seed}",
+      "show": "Show these",
+      "blur": "Blur these"
+    },
     "queue": {
       "add": "Add to queue",
       "title": "Waiting",
@@ -90,7 +98,7 @@
       "waitingBackend": "Waiting for the backend",
       "secretRun": "Secret run",
       "cancel": "Remove from the queue",
-      "others": "{count} more waiting from other pages"
+      "others": "Waiting from other pages: {count}"
     },
     "wildcards": {
       "add": "Add a wildcard",

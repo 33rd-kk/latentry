@@ -213,6 +213,13 @@ Progress shows overall and per image. Each finished picture has:
 - **In gallery** (it was saved), **Use as source**, **Download**.
 - Click it to view it full screen.
 
+When a new run starts, the pictures on screen move down to **Earlier**,
+newest first, so a queue of runs piles up instead of each replacing the
+last. The two most recent stay open and older ones fold. The page keeps the
+last 5 runs (32 pictures at most) in its memory only, and a reload clears
+them; every picture is in the gallery anyway. In secret mode each earlier
+run stays blurred until **Show these**, and its prompt is not shown.
+
 Runs live on the server, so reloading the page, or opening it in another
 tab, picks up a run in progress. **Cancel** stops it.
 

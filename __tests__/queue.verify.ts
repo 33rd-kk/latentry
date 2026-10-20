@@ -20,6 +20,7 @@ import { getCurrentJob, getJob } from '../lib/diffusion/job-store'
 import { getQueued, queueLength, RETRY_MS } from '../lib/diffusion/run-queue'
 import { readSseFrames } from '../lib/diffusion/sse'
 import { QUEUE_MAX_RUNS } from '../lib/limits'
+import { EARLIER_MAX_IMAGES, EARLIER_MAX_RUNS, keepEarlier, type EarlierRun } from '../lib/generate/earlier'
 
 const ORIGIN = 'http://127.0.0.1:3000'
 const params = <T extends Record<string, string>>(value: T) => ({ params: Promise.resolve(value) }) as never
@@ -86,6 +87,19 @@ async function main(): Promise<void> {
   for (const name of ['GEN_BACKENDS', 'DIFFUSION_SERVER_URL', 'GALLERY_SAVE_DIR', 'GALLERY_DIRS', 'GALLERY_AUTO_TAG']) delete process.env[name]
 
   try {
+    // ── The page keeps earlier runs below the one on screen, within bounds ──
+    const run = (id: string, pictures: number): EarlierRun => ({
+      id,
+      backend: 'mock',
+      images: Array.from({ length: pictures }, (_, seed) => ({ seed, image_base64: '', saved_name: null })),
+    })
+    let earlier: EarlierRun[] = []
+    for (let index = 1; index <= EARLIER_MAX_RUNS + 2; index += 1) earlier = keepEarlier(earlier, run(`run-${index}`, 1))
+    eq(earlier.map(({ id }) => id), ['run-7', 'run-6', 'run-5', 'run-4', 'run-3'], `newest first, ${EARLIER_MAX_RUNS} runs at most`)
+    eq(keepEarlier(earlier, run('run-5', 1)).map(({ id }) => id).slice(0, 2), ['run-5', 'run-7'], 'a run kept again moves to the top, once')
+    const big = keepEarlier(keepEarlier([], run('older', 16)), run('newer', EARLIER_MAX_IMAGES - 8))
+    eq(big.map(({ id }) => id), ['newer'], `and ${EARLIER_MAX_IMAGES} pictures at most, dropping the oldest`)
+
     // ── Runs wait their turn ──
     mock.hold()
     const first = await generate({ prompt: 'first run' })

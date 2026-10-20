@@ -19,7 +19,9 @@ import { useT } from "@/lib/i18n"
 const MAX_STEP_PERCENT = 99
 
 interface ResultsPanelProps {
-  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId" | "queued">
+  job: Pick<JobWatch, "results" | "earlier" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId" | "queued">
+  /** The start of each run's prompt, by run id, as this page sent it; none in secret mode. */
+  labels: ReadonlyMap<string, string | null>
   /** The runs this page has waiting behind the current one. */
   queue: Pick<RunQueue, "items" | "cancel">
   /** Offered when the backend can start from a picture: a result becomes the source. */
@@ -27,10 +29,12 @@ interface ResultsPanelProps {
 }
 
 /** The run's progress, its pictures, and the full-screen viewer for them. */
-export function ResultsPanel({ job, queue, onUseAsSource }: ResultsPanelProps) {
+export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanelProps) {
   const t = useT()
   const { results, progress, jobStatus, jobError, saveWarning, isGenerating, runId } = job
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  // Which run the full-screen viewer shows: null for the one on screen.
+  const [previewRun, setPreviewRun] = useState<string | null>(null)
   // Secret mode blurs a run's pictures until "Show results", which lasts for
   // that run only: the next one starts blurred again.
   const secret = useSecretMode()
@@ -39,15 +43,21 @@ export function ResultsPanel({ job, queue, onUseAsSource }: ResultsPanelProps) {
   // Runs other pages queued: only how many, never what they draw.
   const others = Math.max(0, job.queued - queue.items.length)
 
+  const { earlier } = job
+  const previewImages = useMemo(
+    () => (previewRun === null ? results : (earlier.find((run) => run.id === previewRun)?.images ?? [])),
+    [previewRun, results, earlier]
+  )
   const previewItems = useMemo<LightboxItem[]>(
     () =>
-      results.map((image) => ({
+      previewImages.map((image) => ({
         src: `data:image/png;base64,${image.image_base64}`,
         name: `seed: ${image.seed}`,
         downloadName: image.saved_name ?? `latentry_${image.seed}.png`,
       })),
-    [results]
+    [previewImages]
   )
+  const previewVeiled = previewRun === null ? veiled : secret && shownRun !== previewRun
 
   const currentImagePercent =
     progress && progress.currentStep > 0
@@ -149,7 +159,10 @@ export function ResultsPanel({ job, queue, onUseAsSource }: ResultsPanelProps) {
                 <div key={`${image.seed}-${index}`} className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => setPreviewIndex(index)}
+                    onClick={() => {
+                      setPreviewRun(null)
+                      setPreviewIndex(index)
+                    }}
                     title={t("generate.fullScreen")}
                     className="block w-full cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -196,12 +209,77 @@ export function ResultsPanel({ job, queue, onUseAsSource }: ResultsPanelProps) {
             )}
           </div>
         )}
+        {earlier.length > 0 && (
+          <section className="mt-6 space-y-4" aria-label={t("generate.earlier.title")}>
+            <p className="text-sm font-medium">{t("generate.earlier.title")}</p>
+            {earlier.map((run, runIndex) => {
+              const runVeiled = secret && shownRun !== run.id
+              const label = labels.get(run.id)
+              const pictures = (
+                <div className="grid grid-cols-4 gap-2">
+                  {run.images.map((image, index) => (
+                    <button
+                      key={`${image.seed}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        setPreviewRun(run.id)
+                        setPreviewIndex(index)
+                      }}
+                      title={image.saved_name ?? t("generate.fullScreen")}
+                      className="block cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <img
+                        src={`data:image/png;base64,${image.image_base64}`}
+                        alt={t("generate.earlier.imageAlt", { seed: image.seed })}
+                        className={cn("aspect-square w-full rounded-md border border-border/50 bg-muted/50 object-cover", runVeiled && "blur-xl")}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )
+              const heading = (
+                <span className="min-w-0 flex-1 truncate">
+                  {label || t("generate.earlier.run")} · {t("generate.earlier.count", { count: run.images.length })}
+                </span>
+              )
+              const show = secret && (
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center gap-1 text-foreground underline-offset-4 hover:underline"
+                  onClick={() => setShownRun(runVeiled ? run.id : null)}
+                  aria-pressed={!runVeiled}
+                >
+                  {runVeiled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                  {runVeiled ? t("generate.earlier.show") : t("generate.earlier.blur")}
+                </button>
+              )
+              // The two most recent stay open; older ones fold to their heading.
+              return runIndex < 2 ? (
+                <div key={run.id} className="space-y-2">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    {heading}
+                    {show}
+                  </div>
+                  {pictures}
+                </div>
+              ) : (
+                <details key={run.id} className="space-y-2">
+                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+                    {heading}
+                    {show}
+                  </summary>
+                  {pictures}
+                </details>
+              )
+            })}
+          </section>
+        )}
         <ImageLightbox
           items={previewItems}
           index={previewIndex}
           onIndexChange={setPreviewIndex}
           onClose={() => setPreviewIndex(null)}
-          veiled={veiled}
+          veiled={previewVeiled}
         />
       </CardContent>
     </Card>

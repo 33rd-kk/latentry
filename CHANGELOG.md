@@ -10,6 +10,10 @@
   busy with another client's run is waited for instead of refused. The queue
   is held in memory only, and a second click no longer just shows the run
   already going.
+- **Earlier runs stay on Generate**: when a new run starts, the pictures on
+  screen move down to **Earlier** instead of vanishing, newest first, for
+  the last 5 runs (32 pictures). They are held in the page only; a reload
+  clears them.
 
 ## 0.10.0 (2026-10-20)
 

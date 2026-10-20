@@ -155,6 +155,10 @@ export function GenerateClient() {
   const job = useJobWatch(selectedId, refreshBackends, t)
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   const queue = useRunQueue(selectedId, attach, t)
+  // The start of each run's prompt, to tell earlier runs apart; this page's
+  // memory only, and never in secret mode.
+  const [labels, setLabels] = useState<ReadonlyMap<string, string | null>>(() => new Map())
+  const label = useCallback((id: string, text: string | null) => setLabels((previous) => new Map(previous).set(id, text)), [])
   useGalleryHandoff({ ready, editForm, backendRef, changeSource, changeSourceMode, t })
 
   // Secret mode turned on while a run is on screen makes that run secret on
@@ -287,6 +291,8 @@ export function GenerateClient() {
     // A run already going: this one waits in the queue, and the bars stay on
     // the one running.
     const queueing = isGenerating || queue.items.length > 0
+    // In secret mode not even the start of the prompt is shown.
+    const shortPrompt = isSecretMode() ? null : form.prompt.trim().slice(0, 80)
     // Optimistic, so the bars appear on click; the first snapshot replaces it.
     if (!queueing) begin({
       completed: 0,
@@ -310,8 +316,8 @@ export function GenerateClient() {
       // 202: the backend is busy, and the run waits its turn in the queue.
       if (response.status === 202 && data?.queued?.id) {
         if (!queueing) abandon()
-        // In secret mode not even the start of the prompt is shown.
-        queue.add(selectedId, { id: data.queued.id, label: isSecretMode() ? null : form.prompt.trim().slice(0, 80), position: data.queued.position ?? 0, waiting: false })
+        label(data.queued.id, shortPrompt)
+        queue.add(selectedId, { id: data.queued.id, label: shortPrompt, position: data.queued.position ?? 0, waiting: false })
         return
       }
       // 409: the queue is full, or the backend refused for its own reasons.
@@ -323,12 +329,13 @@ export function GenerateClient() {
       if (!response.ok || !data?.job?.id) {
         throw new Error(data?.error ? t.server(data.error) : t("generate.requestFailed", { status: response.status }))
       }
+      label(data.job.id, shortPrompt)
       attach(selectedId, data.job.id)
     } catch (error) {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -542,7 +549,7 @@ export function GenerateClient() {
           </CardContent>
         </Card>
 
-        <ResultsPanel job={job} queue={queue} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
+        <ResultsPanel job={job} queue={queue} labels={labels} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
       </div>
     </div>
   )
