@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.11.0 (2026-10-22)
+
+**Upgrading from 0.10.0**: after the usual update, open **Setup** and run
+**Repair / update** for the engine once. It installs the engine's Python
+packages from the new lock (resolved for 2026-10-21), with Pillow 13.0.0,
+which fixes known vulnerabilities in Pillow 12.3.0. Setup then says the
+packages are pinned as of 2026-10-21. The engine itself is unchanged (still
+0.7.0).
+
+**The queue**
+
 - **A queue for each backend**: while a run is going, **Generate** becomes
   **Add to queue**, and the run starts as soon as the one before it ends (up
   to 8 waiting on each backend). **Waiting** under the results lists the runs
@@ -17,6 +28,15 @@
   reload clears them, and in secret mode they last only while Generate is
   open. Each run folds from its heading, which shows the whole prompt on
   hover; in secret mode no prompt is shown there.
+
+**Dependencies**
+
+- **The engine's Python packages** are pinned as of 2026-10-21: Pillow 13.0.0
+  (fixing eight vulnerabilities reported against 12.3.0, in reading PDF, PPM
+  and other files), with newer fastapi, starlette, transformers and
+  pydantic.
+- Next.js 16.4.2, React 19.3.1, Radix UI 1.8 and other web packages are
+  updated, as are the tools that check and document Latentry.
 
 ## 0.10.0 (2026-10-20)
 
