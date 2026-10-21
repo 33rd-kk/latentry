@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
+import { ChevronRight, Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -107,7 +107,7 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
             <ol className="space-y-1">
               {queue.items.map((item, index) => (
                 <li key={item.id} className="flex items-center gap-2 text-sm">
-                  <PromptLabel text={item.label} fallback={t("generate.queue.secretRun")} className="flex-1 text-muted-foreground" />
+                  <PromptLabel text={secret ? null : item.label} fallback={t("generate.queue.secretRun")} className="flex-1 text-muted-foreground" />
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {index > 0
                       ? t("generate.queue.later")
@@ -238,12 +238,6 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
                   ))}
                 </div>
               )
-              const heading = (
-                <span className="flex min-w-0 flex-1 items-center gap-1">
-                  <PromptLabel text={label ?? null} fallback={t("generate.earlier.run")} />
-                  <span className="shrink-0">· {t("generate.earlier.count", { count: run.images.length })}</span>
-                </span>
-              )
               const show = secret && (
                 <button
                   type="button"
@@ -255,23 +249,18 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
                   {runVeiled ? t("generate.earlier.show") : t("generate.earlier.blur")}
                 </button>
               )
-              // The two most recent stay open; older ones fold to their heading.
-              return runIndex < 2 ? (
-                <div key={run.id} className="space-y-2">
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    {heading}
-                    {show}
-                  </div>
+              // Every run folds the same way; the two most recent start open.
+              return (
+                <EarlierBlock
+                  key={run.id}
+                  defaultOpen={runIndex < 2}
+                  label={secret ? null : (label ?? null)}
+                  fallback={t("generate.earlier.run")}
+                  count={t("generate.earlier.count", { count: run.images.length })}
+                  show={show}
+                >
                   {pictures}
-                </div>
-              ) : (
-                <details key={run.id} className="space-y-2">
-                  <summary className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                    {heading}
-                    {show}
-                  </summary>
-                  {pictures}
-                </details>
+                </EarlierBlock>
               )
             })}
           </section>
@@ -290,7 +279,9 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
 
 /**
  * A run's prompt on one line, cut short to fit; the whole of it on hover or
- * keyboard focus. Without one (secret mode) it says only what the run is.
+ * keyboard focus. Without one it says only what the run is: in secret mode
+ * no prompt is shown, whichever mode the run was started in, as the gallery
+ * hides every picture's prompt.
  */
 function PromptLabel({ text, fallback, className }: { text: string | null; fallback: string; className?: string }) {
   if (!text) return <span className={cn("min-w-0 truncate", className)}>{fallback}</span>
@@ -303,5 +294,56 @@ function PromptLabel({ text, fallback, className }: { text: string | null; fallb
       </TooltipTrigger>
       <TooltipContent className="max-w-sm whitespace-pre-wrap break-words">{text}</TooltipContent>
     </Tooltip>
+  )
+}
+
+/**
+ * One earlier run: a heading that folds and unfolds its pictures, the same for
+ * every run. Secret mode's Show / Blur is offered only while the pictures are
+ * out, as there is nothing to show or blur in a folded run.
+ */
+function EarlierBlock({
+  defaultOpen,
+  label,
+  fallback,
+  count,
+  show,
+  children,
+}: {
+  defaultOpen: boolean
+  label: string | null
+  fallback: string
+  count: string
+  show: React.ReactNode
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const toggle = (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={() => setOpen(!open)}
+      className="flex min-w-0 flex-1 items-center gap-1 rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} aria-hidden />
+      <span className="min-w-0 truncate">{label || fallback}</span>
+      <span className="shrink-0">· {count}</span>
+    </button>
+  )
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {label ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{toggle}</TooltipTrigger>
+            <TooltipContent className="max-w-sm whitespace-pre-wrap break-words">{label}</TooltipContent>
+          </Tooltip>
+        ) : (
+          toggle
+        )}
+        {open && show}
+      </div>
+      {open && children}
+    </div>
   )
 }

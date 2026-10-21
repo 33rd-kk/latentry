@@ -15,7 +15,8 @@
   the last 5 runs (32 pictures). They and the queued runs are held in the
   browser tab's memory only: going to the gallery and back keeps them, a
   reload clears them, and in secret mode they last only while Generate is
-  open.
+  open. Each run folds from its heading, which shows the whole prompt on
+  hover; in secret mode no prompt is shown there.
 
 ## 0.10.0 (2026-10-20)
 

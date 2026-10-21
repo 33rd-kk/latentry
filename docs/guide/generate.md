@@ -215,11 +215,15 @@ Progress shows overall and per image. Each finished picture has:
 
 When a new run starts, the pictures on screen move down to **Earlier**,
 newest first, so a queue of runs piles up instead of each replacing the
-last. The two most recent stay open and older ones fold. The last 5 runs
-(32 pictures at most) are kept in this browser tab's memory only: going to
-the gallery and back keeps them, and a reload clears them. Every picture is
-in the gallery anyway. In secret mode each earlier
-run stays blurred until **Show these**, and its prompt is not shown.
+last. Each run folds and unfolds from its heading (hover it for the whole
+prompt), and the two most recent start open. The last 5 runs (32 pictures
+at most) are kept in this browser tab's memory only: going to the gallery
+and back keeps them, and a reload clears them. Every picture is in the
+gallery anyway.
+
+In secret mode no prompt is shown in **Waiting** or **Earlier**, even for
+runs started before it was turned on, and an open earlier run stays blurred
+until **Show these**.
 
 Runs live on the server, so reloading the page, or opening it in another
 tab, picks up a run in progress. **Cancel** stops it.

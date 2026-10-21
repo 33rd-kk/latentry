@@ -59,6 +59,16 @@ test('runs wait their turn, can be taken out, and only their number is shown els
   await expect(other.getByRole('button', { name: 'Remove from the queue' })).toHaveCount(0)
   await other.context().close()
 
+  // Secret mode hides the prompts of runs queued before it was turned on, and
+  // turning it off shows them again. (It also makes the runs secret, so it
+  // comes after the other page's look.)
+  const secretToggle = page.getByRole('button', { name: 'Secret mode' }).first()
+  await secretToggle.click()
+  await expect(rows.nth(0)).toContainText('Secret run')
+  await expect(waiting.getByText('queue third')).toHaveCount(0)
+  await secretToggle.click()
+  await expect(rows.nth(0)).toContainText('queue third')
+
   // Stopping the running run starts the waiting one, which this page then shows.
   await cancel.click()
   await expect(waiting).toHaveCount(0)
@@ -84,8 +94,24 @@ test('a run that leaves the screen to the next one stays below it', async ({ pag
   await expect(newest.locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
   await expect(results).toHaveCount(1)
 
+  // Every earlier run folds the same way, from its heading.
+  const heading = newest.getByRole('button', { name: /earlier first picture/ })
+  await expect(heading).toHaveAttribute('aria-expanded', 'true')
+  await heading.click()
+  await expect(heading).toHaveAttribute('aria-expanded', 'false')
+  await expect(newest.locator('img[alt^="Earlier picture, seed"]')).toHaveCount(0)
+
+  // In secret mode, Show / Blur is offered only for a run whose pictures are out.
+  const secretToggle = page.getByRole('button', { name: 'Secret mode' }).first()
+  await secretToggle.click()
+  const folded = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div').first()
+  await expect(folded.getByRole('button', { name: 'Show these' })).toHaveCount(0)
+  await folded.getByRole('button', { name: /A run/ }).click()
+  await expect(folded.getByRole('button', { name: 'Show these' })).toBeVisible()
+  await secretToggle.click()
+
   // Opens full screen like the run on screen.
-  await newest.locator('img[alt^="Earlier picture, seed"]').click()
+  await folded.locator('img[alt^="Earlier picture, seed"]').click()
   await expect(page.getByRole('dialog')).toBeVisible()
 })
 
