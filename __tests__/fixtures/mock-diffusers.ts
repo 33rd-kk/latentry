@@ -6,7 +6,10 @@
 // so with person_subsets, as poseorbit 0.2 does; without, one or everyone.
 // Every /api/pose body is recorded, so a test can check what the page asked for.
 // /api/generate streams `image_count` small PNGs, image i seeded `seed + i`
-// (a random seed starts at 1000), with two steps each.
+// (a random seed starts at 1000), with two steps each. A prompt with
+// UNTIL_CANCELLED in it never finishes: it steps on until /api/cancel names
+// its run, for tests of a run that is still going. One with NO_MODEL is
+// refused with 409, as Latentry's engine refuses a run with no model loaded.
 
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -21,6 +24,15 @@ export interface MockDiffusers {
   generates: Record<string, unknown>[]
   close(): Promise<void>
 }
+
+/** In a prompt, keeps the run going until it is cancelled. */
+export const UNTIL_CANCELLED = 'mock: until cancelled'
+
+/** In a prompt, draws each picture over about three seconds, so the run can be watched while it goes. */
+export const SLOW = 'mock: slow'
+
+/** In a prompt, has the run refused as the engine refuses one with no model loaded. */
+export const NO_MODEL = 'mock: no model'
 
 /** The steps each mock picture reports. */
 export const MOCK_GENERATE_STEPS = 2
@@ -56,6 +68,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
   const skeleton = (await sharp({ create: { width: 64, height: 96, channels: 3, background: '#000000' } }).png().toBuffer()).toString('base64')
   const poses: Record<string, unknown>[] = []
   const generates: Record<string, unknown>[] = []
+  const cancelled = new Set<string>()
   const picture = (index: number) =>
     sharp({ create: { width: 64, height: 64, channels: 3, background: { r: 40 * index, g: 120, b: 200 } } }).png().toBuffer()
 
@@ -73,6 +86,16 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
         return reply(200, { status: 'ok', model: 'mock-pose-model', pose_control: true, lora: false, tagger: false, busy: false })
       }
       if (route === 'GET /api/presets') return reply(200, { default: null, presets: [] })
+      if (route === 'POST /api/cancel') {
+        let runId: unknown
+        try {
+          runId = JSON.parse(text)?.run_id
+        } catch {
+          runId = null
+        }
+        if (typeof runId === 'string') cancelled.add(runId)
+        return reply(200, { status: 'cancelling' })
+      }
       if (route === 'POST /api/generate') {
         let body: Record<string, unknown>
         try {
@@ -80,16 +103,37 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
         } catch {
           return reply(400, { error: 'Invalid JSON body' })
         }
+        // Read as typed: a profile may have respelled its spaces as underscores.
+        const prompt = typeof body.prompt === 'string' ? body.prompt.replace(/_/g, ' ') : ''
+        if (prompt.includes(NO_MODEL)) return reply(409, { detail: 'No model is loaded' })
         const { init_image_base64: _source, mask_base64: _mask, pose_image_base64: _pose, ...asked } = body
         generates.push(asked)
         const total = typeof body.image_count === 'number' ? body.image_count : 1
         const first = typeof body.seed === 'number' && body.seed >= 0 ? body.seed : 1000
         response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' })
         const send = (event: string, data: unknown) => response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        const runId = `mock-run-${generates.length}`
+        if (prompt.includes(UNTIL_CANCELLED)) {
+          send('start', { index: 0, total, steps: 1000, run_id: runId })
+          let step = 0
+          const timer = setInterval(() => {
+            if (cancelled.has(runId) || response.destroyed) {
+              clearInterval(timer)
+              send('cancelled', {})
+              response.end()
+              return
+            }
+            send('step', { index: 0, step: (step = Math.min(999, step + 1)) })
+          }, 100)
+          return
+        }
         void (async () => {
           for (let index = 0; index < total; index++) {
-            send('start', { index, total, steps: MOCK_GENERATE_STEPS, run_id: `mock-run-${generates.length}` })
-            for (let step = 1; step <= MOCK_GENERATE_STEPS; step++) send('step', { index, step })
+            send('start', { index, total, steps: MOCK_GENERATE_STEPS, run_id: runId })
+            for (let step = 1; step <= MOCK_GENERATE_STEPS; step++) {
+              if (prompt.includes(SLOW)) await new Promise((resolve) => setTimeout(resolve, 1500))
+              send('step', { index, step })
+            }
             const image_base64 = (await picture(index)).toString('base64')
             send('image', { index, total, seed: first + index, image_base64, steps_observed: MOCK_GENERATE_STEPS })
           }

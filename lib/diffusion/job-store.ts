@@ -16,6 +16,7 @@ import type { LoraUse } from '@/lib/image-meta'
  *
  * One run per backend: a backend does one run at a time, and two backends
  * (say an Anima server and a Forge web UI on another GPU) can run side by side.
+ * Runs asked for while one is going wait in run-queue.ts, not here.
  * Only each backend's latest run is kept, images and all, and only until no
  * page may read it any more (keptFor). This lives in the memory of a single
  * `next start` / `next dev` process, which is what a local install is.
@@ -107,17 +108,31 @@ export const SECRET_GRACE_MS = 60 * 1000
 
 // Held on globalThis so `next dev`'s hot reload — which re-evaluates this
 // module — cannot orphan a job a page is in the middle of watching.
-const globalForJobs = globalThis as typeof globalThis & { __latentryJobs?: Map<string, Job> }
+const globalForJobs = globalThis as typeof globalThis & {
+  __latentryJobs?: Map<string, Job>
+  __latentryReplaced?: Map<string, Job>
+  __latentryOnIdle?: (backend: string) => void
+}
 const jobs = (globalForJobs.__latentryJobs ??= new Map())
+// Runs a newer one has replaced, by id, until they are forgotten (keptFor).
+// With a queue the next run starts the moment one ends, while its page is
+// still being told about the last picture and where it was saved; that page
+// must hear the run to its end rather than "gone".
+const replaced = (globalForJobs.__latentryReplaced ??= new Map<string, Job>())
 
 export function getCurrentJob(backend: string): Job | null {
   return jobs.get(backend) ?? null
 }
 
-/** The job with this id, but only while it is still its backend's current one. */
+/**
+ * The job with this id: the backend's current one, or one it replaced that
+ * is not forgotten yet. Only a client that knows the id can ask.
+ */
 export function getJob(backend: string, id: string): Job | null {
   const job = getCurrentJob(backend)
-  return job && job.id === id ? job : null
+  if (job && job.id === id) return job
+  const earlier = replaced.get(id)
+  return earlier && earlier.backend === backend ? earlier : null
 }
 
 /** True while a stream that knows this run's id may still watch it. */
@@ -162,8 +177,8 @@ function notify(job: Job): void {
 
 /**
  * Subscribes to any change on the job with this id. The listener also runs
- * when that job stops being current, so a stream watching a superseded run
- * notices and closes instead of hanging.
+ * when the job is forgotten, so a stream watching it notices and closes
+ * instead of hanging.
  */
 export function subscribe(backend: string, id: string, listener: Listener): () => void {
   const job = getJob(backend, id)
@@ -178,10 +193,10 @@ export function subscribe(backend: string, id: string, listener: Listener): () =
  * Replaces the backend's current job. `total` and `steps` are only a starting
  * guess for the progress bars; the backend's own events correct both.
  */
-export function startJob(init: { backend: string; total: number; steps: number; context: JobContext; secret?: boolean }): Job {
+export function startJob(init: { id?: string; backend: string; total: number; steps: number; context: JobContext; secret?: boolean }): Job {
   const previous = getCurrentJob(init.backend)
   const job: Job = {
-    id: randomUUID(),
+    id: init.id ?? randomUUID(),
     backend: init.backend,
     status: 'running',
     runId: null,
@@ -200,9 +215,8 @@ export function startJob(init: { backend: string; total: number; steps: number; 
     secret: init.secret === true,
   }
   jobs.set(init.backend, job)
-  // Whoever still watched the old run is now watching nothing; wake them so
-  // their stream sees getJob() come back empty and shuts down.
-  if (previous) notify(previous)
+  // Whoever still watches the old run goes on watching it to its end.
+  if (previous) replaced.set(previous.id, previous)
   return job
 }
 
@@ -214,6 +228,20 @@ function finish(job: Job, status: Exclude<JobStatus, 'running'>, error?: string)
   job.currentStep = 0
   notify(job)
   setTimeout(() => forget(job), keptFor(job)).unref?.()
+  try {
+    globalForJobs.__latentryOnIdle?.(job.backend)
+  } catch (error) {
+    console.error('Idle hook failed:', error)
+  }
+}
+
+/**
+ * Called each time a backend's run ends, so the queue can start the next one.
+ * One hook, replaced rather than added to, so a hot reload of the queue does
+ * not leave the old module's copy starting runs too.
+ */
+export function onBackendIdle(hook: (backend: string) => void): void {
+  globalForJobs.__latentryOnIdle = hook
 }
 
 /**
@@ -245,6 +273,7 @@ export function keptFor(job: Job): number {
 /** Drops a run from memory: its images, its prompt, and the record itself. */
 export function forget(job: Job): void {
   if (jobs.get(job.backend) === job) jobs.delete(job.backend)
+  replaced.delete(job.id)
   job.images = []
   job.context = { ...job.context, request: { ...job.context.request, prompt: '', negative_prompt: '' }, promptTemplate: undefined }
   // A stream still open on it sees it gone and closes.

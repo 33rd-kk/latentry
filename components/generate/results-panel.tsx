@@ -2,14 +2,17 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { Download, Eye, EyeOff, FolderCheck, ImageUp } from "lucide-react"
+import { ChevronRight, Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
 import type { SourceImage } from "@/components/generate/source-image-slot"
 import type { JobWatch } from "@/hooks/use-job-watch"
+import type { RunQueue } from "@/hooks/use-run-queue"
 import { useT } from "@/lib/i18n"
 
 // Never show the current-image bar as fully done from the step count alone —
@@ -17,31 +20,45 @@ import { useT } from "@/lib/i18n"
 const MAX_STEP_PERCENT = 99
 
 interface ResultsPanelProps {
-  job: Pick<JobWatch, "results" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId">
+  job: Pick<JobWatch, "results" | "earlier" | "progress" | "jobStatus" | "jobError" | "saveWarning" | "isGenerating" | "runId" | "queued">
+  /** The start of each run's prompt, by run id, as this page sent it; none in secret mode. */
+  labels: ReadonlyMap<string, string | null>
+  /** The runs this page has waiting behind the current one. */
+  queue: Pick<RunQueue, "items" | "cancel">
   /** Offered when the backend can start from a picture: a result becomes the source. */
   onUseAsSource?: (source: SourceImage) => void
 }
 
 /** The run's progress, its pictures, and the full-screen viewer for them. */
-export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
+export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanelProps) {
   const t = useT()
   const { results, progress, jobStatus, jobError, saveWarning, isGenerating, runId } = job
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
+  // Which run the full-screen viewer shows: null for the one on screen.
+  const [previewRun, setPreviewRun] = useState<string | null>(null)
   // Secret mode blurs a run's pictures until "Show results", which lasts for
   // that run only: the next one starts blurred again.
   const secret = useSecretMode()
   const [shownRun, setShownRun] = useShownInSecret<string>()
   const veiled = secret && (runId === null || shownRun !== runId)
+  // Runs other pages queued: only how many, never what they draw.
+  const others = Math.max(0, job.queued - queue.items.length)
 
+  const { earlier } = job
+  const previewImages = useMemo(
+    () => (previewRun === null ? results : (earlier.find((run) => run.id === previewRun)?.images ?? [])),
+    [previewRun, results, earlier]
+  )
   const previewItems = useMemo<LightboxItem[]>(
     () =>
-      results.map((image) => ({
+      previewImages.map((image) => ({
         src: `data:image/png;base64,${image.image_base64}`,
         name: `seed: ${image.seed}`,
         downloadName: image.saved_name ?? `latentry_${image.seed}.png`,
       })),
-    [results]
+    [previewImages]
   )
+  const previewVeiled = previewRun === null ? veiled : secret && shownRun !== previewRun
 
   const currentImagePercent =
     progress && progress.currentStep > 0
@@ -84,6 +101,32 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
           </div>
         )}
 
+        {(queue.items.length > 0 || others > 0) && (
+          <section className="mb-4 space-y-2" aria-label={t("generate.queue.title")}>
+            <p className="text-sm font-medium">{t("generate.queue.title")}</p>
+            <ol className="space-y-1">
+              {queue.items.map((item, index) => (
+                <li key={item.id} className="flex items-center gap-2 text-sm">
+                  <PromptLabel text={secret ? null : item.label} fallback={t("generate.queue.secretRun")} className="flex-1 text-muted-foreground" />
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {index > 0
+                      ? t("generate.queue.later")
+                      : item.waiting
+                        ? t("generate.queue.waitingBackend")
+                        : item.position > 1
+                          ? t("generate.queue.position", { ahead: item.position - 1 })
+                          : t("generate.queue.next")}
+                  </span>
+                  <Button type="button" size="icon" variant="ghost" className="h-7 w-7" onClick={() => void queue.cancel(item.id)} aria-label={t("generate.queue.cancel")}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </li>
+              ))}
+            </ol>
+            {others > 0 && <p className="text-xs text-muted-foreground">{t("generate.queue.others", { count: others })}</p>}
+          </section>
+        )}
+
         {/* Survives a reload along with the images, so a run that failed
             while the page was closed still says why. */}
         {jobError && !isGenerating && <p className="mb-4 text-sm text-destructive">{t.server(jobError)}</p>}
@@ -117,7 +160,10 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
                 <div key={`${image.seed}-${index}`} className="space-y-1">
                   <button
                     type="button"
-                    onClick={() => setPreviewIndex(index)}
+                    onClick={() => {
+                      setPreviewRun(null)
+                      setPreviewIndex(index)
+                    }}
                     title={t("generate.fullScreen")}
                     className="block w-full cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
@@ -164,14 +210,140 @@ export function ResultsPanel({ job, onUseAsSource }: ResultsPanelProps) {
             )}
           </div>
         )}
+        {earlier.length > 0 && (
+          <section className="mt-6 space-y-4" aria-label={t("generate.earlier.title")}>
+            <p className="text-sm font-medium">{t("generate.earlier.title")}</p>
+            {earlier.map((run, runIndex) => {
+              const runVeiled = secret && shownRun !== run.id
+              const label = labels.get(run.id)
+              const pictures = (
+                <div className="grid grid-cols-4 gap-2">
+                  {run.images.map((image, index) => (
+                    <button
+                      key={`${image.seed}-${index}`}
+                      type="button"
+                      onClick={() => {
+                        setPreviewRun(run.id)
+                        setPreviewIndex(index)
+                      }}
+                      title={image.saved_name ?? t("generate.fullScreen")}
+                      className="block cursor-zoom-in overflow-hidden rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      <img
+                        src={`data:image/png;base64,${image.image_base64}`}
+                        alt={t("generate.earlier.imageAlt", { seed: image.seed })}
+                        className={cn("aspect-square w-full rounded-md border border-border/50 bg-muted/50 object-cover", runVeiled && "blur-xl")}
+                      />
+                    </button>
+                  ))}
+                </div>
+              )
+              const show = secret && (
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center gap-1 text-foreground underline-offset-4 hover:underline"
+                  onClick={() => setShownRun(runVeiled ? run.id : null)}
+                  aria-pressed={!runVeiled}
+                >
+                  {runVeiled ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+                  {runVeiled ? t("generate.earlier.show") : t("generate.earlier.blur")}
+                </button>
+              )
+              // Every run folds the same way; the two most recent start open.
+              return (
+                <EarlierBlock
+                  key={run.id}
+                  defaultOpen={runIndex < 2}
+                  label={secret ? null : (label ?? null)}
+                  fallback={t("generate.earlier.run")}
+                  count={t("generate.earlier.count", { count: run.images.length })}
+                  show={show}
+                >
+                  {pictures}
+                </EarlierBlock>
+              )
+            })}
+          </section>
+        )}
         <ImageLightbox
           items={previewItems}
           index={previewIndex}
           onIndexChange={setPreviewIndex}
           onClose={() => setPreviewIndex(null)}
-          veiled={veiled}
+          veiled={previewVeiled}
         />
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * A run's prompt on one line, cut short to fit; the whole of it on hover or
+ * keyboard focus. Without one it says only what the run is: in secret mode
+ * no prompt is shown, whichever mode the run was started in, as the gallery
+ * hides every picture's prompt.
+ */
+function PromptLabel({ text, fallback, className }: { text: string | null; fallback: string; className?: string }) {
+  if (!text) return <span className={cn("min-w-0 truncate", className)}>{fallback}</span>
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className={cn("min-w-0 truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
+          {text}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm whitespace-pre-wrap break-words">{text}</TooltipContent>
+    </Tooltip>
+  )
+}
+
+/**
+ * One earlier run: a heading that folds and unfolds its pictures, the same for
+ * every run. Secret mode's Show / Blur is offered only while the pictures are
+ * out, as there is nothing to show or blur in a folded run.
+ */
+function EarlierBlock({
+  defaultOpen,
+  label,
+  fallback,
+  count,
+  show,
+  children,
+}: {
+  defaultOpen: boolean
+  label: string | null
+  fallback: string
+  count: string
+  show: React.ReactNode
+  children: React.ReactNode
+}) {
+  const [open, setOpen] = useState(defaultOpen)
+  const toggle = (
+    <button
+      type="button"
+      aria-expanded={open}
+      onClick={() => setOpen(!open)}
+      className="flex min-w-0 flex-1 items-center gap-1 rounded-sm text-left hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <ChevronRight className={cn("h-3 w-3 shrink-0 transition-transform", open && "rotate-90")} aria-hidden />
+      <span className="min-w-0 truncate">{label || fallback}</span>
+      <span className="shrink-0">· {count}</span>
+    </button>
+  )
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        {label ? (
+          <Tooltip>
+            <TooltipTrigger asChild>{toggle}</TooltipTrigger>
+            <TooltipContent className="max-w-sm whitespace-pre-wrap break-words">{label}</TooltipContent>
+          </Tooltip>
+        ) : (
+          toggle
+        )}
+        {open && show}
+      </div>
+      {open && children}
+    </div>
   )
 }

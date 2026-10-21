@@ -1,9 +1,8 @@
-import { adapterOr404, backendStatus, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
-import { hiresSteps } from '@/lib/diffusion/hires'
-import { img2imgSteps } from '@/lib/diffusion/img2img'
-import { consumeEvents, getCurrentJob, startJob, toSnapshot } from '@/lib/diffusion/job-store'
+import { adapterOr404, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
+import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
+import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
+import { enqueue, positionOf, pump, queueLength } from '@/lib/diffusion/run-queue'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
-import { saveToGallery } from '@/lib/gallery/save'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
@@ -16,10 +15,12 @@ import { hasWildcards } from '@/lib/wildcards/syntax'
 export const runtime = 'nodejs'
 
 /**
- * Starts a run and answers with its job id. The backend's events are read
- * here, on the server, into the job store — not piped to whichever browser
- * connection happened to ask — so a reload or a backgrounded tab picks the run
- * back up from .../job/stream instead of losing it.
+ * Starts a run and answers with its job id, or, while the backend is busy,
+ * puts it in the queue and answers 202 with its place (run-queue.ts). The
+ * backend's events are read here, on the server, into the job store — not
+ * piped to whichever browser connection happened to ask — so a reload or a
+ * backgrounded tab picks the run back up from .../job/stream instead of
+ * losing it.
  */
 export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backend]/generate'>) {
   const adapter = adapterOr404((await ctx.params).backend)
@@ -40,75 +41,61 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   }
 
   const id = adapter.config.id
-  // A backend does one run at a time, so a second request would only queue
-  // behind the first while its progress went unwatched. Hand back the running
-  // job instead — a page that reloaded and pressed Generate again reattaches.
-  // A secret run's id is not handed out: only the page that started it may watch it.
-  const running = getCurrentJob(id)
-  if (running?.status === 'running') {
-    return json({ error: 'A generation is already running', ...(running.secret ? {} : { job: toSnapshot(running) }) }, { status: 409 })
+  // Extend: the source is padded and masked here, so the backend gets an
+  // ordinary inpaint and needs to know nothing about outpainting. Done before
+  // the run waits in the queue, so a bad source is refused now, not later.
+  const sides = generate.init_image_base64 && !generate.upscale ? outpaintSides(body.outpaint) : null
+  if (sides) {
+    const prepared = await prepareOutpaint(generate.init_image_base64!, sides)
+    if (!prepared) return jsonError(serverMessage('generate.outpaintInvalid', { max: OUTPAINT_MAX_EDGE }), 400)
+    Object.assign(generate, { init_image_base64: prepared.image, mask_base64: prepared.mask, mask_blur: generate.mask_blur ?? 8, width: prepared.width, height: prepared.height })
+    delete generate.pose_image_base64
+    delete generate.pose_is_skeleton
+    delete generate.pose_strength
   }
-
-  // The check above only sees a run once startJob has recorded it, and that
-  // takes an await on the backend. Without this lock two requests inside that
-  // gap both pass, and the second replaces the first's record — orphaning a
-  // run the GPU is still doing.
-  const release = tryAcquire(`gen:start:${id}`)
-  if (!release) return jsonError(serverMessage('system.busyStarting'), 409)
-  try {
-    // Extend: the source is padded and masked here, so the backend gets an
-    // ordinary inpaint and needs to know nothing about outpainting.
-    const sides = generate.init_image_base64 && !generate.upscale ? outpaintSides(body.outpaint) : null
-    if (sides) {
-      const prepared = await prepareOutpaint(generate.init_image_base64!, sides)
-      if (!prepared) return jsonError(serverMessage('generate.outpaintInvalid', { max: OUTPAINT_MAX_EDGE }), 400)
-      Object.assign(generate, { init_image_base64: prepared.image, mask_base64: prepared.mask, mask_blur: generate.mask_blur ?? 8, width: prepared.width, height: prepared.height })
-      delete generate.pose_image_base64
-      delete generate.pose_is_skeleton
-      delete generate.pose_strength
-    }
-    const status = await backendStatus(adapter, 30 * 1000).catch(() => null)
-    const started = await adapter.start(generate)
-    // No `job` on this 409: the backend is busy with a run this server did not
-    // start, so there is nothing to reattach to.
-    if (!started.ok) return jsonError(started.error, started.status)
-
-    const profile = typeof body.profile === 'string' ? body.profile : adapter.config.profile
-    // Only for the record: the backend is sent the prompt with its wildcards replaced.
-    const template = body.prompt_template
-    const promptTemplate = typeof template === 'string' && template.length <= 10_000 && hasWildcards(template) ? template : undefined
-    // An upscale runs only its redraw; hires fix both passes.
-    const steps = generate.upscale
-      ? hiresSteps(generate)
-      : generate.init_image_base64
-        ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, profile)
-        : generate.num_inference_steps + hiresSteps(generate)
+  // Only for the record: the backend is sent the prompt with its wildcards replaced.
+  const template = body.prompt_template
+  const input: RunInput = {
+    generate,
+    profile: typeof body.profile === 'string' ? body.profile : adapter.config.profile,
+    mode: sides ? 'outpaint' : modeOf(generate),
+    promptTemplate: typeof template === 'string' && template.length <= 10_000 && hasWildcards(template) ? template : undefined,
     // The record names an upscale's size before it, as hires fix's: the source's.
-    const sourceSize = generate.upscale && generate.init_image_base64 ? await imageSize(generate.init_image_base64) : null
-    const job = startJob({
-      backend: id,
-      total: generate.image_count,
-      steps,
-      secret: body.secret === true,
-      context: {
-        // The settings without the pictures: the record only needs to say a
-        // source was used (strength is set exactly when one was), and the
-        // base64 would sit in memory for as long as the job does.
-        request: { ...generate, ...(sourceSize ?? {}), init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
-        profile,
-        kind: adapter.config.kind,
-        // A workflow loads its own model unless one is set for the backend; status cannot say which.
-        model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
-        mode: sides ? 'outpaint' : modeOf(generate),
-        ...(promptTemplate ? { promptTemplate } : {}),
-      },
-    })
-
-    // Not awaited: this outlives the request that started it, which is what
-    // lets the run survive the browser navigating away.
-    void consumeEvents(job, started.value, saveToGallery)
-    return json({ job: toSnapshot(job) })
-  } finally {
-    release()
+    sourceSize: generate.upscale && generate.init_image_base64 ? await imageSize(generate.init_image_base64) : null,
+    secret: body.secret === true,
   }
+
+  // The lock closes the gap between seeing the backend free and startJob
+  // recording the run, which takes an await on the backend: without it two
+  // requests inside that gap would both start, and the second would replace
+  // the first's record, orphaning a run the GPU is still doing. A request
+  // that finds it held, or a run going, or runs already waiting, joins the
+  // queue instead.
+  const release = tryAcquire(`gen:start:${id}`)
+  if (!release || getCurrentJob(id)?.status === 'running' || queueLength(id) > 0) {
+    release?.()
+    return queueRun(id, input)
+  }
+  try {
+    const started = await launchRun(adapter, input)
+    if (started.ok) return json({ job: toSnapshot(started.value) })
+    // Busy with a run this server did not start (another client on the web
+    // UI): wait for it rather than refuse. Any other 409 (the engine with no
+    // model loaded) goes back to the page as it is.
+    if (started.status === 409 && (await isBusy(adapter))) return queueRun(id, input)
+    return jsonError(started.error, started.status)
+  } finally {
+    release?.()
+  }
+}
+
+/**
+ * Answers 202 with the waiting run's id and place. Only this answer carries
+ * the id: the page that asked is the only one that may watch or cancel it.
+ */
+function queueRun(backend: string, input: RunInput): Response {
+  const queued = enqueue(backend, input)
+  if (!queued.ok) return jsonError(queued.error, queued.status)
+  pump(backend)
+  return json({ queued: { id: queued.value.id, position: positionOf(queued.value) } }, { status: 202 })
 }

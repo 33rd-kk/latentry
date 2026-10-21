@@ -213,9 +213,41 @@ Progress shows overall and per image. Each finished picture has:
 - **In gallery** (it was saved), **Use as source**, **Download**.
 - Click it to view it full screen.
 
-One run per backend at a time: a second click while it runs shows the run
-already in progress. **Cancel** stops it. Runs live on the server, so
-reloading the page, or opening it in another tab, picks up a run in progress.
+When a new run starts, the pictures on screen move down to **Earlier**,
+newest first, so a queue of runs piles up instead of each replacing the
+last. Each run folds and unfolds from its heading (hover it for the whole
+prompt), and the two most recent start open. The last 5 runs (32 pictures
+at most) are kept in this browser tab's memory only: going to the gallery
+and back keeps them, and a reload clears them. Every picture is in the
+gallery anyway.
+
+In secret mode no prompt is shown in **Waiting** or **Earlier**, even for
+runs started before it was turned on, and an open earlier run stays blurred
+until **Show these**.
+
+Runs live on the server, so reloading the page, or opening it in another
+tab, picks up a run in progress. **Cancel** stops it.
+
+### The queue
+
+A backend draws one run at a time. While one is going, **Generate** becomes
+**Add to queue**: change the prompt or the settings and add another run, up
+to 8 waiting on each backend. They start in turn, each as soon as the one
+before it ends, and their pictures are saved like any others.
+
+- **Waiting** under the results lists the runs this page added, with how
+  many runs are ahead of the first, and **×** to take one out again.
+- Another page or device sees only how many runs are waiting, not what they
+  draw, and cannot take them out.
+- The list is kept in this browser tab's memory only. Going to the gallery
+  and back keeps it. After a reload the runs still start in turn, but the
+  page no longer lists them, so they can no longer be taken out. In secret
+  mode it is kept only while Generate is open.
+- If the backend is busy with a run Latentry did not start (from its own
+  web UI, say), the first run says **Waiting for the backend** and starts
+  once it is free. After 30 minutes it gives up.
+- The queue is held in memory only. Stopping Latentry drops the runs that
+  were still waiting.
 
 ## Secret mode
 

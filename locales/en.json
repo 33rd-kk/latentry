@@ -54,8 +54,6 @@
     "serverError": "The backend reported an error.",
     "promptRequired": "Prompt is required",
     "promptRequiredBody": "Enter a positive prompt before generating.",
-    "alreadyGenerating": "Already generating",
-    "alreadyGeneratingBody": "Showing the run that was already in progress.",
     "gpuBusy": "Backend is busy",
     "gpuBusyBody": "Another client is generating on it right now.",
     "requestFailed": "Request failed ({status})",
@@ -82,6 +80,25 @@
       "none": "No LoRAs yet. Put .safetensors files in the loras folder inside the engine's models folder.",
       "otherFamily": "Made for {family} models",
       "license": "Licence: {license}"
+    },
+    "earlier": {
+      "title": "Earlier",
+      "run": "A run",
+      "count": "pictures: {count}",
+      "imageAlt": "Earlier picture, seed {seed}",
+      "show": "Show these",
+      "blur": "Blur these"
+    },
+    "queue": {
+      "add": "Add to queue",
+      "title": "Waiting",
+      "next": "Starts next",
+      "position": "{ahead} ahead",
+      "later": "After that",
+      "waitingBackend": "Waiting for the backend",
+      "secretRun": "Secret run",
+      "cancel": "Remove from the queue",
+      "others": "Waiting from other pages: {count}"
     },
     "wildcards": {
       "add": "Add a wildcard",
@@ -120,7 +137,6 @@
       "stepsSame": "Hires steps: same ({value})",
       "denoise": "Denoising strength: {value}"
     },
-    "generating": "Generating...",
     "generateButton": "Generate",
     "cancel": "Cancel",
     "reset": "Reset this backend's form",
@@ -437,6 +453,8 @@
     "viewerError": "The image could not be loaded",
     "viewerPanel": "Details",
     "busyStarting": "A run is being started on this backend by another request. Try again in a moment.",
+    "queueFull": "{max} runs are already waiting on this backend. Wait for one to start, or cancel one.",
+    "queueTooLarge": "The runs waiting on this backend already hold as many source pictures as Latentry keeps in memory. Wait for one to start, or cancel one.",
     "tooManyRequests": "Too many requests. Wait {seconds}s and try again.",
     "tooManyStreams": "Too many live connections from this device. Close some tabs and reload.",
     "notPaired": "This device is not paired. Open Latentry in the browser to pair it with a code from the computer running it."

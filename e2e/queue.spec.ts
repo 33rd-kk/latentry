@@ -1,0 +1,164 @@
+// docs/guide/generate.md: while a run is going, Generate becomes Add to queue.
+// The page lists the runs it queued, and any of them can be taken out again.
+// Another page sees only how many wait. Cancelling the running run starts the
+// next one. Runs on the mock diffusers-compatible server, whose run with
+// UNTIL_CANCELLED in the prompt goes on until it is cancelled.
+
+import { expect, test, type Page } from '@playwright/test'
+import { SLOW, UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
+
+/** `button`: what the main button says once there, Generate or, with a run going, Add to queue. */
+async function openOnPose(page: Page, button = 'Generate') {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  // The backend select is the first one on the page.
+  await page.getByRole('combobox').first().click()
+  await page.getByRole('option').filter({ has: page.getByText('pose', { exact: true }) }).click()
+  await expect(page.getByRole('button', { name: button, exact: true })).toBeEnabled()
+}
+
+test('runs wait their turn, can be taken out, and only their number is shown elsewhere', async ({ page, browser }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`queue first ${UNTIL_CANCELLED}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
+  await expect(cancel).toBeVisible()
+
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await expect(add).toBeEnabled()
+  await page.locator('#prompt').fill('queue second')
+  await add.click()
+  // Long enough to be cut short in the list.
+  const long = `queue third, ${'a lighthouse on a cliff at dusk, '.repeat(8)}the end`
+  await page.locator('#prompt').fill(long)
+  await add.click()
+
+  const waiting = page.getByRole('region', { name: 'Waiting' })
+  const rows = waiting.getByRole('listitem')
+  await expect(rows).toHaveCount(2)
+  await expect(rows.nth(0)).toContainText('queue second')
+  await expect(rows.nth(0)).toContainText('Starts next')
+  await expect(rows.nth(1)).toContainText('queue third')
+  await expect(rows.nth(1)).toContainText('After that')
+  // The whole prompt on hover.
+  await rows.nth(1).getByText('queue third').hover()
+  await expect(page.getByRole('tooltip')).toContainText('the end')
+
+  // Taken out again: the one behind it starts next.
+  await rows.nth(0).getByRole('button', { name: 'Remove from the queue' }).click()
+  await expect(rows).toHaveCount(1)
+  await expect(rows.nth(0)).toContainText('queue third')
+  await expect(rows.nth(0)).toContainText('Starts next')
+
+  // Another page is told how many wait, not what.
+  const other = await (await browser.newContext()).newPage()
+  // It sees the run that is going, as after a reload, so its button queues too.
+  await openOnPose(other, 'Add to queue')
+  await expect(other.getByText('Waiting from other pages: 1')).toBeVisible()
+  await expect(other.getByText('queue third')).toHaveCount(0)
+  await expect(other.getByRole('button', { name: 'Remove from the queue' })).toHaveCount(0)
+  await other.context().close()
+
+  // Secret mode hides the prompts of runs queued before it was turned on, and
+  // turning it off shows them again. (It also makes the runs secret, so it
+  // comes after the other page's look.)
+  const secretToggle = page.getByRole('button', { name: 'Secret mode' }).first()
+  await secretToggle.click()
+  await expect(rows.nth(0)).toContainText('Secret run')
+  await expect(waiting.getByText('queue third')).toHaveCount(0)
+  await secretToggle.click()
+  await expect(rows.nth(0)).toContainText('queue third')
+
+  // Stopping the running run starts the waiting one, which this page then shows.
+  await cancel.click()
+  await expect(waiting).toHaveCount(0)
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  await expect(page.getByRole('link', { name: 'In gallery' })).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+})
+
+test('a run that leaves the screen to the next one stays below it', async ({ page }) => {
+  await openOnPose(page)
+  const results = page.locator('img[alt^="Generated image, seed"]')
+  await page.locator('#prompt').fill('earlier first picture')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  await expect(results).toHaveCount(1)
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+
+  await page.locator('#prompt').fill('earlier second picture')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  // Newest first. (The page may also have picked up the last test's run, which
+  // moved below in turn.)
+  const newest = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div').first()
+  await expect(newest).toContainText('earlier first picture')
+  await expect(newest.locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
+  await expect(results).toHaveCount(1)
+
+  // Every earlier run folds the same way, from its heading.
+  const heading = newest.getByRole('button', { name: /earlier first picture/ })
+  await expect(heading).toHaveAttribute('aria-expanded', 'true')
+  await heading.click()
+  await expect(heading).toHaveAttribute('aria-expanded', 'false')
+  await expect(newest.locator('img[alt^="Earlier picture, seed"]')).toHaveCount(0)
+
+  // In secret mode, Show / Blur is offered only for a run whose pictures are out.
+  const secretToggle = page.getByRole('button', { name: 'Secret mode' }).first()
+  await secretToggle.click()
+  const folded = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div').first()
+  await expect(folded.getByRole('button', { name: 'Show these' })).toHaveCount(0)
+  await folded.getByRole('button', { name: /A run/ }).click()
+  await expect(folded.getByRole('button', { name: 'Show these' })).toBeVisible()
+  await secretToggle.click()
+
+  // Opens full screen like the run on screen.
+  await folded.locator('img[alt^="Earlier picture, seed"]').click()
+  await expect(page.getByRole('dialog')).toBeVisible()
+})
+
+test('three queued runs, each starting the moment the last ends, all stay on the page', async ({ page }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`queued run one ${SLOW}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await page.locator('#prompt').fill(`queued run two ${SLOW}`)
+  await add.click()
+  await page.locator('#prompt').fill(`queued run three ${SLOW}`)
+  await add.click()
+
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled({ timeout: 20_000 })
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  const blocks = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div')
+  await expect(blocks.nth(0)).toContainText('queued run two')
+  await expect(blocks.nth(1)).toContainText('queued run one')
+  await expect(blocks.nth(0).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
+  await expect(blocks.nth(1).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
+})
+
+test('going to the gallery and back keeps the queue and the earlier runs', async ({ page }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`away run one ${SLOW}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await page.locator('#prompt').fill(`away run two ${SLOW}`)
+  await add.click()
+  await page.locator('#prompt').fill(`away run three ${SLOW}`)
+  await add.click()
+  await expect(page.getByRole('region', { name: 'Waiting' }).getByRole('listitem')).toHaveCount(2)
+
+  // Within the app, not a reload: the tab's memory stays.
+  await page.getByRole('link', { name: 'Gallery' }).first().click()
+  await expect(page).toHaveURL(/\/gallery/)
+  await page.getByRole('link', { name: 'Generate' }).first().click()
+  await expect(page).toHaveURL(/\/$/)
+  // The page comes back on the same backend, with its runs still listed and removable.
+  await expect(page.getByRole('button', { name: 'Remove from the queue' }).first()).toBeVisible()
+  // Its own runs are not counted as another page's.
+  await expect(page.getByText(/Waiting from other pages/)).toHaveCount(0)
+
+  await expect(page.getByRole('region', { name: 'Waiting' })).toHaveCount(0, { timeout: 20_000 })
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled({ timeout: 20_000 })
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  const blocks = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div')
+  await expect(blocks.nth(0)).toContainText('away run two')
+  await expect(blocks.nth(1)).toContainText('away run one')
+})
