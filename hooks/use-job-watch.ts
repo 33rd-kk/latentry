@@ -86,6 +86,9 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const backendRef = useRef<string | null>(null)
   // refresh() and attach() need each other, so one goes through a ref.
   const refreshRef = useRef<() => void>(() => {})
+  // Counts each change of the run on screen, so an answer from /job that was
+  // asked for before the change (and arrives after it) is not acted on.
+  const shownRef = useRef(0)
 
   /** Asks again how many runs wait, as when one has just left the queue to run. */
   const recount = useCallback(async (backend: string) => {
@@ -128,6 +131,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     (backend: string, id: string) => {
       closeSource()
       if (watchedIdRef.current !== id) {
+        shownRef.current += 1
         keepShown()
         setResults([])
         // Back on screen (after coming back to the page): not below as well.
@@ -211,11 +215,15 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const refresh = useCallback(async () => {
     const backend = backendRef.current
     if (!backend) return
+    const asked = shownRef.current
     try {
       const response = await fetch(`/api/gen/${encodeURIComponent(backend)}/job`, { cache: "no-store" })
       if (!response.ok || backendRef.current !== backend) return
       const answer = await response.json()
       setQueued(typeof answer?.queued === "number" ? answer.queued : 0)
+      // Another run came on screen meanwhile (Generate was pressed, or the next
+      // in the queue started): this answer is about what was there before.
+      if (shownRef.current !== asked) return
       const job = answer?.job
       if (!job) {
         if (statusRef.current === "running") {
@@ -228,10 +236,6 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       }
       const inSync = job.id === watchedIdRef.current && statusRef.current === job.status
       if (inSync && (sourceRef.current !== null || job.status !== "running")) return
-      // A run this page is starting (or watching) is not put aside for one
-      // that has already ended: an answer that left the server before
-      // Generate was pressed can arrive after it.
-      if (statusRef.current === "running" && job.status !== "running" && job.id !== watchedIdRef.current) return
       attach(backend, job.id)
     } catch {
       // Offline or down; the next visibility change tries again.
@@ -293,6 +297,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const begin = useCallback(
     (next: JobProgress) => {
       // A new run, not yet known by its id: what is shown moves below it.
+      shownRef.current += 1
       keepShown()
       watchedIdRef.current = null
       setRunId(null)

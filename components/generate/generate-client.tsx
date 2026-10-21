@@ -292,8 +292,9 @@ export function GenerateClient() {
     // A run already going: this one waits in the queue, and the bars stay on
     // the one running.
     const queueing = isGenerating || queue.items.length > 0
-    // In secret mode not even the start of the prompt is shown.
-    const shortPrompt = isSecretMode() ? null : form.prompt.trim().slice(0, 80)
+    // The prompt as typed, to tell runs apart (cut short on screen, whole on
+    // hover). In secret mode not even its start is shown.
+    const shortPrompt = isSecretMode() ? null : form.prompt.trim().slice(0, 2000)
     // Optimistic, so the bars appear on click; the first snapshot replaces it.
     if (!queueing) begin({
       completed: 0,

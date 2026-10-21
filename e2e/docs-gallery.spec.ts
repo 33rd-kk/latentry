@@ -13,7 +13,11 @@ async function generateOnce(page: Page, prompt: string) {
   const generate = page.getByRole('button', { name: 'Generate', exact: true })
   await expect(generate).toBeEnabled()
   await page.locator('#prompt').fill(prompt)
+  // The page may still show the last run (it picks one up on load) until
+  // this one has been asked for.
+  const asked = page.waitForResponse((response) => response.url().endsWith('/generate') && response.request().method() === 'POST')
   await generate.click()
+  await asked
   await expect(page.getByRole('link', { name: 'In gallery' })).toBeVisible()
 }
 

@@ -6,6 +6,7 @@ import { Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { Progress } from "@/components/ui/progress"
@@ -106,7 +107,7 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
             <ol className="space-y-1">
               {queue.items.map((item, index) => (
                 <li key={item.id} className="flex items-center gap-2 text-sm">
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">{item.label || t("generate.queue.secretRun")}</span>
+                  <PromptLabel text={item.label} fallback={t("generate.queue.secretRun")} className="flex-1 text-muted-foreground" />
                   <span className="shrink-0 text-xs text-muted-foreground">
                     {index > 0
                       ? t("generate.queue.later")
@@ -238,8 +239,9 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
                 </div>
               )
               const heading = (
-                <span className="min-w-0 flex-1 truncate">
-                  {label || t("generate.earlier.run")} · {t("generate.earlier.count", { count: run.images.length })}
+                <span className="flex min-w-0 flex-1 items-center gap-1">
+                  <PromptLabel text={label ?? null} fallback={t("generate.earlier.run")} />
+                  <span className="shrink-0">· {t("generate.earlier.count", { count: run.images.length })}</span>
                 </span>
               )
               const show = secret && (
@@ -283,5 +285,23 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
         />
       </CardContent>
     </Card>
+  )
+}
+
+/**
+ * A run's prompt on one line, cut short to fit; the whole of it on hover or
+ * keyboard focus. Without one (secret mode) it says only what the run is.
+ */
+function PromptLabel({ text, fallback, className }: { text: string | null; fallback: string; className?: string }) {
+  if (!text) return <span className={cn("min-w-0 truncate", className)}>{fallback}</span>
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span tabIndex={0} className={cn("min-w-0 truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", className)}>
+          {text}
+        </span>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-sm whitespace-pre-wrap break-words">{text}</TooltipContent>
+    </Tooltip>
   )
 }

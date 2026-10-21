@@ -28,7 +28,9 @@ test('runs wait their turn, can be taken out, and only their number is shown els
   await expect(add).toBeEnabled()
   await page.locator('#prompt').fill('queue second')
   await add.click()
-  await page.locator('#prompt').fill('queue third')
+  // Long enough to be cut short in the list.
+  const long = `queue third, ${'a lighthouse on a cliff at dusk, '.repeat(8)}the end`
+  await page.locator('#prompt').fill(long)
   await add.click()
 
   const waiting = page.getByRole('region', { name: 'Waiting' })
@@ -38,6 +40,9 @@ test('runs wait their turn, can be taken out, and only their number is shown els
   await expect(rows.nth(0)).toContainText('Starts next')
   await expect(rows.nth(1)).toContainText('queue third')
   await expect(rows.nth(1)).toContainText('After that')
+  // The whole prompt on hover.
+  await rows.nth(1).getByText('queue third').hover()
+  await expect(page.getByRole('tooltip')).toContainText('the end')
 
   // Taken out again: the one behind it starts next.
   await rows.nth(0).getByRole('button', { name: 'Remove from the queue' }).click()
