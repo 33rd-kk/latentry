@@ -150,6 +150,11 @@ async function main(): Promise<void> {
     check(thirdEvents.includes('snapshot') && thirdEvents.at(-1) === 'end', `its stream goes on from waiting to the run, to its end (${thirdEvents.join(', ')})`)
     eq(thirdStream.events.at(-1)?.data.status, 'done', 'which is done')
     eq(mock.received[1]?.prompt, 'third run', 'the backend was asked for the third run, not the cancelled second')
+    eq(getJob('mock', first.job!)?.status, 'done', 'the run it replaced can still be looked up by its id')
+    const replaced = watch(first.job!)
+    await replaced.finished
+    eq(replaced.events.map(({ event }) => event), ['snapshot', 'end'], 'and its stream ends as it ended')
+    eq(replaced.events.at(-1)?.data.status, 'done', 'done, not gone, so its page hears where its pictures were saved')
 
     await until(() => getCurrentJob('mock')?.id === secret.queued!.id && getCurrentJob('mock')?.status === 'done', 'the secret run to run')
     eq(getJob('mock', secret.queued!.id)?.secret, true, 'the run made secret while waiting ran as a secret run')

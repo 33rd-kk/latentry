@@ -27,7 +27,8 @@ const KEEPALIVE_MS = 20 * 1000
  *              gallery file name of each image once it is saved
  *   image    — one finished image, with the index it belongs at
  *   end      — the run is over ("done" / "cancelled" / "error"), or "gone" when
- *              the job has been superseded or the server restarted. Waits for
+ *              the job has been forgotten or the server restarted. A run the
+ *              next one has replaced is still watched to its end. Waits for
  *              any save still being written, so its verdict is in it.
  */
 export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[backend]/job/stream'>) {
@@ -97,8 +98,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
 
       const push = () => {
         const job = getJob(backend, id)
-        // A newer run having replaced this one reads the same as the server
-        // having forgotten it.
+        // Forgotten, or the server restarted.
         if (!job) {
           send('end', { status: 'gone', error: null })
           close()

@@ -5,7 +5,7 @@
 // UNTIL_CANCELLED in the prompt goes on until it is cancelled.
 
 import { expect, test, type Page } from '@playwright/test'
-import { UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
+import { SLOW, UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
 
 /** `button`: what the main button says once there, Generate or, with a run going, Add to queue. */
 async function openOnPose(page: Page, button = 'Generate') {
@@ -82,4 +82,23 @@ test('a run that leaves the screen to the next one stays below it', async ({ pag
   // Opens full screen like the run on screen.
   await newest.locator('img[alt^="Earlier picture, seed"]').click()
   await expect(page.getByRole('dialog')).toBeVisible()
+})
+
+test('three queued runs, each starting the moment the last ends, all stay on the page', async ({ page }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`queued run one ${SLOW}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await page.locator('#prompt').fill(`queued run two ${SLOW}`)
+  await add.click()
+  await page.locator('#prompt').fill(`queued run three ${SLOW}`)
+  await add.click()
+
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled({ timeout: 20_000 })
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  const blocks = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div')
+  await expect(blocks.nth(0)).toContainText('queued run two')
+  await expect(blocks.nth(1)).toContainText('queued run one')
+  await expect(blocks.nth(0).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
+  await expect(blocks.nth(1).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
 })

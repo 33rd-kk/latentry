@@ -59,7 +59,16 @@ export interface JobWatch {
  */
 export function useJobWatch(selectedId: string | null, refreshBackends: () => void, t: Translator): JobWatch {
   const [isCancelling, setIsCancelling] = useState(false)
-  const [results, setResults] = useState<GeneratedImage[]>([])
+  const [results, setResultsState] = useState<GeneratedImage[]>([])
+  // Mirrored as it is set, not after the next render: when the next run in the
+  // queue takes over, it does so in the same moment the last picture arrives,
+  // and that picture must move below with the rest.
+  const resultsRef = useRef<GeneratedImage[]>([])
+  const setResults = useCallback((next: GeneratedImage[] | ((previous: GeneratedImage[]) => GeneratedImage[])) => {
+    const value = typeof next === "function" ? next(resultsRef.current) : next
+    resultsRef.current = value
+    setResultsState(value)
+  }, [])
   const [progress, setProgress] = useState<JobProgress | null>(null)
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [jobError, setJobError] = useState<string | null>(null)
@@ -76,10 +85,6 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const backendRef = useRef<string | null>(null)
   // refresh() and attach() need each other, so one goes through a ref.
   const refreshRef = useRef<() => void>(() => {})
-  const resultsRef = useRef<GeneratedImage[]>([])
-  useEffect(() => {
-    resultsRef.current = results
-  }, [results])
 
   /** The run on screen is about to be replaced: keep its pictures below the next. */
   const keepShown = useCallback(() => {
@@ -111,7 +116,6 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       closeSource()
       if (watchedIdRef.current !== id) {
         keepShown()
-        resultsRef.current = []
         setResults([])
       }
       watchedIdRef.current = id
@@ -184,7 +188,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       // No onerror handler: EventSource reconnects by itself, and the reconnect
       // re-sends the snapshot.
     },
-    [applyStatus, closeSource, keepShown, refreshBackends, t]
+    [applyStatus, closeSource, keepShown, refreshBackends, setResults, t]
   )
 
   /** Asks the backend's job store what it is doing and attaches if that is not already on screen. */
@@ -208,6 +212,10 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       }
       const inSync = job.id === watchedIdRef.current && statusRef.current === job.status
       if (inSync && (sourceRef.current !== null || job.status !== "running")) return
+      // A run this page is starting (or watching) is not put aside for one
+      // that has already ended: an answer that left the server before
+      // Generate was pressed can arrive after it.
+      if (statusRef.current === "running" && job.status !== "running" && job.id !== watchedIdRef.current) return
       attach(backend, job.id)
     } catch {
       // Offline or down; the next visibility change tries again.
@@ -234,7 +242,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     setQueued(0)
     applyStatus(null)
     if (selectedId) void refresh()
-  }, [selectedId, applyStatus, closeSource, keepShown, refresh])
+  }, [selectedId, applyStatus, closeSource, keepShown, refresh, setResults])
   /* eslint-enable react-hooks/set-state-in-effect */
 
   // Again whenever the page comes back into view: a background tab can have its
@@ -264,14 +272,13 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       keepShown()
       watchedIdRef.current = null
       setRunId(null)
-      resultsRef.current = []
       setResults([])
       setJobError(null)
       setSaveWarning(null)
       setProgress(next)
       applyStatus("running")
     },
-    [applyStatus, keepShown]
+    [applyStatus, keepShown, setResults]
   )
 
   const abandon = useCallback(() => {
