@@ -1,7 +1,7 @@
 # Lint tools CI installs (see .github/workflows/ci.yml). Pinned so a new
 # release cannot change what passes without a pull request; Dependabot
 # proposes the updates.
-ruff==0.17.0
+ruff==0.17.1
 # The uv Latentry pins (lib/engine/uv-release.ts), for installing and checking
 # the engine's lock files (engine/locks/). It moves with that file, not with
 # Dependabot: scripts/lock-engine.mjs refuses any other release.
