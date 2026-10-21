@@ -102,3 +102,32 @@ test('three queued runs, each starting the moment the last ends, all stay on the
   await expect(blocks.nth(0).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
   await expect(blocks.nth(1).locator('img[alt^="Earlier picture, seed"]')).toHaveCount(1)
 })
+
+test('going to the gallery and back keeps the queue and the earlier runs', async ({ page }) => {
+  await openOnPose(page)
+  await page.locator('#prompt').fill(`away run one ${SLOW}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const add = page.getByRole('button', { name: 'Add to queue' })
+  await page.locator('#prompt').fill(`away run two ${SLOW}`)
+  await add.click()
+  await page.locator('#prompt').fill(`away run three ${SLOW}`)
+  await add.click()
+  await expect(page.getByRole('region', { name: 'Waiting' }).getByRole('listitem')).toHaveCount(2)
+
+  // Within the app, not a reload: the tab's memory stays.
+  await page.getByRole('link', { name: 'Gallery' }).first().click()
+  await expect(page).toHaveURL(/\/gallery/)
+  await page.getByRole('link', { name: 'Generate' }).first().click()
+  await expect(page).toHaveURL(/\/$/)
+  // The page comes back on the same backend, with its runs still listed and removable.
+  await expect(page.getByRole('button', { name: 'Remove from the queue' }).first()).toBeVisible()
+  // Its own runs are not counted as another page's.
+  await expect(page.getByText(/Waiting from other pages/)).toHaveCount(0)
+
+  await expect(page.getByRole('region', { name: 'Waiting' })).toHaveCount(0, { timeout: 20_000 })
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled({ timeout: 20_000 })
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(1)
+  const blocks = page.getByRole('region', { name: 'Earlier' }).locator(':scope > div')
+  await expect(blocks.nth(0)).toContainText('away run two')
+  await expect(blocks.nth(1)).toContainText('away run one')
+})

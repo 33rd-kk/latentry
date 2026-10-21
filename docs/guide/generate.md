@@ -215,9 +215,10 @@ Progress shows overall and per image. Each finished picture has:
 
 When a new run starts, the pictures on screen move down to **Earlier**,
 newest first, so a queue of runs piles up instead of each replacing the
-last. The two most recent stay open and older ones fold. The page keeps the
-last 5 runs (32 pictures at most) in its memory only, and a reload clears
-them; every picture is in the gallery anyway. In secret mode each earlier
+last. The two most recent stay open and older ones fold. The last 5 runs
+(32 pictures at most) are kept in this browser tab's memory only: going to
+the gallery and back keeps them, and a reload clears them. Every picture is
+in the gallery anyway. In secret mode each earlier
 run stays blurred until **Show these**, and its prompt is not shown.
 
 Runs live on the server, so reloading the page, or opening it in another
@@ -234,9 +235,10 @@ before it ends, and their pictures are saved like any others.
   many runs are ahead of the first, and **×** to take one out again.
 - Another page or device sees only how many runs are waiting, not what they
   draw, and cannot take them out.
-- The list is kept in the page only. After a reload the runs still start in
-  turn, but the page no longer lists them, so they can no longer be taken
-  out.
+- The list is kept in this browser tab's memory only. Going to the gallery
+  and back keeps it. After a reload the runs still start in turn, but the
+  page no longer lists them, so they can no longer be taken out. In secret
+  mode it is kept only while Generate is open.
 - If the backend is busy with a run Latentry did not start (from its own
   web UI, say), the first run says **Waiting for the backend** and starts
   once it is free. After 30 minutes it gives up.

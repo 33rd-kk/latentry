@@ -12,8 +12,10 @@
   already going.
 - **Earlier runs stay on Generate**: when a new run starts, the pictures on
   screen move down to **Earlier** instead of vanishing, newest first, for
-  the last 5 runs (32 pictures). They are held in the page only; a reload
-  clears them.
+  the last 5 runs (32 pictures). They and the queued runs are held in the
+  browser tab's memory only: going to the gallery and back keeps them, a
+  reload clears them, and in secret mode they last only while Generate is
+  open.
 
 ## 0.10.0 (2026-10-20)
 

@@ -28,6 +28,7 @@ import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
 import { useRunQueue } from "@/hooks/use-run-queue"
+import { useTabMemory } from "@/lib/generate/tab-memory"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
@@ -155,10 +156,10 @@ export function GenerateClient() {
   const job = useJobWatch(selectedId, refreshBackends, t)
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   const queue = useRunQueue(selectedId, attach, t)
-  // The start of each run's prompt, to tell earlier runs apart; this page's
+  // The start of each run's prompt, to tell earlier runs apart; this tab's
   // memory only, and never in secret mode.
-  const [labels, setLabels] = useState<ReadonlyMap<string, string | null>>(() => new Map())
-  const label = useCallback((id: string, text: string | null) => setLabels((previous) => new Map(previous).set(id, text)), [])
+  const [labels, setLabels] = useTabMemory<ReadonlyMap<string, string | null>>("generate.labels", () => new Map())
+  const label = useCallback((id: string, text: string | null) => setLabels((previous) => new Map(previous).set(id, text)), [setLabels])
   useGalleryHandoff({ ready, editForm, backendRef, changeSource, changeSourceMode, t })
 
   // Secret mode turned on while a run is on screen makes that run secret on

@@ -1,14 +1,15 @@
 "use client"
 
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import type { Translator } from "@/lib/i18n"
+import { useTabMemory } from "@/lib/generate/tab-memory"
 
 // Runs this page put in a backend's queue (see lib/diffusion/run-queue.ts).
 // Only this page was told their ids, so only it lists them and may cancel
-// them; they are held in this page's memory and nowhere else, so a reload
-// forgets them here (they still run, and their pictures still reach the
-// gallery). One stream at a time, on the first of them: the rest wait behind
+// them; they are held in this tab's memory and nowhere else (tab-memory.ts),
+// so a reload forgets them here (they still run, and their pictures still
+// reach the gallery). One stream at a time, on the first of them: the rest wait behind
 // it, and the browser's connections are few.
 export interface QueuedItem {
   id: string
@@ -32,7 +33,7 @@ export interface RunQueue {
  */
 export function useRunQueue(selectedId: string | null, onStarted: (backend: string, id: string) => void, t: Translator): RunQueue {
   // Per backend, so switching away and back still lists them.
-  const [queues, setQueues] = useState<Record<string, QueuedItem[]>>({})
+  const [queues, setQueues] = useTabMemory<Record<string, QueuedItem[]>>("generate.queued", () => ({}))
   const sourceRef = useRef<{ id: string; source: EventSource } | null>(null)
   const onStartedRef = useRef(onStarted)
   useEffect(() => {
@@ -41,7 +42,7 @@ export function useRunQueue(selectedId: string | null, onStarted: (backend: stri
 
   const remove = useCallback((backend: string, id: string) => {
     setQueues((previous) => ({ ...previous, [backend]: (previous[backend] ?? []).filter((item) => item.id !== id) }))
-  }, [])
+  }, [setQueues])
 
   const items = selectedId ? (queues[selectedId] ?? []) : []
   const head = items[0]?.id ?? null
@@ -81,11 +82,11 @@ export function useRunQueue(selectedId: string | null, onStarted: (backend: stri
         sourceRef.current = null
       }
     }
-  }, [selectedId, head, remove, t])
+  }, [selectedId, head, remove, setQueues, t])
 
   const add = useCallback((backend: string, item: QueuedItem) => {
     setQueues((previous) => ({ ...previous, [backend]: [...(previous[backend] ?? []), item] }))
-  }, [])
+  }, [setQueues])
 
   const cancel = useCallback(
     async (id: string) => {
