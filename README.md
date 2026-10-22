@@ -244,7 +244,7 @@ npm run engine:lock -- --check   # engine/locks/ match engine/pyproject.toml (ne
 ```
 
 CI runs these on every pull request (Ubuntu and Windows on Node.js 22,
-Ubuntu on Node.js 24), plus a production build and the engine's tests.
+Ubuntu on Node.js 24 and 26), plus a production build and the engine's tests.
 macOS runs after each merge to main and once a week.
 
 The browser tests run against mock backends: they generate a picture on a
