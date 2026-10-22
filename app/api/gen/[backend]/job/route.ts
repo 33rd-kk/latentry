@@ -1,6 +1,6 @@
 import { adapterOr404, json } from '@/lib/api'
 import { getCurrentJob, isResumable, toSnapshot } from '@/lib/diffusion/job-store'
-import { queueLength } from '@/lib/diffusion/run-queue'
+import { waitingCount } from '@/lib/diffusion/run-queue'
 
 export const runtime = 'nodejs'
 
@@ -17,5 +17,5 @@ export async function GET(_request: Request, ctx: RouteContext<'/api/gen/[backen
   const adapter = adapterOr404((await ctx.params).backend)
   if (adapter instanceof Response) return adapter
   const job = getCurrentJob(adapter.config.id)
-  return json({ job: job && isResumable(job) ? toSnapshot(job) : null, queued: queueLength(adapter.config.id) })
+  return json({ job: job && isResumable(job) ? toSnapshot(job) : null, queued: waitingCount(adapter.config.id) })
 }

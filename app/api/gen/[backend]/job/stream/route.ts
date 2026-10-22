@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adapterOr404, jsonError } from '@/lib/api'
 import { encodeSseEvent } from '@/lib/diffusion/sse'
 import { getJob, isWatchable, subscribe, toSnapshot, type Job } from '@/lib/diffusion/job-store'
-import { getQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
+import { getGrid, getQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
 import { serverMessage } from '@/lib/i18n/core'
 import { sseSlot } from '@/lib/security/request-budget'
 
@@ -30,6 +30,13 @@ const KEEPALIVE_MS = 20 * 1000
  *              the job has been forgotten or the server restarted. A run the
  *              next one has replaced is still watched to its end. Waits for
  *              any save still being written, so its verdict is in it.
+ *
+ * An X/Y grid's id is watched whole: `queued` while it waits, then for each
+ * cell in order
+ *   cell     — { index }: the cell's run starts (or has run, on a reconnect)
+ *   snapshot / progress / image — that cell's run, as above
+ *   cellEnd  — { index, status, error, saveError }: that cell is over
+ * and one `end` for the grid ("done" / "cancelled" / "error" / "gone").
  */
 export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[backend]/job/stream'>) {
   const adapter = adapterOr404((await ctx.params).backend)
@@ -163,8 +170,98 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
         update()
       }
 
-      const queued = getQueued(backend, id)
-      if (queued) waitInQueue(queued)
+      // An X/Y grid: its place while it waits, then each cell in turn.
+      const watchGrid = (run: QueuedRun) => {
+        const grid = run.grid!
+        let lastPlace = ''
+        // The cell being told about, or last told about.
+        let index = -1
+        let offCell: (() => void) | null = null
+
+        const endCell = (status: string, error: string | null, saveError: string | null) => {
+          offCell?.()
+          offCell = null
+          send('cellEnd', { index, status, error, saveError })
+        }
+        const pushCell = (jobId: string) => {
+          const job = getJob(backend, jobId)
+          if (!job) {
+            endCell('gone', null, null)
+            return update()
+          }
+          while (sentImages < job.images.length) {
+            const at = sentImages
+            sentImages += 1
+            send('image', { index: at, ...job.images[at] })
+          }
+          const progress = progressOf(job)
+          const key = JSON.stringify(progress)
+          if (key !== lastProgress) {
+            lastProgress = key
+            send('progress', progress)
+          }
+          if (ended(job)) {
+            endCell(job.status, job.error, job.saveError)
+            update()
+          }
+        }
+        const startCell = (jobId: string) => {
+          send('cell', { index })
+          const job = getJob(backend, jobId)
+          if (!job) return endCell('gone', null, null)
+          send('snapshot', toSnapshot(job, { includeImages: true }))
+          sentImages = job.images.length
+          lastProgress = JSON.stringify(progressOf(job))
+          if (ended(job)) return endCell(job.status, job.error, job.saveError)
+          offCell = subscribe(backend, jobId, () => pushCell(jobId))
+        }
+        const finishGrid = (status: string, error: string | null) => {
+          send('end', { status, error })
+          close()
+        }
+        function update() {
+          while (!closed && !offCell) {
+            const at = index + 1
+            // Forgotten: its cells went with it.
+            if (grid.cells.length === 0) return finishGrid('gone', null)
+            if (at >= grid.cells.length) return finishGrid(run.state === 'cancelled' ? 'cancelled' : 'done', null)
+            const jobId = grid.jobs[at]
+            const error = grid.errors[at]
+            if (jobId || error) {
+              index = at
+              if (jobId) startCell(jobId)
+              else {
+                send('cell', { index })
+                send('cellEnd', { index, status: 'error', error, saveError: null })
+              }
+              continue
+            }
+            // Cancelled, or gave up on a busy backend, before this cell.
+            if (run.state !== 'queued') return finishGrid(run.state === 'started' ? 'done' : run.state, run.error)
+            // Not started yet: its place, until its first cell starts.
+            if (index === -1) {
+              const place = { position: positionOf(run), waiting: run.waitingSince !== null }
+              const key = JSON.stringify(place)
+              if (key !== lastPlace) {
+                lastPlace = key
+                send('queued', place)
+              }
+            }
+            return
+          }
+        }
+        const offRun = subscribeQueued(run, update)
+        unsubscribe = () => {
+          offRun()
+          offCell?.()
+        }
+        update()
+      }
+
+      const grid = getGrid(backend, id)
+      const queued = grid ? null : getQueued(backend, id)
+      if (grid) watchGrid(grid)
+      else if (queued) waitInQueue(queued)
       else watchJob()
       if (closed) return
 

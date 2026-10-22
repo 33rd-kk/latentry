@@ -10,7 +10,7 @@
 //
 // Held in this process's memory only and never written anywhere. No prompts
 // are kept, only the few fields above, a hash of the prompt to tell which
-// pictures share one, and the seed.
+// pictures share one, the seed, and the id of the X/Y grid it belongs to.
 
 import { createHash } from 'node:crypto'
 import type { GalleryDir } from './dirs'
@@ -31,13 +31,17 @@ interface IndexRecord {
   /** SHA-1 of the normalised prompt; pictures with the same one share a prompt. */
   promptKey?: string
   seed?: number
+  /** The X/Y grid it is a cell or the sheet of (its random id). */
+  gridId?: string
 }
 
 /** The key a picture stacks under, or undefined when it has none (no prompt, no seed). */
 export function stackKeyOf(dir: GalleryDir, name: string, group: StackGroup): string | undefined {
   const record = indexes.get(dir.path)?.records.get(name)
   if (!record) return undefined
-  return group === 'prompt' ? record.promptKey : record.seed !== undefined ? String(record.seed) : undefined
+  if (group === 'prompt') return record.promptKey
+  if (group === 'grid') return record.gridId
+  return record.seed !== undefined ? String(record.seed) : undefined
 }
 
 function promptKeyOf(prompt: string | undefined): string | undefined {
@@ -91,6 +95,7 @@ async function build(dir: GalleryDir, index: FolderIndex, entries: GalleryEntry[
         loras: info.meta?.loras,
         promptKey: promptKeyOf(info.meta?.prompt),
         seed: info.meta?.seed,
+        ...(info.meta?.grid ? { gridId: info.meta.grid.id } : {}),
       })
     }
     index.done += slice.length

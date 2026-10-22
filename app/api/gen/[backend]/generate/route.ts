@@ -1,7 +1,9 @@
+import { randomInt } from 'node:crypto'
 import { adapterOr404, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
 import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { enqueue, positionOf, pump, queueLength } from '@/lib/diffusion/run-queue'
+import { gridCells, gridErrorMessage, parseGrid, readGridInput, type GridSpec } from '@/lib/generate/grid'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
@@ -65,6 +67,16 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     secret: body.secret === true,
   }
 
+  // An X/Y grid always goes through the queue, as one run however many cells
+  // it has; the queue starts its cells in turn.
+  if (body.grid !== undefined) {
+    const gridInput = readGridInput(body.grid)
+    if (!gridInput) return jsonError(serverMessage('generate.grid.error.invalid'), 400)
+    const parsed = parseGrid(gridInput, generate)
+    if (!parsed.ok) return jsonError(gridErrorMessage(parsed.error), 400)
+    return queueGrid(id, input, parsed.value)
+  }
+
   // The lock closes the gap between seeing the backend free and startJob
   // recording the run, which takes an await on the backend: without it two
   // requests inside that gap would both start, and the second would replace
@@ -98,4 +110,18 @@ function queueRun(backend: string, input: RunInput): Response {
   if (!queued.ok) return jsonError(queued.error, queued.status)
   pump(backend)
   return json({ queued: { id: queued.value.id, position: positionOf(queued.value) } }, { status: 202 })
+}
+
+/**
+ * Answers 202 as queueRun does, with the grid's axes as the server read them,
+ * which is what the page lays its cells out by.
+ */
+function queueGrid(backend: string, input: RunInput, spec: GridSpec): Response {
+  // One seed for every cell, so the setting is the only thing that changes,
+  // unless the seed is what the grid changes.
+  if (input.generate.seed === -1 && spec.x.kind !== 'seed' && spec.y?.kind !== 'seed') input.generate.seed = randomInt(0, 2 ** 32 - 1)
+  const queued = enqueue(backend, input, { spec, cells: gridCells(spec) })
+  if (!queued.ok) return jsonError(queued.error, queued.status)
+  pump(backend)
+  return json({ queued: { id: queued.value.id, position: positionOf(queued.value), grid: { ...spec, seed: input.generate.seed } } }, { status: 202 })
 }

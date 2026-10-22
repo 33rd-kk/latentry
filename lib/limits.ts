@@ -48,3 +48,13 @@ export const QUEUE_MAX_RUNS = 8
  * one backend may hold: two of the largest img2img requests.
  */
 export const QUEUE_MAX_BYTES = 96 * 1024 * 1024
+
+/**
+ * An X/Y grid waits in the queue as one run and draws every cell in turn
+ * (lib/generate/grid.ts). Its cells, the pictures they draw in all, and the
+ * values one axis may list are bounded, so a typo in a range cannot keep a
+ * GPU busy all night.
+ */
+export const GRID_MAX_CELLS = 64
+export const GRID_MAX_IMAGES = 128
+export const GRID_MAX_VALUES = 16

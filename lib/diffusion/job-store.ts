@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { BackendEvent, GenerateRequest } from '@/lib/backends/types'
+import type { GridPlace } from '@/lib/generate/grid'
 import type { LoraUse } from '@/lib/image-meta'
 
 /**
@@ -70,6 +71,8 @@ export interface JobContext {
   mode: 'txt2img' | 'img2img' | 'inpaint' | 'outpaint' | 'pose' | 'upscale'
   /** The prompt as typed, with its wildcards, when the page replaced any. */
   promptTemplate?: string
+  /** The X/Y grid cell this run draws, if it is one. */
+  grid?: GridPlace
 }
 
 export interface Job extends Omit<JobSnapshot, 'imageCount' | 'images'> {
@@ -141,9 +144,13 @@ export function isWatchable(job: Job, now = Date.now()): boolean {
   return now - (job.endedAt ?? job.startedAt) < keptFor(job)
 }
 
-/** True while the page should still put this run back on screen after a reload. Never for a secret run. */
+/**
+ * True while the page should still put this run back on screen after a
+ * reload. Never for a secret run, nor for a cell of an X/Y grid: the grid is
+ * watched whole, by the page that queued it.
+ */
 export function isResumable(job: Job, now = Date.now()): boolean {
-  return !job.secret && isWatchable(job, now)
+  return !job.secret && !job.context.grid && isWatchable(job, now)
 }
 
 export function toSnapshot(job: Job, options: { includeImages?: boolean } = {}): JobSnapshot {
@@ -267,7 +274,12 @@ export function markSecret(job: Job, now = Date.now()): void {
  * the backend's next run to replace them.
  */
 export function keptFor(job: Job): number {
-  return job.secret ? SECRET_GRACE_MS : RESUME_WINDOW_MS
+  return keptForRun(job.secret)
+}
+
+/** keptFor for a run that is not a job (yet): an X/Y grid. */
+export function keptForRun(secret: boolean): number {
+  return secret ? SECRET_GRACE_MS : RESUME_WINDOW_MS
 }
 
 /** Drops a run from memory: its images, its prompt, and the record itself. */

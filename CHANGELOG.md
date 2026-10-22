@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **X/Y grid**: Generate can draw a run again for each value of one or two
+  settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
+  prompt search and replace, which also compares LoRA weights), all on one
+  seed, and lay the pictures out as a table. The grid waits in the queue as
+  one run, its cells run with nothing in between, and **Cancel grid** stops
+  it whole. Each picture records its place in the grid, the gallery can
+  stack a grid's pictures, and **Save sheet** saves the table as one picture
+  when asked (never in secret mode).
+
 ## 0.11.0 (2026-10-22)
 
 **Upgrading from 0.10.0**: after the usual update, open **Setup** and run

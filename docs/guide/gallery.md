@@ -96,8 +96,9 @@ you leave or reload the page; they are not remembered in the browser.
 
 ## Stacks and comparing
 
-**Stack** (under Filters) puts pictures that share a prompt, or a seed, into
-one card: the first of them in the current order, with how many there are.
+**Stack** (under Filters) puts pictures that share a prompt, a seed, or an
+[X/Y grid](generate.md#xy-grid) (its cells and its sheet) into one card: the
+first of them in the current order, with how many there are.
 Only pictures that match the search and filters count. Click a stack to see
 its pictures, and remove the **One stack** chip to go back. Stacking reads
 the folder first, the way the orders by date made do; what it keeps in

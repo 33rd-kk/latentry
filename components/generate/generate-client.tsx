@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
-import { ListPlus, Loader2, RotateCcw, Wand2 } from "lucide-react"
+import { Grid3x3, ListPlus, Loader2, RotateCcw, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
@@ -20,6 +20,7 @@ import { SettingsSection } from "@/components/generate/settings-section"
 import { ResultsPanel } from "@/components/generate/results-panel"
 import { HiresSection } from "@/components/generate/hires-section"
 import { WorkflowPicker } from "@/components/generate/workflow-picker"
+import { DEFAULT_GRID_FORM, GridSection, type GridForm } from "@/components/generate/grid-section"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
 import { useWildcards } from "@/hooks/use-wildcards"
@@ -28,6 +29,8 @@ import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
 import { useJobWatch } from "@/hooks/use-job-watch"
 import { useRunQueue } from "@/hooks/use-run-queue"
+import { useGridRuns } from "@/hooks/use-grid-runs"
+import { gridErrorParts, joinValues, parseGrid, splitValues, type GridSpecInput } from "@/lib/generate/grid"
 import { useTabMemory } from "@/lib/generate/tab-memory"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
@@ -156,6 +159,9 @@ export function GenerateClient() {
   const job = useJobWatch(selectedId, refreshBackends, t)
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   const queue = useRunQueue(selectedId, attach, t)
+  const grids = useGridRuns(selectedId, t)
+  // The X/Y grid's axes as typed; this tab's memory only, like the queue.
+  const [gridForm, setGridForm] = useTabMemory<GridForm>("generate.gridForm", () => DEFAULT_GRID_FORM)
   // The start of each run's prompt, to tell earlier runs apart; this tab's
   // memory only, and never in secret mode.
   const [labels, setLabels] = useTabMemory<ReadonlyMap<string, string | null>>("generate.labels", () => new Map())
@@ -170,7 +176,7 @@ export function GenerateClient() {
   useEffect(() => {
     const backend = backendRef.current
     if (!secret || !backend) return
-    for (const id of [runId, ...queue.items.map((item) => item.id)]) {
+    for (const id of [runId, ...queue.items.map((item) => item.id), ...grids.activeIds]) {
       if (!id || markedSecret.current.has(id)) continue
       markedSecret.current.add(id)
       void fetch(`/api/gen/${encodeURIComponent(backend)}/job/secret`, {
@@ -179,7 +185,7 @@ export function GenerateClient() {
         body: JSON.stringify({ job: id }),
       }).catch(() => {})
     }
-  }, [secret, runId, queue.items, backendRef])
+  }, [secret, runId, queue.items, grids.activeIds, backendRef])
 
   // ── Generate and cancel ──────────────────────────────────────────────────
   // A ComfyUI workflow from the backend's folder draws from a prompt, and
@@ -231,8 +237,30 @@ export function GenerateClient() {
     [form, upscaler]
   )
 
+  // The grid as it would be sent, and what the page makes of it before sending.
+  const gridInput = useMemo<GridSpecInput | null>(
+    () => (gridForm.on ? { x: gridForm.x, ...(gridForm.y.kind !== "none" ? { y: { kind: gridForm.y.kind, text: gridForm.y.text } } : {}) } : null),
+    [gridForm]
+  )
+  const gridParsed = useMemo(
+    () =>
+      gridInput && form
+        ? parseGrid(gridInput, {
+            prompt: form.prompt,
+            negative_prompt: form.negativePrompt,
+            image_count: form.imageCount,
+            hr_scale: hires || upscaling ? form.hrScale : undefined,
+          })
+        : null,
+    [gridInput, form, hires, upscaling]
+  )
+
   const handleGenerate = useCallback(async () => {
     if (!form || !selectedId) return
+    if (gridParsed && !gridParsed.ok) {
+      toast.error(t("generate.failed"), { description: t(...gridErrorParts(gridParsed.error)) })
+      return
+    }
     if (!form.prompt.trim()) {
       toast.error(t("generate.promptRequired"), { description: t("generate.promptRequiredBody") })
       return
@@ -250,6 +278,10 @@ export function GenerateClient() {
       return
     }
     const compose = (prompt: string) => composePrompt(prompt, { profile, artist: form.artist, quality: form.quality })
+    // Prompt S/R's values are respelled as the prompt is, so they are found in it.
+    const respell = (axis: { kind: string; text: string }) =>
+      axis.kind === "prompt_sr" ? { ...axis, text: joinValues(splitValues(axis.text).map((value) => formatForProfile(value, profile))) } : axis
+    const grid = gridInput ? { x: respell(gridInput.x), ...(gridInput.y ? { y: respell(gridInput.y) } : {}) } : null
     const body = JSON.stringify({
       prompt: compose(expanded.prompt),
       negative_prompt: formatForProfile(expanded.negativePrompt, profile),
@@ -267,6 +299,7 @@ export function GenerateClient() {
       // Secret mode: the server keeps this run to this page only.
       secret: isSecretMode(),
       ...(workflow ? { workflow } : {}),
+      ...(grid ? { grid } : {}),
       ...(upscaling && sourceImage
         ? { init_image_base64: sourceImage.dataUrl, upscale: true, ...hrFields }
         : extending && sourceImage
@@ -291,7 +324,7 @@ export function GenerateClient() {
     }
     // A run already going: this one waits in the queue, and the bars stay on
     // the one running.
-    const queueing = isGenerating || queue.items.length > 0
+    const queueing = isGenerating || queue.items.length > 0 || grids.activeIds.length > 0 || grid !== null
     // The prompt as typed, to tell runs apart (cut short on screen, whole on
     // hover). In secret mode not even its start is shown.
     const shortPrompt = isSecretMode() ? null : form.prompt.trim().slice(0, 2000)
@@ -316,6 +349,12 @@ export function GenerateClient() {
       const data = await response.json().catch(() => null)
 
       // 202: the backend is busy, and the run waits its turn in the queue.
+      // A grid always waits in the queue, as one run; the page shows its cells.
+      if (response.status === 202 && data?.queued?.id && data.queued.grid) {
+        const { x, y, seed } = data.queued.grid
+        grids.add({ id: data.queued.id, backend: selectedId, label: shortPrompt, x, y: y ?? null, seed, position: data.queued.position ?? 0 })
+        return
+      }
       if (response.status === 202 && data?.queued?.id) {
         if (!queueing) abandon()
         label(data.queued.id, shortPrompt)
@@ -337,7 +376,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -513,10 +552,28 @@ export function GenerateClient() {
                 sizeMultiple={profile.sizeMultiple}
               />
             )}
+            <GridSection
+              value={gridForm}
+              onChange={setGridForm}
+              parsed={gridParsed}
+              imageCount={form.imageCount}
+              samplers={status.samplers}
+              schedulers={status.schedulers}
+              hires={hires || upscaling}
+            />
 
             <div className="flex gap-2">
-              <Button onClick={handleGenerate} disabled={!status.alive || (isEngine && engineLoading)} className="flex-1">
-                {isGenerating ? (
+              <Button
+                onClick={handleGenerate}
+                disabled={!status.alive || (isEngine && engineLoading) || (gridParsed !== null && !gridParsed.ok)}
+                className="flex-1"
+              >
+                {gridParsed?.ok ? (
+                  <>
+                    <Grid3x3 className="mr-2 h-4 w-4" />
+                    {t("generate.grid.queue", { cells: gridParsed.value.x.values.length * (gridParsed.value.y?.values.length ?? 1) })}
+                  </>
+                ) : isGenerating || grids.activeIds.length > 0 ? (
                   <>
                     <ListPlus className="mr-2 h-4 w-4" />
                     {t("generate.queue.add")}
@@ -551,7 +608,7 @@ export function GenerateClient() {
           </CardContent>
         </Card>
 
-        <ResultsPanel job={job} queue={queue} labels={labels} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
+        <ResultsPanel job={job} queue={queue} grids={grids} labels={labels} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
       </div>
     </div>
   )

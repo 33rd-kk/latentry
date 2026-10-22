@@ -16,7 +16,7 @@ export const FORMATS = ['png', 'webp', 'jpg'] as const
 export const ORIENTATIONS = ['portrait', 'landscape', 'square'] as const
 export const RESOLUTIONS = ['small', 'standard', 'large'] as const
 export const SOURCES = ['latentry', 'a1111', 'comfyui', 'none'] as const
-export const GROUPS = ['prompt', 'seed'] as const
+export const GROUPS = ['prompt', 'seed', 'grid'] as const
 
 export type Since = (typeof SINCE)[number]
 export type Format = (typeof FORMATS)[number]
@@ -76,9 +76,9 @@ function oneOf<T extends string>(allowed: readonly T[], value: string | null): T
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined
 }
 
-/** A stack key: a prompt's SHA-1, or a seed. */
+/** A stack key: a prompt's SHA-1, a seed, or an X/Y grid's id (a UUID). */
 function stackKey(value: string | null): string | undefined {
-  return value && /^(?:[0-9a-f]{40}|-?\d{1,20})$/.test(value) ? value : undefined
+  return value && /^(?:[0-9a-f]{40}|-?\d{1,20}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.test(value) ? value : undefined
 }
 
 function text(value: string | null, max = MAX_TEXT): string | undefined {

@@ -41,7 +41,7 @@ export function fileNameFor(backend: string, seed: number, index: number, date: 
 }
 
 export function recordFor(job: Job, image: JobImage, created: Date, size: { width: number; height: number } | null): LatentryRecord {
-  const { request, profile, kind, model, mode, promptTemplate } = job.context
+  const { request, profile, kind, model, mode, promptTemplate, grid } = job.context
   const hires: HiresUse | null =
     request.hr_scale !== undefined
       ? { scale: request.hr_scale, steps: request.hr_steps ?? 0, denoise: request.hr_denoise ?? 0.4, upscaler: request.hr_upscaler ?? 'Lanczos' }
@@ -71,6 +71,7 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     // Names and weights only: a hash says which file, and is written only where asked.
     ...(image.loras?.length ? { loras: image.loras.map(({ name, weight }) => ({ name, weight })) } : {}),
     ...(request.workflow ? { workflow: request.workflow } : {}),
+    ...(grid ? { grid } : {}),
     created: created.toISOString(),
   }
 }
@@ -89,18 +90,31 @@ async function writeAtomically(file: string, data: Buffer): Promise<void> {
   }
 }
 
-async function uniqueName(dir: GalleryDir, name: string): Promise<string> {
+// Names handed out but not written yet. Two pictures finishing in the same
+// second with the same seed (an X/Y grid's cells, say) would otherwise both
+// find a name free and the second would overwrite the first.
+const reserved = new Set<string>()
+
+/** A free name in `dir`, held until `release` is called (after the file is written, or failed). */
+async function uniqueName(dir: GalleryDir, name: string): Promise<{ name: string; release: () => void }> {
   const ext = path.extname(name)
   const stem = name.slice(0, -ext.length)
+  const hold = (candidate: string) => {
+    const key = path.join(dir.path, candidate)
+    reserved.add(key)
+    return { name: candidate, release: () => reserved.delete(key) }
+  }
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const candidate = attempt ? `${stem}-${attempt}${ext}` : name
+    if (reserved.has(path.join(dir.path, candidate))) continue
     try {
       await access(path.join(dir.path, candidate))
     } catch {
-      return candidate
+      // Checked again: another save may have taken it during the await.
+      if (!reserved.has(path.join(dir.path, candidate))) return hold(candidate)
     }
   }
-  return `${stem}-${randomBytes(3).toString('hex')}${ext}`
+  return hold(`${stem}-${randomBytes(3).toString('hex')}${ext}`)
 }
 
 /**
@@ -126,8 +140,12 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
       ...(existing[PARAMETERS_KEY] ? {} : { [PARAMETERS_KEY]: formatA1111Parameters(record, loraHashesEnabled() ? image.loras : []) }),
       [LATENTRY_KEY]: JSON.stringify(record),
     })
-    const name = await uniqueName(dir, fileNameFor(job.backend, image.seed, index, created))
-    await writeAtomically(path.join(dir.path, name), png)
+    const { name, release } = await uniqueName(dir, fileNameFor(job.backend, image.seed, index, created))
+    try {
+      await writeAtomically(path.join(dir.path, name), png)
+    } finally {
+      release()
+    }
     invalidateListing(dir)
     if (autoTagEnabled()) void autoTag(dir, name, image.image_base64)
     return name
@@ -165,4 +183,21 @@ export async function writeTags(dir: GalleryDir, name: string, tags: ImageTag[])
   await writeAtomically(picture.file, writePngText(picture.bytes, { [TAGS_KEY]: JSON.stringify(tags) }))
   invalidateListing(dir)
   return true
+}
+
+/**
+ * Writes an X/Y grid's sheet (lib/gallery/sheet.ts) into the save folder,
+ * named after its first cell with `_sheet` in place of the picture's index.
+ */
+export async function saveSheet(dir: GalleryDir, png: Buffer, record: LatentryRecord): Promise<string> {
+  const created = new Date(record.created)
+  const withRecord = writePngText(png, { [LATENTRY_KEY]: JSON.stringify(record) })
+  const { name, release } = await uniqueName(dir, fileNameFor(record.backend, record.seed, 0, created).replace(/_0\.png$/, '_sheet.png'))
+  try {
+    await writeAtomically(path.join(dir.path, name), withRecord)
+  } finally {
+    release()
+  }
+  invalidateListing(dir)
+  return name
 }
