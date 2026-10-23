@@ -23,7 +23,8 @@ it again by what it shows or how it was made.
   grows a picture's canvas and draws the new area, and
   [wildcards](guide/settings.md#wildcards) fill in parts of a prompt from a
   folder of text files. More runs [queue](guide/generate.md#the-queue)
-  behind the one going.
+  behind the one going, and an [X/Y grid](guide/generate.md#xy-grid) draws a
+  run again for each value of one or two settings.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
   picture to follow (one, several or everyone), turn the pose in 3D and frame
   it, then generate along that skeleton. See

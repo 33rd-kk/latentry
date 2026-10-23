@@ -24,7 +24,8 @@ made, then sends those settings back to the form to make it again.
   gallery, and Extend grows a picture's canvas and draws the new area.
   `__wildcards__` in a prompt take a line from a folder of text files. Runs
   live on the server, so a reload or a second tab picks up a run in progress,
-  and more runs queue behind the one going.
+  and more runs queue behind the one going. An X/Y grid draws a run again
+  for each value of one or two settings, to compare them side by side.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
   pose in 3D and frame it, then generate along that skeleton. Works on the

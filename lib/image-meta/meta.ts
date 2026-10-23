@@ -42,6 +42,19 @@ export interface ImageMeta {
   loras?: string[]
   /** Latentry only: the prompt as typed, with its wildcards, when it had any. */
   promptTemplate?: string
+  /** Latentry only: the X/Y grid it was drawn for, and its place there. */
+  grid?: GridUse
+}
+
+/**
+ * Where a picture sits in an X/Y grid: the grid's id (random, shared by its
+ * cells) and the value each axis set. A grid's sheet has every value of an
+ * axis, joined with ", ".
+ */
+export interface GridUse {
+  id: string
+  x: { axis: string; value: string }
+  y?: { axis: string; value: string }
 }
 
 /** The JSON stored under the `latentry` keyword. */
@@ -73,6 +86,8 @@ export interface LatentryRecord {
   loras?: LoraUse[]
   /** The ComfyUI workflow (its file name) the picture was drawn with, instead of a built-in graph. */
   workflow?: string
+  /** The X/Y grid it is a cell of (or the sheet of, when `mode` is "sheet"). */
+  grid?: GridUse
   created: string
 }
 
@@ -604,6 +619,22 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     created: str(record.created),
     loras: recordLoras(record),
     ...(str(record.prompt_template) ? { promptTemplate: record.prompt_template } : {}),
+    ...(recordGrid(record.grid) ?? {}),
+  }
+}
+
+/** A record's grid place, when it is well-formed. */
+function recordGrid(value: unknown): { grid: GridUse } | null {
+  const grid = value as Partial<GridUse> | null | undefined
+  const axis = (part: unknown): part is { axis: string; value: string } =>
+    typeof (part as { axis?: unknown })?.axis === 'string' && typeof (part as { value?: unknown })?.value === 'string'
+  if (!grid || typeof grid.id !== 'string' || !/^[\w-]{1,64}$/.test(grid.id) || !axis(grid.x)) return null
+  return {
+    grid: {
+      id: grid.id,
+      x: { axis: grid.x.axis, value: grid.x.value },
+      ...(axis(grid.y) ? { y: { axis: grid.y.axis, value: grid.y.value } } : {}),
+    },
   }
 }
 

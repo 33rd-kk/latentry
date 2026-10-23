@@ -2,6 +2,7 @@ import { backendStatus } from '@/lib/api'
 import type { BackendAdapter, GenerateRequest, Outcome } from '@/lib/backends/types'
 import { consumeEvents, startJob, type Job, type JobContext } from '@/lib/diffusion/job-store'
 import { hiresSteps } from '@/lib/diffusion/hires'
+import type { GridPlace } from '@/lib/generate/grid'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { saveToGallery } from '@/lib/gallery/save'
 
@@ -19,6 +20,8 @@ export interface RunInput {
   /** An upscale's record names the source's size, as hires fix's does. */
   sourceSize?: { width: number; height: number } | null
   secret: boolean
+  /** Set on each cell of an X/Y grid: where it sits, for its pictures' record. */
+  grid?: GridPlace
 }
 
 /** Roughly how much memory the run's pictures hold while it waits. */
@@ -62,6 +65,7 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
       model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
       mode: input.mode,
       ...(input.promptTemplate ? { promptTemplate: input.promptTemplate } : {}),
+      ...(input.grid ? { grid: input.grid } : {}),
     },
   })
 

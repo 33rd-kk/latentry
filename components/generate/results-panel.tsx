@@ -13,6 +13,8 @@ import { Progress } from "@/components/ui/progress"
 import type { SourceImage } from "@/components/generate/source-image-slot"
 import type { JobWatch } from "@/hooks/use-job-watch"
 import type { RunQueue } from "@/hooks/use-run-queue"
+import type { GridRuns } from "@/hooks/use-grid-runs"
+import { GridList } from "@/components/generate/grid-view"
 import { useT } from "@/lib/i18n"
 
 // Never show the current-image bar as fully done from the step count alone —
@@ -25,12 +27,14 @@ interface ResultsPanelProps {
   labels: ReadonlyMap<string, string | null>
   /** The runs this page has waiting behind the current one. */
   queue: Pick<RunQueue, "items" | "cancel">
+  /** The X/Y grids this page queued. */
+  grids: Pick<GridRuns, "grids" | "waitingCount" | "cancel" | "remove">
   /** Offered when the backend can start from a picture: a result becomes the source. */
   onUseAsSource?: (source: SourceImage) => void
 }
 
 /** The run's progress, its pictures, and the full-screen viewer for them. */
-export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanelProps) {
+export function ResultsPanel({ job, queue, grids, labels, onUseAsSource }: ResultsPanelProps) {
   const t = useT()
   const { results, progress, jobStatus, jobError, saveWarning, isGenerating, runId } = job
   const [previewIndex, setPreviewIndex] = useState<number | null>(null)
@@ -42,7 +46,7 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
   const [shownRun, setShownRun] = useShownInSecret<string>()
   const veiled = secret && (runId === null || shownRun !== runId)
   // Runs other pages queued: only how many, never what they draw.
-  const others = Math.max(0, job.queued - queue.items.length)
+  const others = Math.max(0, job.queued - queue.items.length - grids.waitingCount)
 
   const { earlier } = job
   const previewImages = useMemo(
@@ -127,6 +131,8 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
           </section>
         )}
 
+        <GridList grids={grids} />
+
         {/* Survives a reload along with the images, so a run that failed
             while the page was closed still says why. */}
         {jobError && !isGenerating && <p className="mb-4 text-sm text-destructive">{t.server(jobError)}</p>}
@@ -152,7 +158,7 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
           </div>
         )}
         {results.length === 0 ? (
-          !isGenerating && !jobError && <p className="text-sm text-muted-foreground">{t("generate.noImages")}</p>
+          !isGenerating && !jobError && grids.grids.length === 0 && <p className="text-sm text-muted-foreground">{t("generate.noImages")}</p>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             {results.map((image, index) =>
@@ -283,7 +289,7 @@ export function ResultsPanel({ job, queue, labels, onUseAsSource }: ResultsPanel
  * no prompt is shown, whichever mode the run was started in, as the gallery
  * hides every picture's prompt.
  */
-function PromptLabel({ text, fallback, className }: { text: string | null; fallback: string; className?: string }) {
+export function PromptLabel({ text, fallback, className }: { text: string | null; fallback: string; className?: string }) {
   if (!text) return <span className={cn("min-w-0 truncate", className)}>{fallback}</span>
   return (
     <Tooltip>

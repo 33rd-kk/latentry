@@ -84,7 +84,10 @@ a minute after it ends.
 **Runs waiting in the queue stay with their page.** The page that queued a
 run is the only one told which it is, in secret mode or not, and in secret
 mode it does not show even the start of its prompt. Turning secret mode on
-while runs wait makes them secret runs once they start.
+while runs wait makes them secret runs once they start. The same goes for
+an [X/Y grid](generate.md#xy-grid): turned on while it waits or runs, every
+cell becomes a secret run, the ones already drawn included. **Save sheet**
+is not offered in secret mode, and the server refuses it.
 
 **Turning it on during a run makes that run secret.** Turned on while a
 run is going, or within a minute of its end, the run becomes a secret one

@@ -16,13 +16,16 @@ export const FORMATS = ['png', 'webp', 'jpg'] as const
 export const ORIENTATIONS = ['portrait', 'landscape', 'square'] as const
 export const RESOLUTIONS = ['small', 'standard', 'large'] as const
 export const SOURCES = ['latentry', 'a1111', 'comfyui', 'none'] as const
-export const GROUPS = ['prompt', 'seed'] as const
+export const GROUPS = ['prompt', 'seed', 'grid'] as const
+/** A cell of an X/Y grid, a grid's sheet, or a picture that is neither. */
+export const GRID_KINDS = ['cells', 'sheets', 'none'] as const
 
 export type Since = (typeof SINCE)[number]
 export type Format = (typeof FORMATS)[number]
 export type Orientation = (typeof ORIENTATIONS)[number]
 export type Resolution = (typeof RESOLUTIONS)[number]
 export type Source = (typeof SOURCES)[number]
+export type GridKind = (typeof GRID_KINDS)[number]
 /** What pictures can be stacked by: the same prompt, or the same seed. */
 export type StackGroup = (typeof GROUPS)[number]
 
@@ -45,6 +48,8 @@ export interface GalleryQuery {
   source?: Source
   /** Only pictures without WD14 tags. */
   untagged?: boolean
+  /** Only an X/Y grid's cells, only its sheets, or only pictures from no grid. */
+  grid?: GridKind
   /** Stack pictures that share a prompt or a seed into one card. */
   group?: StackGroup
   /** With `group`: show the pictures of this one stack (its key). */
@@ -76,9 +81,9 @@ function oneOf<T extends string>(allowed: readonly T[], value: string | null): T
   return value !== null && (allowed as readonly string[]).includes(value) ? (value as T) : undefined
 }
 
-/** A stack key: a prompt's SHA-1, or a seed. */
+/** A stack key: a prompt's SHA-1, a seed, or an X/Y grid's id (a UUID). */
 function stackKey(value: string | null): string | undefined {
-  return value && /^(?:[0-9a-f]{40}|-?\d{1,20})$/.test(value) ? value : undefined
+  return value && /^(?:[0-9a-f]{40}|-?\d{1,20}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.test(value) ? value : undefined
 }
 
 function text(value: string | null, max = MAX_TEXT): string | undefined {
@@ -109,6 +114,7 @@ export function toParams(query: GalleryQuery): URLSearchParams {
   set('lora', text(query.lora ?? null))
   set('source', query.source)
   if (query.untagged) set('untagged', '1')
+  set('grid', query.grid)
   set('group', query.group)
   if (query.group) set('stack', stackKey(query.stack ?? null))
   return params
@@ -132,6 +138,7 @@ export function fromParams(params: URLSearchParams): GalleryQuery {
     lora: text(params.get('lora')),
     source: oneOf(SOURCES, params.get('source')),
     untagged: params.get('untagged') === '1' || undefined,
+    grid: oneOf(GRID_KINDS, params.get('grid')),
     group,
     stack: group ? stackKey(params.get('stack')) : undefined,
   }
@@ -151,6 +158,7 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.lora,
     query.source,
     query.untagged,
+    query.grid,
     query.group,
     query.stack,
   ].filter(Boolean).length
@@ -159,7 +167,7 @@ export function activeFilterCount(query: GalleryQuery): number {
 /** Whether a picture's settings or size are needed to apply the query. */
 export function needsMeta(query: GalleryQuery): boolean {
   return Boolean(
-    query.backend || query.profile || query.orientation || query.resolution || query.model || query.lora || query.source || query.untagged
+    query.backend || query.profile || query.orientation || query.resolution || query.model || query.lora || query.source || query.untagged || query.grid
   )
 }
 
@@ -195,6 +203,12 @@ export function resolutionOf(width: number | null, height: number | null): Resol
   return 'large'
 }
 
+/** Whether a picture is a cell of an X/Y grid, a grid's sheet, or neither, by its record. */
+export function gridKindOf(meta: ImageMeta | null): GridKind {
+  if (!meta?.grid) return 'none'
+  return meta.mode === 'sheet' ? 'sheets' : 'cells'
+}
+
 export function sourceOf(meta: ImageMeta | null): Source {
   return meta && meta.source !== 'unknown' ? meta.source : 'none'
 }
@@ -216,5 +230,6 @@ export function matchesMeta(
   if (query.lora && !meta?.loras?.some((lora) => lora.toLowerCase() === query.lora!.toLowerCase())) return false
   if (query.source && sourceOf(meta) !== query.source) return false
   if (query.untagged && meta?.tags?.length) return false
+  if (query.grid && gridKindOf(meta) !== query.grid) return false
   return true
 }

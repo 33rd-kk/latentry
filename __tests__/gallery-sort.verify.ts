@@ -92,6 +92,7 @@ const full: GalleryQuery = {
   lora: 'detail tweaker',
   source: 'latentry',
   untagged: true,
+  grid: 'sheets',
 }
 eq(fromParams(toParams(full)), { ...full, formats: ['png', 'webp'] }, 'a query survives the round trip (formats in a fixed order)')
 eq(toParams({ ...full, formats: ['webp', 'png'] }).toString(), toParams({ ...full, formats: ['png', 'webp'] }).toString(), 'equal queries, equal strings')
@@ -105,7 +106,7 @@ eq(fromParams(new URLSearchParams({ model: 'x'.repeat(500) })).model?.length, 20
 
 // ── Counting and needing metadata ──
 eq(activeFilterCount({ q: 'smile', sort: 'oldest' }), 0, 'the search and the order are not filters')
-eq(activeFilterCount(full), 10, 'every filter counts once')
+eq(activeFilterCount(full), 11, 'every filter counts once')
 eq(activeFilterCount({ formats: ['png', 'webp', 'jpg'] }), 0, 'every file type is no filter')
 eq([needsMeta({ since: 'day', formats: ['png'] }), needsMeta({ orientation: 'square' })], [false, true], 'age and type need no file opened')
 
@@ -131,6 +132,13 @@ const picture = {
 check(matchesMeta(picture, { orientation: 'portrait', resolution: 'standard', model: 'M', source: 'latentry', backend: 'anima' }), 'every filter met')
 check(!matchesMeta(picture, { untagged: true }), 'a tagged picture is not untagged')
 check(matchesMeta({ ...picture, meta: { ...picture.meta, tags: [] } }, { untagged: true }), 'an empty tag list is untagged')
+const cell = { ...picture, meta: { ...picture.meta, grid: { id: 'g', x: { axis: 'cfg', value: '6' } } } }
+const sheetPicture = { ...cell, meta: { ...cell.meta, mode: 'sheet' } }
+eq(
+  [cell, sheetPicture, picture].map((item) => (['cells', 'sheets', 'none'] as const).filter((grid) => matchesMeta(item, { grid }))),
+  [['cells'], ['sheets'], ['none']],
+  'the X/Y grid filter tells a grid\'s cells, its sheet and other pictures apart'
+)
 check(!matchesMeta({ width: null, height: null, meta: null }, { orientation: 'square' }), 'an unknown size matches no shape')
 check(matchesMeta({ width: null, height: null, meta: null }, { source: 'none', untagged: true }), 'a picture with nothing is "no settings" and untagged')
 

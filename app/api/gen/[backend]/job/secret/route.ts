@@ -1,6 +1,6 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { getCurrentJob, isWatchable, markSecret } from '@/lib/diffusion/job-store'
-import { getQueued, markQueuedSecret } from '@/lib/diffusion/run-queue'
+import { getGrid, getQueued, markQueuedSecret } from '@/lib/diffusion/run-queue'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +18,14 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   const adapter = adapterOr404((await ctx.params).backend)
   if (adapter instanceof Response) return adapter
   const body = await readJson(request)
+  // An X/Y grid: the cells to come start secret, and the ones that ran become so.
+  const grid = typeof body?.job === 'string' ? getGrid(adapter.config.id, body.job) : null
+  if (grid) {
+    const ran = grid.grid?.jobs.some((job) => job !== null) === true
+    markQueuedSecret(grid)
+    if (ran) await adapter.markSecret?.()
+    return json({ secret: true })
+  }
   // Still waiting: it will start as a secret run, and has left nothing on the backend yet.
   const queued = typeof body?.job === 'string' ? getQueued(adapter.config.id, body.job) : null
   if (queued) {
