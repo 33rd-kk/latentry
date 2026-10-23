@@ -8,13 +8,24 @@ import { parseLatentryRecord, readPngText, LATENTRY_KEY, type GridUse, type Late
 import type { GalleryDir } from './dirs'
 import { readInDir } from './fs'
 import { GRID_MAX_CELLS, GRID_MAX_VALUES } from '@/lib/limits'
+import en from '../../locales/en.json'
 
 /** The longest side of one cell on the sheet. */
 export const SHEET_CELL_EDGE = 384
-const HEADER = 56
+const TITLE = 48
+const HEADER = 48
 const SIDE = 200
 const GAP = 8
 const FONT = 20
+// Each cell sits on a light tile with a thin edge, so a picture on a white
+// background still shows where its cell is.
+const TILE = '#f4f4f5'
+const EDGE = '#d4d4d8'
+
+/** The setting an axis changes, as the page names it (English: a sheet is one picture for everyone). */
+function axisName(axis: string): string {
+  return (en.generate.grid.axis as Record<string, string>)[axis] ?? axis
+}
 
 /** Names as the save folder writes them (fileNameFor), nothing that could leave it. */
 const NAME = /^[\w.-]{1,200}\.png$/i
@@ -46,10 +57,10 @@ function escapeXml(text: string): string {
 }
 
 /** One line of text, cut to fit, as an SVG the size of its box. */
-function label(text: string, width: number, height: number, align: 'middle' | 'end' = 'middle'): Buffer {
+function label(text: string, width: number, height: number, align: 'start' | 'middle' | 'end' = 'middle'): Buffer {
   const max = Math.max(4, Math.floor(width / (FONT * 0.55)))
   const shown = text.length > max ? `${text.slice(0, max - 1)}…` : text
-  const x = align === 'middle' ? width / 2 : width - GAP
+  const x = align === 'middle' ? width / 2 : align === 'end' ? width - GAP : GAP
   return Buffer.from(
     `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
       `<text x="${x}" y="${height / 2}" font-family="sans-serif" font-size="${FONT}" fill="#111" text-anchor="${align}" dominant-baseline="middle">${escapeXml(shown)}</text>` +
@@ -96,18 +107,27 @@ export async function buildSheet(dir: GalleryDir, layout: SheetLayout): Promise<
     cells.map(async (cell) => ({
       ...cell,
       image: await sharp(cell.bytes)
-        .resize(SHEET_CELL_EDGE, SHEET_CELL_EDGE, { fit: 'contain', background: '#ffffff' })
+        .resize(SHEET_CELL_EDGE, SHEET_CELL_EDGE, { fit: 'contain', background: TILE })
         .png()
         .toBuffer(),
     }))
   )
   const width = side + columns * (SHEET_CELL_EDGE + GAP) + GAP
-  const height = HEADER + layout.rows.length * (SHEET_CELL_EDGE + GAP) + GAP
+  const height = TITLE + HEADER + layout.rows.length * (SHEET_CELL_EDGE + GAP) + GAP
   const left = (x: number) => side + GAP + x * (SHEET_CELL_EDGE + GAP)
-  const top = (y: number) => HEADER + GAP + y * (SHEET_CELL_EDGE + GAP)
+  const top = (y: number) => TITLE + HEADER + GAP + y * (SHEET_CELL_EDGE + GAP)
+  // Which settings the axes change: "Steps × Prompt S/R", across then down.
+  const title = hasY ? `${axisName(first.grid!.x.axis)} × ${axisName(first.grid!.y!.axis)}` : axisName(first.grid!.x.axis)
+  const tile = (edge: number) =>
+    Buffer.from(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${edge}" height="${edge}"><rect x="0.5" y="0.5" width="${edge - 1}" height="${edge - 1}" fill="${TILE}" stroke="${EDGE}"/></svg>`
+    )
+  const tiles = layout.rows.flatMap((row, y) => row.map((_, x) => ({ input: tile(SHEET_CELL_EDGE + 2), left: left(x) - 1, top: top(y) - 1 })))
 
   const layers: OverlayOptions[] = [
-    ...xValues.map((value, x) => ({ input: label(value, SHEET_CELL_EDGE, HEADER), left: left(x), top: 0 })),
+    { input: label(title, width, TITLE, 'start'), left: 0, top: 0 },
+    ...tiles,
+    ...xValues.map((value, x) => ({ input: label(value, SHEET_CELL_EDGE, HEADER), left: left(x), top: TITLE })),
     ...(hasY ? yValues.map((value, y) => ({ input: label(value, SIDE, SHEET_CELL_EDGE, 'end'), left: 0, top: top(y) })) : []),
     ...scaled.map((cell) => ({ input: cell.image, left: left(cell.x), top: top(cell.y) })),
   ]

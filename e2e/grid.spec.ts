@@ -91,5 +91,7 @@ test('a grid that is going is stopped as a whole', async ({ page }) => {
   await grid.getByRole('button', { name: 'Cancel grid' }).click()
   await expect(grid.getByText('Cancelled')).toBeVisible()
   await expect(grid.getByText('Did not run')).toHaveCount(2)
+  // The cell that was going when it stopped says so.
+  await expect(grid.getByText('Stopped', { exact: true })).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
 })

@@ -33,6 +33,9 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
   const veiled = secret && shownRun !== grid.id
   const [preview, setPreview] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  // Cancel was clicked: a backend may finish the step (or, on a web UI, the
+  // picture) it is on before it stops, which can take a while.
+  const [stopping, setStopping] = useState(false)
 
   const spec = useMemo(() => ({ x: grid.x, y: grid.y }), [grid.x, grid.y])
   const cells = useMemo(() => gridCells(spec), [spec])
@@ -41,6 +44,9 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
     ? t("generate.grid.heading", { x: axisName(grid.x.kind), y: axisName(grid.y.kind) })
     : t("generate.grid.headingOne", { x: axisName(grid.x.kind) })
   const going = grid.status === "queued" || grid.status === "running"
+  // The headings as typed (a respelled prompt S/R is sent with underscores).
+  const xLabels = grid.x.labels ?? grid.x.values
+  const yLabels = grid.y ? (grid.y.labels ?? grid.y.values) : [null]
   const done = grid.cells.filter((cell) => cell.status !== "waiting" && cell.status !== "running").length
 
   // Every picture of every cell, in cell order, for the full-screen viewer.
@@ -55,21 +61,26 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
     () =>
       pictures.map(({ cell, image }) => ({
         src: `data:image/png;base64,${image.image_base64}`,
-        name: [`${axisName(grid.x.kind)}: ${cell.xValue}`, grid.y && `${axisName(grid.y.kind)}: ${cell.yValue}`, `seed: ${image.seed}`]
+        name: [`${axisName(grid.x.kind)}: ${xLabels[cell.x]}`, grid.y && `${axisName(grid.y.kind)}: ${yLabels[cell.y]}`, `seed: ${image.seed}`]
           .filter(Boolean)
           .join(" · "),
         downloadName: image.saved_name ?? `latentry_${image.seed}.png`,
       })),
     // axisName reads t, which is stable for a locale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [pictures, grid.x.kind, grid.y]
+    [pictures, grid.x.kind, grid.y, xLabels, yLabels]
   )
 
-  // The sheet is built from the saved pictures: the first of each cell.
+  // The sheet is built from the saved pictures: the first of each cell. A
+  // cell stopped part way (a web UI hands back its unfinished picture) is
+  // left out, as is one that never ran.
   const rows = useMemo(
     () =>
       (grid.y?.values ?? [null]).map((_, y) =>
-        grid.x.values.map((_, x) => grid.cells[y * grid.x.values.length + x]?.images[0]?.saved_name ?? null)
+        grid.x.values.map((_, x) => {
+          const cell = grid.cells[y * grid.x.values.length + x]
+          return cell?.status === "done" ? (cell.images[0]?.saved_name ?? null) : null
+        })
       ),
     [grid]
   )
@@ -99,7 +110,9 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
         : grid.position > 1
           ? t("generate.queue.position", { ahead: grid.position - 1 })
           : t("generate.grid.waiting")
-      : grid.status === "running"
+      : stopping && going
+        ? t("generate.grid.stopping")
+        : grid.status === "running"
         ? t("generate.grid.progress", { done: Math.min(done + 1, grid.cells.length), total: grid.cells.length })
         : grid.status === "cancelled"
           ? t("generate.grid.cancelled")
@@ -126,7 +139,18 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
           </button>
         )}
         {going ? (
-          <Button type="button" size="sm" variant="outline" className="h-7" onClick={onCancel}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-7"
+            disabled={stopping}
+            onClick={() => {
+              setStopping(true)
+              onCancel()
+            }}
+          >
+            {stopping && <Loader2 className="mr-1 h-3 w-3 animate-spin" />}
             {t("generate.grid.cancel")}
           </Button>
         ) : (
@@ -156,20 +180,20 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
         >
           <div role="row" className="contents">
             {grid.y && <span role="columnheader" />}
-            {grid.x.values.map((value, x) => (
+            {xLabels.map((value, x) => (
               <span key={x} role="columnheader" className="truncate text-center text-muted-foreground" title={value}>
                 {value || "∅"}
               </span>
             ))}
           </div>
-          {(grid.y?.values ?? [null]).map((yValue, y) => (
+          {yLabels.map((yValue, y) => (
             <div role="row" key={y} className="contents">
               {grid.y && (
                 <span role="rowheader" className="self-center truncate text-right text-muted-foreground" title={yValue ?? ""}>
                   {yValue || "∅"}
                 </span>
               )}
-              {grid.x.values.map((xValue, x) => {
+              {xLabels.map((xValue, x) => {
                 const index = y * columns + x
                 const cell = grid.cells[index]
                 const image = cell?.images.find(Boolean)
@@ -193,6 +217,8 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
                           className={cn("h-full w-full object-cover", veiled && "blur-xl")}
                         />
                       </button>
+                    ) : cell?.status === "cancelled" ? (
+                      <span className="flex h-full items-center justify-center p-1 text-center text-muted-foreground">{t("generate.grid.cellStopped")}</span>
                     ) : cell?.status === "error" || cell?.status === "gone" || (cell?.status === "waiting" && !going) ? (
                       <span className="flex h-full items-center justify-center p-1 text-center text-muted-foreground" title={cell.error ? t.server(cell.error) : undefined}>
                         {t("generate.grid.cellFailed")}
@@ -200,6 +226,10 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
                     ) : null}
                     {(cell?.images.length ?? 0) > 1 && (
                       <span className="absolute right-1 top-1 rounded bg-black/60 px-1 text-[10px] text-white">{cell!.images.length}</span>
+                    )}
+                    {/* A web UI hands back the picture it stopped on: said so, as it is unfinished. */}
+                    {image && cell?.status === "cancelled" && (
+                      <span className="absolute bottom-1 left-1 rounded bg-black/60 px-1 text-[10px] text-white">{t("generate.grid.cellStopped")}</span>
                     )}
                     {cell?.status === "running" && (
                       <div className="absolute inset-x-1 bottom-1">

@@ -216,7 +216,7 @@ function forgetGrid(run: QueuedRun): void {
   leftGrids.delete(run.id)
   // Its headings may be prompt text (prompt S/R).
   if (run.grid) {
-    run.grid.spec = { x: { kind: run.grid.spec.x.kind, values: [] }, y: null }
+    run.grid.spec = { x: { kind: run.grid.spec.x.kind, values: [], labels: [] }, y: null }
     run.grid.cells = []
   }
   notify(run)

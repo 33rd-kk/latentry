@@ -130,6 +130,8 @@
       "done": "Done",
       "cancelled": "Cancelled",
       "cancel": "Cancel grid",
+      "stopping": "Stopping… the backend first finishes the step it is on",
+      "cellStopped": "Stopped",
       "remove": "Remove from this page",
       "cellFailed": "Did not run",
       "cellAlt": "Cell {x}, {y}",

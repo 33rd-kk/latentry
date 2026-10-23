@@ -19,6 +19,11 @@ export type GridAxisKind = (typeof GRID_AXES)[number]
 export interface GridAxisInput {
   kind: GridAxisKind
   text: string
+  /**
+   * The values as typed, when `text` is respelled for the model (prompt S/R
+   * on a profile that writes tags with underscores): what the headings show.
+   */
+  shown?: string
 }
 
 export interface GridSpecInput {
@@ -28,8 +33,10 @@ export interface GridSpecInput {
 
 export interface GridAxis {
   kind: GridAxisKind
-  /** Each value as it is shown in the grid's headings. */
+  /** Each value as the run is sent it. */
   values: string[]
+  /** Each value as the headings show it: as typed, which is `values` unless it was respelled. */
+  labels: string[]
 }
 
 export interface GridSpec {
@@ -163,7 +170,10 @@ export function parseAxis(axis: GridAxisInput, which: 'x' | 'y'): Parsed<GridAxi
     values = parts
   }
   if (values.length > GRID_MAX_VALUES) return { ok: false, error: { code: 'tooManyValues', axis: which, max: GRID_MAX_VALUES } }
-  return { ok: true, value: { kind: axis.kind, values } }
+  // Headings as typed, when they match the values one for one.
+  const shown = axis.shown === undefined ? null : splitValues(axis.shown)
+  const labels = shown && shown.length === values.length && shown.every((label) => label.length <= 1000) ? shown : values
+  return { ok: true, value: { kind: axis.kind, values, labels } }
 }
 
 /** Reads a grid the page sent, untrusted: null when it is not shaped like one. */
@@ -171,8 +181,9 @@ export function readGridInput(value: unknown): GridSpecInput | null {
   if (!value || typeof value !== 'object') return null
   const axis = (raw: unknown): GridAxisInput | null => {
     if (!raw || typeof raw !== 'object') return null
-    const { kind, text } = raw as Record<string, unknown>
-    return isGridAxis(kind) && typeof text === 'string' && text.length <= 20_000 ? { kind, text } : null
+    const { kind, text, shown } = raw as Record<string, unknown>
+    if (!isGridAxis(kind) || typeof text !== 'string' || text.length > 20_000) return null
+    return typeof shown === 'string' && shown.length <= 20_000 ? { kind, text, shown } : { kind, text }
   }
   const { x, y } = value as Record<string, unknown>
   const xAxis = axis(x)
@@ -267,8 +278,8 @@ export function cellRequest(base: GenerateRequest, spec: GridSpec, cell: GridCel
 export function gridPlace(id: string, spec: GridSpec, cell: GridCell): GridPlace {
   return {
     id,
-    x: { axis: spec.x.kind, value: cell.xValue },
-    ...(spec.y && cell.yValue !== null ? { y: { axis: spec.y.kind, value: cell.yValue } } : {}),
+    x: { axis: spec.x.kind, value: spec.x.labels[cell.x] ?? cell.xValue },
+    ...(spec.y && cell.yValue !== null ? { y: { axis: spec.y.kind, value: spec.y.labels[cell.y] ?? cell.yValue } } : {}),
   }
 }
 

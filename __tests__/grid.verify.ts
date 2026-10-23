@@ -24,6 +24,7 @@ import {
   cellRequest,
   gridCells,
   gridErrorParts,
+  gridPlace,
   joinValues,
   parseAxis,
   parseGrid,
@@ -112,9 +113,19 @@ function pureChecks(): void {
   eq(splitValues(joinValues(['x, y', '', 'say "hi"', 'plain'])), ['x, y', '', 'say "hi"', 'plain'], 'joinValues quotes what splitValues needs back')
 
   const axis = (kind: Parameters<typeof parseAxis>[0]['kind'], text: string) => parseAxis({ kind, text }, 'x')
-  eq(axis('steps', '20-40:5'), { ok: true, value: { kind: 'steps', values: ['20', '25', '30', '35', '40'] } }, 'a range with a step')
-  eq(axis('seed', '3-1'), { ok: true, value: { kind: 'seed', values: ['3', '2', '1'] } }, 'a range may run down, by 1')
-  eq(axis('cfg', '0.3-0.5:0.1, 7'), { ok: true, value: { kind: 'cfg', values: ['0.3', '0.4', '0.5', '7'] } }, 'decimal steps do not drift, and ranges mix with values')
+  const values = (result: ReturnType<typeof parseAxis>) => (result.ok ? result.value.values : result.error)
+  eq(values(axis('steps', '20-40:5')), ['20', '25', '30', '35', '40'], 'a range with a step')
+  eq(values(axis('seed', '3-1')), ['3', '2', '1'], 'a range may run down, by 1')
+  eq(values(axis('cfg', '0.3-0.5:0.1, 7')), ['0.3', '0.4', '0.5', '7'], 'decimal steps do not drift, and ranges mix with values')
+  const respelled = parseAxis({ kind: 'prompt_sr', text: 'red_hair, blue_hair', shown: 'red hair, blue hair' }, 'y')
+  eq(respelled.ok && [respelled.value.values, respelled.value.labels], [['red_hair', 'blue_hair'], ['red hair', 'blue hair']], 'a respelled prompt S/R runs as sent and is headed as typed')
+  const mismatched = parseAxis({ kind: 'prompt_sr', text: 'a, b', shown: 'a' }, 'x')
+  eq(mismatched.ok && mismatched.value.labels, ['a', 'b'], 'headings that do not match the values one for one are not used')
+  if (respelled.ok) {
+    const spec = { x: respelled.value, y: null }
+    const [, second] = gridCells(spec)
+    eq([cellRequest({ ...base, prompt: 'a red_hair cat' }, spec, second).prompt, gridPlace('g', spec, second).x.value], ['a blue_hair cat', 'blue hair'], 'the cell runs the respelled value and records it as typed')
+  }
   eq(errorOf(axis('cfg', '31')), { code: 'value', axis: 'x', value: '31' }, 'a value outside the setting\'s range is refused')
   eq(errorOf(axis('steps', '1.5')), { code: 'value', axis: 'x', value: '1.5' }, 'steps are whole numbers')
   eq(errorOf(axis('steps', '20-30:0.5')), { code: 'value', axis: 'x', value: '20-30:0.5' }, 'and so is a range\'s step for them')

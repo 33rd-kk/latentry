@@ -280,7 +280,9 @@ export function GenerateClient() {
     const compose = (prompt: string) => composePrompt(prompt, { profile, artist: form.artist, quality: form.quality })
     // Prompt S/R's values are respelled as the prompt is, so they are found in it.
     const respell = (axis: { kind: string; text: string }) =>
-      axis.kind === "prompt_sr" ? { ...axis, text: joinValues(splitValues(axis.text).map((value) => formatForProfile(value, profile))) } : axis
+      axis.kind === "prompt_sr"
+        ? { ...axis, text: joinValues(splitValues(axis.text).map((value) => formatForProfile(value, profile))), shown: axis.text }
+        : axis
     const grid = gridInput ? { x: respell(gridInput.x), ...(gridInput.y ? { y: respell(gridInput.y) } : {}) } : null
     const body = JSON.stringify({
       prompt: compose(expanded.prompt),

@@ -275,14 +275,19 @@ without it.
   another with nothing in between. A run added while it goes waits until
   the whole grid is done.
 - The cells fill in as they finish. Click one to see it full screen, named
-  by its place in the grid. **Cancel grid** stops the cell that is going and
-  drops the rest.
+  by its place in the grid, with the values as you typed them. **Cancel
+  grid** stops the cell that is going and drops the rest. A backend first
+  finishes the step it is on, which on a web UI can take a while: the grid
+  says **Stopping…** until it has. The cell that was going says **Stopped**,
+  and the ones after it **Did not run**. A web UI hands back the unfinished
+  picture it stopped on, which the cell shows marked **Stopped**.
 - Each cell's pictures are saved like any others, and record the grid and
   their place in it. In the gallery, **Stack: Same X/Y grid** puts a grid's
   pictures in one card.
 - **Save sheet** puts a finished grid's cells in one picture, with the values
-  written above and beside them, and saves it to the gallery. It uses the
-  first picture of each cell, from the save folder. Nothing is made unless
+  written above and beside them and the settings they change at the top, and
+  saves it to the gallery. It uses the first picture of each finished cell,
+  from the save folder; a stopped cell is left empty. Nothing is made unless
   you click it, and secret mode does not offer it.
 - Another page or device sees only that one run is waiting, not that it is a
   grid or how many cells it has. Like the queue, the grid is kept in this
