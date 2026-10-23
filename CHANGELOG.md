@@ -13,6 +13,12 @@
   next one moves an existing engine to 0.13.5 with no extra step. The
   engine's own Python already uses certifi 2026.10.19, which drops the same
   root.
+- **Latentry stops trusting the compromised emSign roots on any Node.js.**
+  Its own downloads (models, taggers, uv) go through Node.js, and Node.js
+  dropped emSign ECC Root CA - G3, emSign Root CA - C1 and emSign ECC Root
+  CA - C3 only in 22.23.4, 24.22.1 and 26.12.1 (2026-10-21). On an older
+  Node.js the server now takes those three out of what it trusts when it
+  starts, and says so in its log. Updating Node.js is still recommended.
 
 - **X/Y grid**: Generate can draw a run again for each value of one or two
   settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
