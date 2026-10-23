@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## 0.12.0 (2026-10-24)
+
+**Upgrading from 0.11.0**: nothing to do beyond the usual update. The engine
+is unchanged (still 0.7.0, with the 2026-10-21 lock); the next **Install** or
+**Repair / update** fetches uv 0.13.5 by itself. Updating Node.js to 22.23.4,
+24.22.1, 26.12.1 or newer is recommended (see below).
+
+**X/Y grid**
+
+- **X/Y grid**: Generate can draw a run again for each value of one or two
+  settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
+  prompt search and replace, which also compares LoRA weights), all on one
+  seed, and lay the pictures out as a table. The grid waits in the queue as
+  one run, its cells run with nothing in between, and **Cancel grid** stops
+  it whole. Each picture records its place in the grid. The gallery can
+  stack a grid's pictures, and its **X/Y grid** filter shows only grids'
+  cells, only their sheets, or only other pictures. **Save sheet** saves the
+  table as one picture when asked (never in secret mode).
+- **Fixed**: pictures saved in the same second with the same seed could
+  overwrite each other. Names are now reserved until the picture is written.
+
+**Security**
+
 - **The engine install uses uv 0.13.5** instead of 0.13.0. uv before 0.13.4
   trusted the emSign ECC Root CA - G3 certificate authority, some of whose
   intermediate certificates had their keys compromised, so a forged
@@ -19,22 +42,15 @@
   CA - C3 only in 22.23.4, 24.22.1 and 26.12.1 (2026-10-21). On an older
   Node.js the server now takes those three out of what it trusts when it
   starts, and says so in its log. Updating Node.js is still recommended.
+
+**Dependencies**
+
 - **Next.js 16.4.3** instead of 16.4.2. Three published Next.js advisories
   (a Server Actions denial of service, and remote code execution through
   the image optimizer with SVG files and through `use cache`) affect
   16.0.0 to 16.4.0; 16.4.2 was already outside them, and 16.4.3 is the
-  newest patch. If you installed before 0.11.0 and have not run
-  `npm install` since, run it now.
-
-- **X/Y grid**: Generate can draw a run again for each value of one or two
-  settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
-  prompt search and replace, which also compares LoRA weights), all on one
-  seed, and lay the pictures out as a table. The grid waits in the queue as
-  one run, its cells run with nothing in between, and **Cancel grid** stops
-  it whole. Each picture records its place in the grid. The gallery can
-  stack a grid's pictures, and its **X/Y grid** filter shows only grids'
-  cells, only their sheets, or only other pictures. **Save sheet** saves the
-  table as one picture when asked (never in secret mode).
+  newest patch.
+- The tests also run on Node.js 26.
 
 ## 0.11.0 (2026-10-22)
 
