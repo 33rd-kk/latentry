@@ -75,6 +75,18 @@ test('a grid fills in cell by cell, and its sheet is saved and stacked with it',
   await page.getByRole('option', { name: 'Same X/Y grid' }).click()
   await expect(thumbs).toHaveCount(1)
   await expect(page.getByTitle('7 pictures. Click to see them all.')).toHaveText('7')
+
+  // The X/Y grid filter: the sheet alone, or the cells alone.
+  await page.getByRole('combobox', { name: 'Stack' }).click()
+  await page.getByRole('option', { name: "Don't stack" }).click()
+  const gridFilter = page.getByRole('combobox', { name: 'X/Y grid' })
+  await gridFilter.click()
+  await page.getByRole('option', { name: 'Sheets', exact: true }).click()
+  await expect(thumbs).toHaveCount(1)
+  await expect(page.getByRole('button', { name: /^Remove filter: X\/Y grid: Sheets/ })).toBeVisible()
+  await gridFilter.click()
+  await page.getByRole('option', { name: 'Grid cells', exact: true }).click()
+  await expect(thumbs).toHaveCount(6)
 })
 
 test('a grid that is going is stopped as a whole', async ({ page }) => {

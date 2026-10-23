@@ -10,6 +10,7 @@ import {
   activeFilterCount,
   FORMATS,
   GROUPS,
+  GRID_KINDS,
   ORIENTATIONS,
   RESOLUTIONS,
   SINCE,
@@ -172,6 +173,15 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
               onChange={(profile) => onChange({ profile })}
             />
           </Field>
+          <Field label={t("gallery.filter.grid")}>
+            <OptionSelect
+              label={t("gallery.filter.grid")}
+              value={query.grid}
+              all={t("gallery.filter.anyGrid")}
+              options={GRID_KINDS.map((kind) => ({ value: kind, label: t(`gallery.filter.grid-${kind}`) }))}
+              onChange={(grid) => onChange({ grid })}
+            />
+          </Field>
           <Field label={t("gallery.filter.group")} hint={t("gallery.filter.groupHint")}>
             <OptionSelect
               label={t("gallery.filter.group")}
@@ -224,6 +234,7 @@ export function FilterChips({
     const label = profiles.find((profile) => profile.id === query.profile)?.label ?? query.profile
     add("profile", `${t("gallery.filter.profileLabel")}: ${label}`, { profile: undefined })
   }
+  if (query.grid) add("grid", `${t("gallery.filter.grid")}: ${t(`gallery.filter.grid-${query.grid}`)}`, { grid: undefined })
   if (query.untagged) add("untagged", t("gallery.filter.untaggedChip"), { untagged: undefined })
   if (query.group) add("group", t(`gallery.filter.group-${query.group}`), { group: undefined, stack: undefined })
   if (query.group && query.stack) add("stack", t("gallery.filter.inStack"), { stack: undefined })

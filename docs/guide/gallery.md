@@ -104,6 +104,10 @@ its pictures, and remove the **One stack** chip to go back. Stacking reads
 the folder first, the way the orders by date made do; what it keeps in
 memory is a hash of each prompt, not the prompt.
 
+**X/Y grid** (under Filters) shows only the cells of
+[X/Y grids](generate.md#xy-grid), only their sheets, or only pictures that
+are from no grid.
+
 ![Two pictures of the same shape compared with a slider, and the settings that differ](../assets/manual-compare.webp){ width="640" }
 
 To compare two pictures, choose **Select**, pick two, and **Compare**. Two
