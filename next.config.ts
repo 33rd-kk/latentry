@@ -33,6 +33,9 @@ const nextConfig: NextConfig = {
   // 404) rather than leave a fetch-and-resize service running.
   images: { unoptimized: true },
   experimental: {
+    // Under `next dev` and `next build`, remind about Next.js releases that
+    // fix a published security advisory (the default, made explicit).
+    agentUpgrade: "security",
     // proxy.ts makes Next buffer each body, cut off at this size; the
     // default 10MB is smaller than a detailed img2img request.
     proxyClientMaxBodySize: MAX_REQUEST_BODY_BYTES,
