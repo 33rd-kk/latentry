@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fixed**: between one queued run ending and the next starting, the
+  button briefly read **Generate** although a click would still add to the
+  queue. It now reads **Add to queue** until the queue is empty.
+
 ## 0.12.0 (2026-10-24)
 
 **Upgrading from 0.11.0**: nothing to do beyond the usual update. The engine
