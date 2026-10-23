@@ -1,4 +1,6 @@
-// Runs once when the server starts: stamps each request with the address it
+// Runs once when the server starts: stops trusting certificate authorities
+// whose keys are known to be compromised (see lib/security/distrusted-roots.ts),
+// stamps each request with the address it
 // really came from (see lib/security/peer.ts), makes the private files
 // owner-only (see lib/security/private-files.ts), then brings up Latentry's
 // own engine if it is installed (see lib/engine). LATENTRY_ENGINE=off, or
@@ -6,6 +8,10 @@
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== 'nodejs') return
+  // First, before anything downloads.
+  const { dropDistrustedRoots } = await import('./lib/security/distrusted-roots')
+  const dropped = dropDistrustedRoots()
+  if (dropped.length) console.log(`[security] no longer trusting ${dropped.join(', ')} (compromised; this Node.js still lists them)`)
   const { installPeerStamp } = await import('./lib/security/peer')
   installPeerStamp()
   const { restrictPrivateFiles } = await import('./lib/security/private-files')

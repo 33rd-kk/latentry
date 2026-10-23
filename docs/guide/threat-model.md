@@ -89,6 +89,11 @@ been taken over through their extensions.
   of every file. A file that does not match is never installed.
 - The install scripts install Latentry's own JavaScript packages with
   `npm ci`, from `package-lock.json`, which has the hash of every package.
+- Downloads go over HTTPS, checked against the certificate authorities
+  Node.js trusts. Latentry takes out the ones whose keys are known to be
+  compromised even when the Node.js it runs on still lists them: today
+  three emSign roots, which Node.js itself dropped in 22.23.4, 24.22.1 and
+  26.12.1.
 
 ### Someone who uses this computer or browser later
 
