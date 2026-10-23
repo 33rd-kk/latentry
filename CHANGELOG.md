@@ -19,6 +19,12 @@
   CA - C3 only in 22.23.4, 24.22.1 and 26.12.1 (2026-10-21). On an older
   Node.js the server now takes those three out of what it trusts when it
   starts, and says so in its log. Updating Node.js is still recommended.
+- **Next.js 16.4.3** instead of 16.4.2. Three published Next.js advisories
+  (a Server Actions denial of service, and remote code execution through
+  the image optimizer with SVG files and through `use cache`) affect
+  16.0.0 to 16.4.0; 16.4.2 was already outside them, and 16.4.3 is the
+  newest patch. If you installed before 0.11.0 and have not run
+  `npm install` since, run it now.
 
 - **X/Y grid**: Generate can draw a run again for each value of one or two
   settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
