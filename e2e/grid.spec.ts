@@ -47,7 +47,7 @@ test('a grid fills in cell by cell, and its sheet is saved and stacked with it',
   await expect(grid.getByRole('columnheader')).toContainText(['', '4', '6', '8'])
   await expect(grid.getByRole('rowheader')).toContainText(['10', '20'])
   await expect(grid.locator('img[alt^="Cell "]')).toHaveCount(6)
-  await expect(grid.getByText('Done')).toBeVisible()
+  await expect(grid.getByText('Done', { exact: true })).toBeVisible()
   await expect(grid.getByText(/Every cell uses seed \d+/)).toBeVisible()
 
   // Full screen: each picture is named by its place in the grid.
@@ -89,7 +89,7 @@ test('a grid that is going is stopped as a whole', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Add to queue' })).toBeVisible()
 
   await grid.getByRole('button', { name: 'Cancel grid' }).click()
-  await expect(grid.getByText('Cancelled')).toBeVisible()
+  await expect(grid.getByText('Cancelled', { exact: true })).toBeVisible()
   await expect(grid.getByText('Did not run')).toHaveCount(2)
   // The cell that was going when it stopped says so.
   await expect(grid.getByText('Stopped', { exact: true })).toHaveCount(1)
