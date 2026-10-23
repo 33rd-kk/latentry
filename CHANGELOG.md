@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **The engine install uses uv 0.13.5** instead of 0.13.0. uv before 0.13.4
+  trusted the emSign ECC Root CA - G3 certificate authority, some of whose
+  intermediate certificates had their keys compromised, so a forged
+  certificate could have been used to intercept the packages it downloads
+  ([GHSA-hq85-5cpj-mr62](https://github.com/astral-sh/uv/security/advisories/GHSA-hq85-5cpj-mr62)).
+  0.13.5 drops that root and also rejects chains through the compromised
+  intermediates. uv runs only during **Install** and **Repair / update**, and
+  each of those fetches the pinned uv first and checks its SHA-256, so the
+  next one moves an existing engine to 0.13.5 with no extra step. The
+  engine's own Python already uses certifi 2026.10.19, which drops the same
+  root.
+
 - **X/Y grid**: Generate can draw a run again for each value of one or two
   settings (CFG, steps, seed, hires denoise, sampler, scheduler, or a
   prompt search and replace, which also compares LoRA weights), all on one
