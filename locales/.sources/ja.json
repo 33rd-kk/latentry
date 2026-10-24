@@ -705,5 +705,6 @@
   "pair.endsToday": "This device's pairing ends within a day.",
   "pair.again": "Pair it again with a new code",
   "pair.unpair": "Unpair this device",
-  "pair.unpairConfirm": "Unpair this device? It will need a new code to use Latentry again."
+  "pair.unpairConfirm": "Unpair this device? It will need a new code to use Latentry again.",
+  "setup.needInstall": "Models are downloaded and loaded by the engine: install it above, then start it."
 }

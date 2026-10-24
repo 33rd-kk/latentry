@@ -728,6 +728,7 @@
     "models": "Models",
     "modelsBody": "Models are not part of Latentry. Each comes from its publisher on Hugging Face, under its own license, into {dir}. Read the license before downloading.",
     "needEngine": "Start the engine to download and load models.",
+    "needInstall": "Models are downloaded and loaded by the engine: install it above, then start it.",
     "inFolder": "In the models folder",
     "emptyFolder": "Nothing yet. Download a model below, or put .safetensors files in the folder.",
     "load": "Load",

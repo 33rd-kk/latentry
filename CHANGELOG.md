@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Fixed**: before the engine was installed, a model's **Download** button
+  on Setup stayed off with nothing saying why. The Models card now says
+  that models are downloaded by the engine, so it has to be installed and
+  started first.
 - **Japanese**: the UI is now in Japanese too. A browser set to Japanese
   gets it on its first visit, and the language menu in the header switches
   between Japanese and English. The manual stays in English. The

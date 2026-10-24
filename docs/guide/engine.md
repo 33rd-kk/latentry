@@ -74,7 +74,8 @@ Face, under its own licence, into the **models folder**:
   commercially, and a box to accept the licence before **Download**. Each
   download is a fixed version of the repository, and its files are checked
   against their SHA-256 before they are kept, so a repository that changes
-  later cannot change what you get.
+  later cannot change what you get. The engine does the downloading, so
+  **Download** works once the engine is installed and running.
 - **Models folder**: point it at models you already have, such as a web UI's
   `models/Stable-diffusion` folder.
 
