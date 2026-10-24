@@ -11,6 +11,9 @@
   [backend API](backend-api.md), or AUTOMATIC1111 / Forge started with
   `--api`.
 
+[Support](reference/support.md) lists the systems, GPUs and browsers that
+are checked.
+
 ## Install
 
 ```bash

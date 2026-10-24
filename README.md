@@ -111,7 +111,9 @@ Use the built-in engine, the servers you already run, or both.
 
 ## Getting started
 
-Requires Node.js 22.19 or newer.
+Requires Node.js 22.19 or newer. The manual's
+[Support](https://33rd-kk.github.io/latentry/reference/support/) page lists
+the systems, GPUs and browsers that are checked.
 
 ```bash
 git clone https://github.com/33rd-kk/latentry.git
