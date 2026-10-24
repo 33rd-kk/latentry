@@ -35,7 +35,7 @@ run sends only the skeleton, so the people's looks do not carry over.
 
 ## Turn it and frame it in 3D
 
-![The skeleton and the 3D view turned to one side, with Use this angle](../assets/manual-3d.webp){ width="420" }
+![The skeleton and the 3D view turned to one side, with Use this pose](../assets/manual-3d.webp){ width="420" }
 
 Press **3D** to open the 3D view. It has the output's shape and shows exactly
 what the skeleton will cover.
@@ -45,8 +45,9 @@ what the skeleton will cover.
 | Swing the camera around the figure | Drag (up to 90° to either side, 45° up or down) |
 | Zoom in or out | Scroll, or pinch (×0.5 to ×6) |
 | Move the frame | Right-drag, Shift-drag, or drag with two fingers |
+| Move a joint | Drag the joint (see below) |
 
-The angle and zoom show under the view. Press **Use this angle** to have the
+The angle and zoom show under the view. Press **Use this pose** to have the
 skeleton drawn from there; **Front view** goes back. The skeleton's
 thumbnail then says "Seen from yaw …".
 
@@ -64,6 +65,30 @@ zooming out leaves room around the figure.
       to follow.
     - If you change the output size after drawing a skeleton, it is fitted
       inside; **Detect again** lines it up.
+
+### Move a joint
+
+Drag the head, a shoulder, elbow, wrist, knee, ankle or a foot point in the
+3D view. It turns about the joint it hangs from, and everything below it
+comes along: drag an elbow and the forearm and hand follow. No bone changes
+length, so a joint swings around rather than stretching.
+
+- The joint moves across the screen. To move it toward or away from you,
+  swing the camera to the side and drag it again.
+- A hand keeps its shape and moves with its wrist; the face moves with the
+  head. Fingers do not move one by one.
+- The hips stay where they are. To turn the whole figure, swing the camera.
+- Moving a shoulder does not move the head.
+- **Undo** takes back the last drag, **Reset joints** all of them. "Joints
+  moved: N" shows under the view. Press **Use this pose** to draw the
+  skeleton with them.
+- The moves stay with the picture: picking other people or another angle
+  keeps them, and a new picture starts as detected. They are held only in
+  the page, never saved.
+
+Moving joints needs poseorbit 0.3 in Latentry's engine (run **Repair /
+update** on [Setup](engine.md) once). On a backend that cannot, the view
+says so (see `movable` in the [backend API](../backend-api.md)).
 
 The detection, 3D turn and drawing are
 [poseorbit](https://33rd-kk.github.io/poseorbit/), which can also be used on

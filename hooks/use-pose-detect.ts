@@ -3,7 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { toSourceImage, type SourceImage } from "@/components/generate/source-image-slot"
 import { useT } from "@/lib/i18n"
-import { FRONT, isPlainView, readPoseAnswer, type DetectedPerson, type PersonChoice, type PoseSkeleton, type PoseTurnLimits, type ViewCamera } from "@/lib/pose"
+import {
+  FRONT,
+  isPlainView,
+  readPoseAnswer,
+  type DetectedPerson,
+  type PersonChoice,
+  type PoseEdit,
+  type PoseSkeleton,
+  type PoseTurnLimits,
+  type ViewCamera,
+} from "@/lib/pose"
+
+const NO_JOINTS: ReadonlySet<number> = new Set()
 
 interface UsePoseDetectOptions {
   /** The backend whose /pose detects people and draws the skeleton. */
@@ -40,12 +52,25 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
   // The angle the current skeleton was drawn from, and where the 3D camera is now.
   const [turn, setTurn] = useState<ViewCamera>(FRONT)
   const [view, setView] = useState<ViewCamera>(FRONT)
+  // Joints moved in the 3D view, in order, and the ones the current skeleton
+  // was drawn with. Kept per person index, so choosing someone else keeps them;
+  // in memory only, gone with the picture.
+  const [edits, setEdits] = useState<PoseEdit[]>([])
+  const [drawnEdits, setDrawnEdits] = useState<PoseEdit[]>([])
+  // The joints the backend may move ("movable"); none, and joints don't move.
+  const [movable, setMovable] = useState<ReadonlySet<number>>(NO_JOINTS)
 
   const detect = useCallback(
-    async (picture: SourceImage, which?: PersonChoice | null, options: { camera?: ViewCamera; want3d?: boolean } = {}) => {
+    async (
+      picture: SourceImage,
+      which?: PersonChoice | null,
+      options: { camera?: ViewCamera; want3d?: boolean; edits?: PoseEdit[] } = {}
+    ) => {
       setLoading(true)
       setError(null)
       const camera = options.camera ?? turn
+      // The skeleton always shows the edits, whatever else was asked.
+      const sent = options.edits ?? edits
       try {
         const response = await fetch(`/api/gen/${encodeURIComponent(backend)}/pose`, {
           method: "POST",
@@ -56,6 +81,7 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
             ...(which != null ? { person: which } : {}),
             ...((options.want3d ?? show3d) ? { want_3d: true } : {}),
             ...(isPlainView(camera) ? {} : { camera }),
+            ...(sent.length ? { edits: sent } : {}),
             ...(workflow ? { workflow } : {}),
           }),
         })
@@ -73,6 +99,9 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
         setJointsInFrame(answer.jointsInFrame)
         setTurn(answer.camera)
         setView(answer.camera)
+        setMovable(answer.movable.length ? new Set(answer.movable) : NO_JOINTS)
+        setEdits(sent)
+        setDrawnEdits(sent)
         onChange(answer.skeleton)
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : t("generate.unreachable"))
@@ -80,7 +109,7 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
         setLoading(false)
       }
     },
-    [backend, onChange, outputSize, show3d, t, turn, workflow]
+    [backend, edits, onChange, outputSize, show3d, t, turn, workflow]
   )
 
   // Another workflow may draw skeletons another way: draw this one again for it.
@@ -103,8 +132,8 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
         setError(t("generate.sourceLoadFailed"))
         return
       }
-      // A new picture starts from the front.
-      await detect(decoded, null, { camera: FRONT })
+      // A new picture starts from the front, as detected.
+      await detect(decoded, null, { camera: FRONT, edits: [] })
     },
     [detect, t]
   )
@@ -116,8 +145,14 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
     setPerson(null)
     setTurn(FRONT)
     setView(FRONT)
+    setEdits([])
+    setDrawnEdits([])
     setError(null)
   }, [onChange])
+
+  const addEdit = useCallback((edit: PoseEdit) => setEdits((current) => [...current, edit]), [])
+  const undoEdit = useCallback(() => setEdits((current) => current.slice(0, -1)), [])
+  const resetEdits = useCallback(() => setEdits([]), [])
 
   const toggle3d = useCallback(() => {
     const opening = !show3d
@@ -142,6 +177,12 @@ export function usePoseDetect({ backend, workflow = "", outputSize, onChange }: 
     turn,
     view,
     setView,
+    edits,
+    drawnEdits,
+    movable,
+    addEdit,
+    undoEdit,
+    resetEdits,
     detect,
     loadPicture,
     clear,

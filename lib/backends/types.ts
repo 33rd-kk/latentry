@@ -201,6 +201,8 @@ export interface PoseRequest {
   want_3d?: boolean
   /** Draw the pose seen from here, in degrees, framed on the canvas (see lib/pose.ts for the limits). */
   camera?: { yaw: number; pitch: number; framing?: { zoom: number; x: number; y: number } }
+  /** Joints to move before turning, in order (backends that answer `movable`): `to` in units of the picture's width. */
+  edits?: { person: number; joint: number; to: [number, number, number] }[]
   /** How to draw the skeleton ("openpose", "dwpose"). Set by this server for the backend that follows it, never by the browser. */
   style?: 'openpose' | 'dwpose'
 }
