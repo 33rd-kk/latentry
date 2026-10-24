@@ -43,6 +43,7 @@ nav:
       - Backends: reference/backends.md
       - Backend API: backend-api.md
       - Compatibility: reference/compatibility.md
+      - Support: reference/support.md
       - LIGSP conformance: reference/ligsp.md
       - Troubleshooting: reference/troubleshooting.md
   - Changelog: changelog.md
