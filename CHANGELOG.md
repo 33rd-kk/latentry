@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Contributing**: a new `CONTRIBUTING.md` says how to report a problem,
+  set up a checkout, run the checks and open a pull request. The bug and
+  idea forms on GitHub ask you to leave out paths, names and private
+  pictures, and send security reports to private reporting.
 - **Compatibility**: a new **Compatibility** page in the manual says what
   stays compatible between releases: pictures' records, the settings file,
   the documented environment variables, the backend API (now marked

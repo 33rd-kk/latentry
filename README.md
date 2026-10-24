@@ -231,6 +231,8 @@ than one.
 
 ## Development
 
+To report a problem or send a change, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ```bash
 npm run typecheck
 npm run lint

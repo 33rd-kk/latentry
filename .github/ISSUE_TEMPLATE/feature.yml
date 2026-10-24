@@ -1,0 +1,27 @@
+name: Idea or feature request
+description: Something Latentry could do, or do better.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Latentry keeps everything on your own computer and keeps its defaults closed. Ideas that fit that are the easiest to take on.
+
+        Please leave out folder paths, names, ports and private pictures.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The task or problem, not only the feature. What do you do today instead?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How it could work
+      description: Optional. How you picture it in Latentry, or how another tool does it.
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy
+      description: Optional. Would it send anything off this computer, keep anything new, or show anything to other devices?

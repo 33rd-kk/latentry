@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in Latentry does not work as the manual says.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for reporting this.
+
+        **Before you post, take out what is private to you**: folder paths, user names, host names, ports, tokens, and pictures you would not show anyone. A made-up example works just as well.
+
+        **A security problem?** Please do not post it here. Report it privately, as [SECURITY.md](https://github.com/33rd-kk/latentry/blob/main/SECURITY.md) says.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. On Generate, choose …
+        2. …
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Latentry version
+      description: Shown under the title of the Settings page.
+      placeholder: "0.12.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: backend
+    attributes:
+      label: Backend
+      multiple: true
+      options:
+        - Latentry's engine (SDXL family)
+        - Latentry's engine (Anima)
+        - diffusers-compatible server
+        - AUTOMATIC1111 / Forge / Forge Neo
+        - ComfyUI, built-in graph
+        - ComfyUI, own workflow
+        - Not about a backend
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Operating system, Node.js version, and GPU if it matters.
+      placeholder: "Windows 11, Node.js 24.22.1, RTX 4070"
+  - type: textarea
+    id: log
+    attributes:
+      label: Log or error message
+      description: From the terminal running Latentry or the browser console. Please remove paths, names and tokens first.
+      render: text
