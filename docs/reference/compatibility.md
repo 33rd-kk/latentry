@@ -49,6 +49,10 @@ page, carries a `version` number. It is `1` today.
 - A part that cannot be read is skipped with a warning. The rest of the file
   still applies.
 
+The tests of every release read a picture and a settings file saved by each
+release since 0.5.0, so a change that breaks an old one fails before it
+ships.
+
 ### Environment variables
 
 Every variable on the [Configuration](configuration.md) page, in

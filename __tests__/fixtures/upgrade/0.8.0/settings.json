@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "backends": [
+    {
+      "id": "anima",
+      "kind": "diffusers",
+      "url": "http://127.0.0.1:7865/",
+      "profile": "anima",
+      "token": "fixture-token"
+    },
+    {
+      "id": "comfy",
+      "kind": "comfyui",
+      "url": "http://127.0.0.1:8188/",
+      "profile": "illustrious",
+      "model": "base.safetensors",
+      "controlnet": "pose.safetensors",
+      "workflowsDir": "/fixture/workflows",
+      "shareWorkflows": true
+    }
+  ],
+  "tagger": "builtin",
+  "wd14": {
+    "modelDir": "/fixture/wd14",
+    "general": 0.4,
+    "character": 0.9
+  },
+  "gallery": {
+    "saveDir": "/fixture/out",
+    "dirs": [
+      "/fixture/old"
+    ],
+    "autoTag": true,
+    "loraHashes": true,
+    "labels": {
+      "/fixture/old": "Old"
+    }
+  },
+  "profiles": {
+    "sdxl": {
+      "width": 1152,
+      "height": 896,
+      "steps": 28,
+      "cfg": 6,
+      "negativePrompt": "lowres",
+      "qualityTags": "best",
+      "keepTags": "",
+      "tagStyle": "space"
+    }
+  },
+  "engine": {
+    "autoStart": false,
+    "shareLoras": true,
+    "modelsDir": "/fixture/models",
+    "basePort": 7900,
+    "gpus": [
+      0
+    ],
+    "model": "mine.safetensors"
+  }
+}
