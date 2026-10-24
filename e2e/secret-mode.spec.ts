@@ -43,3 +43,47 @@ test('turned secret after it ran, a run does not come back', async ({ page }) =>
   await reload(page)
   await expect(result(page)).toHaveCount(0)
 })
+
+/** Every value the page keeps in localStorage, joined, to look for typed text in. */
+const stored = (page: Page) => page.evaluate(() => Object.values(localStorage).join('\n'))
+
+// guide/secret-mode.md: nothing typed is kept in the browser, and a page that
+// has been in secret mode remembers nothing of its runs when you go to the
+// gallery and back, even once secret mode is off again: it may hold secret
+// runs, which belong to that page only.
+test('in secret mode, typing is not kept and the runs are not remembered', async ({ page }) => {
+  await generateOnce(page, 'secret spec first run')
+  // The second on the same page, so the first moves below into Earlier.
+  await page.locator('#prompt').fill('secret spec second run')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const earlier = page.getByRole('region', { name: 'Earlier' })
+  await expect(earlier).toContainText('secret spec first run')
+  // Without secret mode, a typed prompt is kept for next time.
+  await page.locator('#prompt').fill('secret spec kept text')
+  await expect.poll(() => stored(page)).toContain('secret spec kept text')
+
+  const toggle = page.getByRole('button', { name: 'Secret mode' }).first()
+  await toggle.click()
+  await page.locator('#prompt').fill('secret spec typed in secret')
+  // Give a save the time it would take, then look.
+  await page.waitForTimeout(1000)
+  expect(await stored(page)).not.toContain('secret spec typed in secret')
+
+  // Runs made now, then secret mode off, then away and back within the app
+  // (not a reload): the page comes back without them.
+  await page.locator('#prompt').fill('secret spec run in secret')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  // Both ordinary runs are below it now (their prompts hidden in secret mode).
+  await expect(earlier.locator(':scope > div')).toHaveCount(2)
+  // One more, so the secret run moves below too.
+  await page.locator('#prompt').fill('secret spec second secret run')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  await expect(earlier.locator(':scope > div')).toHaveCount(3)
+  await toggle.click()
+  await page.getByRole('link', { name: 'Gallery' }).first().click()
+  await expect(page).toHaveURL(/\/gallery/)
+  await page.getByRole('link', { name: 'Generate' }).first().click()
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  await expect(earlier).toHaveCount(0)
+  expect(await stored(page)).not.toContain('secret spec run in secret')
+})

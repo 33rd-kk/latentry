@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Fixed**: after secret mode was turned off, going to the gallery and back
+  could bring back pictures of runs made in secret mode under **Earlier**.
+  A page that has been in secret mode now keeps none of its runs for that
+  trip, even after secret mode is turned off; a reload starts it afresh.
+
 - **Move a joint in the 3D pose view**: drag the head, a shoulder, elbow,
   wrist, knee, ankle or a foot to change the detected pose. What hangs from
   the joint moves with it and no bone changes length, so a raised elbow

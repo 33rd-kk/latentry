@@ -79,7 +79,10 @@ server, so a reload, another tab or another device picks it up. In secret
 mode it is shown only on the page that started it. If that page is
 reloaded, the run carries on and its pictures are still saved, but the page
 does not pick it up again. The server forgets the run, images and prompt,
-a minute after it ends.
+a minute after it ends. Going to the gallery and back does not bring back
+the page's **Earlier** runs or its queue either: once a page has been in
+secret mode, the tab keeps none of its runs, even after secret mode is
+turned off. A reload starts the page afresh.
 
 **Runs waiting in the queue stay with their page.** The page that queued a
 run is the only one told which it is, in secret mode or not, and in secret
