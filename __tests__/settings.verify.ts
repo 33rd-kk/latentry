@@ -15,7 +15,7 @@ import { folderNamesKey } from '../lib/gallery/folder-names'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
 import { EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
-import { checkDir } from '../lib/settings/store'
+import { checkDir, getSettings, NewerSettingsError, saveSettings } from '../lib/settings/store'
 
 const ABS = process.platform === 'win32' ? 'C:\\pictures' : '/pictures'
 
@@ -180,6 +180,26 @@ async function main() {
     ;(globalThis as { __folderNamesKey?: unknown }).__folderNamesKey = undefined
     check(folderNamesKey(keyEnv).equals(first), 'and read back the same afterwards, so names stay put')
     check(!(await readdir(root)).includes('latentry.pairing-key'), 'it does not need, or make, the pairing key')
+
+    // A settings file from a newer Latentry: read as best it can, never written over.
+    const previous = process.env.LATENTRY_SETTINGS_FILE
+    const settingsFile = path.join(root, 'newer.settings.json')
+    process.env.LATENTRY_SETTINGS_FILE = settingsFile
+    try {
+      const newer = JSON.stringify({ version: 2, tagger: 'builtin', later: { part: true } })
+      await writeFile(settingsFile, newer)
+      eq(getSettings().tagger, 'builtin', 'a newer settings file is read for the parts this release knows')
+      let refused: unknown = null
+      await saveSettings({ ...EMPTY_SETTINGS, tagger: null }).catch((error) => (refused = error))
+      check(refused instanceof NewerSettingsError && refused.version === 2, 'saving over it is refused')
+      eq(await readFile(settingsFile, 'utf8'), newer, 'and the file is left as it was')
+      await writeFile(settingsFile, JSON.stringify({ version: 1, tagger: 'builtin' }))
+      await saveSettings({ ...EMPTY_SETTINGS, tagger: null })
+      eq(JSON.parse(await readFile(settingsFile, 'utf8')), { version: 1, tagger: null }, 'a file of this version is saved as usual')
+    } finally {
+      if (previous === undefined) delete process.env.LATENTRY_SETTINGS_FILE
+      else process.env.LATENTRY_SETTINGS_FILE = previous
+    }
   } finally {
     await rm(root, { recursive: true, force: true })
   }

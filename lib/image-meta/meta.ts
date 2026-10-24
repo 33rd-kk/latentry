@@ -588,14 +588,19 @@ function isTagList(value: unknown): value is ImageTag[] {
   )
 }
 
+/**
+ * Reads the `latentry` record. A later schema is read too, field by field, so
+ * a picture from a newer Latentry still shows what this one understands
+ * (docs/reference/compatibility.md).
+ */
 export function parseLatentryRecord(text: string): ImageMeta | null {
-  let record: Partial<LatentryRecord>
+  let record: Partial<Omit<LatentryRecord, 'schema'>> & { schema?: unknown }
   try {
     record = JSON.parse(text)
   } catch {
     return null
   }
-  if (!record || record.schema !== 1 || typeof record.prompt !== 'string') return null
+  if (!record || !Number.isInteger(record.schema) || (record.schema as number) < 1 || typeof record.prompt !== 'string') return null
   const num = (value: unknown) => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
   const str = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
   return {
@@ -650,7 +655,7 @@ function recordHires(value: unknown): { hires: HiresUse } | null {
  * A record's LoRAs. Records from before `loras` was written fall back to the
  * prompt only when A1111 drew them, as no other backend applied the calls.
  */
-function recordLoras(record: Partial<LatentryRecord>): string[] | undefined {
+function recordLoras(record: Partial<Omit<LatentryRecord, 'schema'>>): string[] | undefined {
   if (Array.isArray(record.loras)) {
     return uniqueLoras(record.loras.flatMap((lora) => (typeof lora?.name === 'string' ? [loraName(lora.name)] : [])))
   }

@@ -1,7 +1,7 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { engineFetch, engines } from '@/lib/engine/supervisor'
 import { editRefusal } from '@/lib/settings/access'
-import { getSettings, saveSettings } from '@/lib/settings/store'
+import { getSettings, NewerSettingsError, saveSettings } from '@/lib/settings/store'
 
 export const runtime = 'nodejs'
 
@@ -28,6 +28,12 @@ export async function POST(request: Request) {
   if (failed) return jsonError(String(failed.error), 422, { results })
 
   const settings = getSettings()
-  await saveSettings({ ...settings, engine: { ...settings.engine, model: id } })
+  try {
+    await saveSettings({ ...settings, engine: { ...settings.engine, model: id } })
+  } catch (error) {
+    // The model is loading either way; only remembering it for the next start is skipped.
+    if (!(error instanceof NewerSettingsError)) throw error
+    console.warn(`[settings] not remembering the engine model: ${error.message}`)
+  }
   return json({ status: 'loading', results }, { status: 202 })
 }

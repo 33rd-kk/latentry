@@ -11,7 +11,7 @@ import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
-import { EMPTY_SETTINGS, parseStoredSettings, type Settings } from './schema'
+import { EMPTY_SETTINGS, parseStoredSettings, SETTINGS_VERSION, type Settings } from './schema'
 
 export function settingsPath(env: Record<string, string | undefined> = process.env): string {
   // A runtime path, not a source file: tell Turbopack not to trace it.
@@ -55,8 +55,32 @@ export function getSettings(): Settings {
   }
 }
 
+/**
+ * Thrown by saveSettings when the file was written by a newer Latentry. This
+ * release reads such a file as best it can, but writing it back would drop
+ * every part it does not know, so it leaves the file alone.
+ */
+export class NewerSettingsError extends Error {
+  constructor(readonly version: number) {
+    super(`The settings file is version ${version}; this Latentry writes version ${SETTINGS_VERSION}`)
+    this.name = 'NewerSettingsError'
+  }
+}
+
+/** The `version` in the settings file, or null when there is no readable one. */
+function storedVersion(file: string): number | null {
+  try {
+    const version = JSON.parse(readFileSync(/*turbopackIgnore: true*/ file, 'utf8'))?.version
+    return typeof version === 'number' && Number.isFinite(version) ? version : null
+  } catch {
+    return null
+  }
+}
+
 export async function saveSettings(settings: Settings): Promise<void> {
   const file = settingsPath()
+  const version = storedVersion(file)
+  if (version !== null && version > SETTINGS_VERSION) throw new NewerSettingsError(version)
   await mkdir(path.dirname(file), { recursive: true })
   const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`
   try {

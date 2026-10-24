@@ -1,7 +1,8 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { editRefusal } from '@/lib/settings/access'
 import { validateSettings, type SettingsErrors, type SettingsInput } from '@/lib/settings/schema'
-import { checkDir, getSettings, saveSettings } from '@/lib/settings/store'
+import { serverMessage } from '@/lib/i18n/core'
+import { checkDir, getSettings, NewerSettingsError, saveSettings } from '@/lib/settings/store'
 import { settingsView } from '@/lib/settings/view'
 import { hasModel } from '@/lib/tagger/wd14'
 
@@ -69,6 +70,9 @@ export async function PUT(request: Request) {
   try {
     await saveSettings(checked.settings)
   } catch (error) {
+    if (error instanceof NewerSettingsError) {
+      return jsonError(serverMessage('settings.newerFile', { version: error.version }), 409)
+    }
     console.error('Saving settings failed:', error)
     return jsonError('Could not write the settings file', 500)
   }
