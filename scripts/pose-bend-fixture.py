@@ -56,7 +56,7 @@ def main() -> None:
             "expected": [p.tolist() for p in apply_edits(base, edits)],
         })
     out = Path(__file__).resolve().parent.parent / "__tests__" / "fixtures" / "pose-bend.json"
-    out.write_text(json.dumps(fixture) + "\n", encoding="utf-8")
+    out.write_bytes((json.dumps(fixture) + "\n").encode("utf-8"))
     print(f"Wrote {len(fixture['cases'])} cases to {out.name}")
 
 
