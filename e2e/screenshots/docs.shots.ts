@@ -202,7 +202,7 @@ take('manual-pairing')('pairing card', async ({ page }) => {
 })
 
 take('manual-pair-phone')('pairing page on a phone', async ({ browser }) => {
-  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: 'light' })
+  const context = await browser.newContext({ viewport: { width: 390, height: 760 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, colorScheme: 'light', locale: 'en-US' })
   const page = await context.newPage()
   await generic(page)
   await page.goto('/pair')

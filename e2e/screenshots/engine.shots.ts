@@ -91,7 +91,7 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
   await usePose.click()
   await expect(page).toHaveURL(/\/$/)
   // The form opens on the backend chosen last; the skeleton needs the engine.
-  const picker = page.getByRole('combobox').first()
+  const picker = page.getByRole('main').getByRole('combobox').first()
   if (!(await picker.textContent())?.includes('engine')) {
     await picker.click()
     await page.getByRole('option').filter({ has: page.getByText('engine', { exact: true }) }).click()

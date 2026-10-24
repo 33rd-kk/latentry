@@ -11,8 +11,8 @@ import { SLOW, UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
 async function openOnPose(page: Page, button = 'Generate') {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
-  // The backend select is the first one on the page.
-  await page.getByRole('combobox').first().click()
+  // The backend select is the first one in the page's main area (the header has the language menu).
+  await page.getByRole('main').getByRole('combobox').first().click()
   await page.getByRole('option').filter({ has: page.getByText('pose', { exact: true }) }).click()
   await expect(page.getByRole('button', { name: button, exact: true })).toBeEnabled()
 }

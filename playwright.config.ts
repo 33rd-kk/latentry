@@ -29,6 +29,8 @@ export default defineConfig({
   reporter: ci ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]] : 'list',
   use: {
     baseURL: `http://127.0.0.1:${port}`,
+    // The tests and the guide's screenshots read English, whatever this computer's language.
+    locale: 'en-US',
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

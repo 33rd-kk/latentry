@@ -46,6 +46,14 @@ Notes:
 - Generated catalogs can be edited by hand. A hand edit is kept until the
   English text of that key changes.
 
-`pseudo.mjs` is a working example that needs no service: it produces
-pseudo-localized text (`[Ĝéñéŕàţé ···]`) for checking layouts and for spotting
-strings that are not translated.
+Two providers come with Latentry, and neither sends anything off this
+computer:
+
+- `file.mjs` reads translations written beforehand, by hand or with a tool
+  that runs offline, from a JSON file shaped like `locales/en.json`:
+  `I18N_FILE=ja.json TRANSLATOR=file npm run i18n:translate -- ja --all`.
+  Placeholders and markup are written as in English. A key the file lacks,
+  or whose placeholders do not match, stays in English and is listed. The
+  Japanese catalog was made this way.
+- `pseudo.mjs` produces pseudo-localized text (`[Ĝéñéŕàţé ···]`) for
+  checking layouts and for spotting strings that are not translated.
