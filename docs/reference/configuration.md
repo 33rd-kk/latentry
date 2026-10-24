@@ -36,6 +36,10 @@ The engine also reads `LATENTRY_DEVICE`, `LATENTRY_DTYPE`, `LATENTRY_OFFLOAD`,
 how many LoRAs stay in the loaded model between runs, switched off, so
 calling one again is quick (default 4; `0` takes each out after its run).
 
+The variables on this page, and the ones in `.env.example` and the guide,
+keep their names and meaning between releases; see
+[Compatibility](compatibility.md#environment-variables).
+
 ## `.env.example`
 
 Every variable, with its explanation:

@@ -611,6 +611,7 @@
     "save": "Save",
     "saved": "Settings saved",
     "saveFailed": "Could not save the settings",
+    "newerFile": "The settings file was written by a newer Latentry (settings version {version}). This version leaves it unchanged so nothing in it is lost. Update Latentry to change settings.",
     "invalid": "Some values need fixing",
     "errorList": "Expected a list.",
     "errorBackendId": "1-32 characters: a-z, 0-9, \"-\" and \"_\".",

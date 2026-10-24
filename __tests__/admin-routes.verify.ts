@@ -262,6 +262,15 @@ async function main(): Promise<void> {
     eq((await open('1', 'kept.png', { action: 'open' })).status, 404, 'and it applies at once: the read-only folder is gone')
     eq((await put({ gallery: { saveDir, dirs: [readOnlyDir] } })).status, 200, 'the folders are put back')
 
+    // A settings file from a newer Latentry is not saved over.
+    const current = readFileSync(settingsFile, 'utf8')
+    const newer = JSON.stringify({ ...JSON.parse(current), version: 2, later: true })
+    writeFileSync(settingsFile, newer)
+    const [newerStatus, newerBody] = await read(await put({ tagger: null }))
+    eq([newerStatus, newerBody.error], [409, 'i18n:settings.newerFile|{"version":2}'], 'a save over a newer settings file is refused, with a message the page translates')
+    eq(readFileSync(settingsFile, 'utf8'), newer, 'and the file is left as it was')
+    writeFileSync(settingsFile, current)
+
     // ── The engine, while none runs ──
     const phone = { method: 'GET', from: PHONE }
     eq((await read(await engineRoute(request('/api/engine', phone))))[1], { editable: false, reason: 'notLocal' }, 'a phone is not shown the engine')

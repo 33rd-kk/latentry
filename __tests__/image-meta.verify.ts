@@ -217,6 +217,14 @@ async function main() {
   eq(record({ kind: 'diffusers' }), undefined, "Latentry's record, older: a prompt call alone is not a LoRA used")
   eq(record({ kind: 'a1111' }), ['mine'], "Latentry's record, older, from A1111: it applied the prompt's calls")
 
+  // A record from a newer Latentry: what this one knows is still read.
+  const newer = parseLatentryRecord(JSON.stringify({ ...base, schema: 2, seed: 7, future: { anything: true } }))
+  eq([newer?.source, newer?.prompt, newer?.seed, newer?.sampler], ['latentry', base.prompt, 7, 'Euler'], 'a later schema is read field by field')
+  for (const schema of [0, 1.5, '1', null]) {
+    eq(parseLatentryRecord(JSON.stringify({ ...base, schema })), null, `schema ${JSON.stringify(schema)} is not a Latentry record`)
+  }
+  eq(parseLatentryRecord(JSON.stringify({ prompt: 'x' })), null, 'nor is one without a schema')
+
   await comfyGraphs()
 
   done('image-meta')

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Compatibility**: a new **Compatibility** page in the manual says what stays compatible between releases: pictures' records, the
+  settings file, the documented environment variables, the backend API (now
+  marked version 1) and page addresses. It also says how a change is
+  announced first.
+- **Changed**: a picture saved by a newer Latentry, with a higher record
+  `schema`, is now read for the fields this release knows. Before, its
+  settings were not read at all. A settings file from a newer Latentry is
+  read the same way, and is no longer saved over, since that would drop
+  what this release does not know. The Settings page says so instead.
 - **Fixed**: between one queued run ending and the next starting, the
   button briefly read **Generate** although a click would still add to the
   queue. It now reads **Add to queue** until the queue is empty.

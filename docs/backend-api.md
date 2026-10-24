@@ -13,6 +13,11 @@ Three kinds are supported:
 
 Images are base64-encoded PNG / JPEG / WebP, bare or as a `data:` URL.
 
+This is **version 1** of the backend API. A server that works with one 1.x
+release of Latentry keeps working with later 1.x releases. Anything new that
+Latentry asks of a server is optional, and the changelog names it. See
+[Compatibility](reference/compatibility.md#the-backend-api).
+
 ---
 
 ## The diffusers-compatible API

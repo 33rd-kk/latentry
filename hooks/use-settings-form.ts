@@ -76,7 +76,7 @@ export function useSettingsForm(): SettingsForm {
           toast.error(t("settings.invalid"))
           return
         }
-        if (!response.ok) throw new Error(data?.error ?? String(response.status))
+        if (!response.ok) throw new Error(data?.error ? t.server(data.error) : String(response.status))
         setView(data)
         setDraft(toDraft(data))
         setDirty(new Set())
