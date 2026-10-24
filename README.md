@@ -53,8 +53,8 @@ made, then sends those settings back to the form to make it again.
   form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
   sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
   it any time.
-- Light and dark. The UI is in English and can be machine translated into
-  other languages (see [Translations](#translations)).
+- Light and dark. The UI is in English and Japanese, and other languages
+  can be added (see [Translations](#translations)).
 
 ### Screenshots
 
@@ -215,14 +215,18 @@ back to `.env.local`.
 
 ## Translations
 
-English (`locales/en.json`) is the only catalog in the repository and the
-source for every other one. To add a language, connect a machine translation
-service or an LLM as a provider in `scripts/translators/` (a few lines; see
-[its README](scripts/translators/README.md)) and run:
+The UI is in English and Japanese. English (`locales/en.json`) is the
+source for every other catalog. The Japanese one (`locales/ja.json`) was
+written directly, without sending the strings to a translation service. To add a
+language, write its translations into a file and read them in with the
+`file` provider, or connect a machine translation service or an LLM as a
+provider in `scripts/translators/` (a few lines; see
+[its README](scripts/translators/README.md)). A service gets every English
+UI string, so prefer one that runs on your own computer:
 
 ```bash
-TRANSLATOR=<provider> npm run i18n:translate -- de    # writes locales/de.json
-npm run i18n:check                                     # missing / stale / broken keys
+I18N_FILE=de.json TRANSLATOR=file npm run i18n:translate -- de --all   # writes locales/de.json
+npm run i18n:check                                                      # missing / stale / broken keys
 ```
 
 Placeholders such as `{count}` are protected from the translator, only new or

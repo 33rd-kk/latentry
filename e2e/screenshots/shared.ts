@@ -115,7 +115,7 @@ export async function openGenerate(page: Page, backend: string) {
   await page.goto('/')
   const generate = page.getByRole('button', { name: 'Generate', exact: true })
   await expect(generate).toBeEnabled({ timeout: 60_000 })
-  const picker = page.getByRole('combobox').first()
+  const picker = page.getByRole('main').getByRole('combobox').first()
   if (!(await picker.textContent())?.includes(backend)) {
     await picker.click()
     await page.getByRole('option').filter({ has: page.getByText(backend, { exact: true }) }).click()

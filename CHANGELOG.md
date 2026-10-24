@@ -6,6 +6,11 @@
   on Setup stayed off with nothing saying why. The Models card now says
   that models are downloaded by the engine, so it has to be installed and
   started first.
+- **Japanese**: the UI is now in Japanese too. A browser set to Japanese
+  gets it on its first visit, and the language menu in the header switches
+  between Japanese and English. The manual stays in English. The
+  translation was written without sending the UI's text to a translation
+  service, and a new `file` translation provider lets others do the same.
 
 - **Support**: a new **Support** page in the manual says which systems,
   Node.js versions, GPUs and browsers are supported, and which are
