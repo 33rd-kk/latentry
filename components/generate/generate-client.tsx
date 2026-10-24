@@ -575,7 +575,7 @@ export function GenerateClient() {
                     <Grid3x3 className="mr-2 h-4 w-4" />
                     {t("generate.grid.queue", { cells: gridParsed.value.x.values.length * (gridParsed.value.y?.values.length ?? 1) })}
                   </>
-                ) : isGenerating || grids.activeIds.length > 0 ? (
+                ) : isGenerating || queue.items.length > 0 || grids.activeIds.length > 0 ? (
                   <>
                     <ListPlus className="mr-2 h-4 w-4" />
                     {t("generate.queue.add")}

@@ -181,6 +181,8 @@ async function main(): Promise<void> {
 
   const scratch = mkdtempSync(path.join(tmpdir(), 'latentry-grid-'))
   const out = path.join(scratch, 'out')
+  // Saved pictures only: a save writes a hidden .tmp file first and renames it.
+  const pictures = () => readdirSync(out).filter((name) => name.endsWith('.png') && !name.startsWith('.')).sort()
   const mock = await startMockA1111()
   writeFileSync(
     path.join(scratch, 'settings.json'),
@@ -237,8 +239,8 @@ async function main(): Promise<void> {
     eq(queueLength('mock'), 0, 'the queue is empty')
 
     // ── Each cell's pictures say where they sit ──
-    await until(() => readdirSync(out).length === 7, 'the pictures to be saved')
-    const files = readdirSync(out).sort()
+    await until(() => pictures().length === 7, 'the pictures to be saved')
+    const files = pictures()
     const records = files.map((name) => parseLatentryRecord(readPngText(readFileSync(path.join(out, name)))[LATENTRY_KEY]!)!)
     const cellRecords = records.filter((record) => record.grid)
     eq(cellRecords.length, 6, 'each of the six cells\' pictures records the grid')
@@ -267,7 +269,7 @@ async function main(): Promise<void> {
     const image = cellJob.images[0]
     const raced = await Promise.all([0, 1, 2].map(() => saveToGallery(cellJob, { ...image }, 0)))
     eq(new Set(raced).size, 3, 'pictures saved at once with the same seed and index each get a file of their own')
-    eq(readdirSync(out).length, 11, 'none overwrites another')
+    eq(pictures().length, 11, 'none overwrites another')
 
     // ── Stopped as a whole ──
     mock.hold()
