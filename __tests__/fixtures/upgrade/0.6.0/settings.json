@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "backends": [
+    {
+      "id": "anima",
+      "kind": "diffusers",
+      "url": "http://127.0.0.1:7865/",
+      "profile": "anima",
+      "token": "fixture-token"
+    },
+    {
+      "id": "forge",
+      "kind": "a1111",
+      "url": "http://127.0.0.1:7860/",
+      "profile": "illustrious"
+    }
+  ],
+  "tagger": "builtin",
+  "wd14": {
+    "modelDir": "/fixture/wd14",
+    "general": 0.4,
+    "character": 0.9
+  },
+  "gallery": {
+    "saveDir": "/fixture/out",
+    "dirs": [
+      "/fixture/old"
+    ],
+    "autoTag": true,
+    "loraHashes": true
+  },
+  "profiles": {
+    "sdxl": {
+      "width": 1152,
+      "height": 896,
+      "steps": 28,
+      "cfg": 6,
+      "negativePrompt": "lowres",
+      "qualityTags": "best",
+      "keepTags": "",
+      "tagStyle": "space"
+    }
+  },
+  "engine": {
+    "autoStart": false,
+    "modelsDir": "/fixture/models",
+    "basePort": 7900,
+    "gpus": [
+      0
+    ],
+    "model": "mine.safetensors"
+  }
+}

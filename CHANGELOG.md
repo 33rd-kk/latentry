@@ -2,10 +2,13 @@
 
 ## Unreleased
 
-- **Compatibility**: a new **Compatibility** page in the manual says what stays compatible between releases: pictures' records, the
-  settings file, the documented environment variables, the backend API (now
-  marked version 1) and page addresses. It also says how a change is
-  announced first.
+- **Compatibility**: a new **Compatibility** page in the manual says what
+  stays compatible between releases: pictures' records, the settings file,
+  the documented environment variables, the backend API (now marked
+  version 1) and page addresses. It also says how a change is announced
+  first. The tests now read a settings file and a picture saved by each
+  release since 0.5.0, so a change that breaks an old one fails before it
+  ships.
 - **Changed**: a picture saved by a newer Latentry, with a higher record
   `schema`, is now read for the fields this release knows. Before, its
   settings were not read at all. A settings file from a newer Latentry is
