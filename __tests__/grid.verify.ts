@@ -303,7 +303,8 @@ async function main(): Promise<void> {
     eq(unknown.events.at(-1)?.data.status, 'gone', 'an unknown id is gone')
   } finally {
     await mock.close()
-    rmSync(scratch, { recursive: true, force: true })
+    // A save of the last run can still be finishing in out/: retry rather than fail on ENOTEMPTY.
+    rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }
 }
 
