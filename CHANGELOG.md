@@ -5,9 +5,10 @@
 - **Move a joint in the 3D pose view**: drag the head, a shoulder, elbow,
   wrist, knee, ankle or a foot to change the detected pose. What hangs from
   the joint moves with it and no bone changes length, so a raised elbow
-  takes the forearm and hand along. **Undo** and **Reset joints** take moves
-  back, and **Use this pose** (before: **Use this angle**) draws the
-  skeleton with them and the angle. The moves are kept in the page only.
+  takes the forearm and hand along. **Undo** takes back the last move, of a
+  joint or of the camera, in the order they were made; **Reset joints** puts
+  the joints back. **Use this pose** (before: **Use this angle**) draws the
+  skeleton with the moved joints and the angle. The moves are kept in the page only.
   Latentry's engine now needs poseorbit 0.3 (run **Repair / update** on
   Setup once); for other backends, `/api/pose` takes `edits` and answers
   `movable` (see the backend API).

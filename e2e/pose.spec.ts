@@ -194,5 +194,47 @@ test('on a backend that does not move joints, the 3D view says so', async ({ pag
   await choosePicture(page)
   await poseAfter(page, () => page.getByRole('button', { name: '3D', exact: true }).click())
   await expect(page.getByText(/^Joints cannot be moved here/)).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Undo' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Reset joints' })).toHaveCount(0)
+})
+
+test('Undo takes back camera moves and joint moves in the order they were made', async ({ page }) => {
+  await openPoseBackend(page)
+  const output = asked(await choosePicture(page)) as { width: number; height: number }
+  await poseAfter(page, () => page.getByRole('button', { name: '3D', exact: true }).click())
+  const view = page.locator('canvas:visible').last()
+  await view.scrollIntoViewIfNeeded()
+  const box = (await view.boundingBox())!
+  const undo = page.getByRole('button', { name: 'Undo' })
+  await expect(undo).toBeDisabled()
+
+  // Turn the camera, away from the figure.
+  await page.mouse.move(box.x + 10, box.y + 10)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 50, box.y + 10, { steps: 8 })
+  await page.mouse.up()
+  const turned = (await page.getByText(/^Yaw /).textContent())!
+  expect(turned).not.toBe('Yaw 0°, pitch 0°, zoom ×1.0')
+  const yaw = (Number(/Yaw (-?\d+)/.exec(turned)![1]) * Math.PI) / 180
+
+  // Then move the wrist, where the turn put it (all the mock's points are at depth 0).
+  const scale = Math.min(output.width, output.height / 1.5)
+  const x = 0.5 + 0.11 * Math.cos(yaw)
+  const wrist = {
+    x: box.x + (((output.width - scale) / 2 + x * scale) / output.width) * box.width,
+    y: box.y + (((output.height - scale * 1.5) / 2 + 0.68 * scale) / output.height) * box.height,
+  }
+  await page.mouse.move(wrist.x, wrist.y)
+  await page.mouse.down()
+  await page.mouse.move(wrist.x + 20, wrist.y - 40, { steps: 6 })
+  await page.mouse.up()
+  await expect(page.getByText('Joints moved: 1')).toBeVisible()
+  await expect(page.getByText(turned)).toBeVisible()
+
+  // Undo: the wrist first, then the turn.
+  await undo.click()
+  await expect(page.getByText('Joints moved: 1')).toHaveCount(0)
+  await expect(page.getByText(turned)).toBeVisible()
+  await undo.click()
+  await expect(page.getByText('Yaw 0°, pitch 0°, zoom ×1.0')).toBeVisible()
+  await expect(undo).toBeDisabled()
 })

@@ -40,7 +40,9 @@ interface Pose3dPanelProps {
   /** The joints the backend may move; empty, and joints don't move. */
   movable: ReadonlySet<number>
   onEdit: (edit: PoseEdit) => void
-  onUndoEdit: () => void
+  /** Takes back the last move, of a joint or of the camera. */
+  canUndo: boolean
+  onUndo: () => void
   onResetEdits: () => void
   /** Asks the backend to draw the skeleton from `camera`, with the edits. */
   onDraw: (camera: ViewCamera) => void
@@ -67,7 +69,8 @@ export function Pose3dPanel({
   drawnEdits,
   movable,
   onEdit,
-  onUndoEdit,
+  canUndo,
+  onUndo,
   onResetEdits,
   onDraw,
   loading,
@@ -115,31 +118,22 @@ export function Pose3dPanel({
           {loading ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Rotate3d className="mr-1 h-3 w-3" />}
           {t("generate.pose3dUse")}
         </Button>
+        <Button type="button" size="sm" variant="ghost" className="h-6 px-1.5 text-xs" onClick={onUndo} disabled={disabled || loading || !canUndo}>
+          <Undo2 className="mr-1 h-3 w-3" />
+          {t("generate.pose3dUndo")}
+        </Button>
         {movable.size > 0 && (
-          <>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1.5 text-xs"
-              onClick={onUndoEdit}
-              disabled={disabled || loading || !edits.length}
-            >
-              <Undo2 className="mr-1 h-3 w-3" />
-              {t("generate.pose3dUndo")}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              className="h-6 px-1.5 text-xs"
-              onClick={onResetEdits}
-              disabled={disabled || loading || !edits.length}
-            >
-              <RotateCcw className="mr-1 h-3 w-3" />
-              {t("generate.pose3dReset")}
-            </Button>
-          </>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            className="h-6 px-1.5 text-xs"
+            onClick={onResetEdits}
+            disabled={disabled || loading || !edits.length}
+          >
+            <RotateCcw className="mr-1 h-3 w-3" />
+            {t("generate.pose3dReset")}
+          </Button>
         )}
         <Button
           type="button"
