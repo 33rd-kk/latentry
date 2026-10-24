@@ -9,6 +9,10 @@
   first. The tests now read a settings file and a picture saved by each
   release since 0.5.0, so a change that breaks an old one fails before it
   ships.
+- **Docs**: the **Backends** page has a table of what each backend can do:
+  the engine with SDXL or Anima, a `diffusers` server, A1111 / Forge, and
+  ComfyUI with the built-in graph or your own workflow. Anima's limits (no
+  inpainting or Extend, no hires fix together with a pose) are in it.
 - **Changed**: a picture saved by a newer Latentry, with a higher record
   `schema`, is now read for the fields this release knows. Before, its
   settings were not read at all. A settings file from a newer Latentry is

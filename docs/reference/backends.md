@@ -1,14 +1,51 @@
 # Backends
 
-| Kind | What | Can do |
-|---|---|---|
-| Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU | SDXL family: txt2img, img2img, inpainting, pose. Anima: txt2img, img2img, pose (v1.0). 3D pose turning |
-| `diffusers` | Any server speaking the [backend API](../backend-api.md) | img2img, inpainting and pose if the server offers them; precise cancel |
-| `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpainting. No pose control |
-| `comfyui` | A ComfyUI server | txt2img, img2img and inpainting with LoRAs, from a graph Latentry builds. Pose with a ControlNet, the skeleton drawn by Latentry's engine; precise cancel |
+| Kind | What |
+|---|---|
+| Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU |
+| `diffusers` | Any server speaking the [backend API](../backend-api.md) |
+| `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` |
+| `comfyui` | A ComfyUI server, with a graph Latentry builds or [your own workflows](#your-own-workflows) |
 
 Use the built-in engine, servers you already run, or both: different
 backends run in parallel, one run each.
+
+## What each backend can do
+
+When a backend cannot do something, the Generate page says why next to the
+control, rather than only hiding it.
+
+| | Engine, SDXL family | Engine, Anima | `diffusers` server | `a1111` | `comfyui`, built-in graph | `comfyui`, your workflow |
+|---|---|---|---|---|---|---|
+| Text to picture | Yes | Yes | Yes | Yes | Yes | Yes |
+| From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No |
+| Inpaint and **Extend** | Yes | No | Unless it says no¹ | Yes | Yes | No |
+| Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² |
+| Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes |
+| Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph |
+| LoRAs | Yes | Yes | If it says so¹ | Yes | Yes | With a checkpoint loader³ |
+| Tagging by the backend⁴ | No | No | Unless it says no¹ | With its WD14 tagger extension | No | No |
+| **Cancel** | Stops that run | Stops that run | Stops that run | At the web UI's next step; the unfinished picture is saved | Stops that picture, skips the rest | Stops that picture, skips the rest |
+| Choosing the model | [Setup](../guide/engine.md) | [Setup](../guide/engine.md) | On the server | In the web UI | **Model** on Settings | The workflow's own, or **Model** on Settings³ |
+
+1. A `diffusers` server announces these in
+   [`GET /api/health`](../backend-api.md#get-apihealth). img2img, inpainting
+   and tagging are on unless it says `false`. Pose, hires fix, upscaling and
+   LoRAs need an explicit `true`.
+2. Latentry's engine draws the skeleton on this computer, so the reference
+   picture never reaches ComfyUI. See [Pose](#pose) and
+   [Pose in a workflow](#pose-in-a-workflow).
+3. A workflow that loads its model with a UNET loader (Flux, Anima and the
+   like) always keeps its own model, and refuses LoRA calls.
+4. Latentry's own WD14 tagger works whatever the backend; see
+   [Tags](../guide/gallery.md#tags).
+
+Latentry does these itself, so they work with every backend:
+[the queue](../guide/generate.md#the-queue), the
+[X/Y grid](../guide/generate.md#xy-grid), wildcards, the gallery and
+[secret mode](../guide/secret-mode.md). For secret mode, what the backend
+itself keeps differs from one kind to another; see
+[What it does not do](../guide/secret-mode.md#what-it-does-not-do).
 
 ## Adding a backend
 
