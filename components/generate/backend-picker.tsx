@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import Link from "next/link"
 import { Box, Loader2, Server, SlidersHorizontal } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
@@ -51,18 +52,19 @@ function StatusDot({ backend }: { backend: BackendStatus }) {
  */
 export function BackendPicker({ backends, selected, onSelect, profile, onProfileChange, disabled, engineModels }: BackendPickerProps) {
   const t = useT()
+  const id = useId()
   const stateLabel = !selected.alive ? t("generate.stateOffline") : selected.busy ? t("generate.stateBusy") : t("generate.stateReady")
 
   return (
     <div className="space-y-2">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <div className="space-y-1">
-          <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Label htmlFor={`${id}-backend`} className="flex items-center gap-1 text-xs text-muted-foreground">
             <Server className="h-3 w-3" />
             {t("generate.backend")}
           </Label>
           <Select value={selected.id} onValueChange={onSelect} disabled={disabled || backends.length < 2}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`${id}-backend`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -79,12 +81,12 @@ export function BackendPicker({ backends, selected, onSelect, profile, onProfile
           </Select>
         </div>
         <div className="space-y-1">
-          <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+          <Label htmlFor={`${id}-profile`} className="flex items-center gap-1 text-xs text-muted-foreground">
             <SlidersHorizontal className="h-3 w-3" />
             {t("generate.profile")}
           </Label>
           <Select value={profile} onValueChange={(value) => onProfileChange(value as ProfileId)} disabled={disabled}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`${id}-profile`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,11 +125,12 @@ function EngineModelSelect({
   disabled,
 }: NonNullable<BackendPickerProps["engineModels"]> & { disabled?: boolean }) {
   const t = useT()
+  const id = useId()
   const value = loading ?? current ?? ""
 
   return (
     <div className="space-y-1">
-      <Label className="flex items-center gap-1 text-xs text-muted-foreground">
+      <Label htmlFor={id} className="flex items-center gap-1 text-xs text-muted-foreground">
         <Box className="h-3 w-3" />
         {t("generate.model")}
         {loading && (
@@ -145,7 +148,7 @@ function EngineModelSelect({
         }}
         disabled={disabled || Boolean(loading) || models.length === 0}
       >
-        <SelectTrigger className="w-full">
+        <SelectTrigger id={id} className="w-full">
           <SelectValue placeholder={models.length === 0 ? t("generate.modelNone") : t("generate.modelPick")} />
         </SelectTrigger>
         <SelectContent>

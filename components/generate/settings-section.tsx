@@ -156,9 +156,9 @@ export function SettingsSection({
 
       {presetList.length > 0 && (
         <div className="space-y-1.5">
-          <Label>{t("generate.speedPreset")}</Label>
+          <Label htmlFor={`${sliderId}-preset`}>{t("generate.speedPreset")}</Label>
           <Select value={form.presetName} onValueChange={(name) => onPresetChange(name, presetList)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`${sliderId}-preset`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -178,9 +178,9 @@ export function SettingsSection({
         <div className="grid grid-cols-2 gap-4">
           {status.samplers.length > 0 && (
             <div className="space-y-1.5">
-              <Label>{t("generate.sampler")}</Label>
+              <Label htmlFor={`${sliderId}-sampler`}>{t("generate.sampler")}</Label>
               <Select value={sampler} onValueChange={(value) => update({ sampler: value, presetName: CUSTOM_PRESET })}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={`${sliderId}-sampler`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -195,9 +195,9 @@ export function SettingsSection({
           )}
           {status.schedulers.length > 0 && (
             <div className="space-y-1.5">
-              <Label>{t("generate.scheduler")}</Label>
+              <Label htmlFor={`${sliderId}-scheduler`}>{t("generate.scheduler")}</Label>
               <Select value={scheduler} onValueChange={(value) => update({ scheduler: value, presetName: CUSTOM_PRESET })}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={`${sliderId}-scheduler`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

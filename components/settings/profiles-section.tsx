@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -46,6 +47,7 @@ function ProfileCard({
   change: ChangeDraft
 }) {
   const t = useT()
+  const tagStyleId = useId()
   const set = (field: keyof ProfileDraft, value: string) =>
     change("profiles", (current) => ({ ...current, profiles: { ...current.profiles, [builtin.id]: { ...current.profiles[builtin.id]!, [field]: value } } }))
   const changed = PROFILE_FIELDS.some((field) => fields[field].trim())
@@ -95,9 +97,9 @@ function ProfileCard({
           <Input value={fields.artistTemplate} placeholder={builtin.artistTemplate ?? "-"} onChange={(event) => set("artistTemplate", event.target.value)} />
           <FieldError errors={errors} at={at("artistTemplate")} />
         </Field>
-        <Field label={t("settings.profile.tagStyle")} hint={t("settings.tagStyleHint")}>
+        <Field label={t("settings.profile.tagStyle")} hint={t("settings.tagStyleHint")} htmlFor={tagStyleId}>
           <Select value={fields.tagStyle || BUILTIN} onValueChange={(value) => set("tagStyle", value === BUILTIN ? "" : value)}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={tagStyleId} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

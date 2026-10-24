@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { CheckCircle2, Loader2, Plus, ShieldAlert, Trash2, Wifi, XCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -83,6 +84,7 @@ function BackendRow({
   onTest: () => void
 }) {
   const t = useT()
+  const id = useId()
   const update = (patch: Partial<BackendDraft>) =>
     change("backends", (current) => ({
       ...current,
@@ -97,9 +99,9 @@ function BackendRow({
           <Input value={backend.id} onChange={(event) => update({ id: event.target.value })} placeholder="sdxl" />
           <FieldError errors={errors} at={`backends.${index}.id`} />
         </Field>
-        <Field label={t("settings.backendKind")}>
+        <Field label={t("settings.backendKind")} htmlFor={`${id}-kind`}>
           <Select value={backend.kind} onValueChange={(kind) => update({ kind: kind as BackendKind })}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`${id}-kind`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -115,9 +117,9 @@ function BackendRow({
           <Input value={backend.url} onChange={(event) => update({ url: event.target.value })} placeholder="http://localhost:7860" />
           <FieldError errors={errors} at={`backends.${index}.url`} />
         </Field>
-        <Field label={t("settings.backendProfile")}>
+        <Field label={t("settings.backendProfile")} htmlFor={`${id}-profile`}>
           <Select value={backend.profile} onValueChange={(profile) => update({ profile: profile as ProfileId })}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={`${id}-profile`} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

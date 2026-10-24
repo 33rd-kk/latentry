@@ -266,7 +266,9 @@ pictures are never used. The page may not reach any other host. Install a
 browser once with `npx playwright install chromium`, or use one you have:
 `E2E_CHANNEL=msedge npm run test:e2e`. `E2E_KEEP=1` keeps the temp folder,
 with the traces of failed tests in it. The `docs-*` tests check what the
-guide says against the app.
+guide says against the app. `a11y.spec.ts` runs axe-core on each page, in
+the light and the dark theme, against WCAG 2.1 A and AA: a serious or
+critical finding fails it.
 
 `npm run docs:screenshots` retakes the guide's `docs/assets/manual-*.webp`
 the same way (`e2e/screenshots/docs.shots.ts`). Its gallery is made from

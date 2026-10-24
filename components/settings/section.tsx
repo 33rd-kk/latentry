@@ -43,10 +43,13 @@ export function Section({
   )
 }
 
-export function Field({ label, hint, className, children }: { label: string; hint?: string; className?: string; children: ReactNode }) {
+/** A labelled control. `htmlFor` names the control by the label; a Select's trigger needs it, as a combobox takes no name from its text. */
+export function Field({ label, hint, className, htmlFor, children }: { label: string; hint?: string; className?: string; htmlFor?: string; children: ReactNode }) {
   return (
     <div className={cn("space-y-1", className)}>
-      <Label className="text-xs">{label}</Label>
+      <Label className="text-xs" htmlFor={htmlFor}>
+        {label}
+      </Label>
       {children}
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
     </div>
