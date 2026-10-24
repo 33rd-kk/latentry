@@ -10,7 +10,7 @@ const isPose = (request: Request) => request.method() === 'POST' && new URL(requ
 async function openWithSkeleton(page: Page) {
   await page.goto('/')
   await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
-  await page.getByRole('combobox').first().click()
+  await page.getByRole('main').getByRole('combobox').first().click()
   await page.getByRole('option').filter({ has: page.getByText('pose', { exact: true }) }).click()
   const picture = await sharp({ create: { width: 60, height: 90, channels: 3, background: '#887766' } }).png().toBuffer()
   const chooser = page.waitForEvent('filechooser')
@@ -72,7 +72,7 @@ test('a new output size is noted, and Detect again redraws the skeleton', async 
 // out of the run"
 test('a backend without pose says the skeleton is left out', async ({ page }) => {
   await openWithSkeleton(page)
-  await page.getByRole('combobox').first().click()
+  await page.getByRole('main').getByRole('combobox').first().click()
   await page.getByRole('option').filter({ has: page.getByText('mock', { exact: true }) }).click()
   await expect(page.getByText(/^This backend cannot follow a pose, so the skeleton you set is left out of the run/)).toBeVisible()
 })

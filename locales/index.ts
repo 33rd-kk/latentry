@@ -5,9 +5,11 @@
 // <locale>.json here by hand works too, as long as it is listed below.
 
 import en from "./en.json"
+import ja from "./ja.json"
 
 export const SOURCE_LOCALE = "en"
 
 export const catalogs: Record<string, unknown> = {
   en,
+  ja,
 }

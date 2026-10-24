@@ -13,8 +13,8 @@ async function open(page: Page) {
 }
 
 async function pickBackend(page: Page, id: string) {
-  // The backend select is the first one on the page.
-  await page.getByRole('combobox').first().click()
+  // The backend select is the first one in the page's main area (the header has the language menu).
+  await page.getByRole('main').getByRole('combobox').first().click()
   await page.getByRole('option').filter({ has: page.getByText(id, { exact: true }) }).click()
   await expect(generateButton(page)).toBeEnabled()
 }
