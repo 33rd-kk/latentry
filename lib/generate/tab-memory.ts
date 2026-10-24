@@ -12,10 +12,17 @@ import { STORAGE_EVENT_NAME } from "@/lib/storage"
 // page, as a secret run belongs to the page that started it.
 const memory = new Map<string, unknown>()
 
+// Counts the times secret mode was turned on. A page that saw it happen may
+// hold secret runs in its state, so it keeps nothing here for the rest of its
+// life, even once secret mode is off again.
+let secretTurns = 0
+
 // Turning secret mode on, in this tab or another, forgets what was kept.
 if (typeof window !== "undefined") {
   const forgetIfSecret = () => {
-    if (isSecretMode()) memory.clear()
+    if (!isSecretMode()) return
+    memory.clear()
+    secretTurns += 1
   }
   window.addEventListener(STORAGE_EVENT_NAME, (event) => {
     if ((event as CustomEvent).detail?.key === SECRET_MODE_STORAGE_KEY) forgetIfSecret()
@@ -27,19 +34,25 @@ if (typeof window !== "undefined") {
 
 type Update<T> = T | ((previous: T) => T)
 
-/** Like useState, but kept for the tab under `key` while secret mode is off. */
+/** Like useState, but kept for the tab under `key` while secret mode is off and has stayed off. */
 export function useTabMemory<T>(key: string, initial: () => T): [T, (next: Update<T>) => void] {
   const [value, setValue] = useState<T>(() =>
     typeof window !== "undefined" && !isSecretMode() && memory.has(key) ? (memory.get(key) as T) : initial()
   )
   // The latest value, so a write from a page that is going away still lands.
   const valueRef = useRef(value)
+  // secretTurns when this page opened; null once it has seen secret mode.
+  const turnsRef = useRef<number | null>(typeof window !== "undefined" && isSecretMode() ? null : secretTurns)
   const set = useCallback(
     (next: Update<T>) => {
       const updated = typeof next === "function" ? (next as (previous: T) => T)(valueRef.current) : next
       valueRef.current = updated
-      if (isSecretMode()) memory.delete(key)
-      else memory.set(key, updated)
+      if (isSecretMode() || turnsRef.current !== secretTurns) {
+        turnsRef.current = null
+        memory.delete(key)
+      } else {
+        memory.set(key, updated)
+      }
       setValue(updated)
     },
     [key]

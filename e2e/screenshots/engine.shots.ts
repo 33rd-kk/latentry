@@ -108,8 +108,8 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
   await page.mouse.down()
   await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 + 4, { steps: 6 })
   await page.mouse.up()
-  await expect(page.getByRole('button', { name: 'Use this angle' })).toBeEnabled()
-  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByRole('button', { name: 'Use this angle' }), page.locator('[data-slot="card"]').first())
+  await expect(page.getByRole('button', { name: 'Use this pose' })).toBeEnabled()
+  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByRole('button', { name: 'Use this pose' }), page.locator('[data-slot="card"]').first())
 })
 
 take('manual-setup')('Setup with the engine running', async ({ page }) => {

@@ -223,7 +223,9 @@ gallery anyway.
 
 In secret mode no prompt is shown in **Waiting** or **Earlier**, even for
 runs started before it was turned on, and an open earlier run stays blurred
-until **Show these**.
+until **Show these**. A page that has been in secret mode does not keep its
+runs for the trip to the gallery and back, even after secret mode is turned
+off (see [Secret mode](secret-mode.md#what-it-does)).
 
 Runs live on the server, so reloading the page, or opening it in another
 tab, picks up a run in progress. **Cancel** stops it.

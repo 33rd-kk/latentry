@@ -211,6 +211,11 @@ def test_a_bodyless_post_is_fine(client: TestClient) -> None:
         {"image_base64": "x", "person": list(range(65))},
         {"image_base64": "x", "width": 0},
         {"image_base64": "x", "style": "s" * 33},
+        {"image_base64": "x", "edits": [{"person": 0, "joint": 9, "to": [0, 0]}]},
+        {"image_base64": "x", "edits": [{"person": -1, "joint": 9, "to": [0, 0, 0]}]},
+        {"image_base64": "x", "edits": [{"person": 0, "joint": 133, "to": [0, 0, 0]}]},
+        {"image_base64": "x", "edits": [{"person": 0, "joint": 9, "to": [0, 0, 17]}]},
+        {"image_base64": "x", "edits": [{"person": 0, "joint": 9, "to": [0, 0, 0]}] * 257},
     ],
 )
 def test_pose_checks_its_body(client: TestClient, body: dict[str, object]) -> None:
@@ -221,6 +226,11 @@ def test_pose_checks_its_body(client: TestClient, body: dict[str, object]) -> No
 def test_pose_takes_one_person_everyone_or_some(client: TestClient, person: object) -> None:
     # The body passes; the picture is not one, which poseorbit refuses with a 400.
     assert client.post("/api/pose", json={"image_base64": "x", "person": person}, headers=auth()).status_code == 400
+
+
+def test_pose_passes_edits_on() -> None:
+    body = server.PoseBody(image_base64="x", edits=[{"person": 0, "joint": 9, "to": [0.5, 0.2, -0.1]}])
+    assert body.model_dump(exclude_none=True)["edits"] == [{"person": 0, "joint": 9, "to": [0.5, 0.2, -0.1]}]
 
 
 def test_generate_caps_the_prompt(client: TestClient) -> None:
