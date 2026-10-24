@@ -116,7 +116,9 @@ export function AppHeader() {
                 <Languages className="h-4 w-4" />
                 <span className="text-xs uppercase">{locale}</span>
               </SelectTrigger>
-              <SelectContent align="end">
+              {/* Below the button, at its right edge: the default item-aligned list
+                  ignores `align` and lands in the corner from the header's edge. */}
+              <SelectContent position="popper" align="end">
                 {LOCALES.map((code) => (
                   <SelectItem key={code} value={code}>
                     {languageName(code)}
