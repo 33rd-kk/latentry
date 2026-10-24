@@ -243,6 +243,31 @@ and answers with:
   without it, the 3D view is not offered; without `limits.zoom`, it cannot zoom. A backend that ignores these fields
   still works as before.
 
+#### Moving joints (optional)
+
+A backend that can bend a pose answers `"movable"`: the joints (indices into
+the 133 points) it may move. Latentry's 3D view then lets those be dragged,
+and sends what was moved, in order, with every later request for that
+picture:
+
+```json
+{ "edits": [ { "person": 1, "joint": 9, "to": [0.42, 0.18, -0.04] },
+             { "person": 1, "joint": 7, "to": [0.47, 0.35, 0.02] } ] }
+```
+
+- Each edit turns `joint` of `person` (an index into `people`) about its
+  parent until it points at `to` (`[x, y, z]` in the units of `points_3d`),
+  carrying everything that hangs from it; no bone changes length. Each one
+  bends the pose the ones before it left, so apply them in order.
+- Latentry sends at most 256, each `to` within ±16, and leaves which joints
+  move to the backend; refuse one that names a joint not in `movable` with
+  a `400`.
+- Draw the skeleton with the edits, but answer `points_3d` as detected:
+  Latentry bends its own copy.
+- Without `movable`, Latentry does not offer moving joints. Latentry's engine
+  does this from poseorbit 0.3; its `movable` is the head (0), shoulders,
+  elbows and wrists (5–10), knees and ankles (13–16) and the feet (17–22).
+
 ---
 
 <a id="automatic1111--forge"></a>

@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react"
 import {
   createPoseViewer,
+  type PoseEdit,
   type PosePerson3d,
   type PoseViewer,
   type ShownPeople,
@@ -19,6 +20,10 @@ interface Pose3dViewProps {
   /** Where the camera stands and what it frames; changing it moves the view. */
   camera: ViewerCamera
   onCameraChange: (camera: ViewerCamera) => void
+  /** Joints moved so far, in order; a drag on a joint adds one through `onEdit`. */
+  edits: readonly PoseEdit[]
+  movable: ReadonlySet<number>
+  onEdit: (edit: PoseEdit) => void
 }
 
 const sameCamera = (a: ViewerCamera, b: ViewerCamera) =>
@@ -33,16 +38,18 @@ const sameCamera = (a: ViewerCamera, b: ViewerCamera) =>
  * shaped like the output so it shows exactly the area the skeleton covers.
  * Loaded with next/dynamic and ssr: false, since WebGL exists only in the browser.
  */
-export default function Pose3dView({ people, person, limits, frame, camera, onCameraChange }: Pose3dViewProps) {
+export default function Pose3dView({ people, person, limits, frame, camera, onCameraChange, edits, movable, onEdit }: Pose3dViewProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const viewerRef = useRef<PoseViewer | null>(null)
   // The viewer is made once; later props reach it through these.
   const onChangeRef = useRef(onCameraChange)
-  const initial = useRef({ people, person, limits, frame, camera })
+  const onEditRef = useRef(onEdit)
+  const initial = useRef({ people, person, limits, frame, camera, edits, movable })
 
   useEffect(() => {
     onChangeRef.current = onCameraChange
-  }, [onCameraChange])
+    onEditRef.current = onEdit
+  }, [onCameraChange, onEdit])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -50,6 +57,7 @@ export default function Pose3dView({ people, person, limits, frame, camera, onCa
     const viewer = createPoseViewer(canvas, {
       ...initial.current,
       onChange: (moved) => onChangeRef.current(moved),
+      onEdit: (edit) => onEditRef.current(edit),
     })
     viewerRef.current = viewer
     return () => {
@@ -61,6 +69,14 @@ export default function Pose3dView({ people, person, limits, frame, camera, onCa
   useEffect(() => {
     viewerRef.current?.setPeople(people, person)
   }, [people, person])
+
+  useEffect(() => {
+    viewerRef.current?.setEdits(edits)
+  }, [edits])
+
+  useEffect(() => {
+    viewerRef.current?.setMovable(movable)
+  }, [movable])
 
   useEffect(() => {
     viewerRef.current?.setFrame(frame)

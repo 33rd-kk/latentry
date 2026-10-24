@@ -61,8 +61,10 @@ function figure(x: number): { points_3d: number[][]; scores: number[] } {
 }
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockDiffusers(options: { port?: number; subsets?: boolean } = {}): Promise<MockDiffusers> {
+export async function startMockDiffusers(options: { port?: number; subsets?: boolean; movable?: boolean } = {}): Promise<MockDiffusers> {
   const subsets = options.subsets ?? true
+  // Moving joints (poseorbit 0.3) comes with lists of people (0.2) unless said otherwise.
+  const movable = options.movable ?? subsets
   // Without this sharp keeps what it read open on Windows, and a test cannot delete its folder.
   sharp.cache(false)
   const skeleton = (await sharp({ create: { width: 64, height: 96, channels: 3, background: '#000000' } }).png().toBuffer()).toString('base64')
@@ -160,6 +162,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
           height: typeof body.height === 'number' ? body.height : 1216,
           person,
           ...(subsets ? { person_subsets: true } : {}),
+          ...(movable ? { movable: [0, 5, 6, 7, 8, 9, 10, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22] } : {}),
           style: 'dwpose',
           joints_in_frame: 17,
           camera: { yaw: camera.yaw ?? 0, pitch: camera.pitch ?? 0, framing: camera.framing ?? { zoom: 1, x: 0.5, y: 0.5 } },

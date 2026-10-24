@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Move a joint in the 3D pose view**: drag the head, a shoulder, elbow,
+  wrist, knee, ankle or a foot to change the detected pose. What hangs from
+  the joint moves with it and no bone changes length, so a raised elbow
+  takes the forearm and hand along. **Undo** and **Reset joints** take moves
+  back, and **Use this pose** (before: **Use this angle**) draws the
+  skeleton with them and the angle. The moves are kept in the page only.
+  Latentry's engine now needs poseorbit 0.3 (run **Repair / update** on
+  Setup once); for other backends, `/api/pose` takes `edits` and answers
+  `movable` (see the backend API).
 - **Accessibility**: screen readers now announce what each drop-down list
   is for, such as Backend, Sampler or Tag spelling. Before, the lists on
   Generate and Settings had no name. The red "Non-commercial" label on

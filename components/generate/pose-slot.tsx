@@ -125,6 +125,12 @@ export function PoseSlot({ backend, workflow = "", value, onChange, strength, de
           view={pose.view}
           turn={pose.turn}
           onViewChange={pose.setView}
+          edits={pose.edits}
+          drawnEdits={pose.drawnEdits}
+          movable={pose.movable}
+          onEdit={pose.addEdit}
+          onUndoEdit={pose.undoEdit}
+          onResetEdits={pose.resetEdits}
           onDraw={(camera) => void detect(reference, person, { camera })}
           loading={loading}
           disabled={disabled}

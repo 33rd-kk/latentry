@@ -30,7 +30,7 @@ test('the skeleton comes with its strength', async ({ page }) => {
 })
 
 // "Drag (up to 90° to either side …)"; "The angle and zoom show under the
-// view. Press Use this angle … Front view goes back." The thumbnail then
+// view. Press Use this pose … Front view goes back." The thumbnail then
 // reads "Seen from yaw …".
 test('turning the 3D view and using the angle', async ({ page }) => {
   await openWithSkeleton(page)
@@ -48,7 +48,7 @@ test('turning the 3D view and using the angle', async ({ page }) => {
   await page.mouse.up()
   await expect(page.getByText(/^Yaw -?[1-9]\d*°, pitch -?\d+°, zoom ×1\.0$/)).toBeVisible()
 
-  const use = page.getByRole('button', { name: 'Use this angle' })
+  const use = page.getByRole('button', { name: 'Use this pose' })
   await expect(use).toBeEnabled()
   const turned = page.waitForResponse((response) => isPose(response.request()))
   await use.click()

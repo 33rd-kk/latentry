@@ -83,6 +83,14 @@ class GenerateBody(BaseModel):
     lora_hashes: bool = False
 
 
+class PoseEditBody(BaseModel):
+    """One joint moved (poseorbit 0.3): where it points, in picture widths."""
+
+    person: int = Field(ge=0)
+    joint: int = Field(ge=0, le=132)
+    to: list[Annotated[float, Field(ge=-16, le=16, allow_inf_nan=False)]] = Field(min_length=3, max_length=3)
+
+
 class PoseBody(BaseModel):
     """What /api/pose reads (poseorbit.api.handle); anything else is dropped."""
 
@@ -94,6 +102,8 @@ class PoseBody(BaseModel):
     style: str | None = Field(None, max_length=32)
     want_3d: bool = False
     camera: dict[str, Any] | None = None
+    # Joints to move, in order; poseorbit says which ones in "movable".
+    edits: list[PoseEditBody] | None = Field(None, max_length=256)
 
 
 class CancelBody(BaseModel):

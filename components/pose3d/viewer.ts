@@ -1,6 +1,6 @@
 // A 3D view of detected poses: drag to swing the camera around the figure,
 // wheel or pinch to zoom, right-drag (or shift-drag, or two fingers) to move
-// the frame. Plain three.js on a canvas: no React, no app code, so it can be
+// the frame, and drag a joint to move it (bend.ts). Plain three.js on a canvas: no React, no app code, so it can be
 // lifted out with poseorbit.
 //
 // Points come from poseorbit's /api/pose `want_3d`: x right, y down, z away
@@ -12,10 +12,11 @@
 
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+import { applyEdits, type PoseEdit } from "./bend"
 import { aimCamera, DEG, DISTANCE, frustumFor, toThree, type ViewerFrame, type ViewerFraming } from "./projection"
 import { COCO133_LINKS, FACE_POINTS, KEYPOINT_THRESHOLD } from "./skeleton"
 
-export type { ViewerFrame, ViewerFraming }
+export type { PoseEdit, ViewerFrame, ViewerFraming }
 
 export interface PosePerson3d {
   points_3d: number[][]
@@ -42,10 +43,18 @@ export interface PoseViewerOptions {
   camera?: ViewerCamera
   /** Called while the camera or the framing moves. */
   onChange?: (camera: ViewerCamera) => void
+  /** Joints moved so far, in order, on `people` as given. */
+  edits?: readonly PoseEdit[]
+  /** The joints a drag may move; none, and joints don't move. */
+  movable?: ReadonlySet<number>
+  /** Called once a joint has been dragged somewhere: the edit to add. */
+  onEdit?: (edit: PoseEdit) => void
 }
 
 export interface PoseViewer {
   setPeople(people: PosePerson3d[], person: ShownPeople): void
+  setEdits(edits: readonly PoseEdit[]): void
+  setMovable(movable: ReadonlySet<number>): void
   setFrame(frame: ViewerFrame): void
   getCamera(): ViewerCamera
   setCamera(camera: ViewerCamera): void
@@ -134,6 +143,12 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
   let frame = options.frame
   let framing: ViewerFraming = options.camera?.framing ?? WHOLE
   let centre = { x: 0.5, y: 0.5 }
+  let people = options.people
+  let shownIndices: number[] = []
+  let edits: readonly PoseEdit[] = options.edits ?? []
+  let movable: ReadonlySet<number> = options.movable ?? new Set()
+  // The shown people's points as drawn: detected, with the edits bent in.
+  let shownPoints: number[][][] = []
 
   const render = () => renderer.render(scene, camera)
 
@@ -181,24 +196,133 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
     setFraming(next)
   }
 
-  const setPeople = (people: PosePerson3d[], person: ShownPeople) => {
-    const picked = typeof person === "number" ? (person >= 0 ? [person] : []) : person
-    const inRange = picked.filter((index) => index >= 0 && index < people.length).map((index) => people[index])
-    // Everyone for -1, and for a choice that names nobody who is there.
-    const shown = inRange.length ? inRange : people
+  /** Draws the shown people with `pending` (a joint being dragged) bent in after the edits. */
+  const redraw = (pending?: PoseEdit) => {
+    let bent: number[][][]
+    try {
+      bent = applyEdits(people.map((detected) => detected.points_3d), pending ? [...edits, pending] : edits)
+    } catch {
+      // Edits for people who are not here (a new picture on its way): show them as detected.
+      bent = people.map((detected) => detected.points_3d)
+    }
+    shownPoints = shownIndices.map((index) => bent[index])
     if (figure) {
       scene.remove(figure)
       disposeGroup(figure)
     }
-    figure = buildFigure(shown)
+    figure = buildFigure(shownIndices.map((index, i) => ({ points_3d: shownPoints[i], scores: people[index].scores })))
     scene.add(figure)
+    render()
+  }
+
+  const setPeople = (next: PosePerson3d[], person: ShownPeople) => {
+    people = next
+    const picked = typeof person === "number" ? (person >= 0 ? [person] : []) : person
+    const inRange = picked.filter((index) => index >= 0 && index < people.length)
+    // Everyone for -1, and for a choice that names nobody who is there.
+    shownIndices = inRange.length ? inRange : people.map((_, index) => index)
+    const shown = shownIndices.map((index) => people[index])
+    redraw()
     const keep = read()
+    // The hips never move, so the orbit centre and the floor come from the
+    // figure as detected: a raised leg does not lift the floor.
     centre = centreOf(shown)
     controls.target.copy(toThree([centre.x, centre.y, 0]))
-    const box = new THREE.Box3().setFromObject(figure)
+    const detected = buildFigure(shown)
+    const box = new THREE.Box3().setFromObject(detected)
+    disposeGroup(detected)
     floor.position.set(controls.target.x, box.min.y, controls.target.z)
     place(keep)
   }
+
+  // ── Moving a joint ──────────────────────────────────────────────────────
+
+  // How near (CSS pixels) a press must land on a joint to grab it.
+  const GRAB_RADIUS = 10
+
+  /** The movable, seen joint drawn nearest to (clientX, clientY), within reach. */
+  const jointAt = (clientX: number, clientY: number) => {
+    const rect = canvas.getBoundingClientRect()
+    let best: { person: number; joint: number; at: THREE.Vector3 } | null = null
+    let bestDistance = GRAB_RADIUS
+    shownIndices.forEach((person, i) => {
+      const { scores } = people[person]
+      for (const joint of movable) {
+        if (scores[joint] < KEYPOINT_THRESHOLD) continue
+        const at = toThree(shownPoints[i][joint])
+        const screen = at.clone().project(camera)
+        const x = rect.left + ((screen.x + 1) / 2) * rect.width
+        const y = rect.top + ((1 - screen.y) / 2) * rect.height
+        const distance = Math.hypot(x - clientX, y - clientY)
+        if (distance < bestDistance) {
+          bestDistance = distance
+          best = { person, joint, at }
+        }
+      }
+    })
+    return best as { person: number; joint: number; at: THREE.Vector3 } | null
+  }
+
+  // The joint being dragged, on a plane through it facing the camera.
+  let grabbed: { person: number; joint: number; plane: THREE.Plane; pointerId: number; to: PoseEdit["to"] | null } | null = null
+  const raycaster = new THREE.Raycaster()
+
+  /** Where (clientX, clientY) lands on the grabbed joint's plane, in picture units (y down, z away). */
+  const pointOnPlane = (plane: THREE.Plane, clientX: number, clientY: number): PoseEdit["to"] | null => {
+    const rect = canvas.getBoundingClientRect()
+    const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, 1 - ((clientY - rect.top) / rect.height) * 2)
+    raycaster.setFromCamera(ndc, camera)
+    const hit = raycaster.ray.intersectPlane(plane, new THREE.Vector3())
+    return hit ? [hit.x, -hit.y, -hit.z] : null
+  }
+
+  // In the capture phase, so it runs before OrbitControls' own listener on
+  // the canvas: a press on a joint never swings the camera.
+  const onGrab = (event: PointerEvent) => {
+    if (grabbed || !event.isPrimary || (event.pointerType === "mouse" && (event.button !== 0 || event.shiftKey))) return
+    const hit = jointAt(event.clientX, event.clientY)
+    if (!hit) return
+    event.stopImmediatePropagation()
+    event.preventDefault()
+    const facing = camera.getWorldDirection(new THREE.Vector3())
+    grabbed = {
+      person: hit.person,
+      joint: hit.joint,
+      plane: new THREE.Plane().setFromNormalAndCoplanarPoint(facing, hit.at),
+      pointerId: event.pointerId,
+      to: null,
+    }
+    canvas.setPointerCapture?.(event.pointerId)
+    canvas.style.cursor = "grabbing"
+  }
+  const onDrag = (event: PointerEvent) => {
+    if (!grabbed) {
+      // Show that a joint can be grabbed here.
+      if (event.pointerType === "mouse" && event.buttons === 0) canvas.style.cursor = jointAt(event.clientX, event.clientY) ? "grab" : ""
+      return
+    }
+    if (event.pointerId !== grabbed.pointerId) return
+    const to = pointOnPlane(grabbed.plane, event.clientX, event.clientY)
+    if (!to) return
+    grabbed.to = to
+    redraw({ person: grabbed.person, joint: grabbed.joint, to })
+  }
+  const onDrop = (event: PointerEvent) => {
+    if (!grabbed || event.pointerId !== grabbed.pointerId) return
+    const { person, joint, to } = grabbed
+    grabbed = null
+    canvas.style.cursor = ""
+    if (canvas.hasPointerCapture?.(event.pointerId)) canvas.releasePointerCapture(event.pointerId)
+    // One drag is one edit, from the pose before it: never merged, since two
+    // bends in a row twist a hand differently from one.
+    if (to && event.type === "pointerup") {
+      options.onEdit?.({ person, joint, to: to.map((value) => Math.round(value * 1e5) / 1e5) as PoseEdit["to"] })
+    } else redraw()
+  }
+  canvas.addEventListener("pointerdown", onGrab, { capture: true })
+  canvas.addEventListener("pointermove", onDrag)
+  canvas.addEventListener("pointerup", onDrop)
+  canvas.addEventListener("pointercancel", onDrop)
 
   // ── Framing by hand ─────────────────────────────────────────────────────
 
@@ -236,6 +360,7 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
   let pinch: ReturnType<typeof pinchOf> | null = null
 
   const onPointerDown = (event: PointerEvent) => {
+    if (grabbed) return
     if (event.pointerType === "mouse") {
       if (event.button === 2 || (event.button === 0 && event.shiftKey)) mousePan = { x: event.clientX, y: event.clientY }
       return
@@ -244,6 +369,7 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
     pinch = pointers.size === 2 ? pinchOf() : null
   }
   const onPointerMove = (event: PointerEvent) => {
+    if (grabbed) return
     if (mousePan) {
       panBy(event.clientX - mousePan.x, event.clientY - mousePan.y)
       mousePan = { x: event.clientX, y: event.clientY }
@@ -284,6 +410,13 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
 
   return {
     setPeople,
+    setEdits(next) {
+      edits = next
+      if (!grabbed) redraw()
+    },
+    setMovable(next) {
+      movable = next
+    },
     setFrame(next) {
       frame = next
       project()
@@ -298,6 +431,10 @@ export function createPoseViewer(canvas: HTMLCanvasElement, options: PoseViewerO
       window.removeEventListener("pointerup", onPointerUp)
       window.removeEventListener("pointercancel", onPointerUp)
       canvas.removeEventListener("contextmenu", onContextMenu)
+      canvas.removeEventListener("pointerdown", onGrab, { capture: true })
+      canvas.removeEventListener("pointermove", onDrag)
+      canvas.removeEventListener("pointerup", onDrop)
+      canvas.removeEventListener("pointercancel", onDrop)
       controls.dispose()
       if (figure) disposeGroup(figure)
       floor.geometry.dispose()

@@ -65,6 +65,30 @@ export function toPoseRequest(body: Record<string, unknown> | null): PoseRequest
     request.person = [...new Set(indices as number[])].sort((a, b) => a - b)
   }
   if (body.want_3d === true) request.want_3d = true
+  // Joints moved in the 3D view, in order: each bends the pose the ones
+  // before it left, so they are kept as sent, repeats and all. Which joints
+  // move is the backend's to say (`movable`); here only the shape is held.
+  if (body.edits !== undefined && body.edits !== null) {
+    const edits = body.edits as unknown[]
+    const valid =
+      Array.isArray(edits) &&
+      edits.length <= MAX_EDITS &&
+      edits.every((edit) => {
+        const { person, joint, to } = (edit ?? {}) as Record<string, unknown>
+        return (
+          Number.isInteger(person) &&
+          (person as number) >= 0 &&
+          Number.isInteger(joint) &&
+          (joint as number) >= 0 &&
+          (joint as number) < 133 &&
+          Array.isArray(to) &&
+          to.length === 3 &&
+          to.every((value) => finite(value) && Math.abs(value) <= MAX_REACH)
+        )
+      })
+    if (!valid) return `edits must be a list of at most ${MAX_EDITS} { person, joint, to: [x, y, z] }`
+    request.edits = (edits as PoseEdit[]).map(({ person, joint, to }) => ({ person, joint, to: [to[0], to[1], to[2]] }))
+  }
   if (body.camera !== undefined && body.camera !== null) {
     const camera = body.camera as Record<string, unknown>
     if (typeof camera !== 'object' || !finite(camera.yaw ?? 0) || !finite(camera.pitch ?? 0)) {
@@ -92,6 +116,22 @@ export function toPoseRequest(body: Record<string, unknown> | null): PoseRequest
 }
 
 // ── The pose slot's side: reading what /api/pose answers ─────────────────────
+
+/** One joint moved: where it should point, in units of the picture's width like `points_3d`. */
+export interface PoseEdit {
+  person: number
+  joint: number
+  to: [number, number, number]
+}
+
+/** Whether two lists of edits are the same moves, in the same order. */
+export const sameEdits = (a: readonly PoseEdit[], b: readonly PoseEdit[]) =>
+  a.length === b.length &&
+  a.every((edit, i) => edit.person === b[i].person && edit.joint === b[i].joint && edit.to.every((value, axis) => value === b[i].to[axis]))
+
+/** The most edits one request may carry, and how far one may point (poseorbit holds to the same). */
+export const MAX_EDITS = 256
+const MAX_REACH = 16
 
 /** The pose API's index for "every detected person" (see docs/backend-api.md). */
 export const ALL_PEOPLE = -1
@@ -164,6 +204,8 @@ export interface PoseAnswer {
   subsets: boolean
   /** Null when the backend cannot turn a pose. */
   limits: PoseTurnLimits | null
+  /** The joints the backend may move (`movable`); empty when it moves none. */
+  movable: number[]
   /** How the skeleton was drawn ("openpose", "dwpose"), when it says. */
   style: string | null
   /** Body joints left inside the frame, when it says. */
@@ -181,6 +223,7 @@ export function readPoseAnswer(data: unknown): PoseAnswer | null {
     people?: unknown
     person?: unknown
     person_subsets?: unknown
+    movable?: unknown
     limits?: { yaw?: unknown; pitch: number; zoom?: unknown } | null
     style?: unknown
     joints_in_frame?: unknown
@@ -198,6 +241,7 @@ export function readPoseAnswer(data: unknown): PoseAnswer | null {
           ? (answer.person as number[])
           : null,
     subsets: answer.person_subsets === true,
+    movable: Array.isArray(answer.movable) ? answer.movable.filter((joint): joint is number => Number.isInteger(joint)) : [],
     limits:
       limits && typeof limits.yaw === 'number'
         ? {

@@ -5,6 +5,9 @@
  * (components/pose3d/projection.ts) against poseorbit's own drawing: the
  * fixture holds canvas positions computed by poseorbit's geometry.py for
  * turned and framed cameras, which the view must reproduce to the pixel.
+ * And moving joints (components/pose3d/bend.ts) against poseorbit's body.py:
+ * the second fixture holds poseorbit's bends of two figures, written by
+ * scripts/pose-bend-fixture.py.
  *
  * Run with: npm test -- pose
  */
@@ -14,16 +17,21 @@ import {
   ALL_PEOPLE,
   FRONT,
   MAX_CHOSEN,
+  MAX_EDITS,
   POSE_LIMITS,
   WHOLE_FRAME,
   chosenIndices,
   readPoseAnswer,
+  sameEdits,
   sameView,
   toggledChoice,
   toPoseRequest,
+  type PoseEdit,
 } from '../lib/pose'
 import { aimCamera, frustumFor, toThree } from '../components/pose3d/projection'
+import { applyEdits, bend, MOVABLE, PARENT, subtree } from '../components/pose3d/bend'
 import fixtures from './fixtures/pose-view.json'
+import bends from './fixtures/pose-bend.json'
 
 eq(toPoseRequest(null), 'image_base64 is required', 'no body')
 eq(toPoseRequest({ image_base64: '' }), 'image_base64 is required', 'empty picture')
@@ -94,6 +102,7 @@ eq(
     people: [],
     person: null,
     subsets: false,
+    movable: [],
     limits: null,
     style: null,
     jointsInFrame: null,
@@ -141,5 +150,66 @@ eq(toggledChoice([0, 1], 2, 3), ALL_PEOPLE, 'toggle: all of them is everyone')
 eq(toggledChoice(ALL_PEOPLE, 1, 3), [0, 2], 'toggle: leaving one out of everyone')
 eq(toggledChoice(1, 1, 3), null, 'toggle: the last one cannot be left out')
 eq(toggledChoice(null, 2, 3), 2, 'toggle: from nobody said, one person')
+
+// Moving joints: the request keeps edits as sent, in order, and holds their shape.
+const edit: PoseEdit = { person: 0, joint: 9, to: [0.4, 0.2, -0.05] }
+eq(
+  toPoseRequest({ image_base64: 'x', edits: [edit, { ...edit, person: 1 }, edit] }),
+  { image_base64: 'x', edits: [edit, { ...edit, person: 1 }, edit] },
+  'edits: kept in order, repeats and all'
+)
+eq(toPoseRequest({ image_base64: 'x', edits: [] }), { image_base64: 'x', edits: [] }, 'edits: an empty list passes')
+eq(toPoseRequest({ image_base64: 'x', edits: null }), { image_base64: 'x' }, 'edits: null is none')
+eq(
+  toPoseRequest({ image_base64: 'x', edits: [{ ...edit, extra: 1, to: [0.4, 0.2, -0.05] }] }),
+  { image_base64: 'x', edits: [edit] },
+  'edits: other fields are dropped'
+)
+const refusal = `edits must be a list of at most ${MAX_EDITS} { person, joint, to: [x, y, z] }`
+for (const edits of [
+  5,
+  [5],
+  [null],
+  [{ ...edit, person: -1 }],
+  [{ ...edit, person: 0.5 }],
+  [{ ...edit, joint: 133 }],
+  [{ ...edit, joint: '9' }],
+  [{ ...edit, to: [0, 0] }],
+  [{ ...edit, to: [0, 0, Number.NaN] }],
+  [{ ...edit, to: [0, 0, 17] }],
+  Array.from({ length: MAX_EDITS + 1 }, () => edit),
+]) {
+  eq(toPoseRequest({ image_base64: 'x', edits }), refusal, `edits: refused ${JSON.stringify(edits).slice(0, 30)}`)
+}
+eq(readPoseAnswer({ skeleton_base64: 'AAA', movable: [0, 5, 'x', 9] })?.movable, [0, 5, 9], 'answer: the joints the backend may move')
+check(sameEdits([edit], [{ ...edit, to: [0.4, 0.2, -0.05] }]), 'sameEdits: equal by value')
+check(!sameEdits([edit, { ...edit, joint: 7 }], [{ ...edit, joint: 7 }, edit]), 'sameEdits: order matters')
+
+// The tree, as body.py has it.
+eq(PARENT.length, 133, 'tree: a parent for every point')
+eq(subtree(7), [7, 9, ...Array.from({ length: 21 }, (_, i) => 91 + i)], 'tree: an elbow carries the wrist and the hand')
+check(!MOVABLE.has(11) && !MOVABLE.has(12), 'tree: the hips stay put')
+
+// Bending matches poseorbit's own numbers.
+for (const { name, edits, expected } of bends.cases) {
+  const bent = applyEdits(bends.people, edits as unknown as PoseEdit[])
+  let worst = 0
+  bent.forEach((points, person) =>
+    points.forEach((point, index) =>
+      point.forEach((value, axis) => (worst = Math.max(worst, Math.abs(value - expected[person][index][axis]))))
+    )
+  )
+  check(worst < 1e-9, `bend "${name}" matches poseorbit: off by ${worst.toExponential(2)}`)
+}
+const before = bends.people[0].map((point) => [...point])
+bend(bends.people[0], 7, [0, 0, 0])
+eq(bends.people[0], before, 'bend: the points given are left alone')
+let thrown = ''
+try {
+  bend(bends.people[0], 11, [0, 0, 0])
+} catch (error) {
+  thrown = (error as Error).message
+}
+eq(thrown, 'Joint 11 cannot be moved.', 'bend: a hip is refused')
 
 done('pose')
