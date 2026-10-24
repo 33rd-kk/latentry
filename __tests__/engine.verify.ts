@@ -11,6 +11,7 @@ import { isSha256 } from '../lib/engine/download'
 import { isPinnedUv, uvAsset, uvEnvironment, venvOnOtherPython } from '../lib/engine/install'
 import { UV_SHA256, UV_VERSION, uvUrl } from '../lib/engine/uv-release'
 import { LOCKED_BACKENDS, LOCKED_ON, lockAgeDays, lockFailure, lockIsStale, lockName, torchRunsOn, wantsLatest } from '../lib/engine/locks'
+import { lineSplitter } from '../lib/engine/lines'
 import { loraAccess } from '../lib/engine/lora-access'
 import { readdirSync, readFileSync } from 'node:fs'
 import { profileFor } from '../lib/engine/supervisor'
@@ -173,5 +174,17 @@ eq(
   'this machine always; a paired device only with sharing on'
 )
 eq(loraAccess(phone, EMPTY_SETTINGS, { SETTINGS_EDIT: 'lan' }), 'edit', 'SETTINGS_EDIT=lan already lets the LAN edit')
+
+// ── A child's output, in whole lines ──
+const lines: string[] = []
+const splitter = lineSplitter((line) => lines.push(line))
+splitter.write('torch==2')
+splitter.write('.4\r\nfirst done\n\n   \nprogress 10%\rprogress 20%\r')
+eq(lines, ['torch==2.4', 'first done', 'progress 10%', 'progress 20%'], 'chunks that end mid-line are joined; \\r\\n, \\n and \\r all end a line; blank lines are dropped')
+splitter.write(Buffer.from('last line  '))
+eq(lines.length, 4, 'an unfinished line waits for its end')
+splitter.flush()
+splitter.flush()
+eq(lines.slice(4), ['last line'], 'flush hands on the rest once, without trailing spaces')
 
 done('engine')

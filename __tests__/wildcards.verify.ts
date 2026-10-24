@@ -15,6 +15,7 @@ import { insertWildcard } from '../lib/generate/form'
 import { parseLatentryRecord } from '../lib/image-meta'
 import { EMPTY_SETTINGS, validateSettings } from '../lib/settings/schema'
 import { wildcardsAccess } from '../lib/wildcards/access'
+import { expandWildcards as expandOnPage } from '../lib/wildcards/client'
 import { expandWildcards, WildcardError, type WildcardReader } from '../lib/wildcards/expand'
 import { listWildcards, MAX_WILDCARD_BYTES, readWildcard } from '../lib/wildcards/folder'
 import { hasWildcards, wildcardLines, wildcardPath } from '../lib/wildcards/syntax'
@@ -183,6 +184,31 @@ async function main(): Promise<void> {
     eq(parseLatentryRecord(record({}))?.promptTemplate, undefined, 'and has none when it had no wildcards')
   } finally {
     rmSync(scratch, { recursive: true, force: true })
+  }
+
+  // ── The page's side: asks the server only when there is something to fill in ──
+  const realFetch = globalThis.fetch
+  const sent: unknown[] = []
+  let answer: () => Promise<Response> = async () => Response.json({ prompt: 'filled', negative_prompt: 'neg' })
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    sent.push(JSON.parse(String(init?.body)))
+    return answer()
+  }) as typeof fetch
+  try {
+    eq(await expandOnPage('1girl', 'lowres', 7), { ok: true, prompt: '1girl', negativePrompt: 'lowres' }, 'without wildcards nothing is asked')
+    eq(sent, [], 'and the server is not called')
+    eq(await expandOnPage('1girl, __hair__', '', 7), { ok: true, prompt: 'filled', negativePrompt: 'neg' }, 'with one, the server fills it in')
+    eq(sent, [{ prompt: '1girl, __hair__', negative_prompt: '', seed: 7 }], 'sent with the seed, so the same seed picks the same line')
+    answer = async () => Response.json({ error: 'There is no wildcard __x__' }, { status: 400 })
+    eq(await expandOnPage('__x__', '', 1), { ok: false, error: 'There is no wildcard __x__' }, "the server's reason comes back")
+    answer = async () => new Response('not json', { status: 500 })
+    eq(await expandOnPage('__x__', '', 1), { ok: false, error: null }, 'an answer that is not JSON is a failure without a reason')
+    answer = async () => {
+      throw new TypeError('offline')
+    }
+    eq(await expandOnPage('', '__x__', 1), { ok: false, error: null }, 'so is no answer, and a wildcard in the negative prompt asks too')
+  } finally {
+    globalThis.fetch = realFetch
   }
 }
 
