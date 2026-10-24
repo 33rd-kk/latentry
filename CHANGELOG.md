@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Fixed**: before the engine was installed, a model's **Download** button
+  on Setup stayed off with nothing saying why. The Models card now says
+  that models are downloaded by the engine, so it has to be installed and
+  started first.
+
 - **Support**: a new **Support** page in the manual says which systems,
   Node.js versions, GPUs and browsers are supported, and which are
   experimental: macOS on Apple Silicon, and Safari and Firefox. Only the

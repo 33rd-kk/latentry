@@ -144,3 +144,27 @@ test('models: load one, download after accepting, choose a tagger, set the folde
       ['/api/engine/start', {}],
     ])
 })
+
+test('without a running engine, Models says why Download stays off', async ({ page }) => {
+  await fakeEngine(page)
+  let installed = true
+  // Registered last, so it answers before the fake above.
+  await page.route(/\/api\/engine$/, (route) => {
+    const stopped = status(false)
+    if (!installed) stopped.installed = null as never
+    return route.fulfill({ json: stopped })
+  })
+  const download = page.getByRole('button', { name: 'Download · 2.0 GB' })
+
+  await page.goto('/setup')
+  await expect(page.getByText('Start the engine to download and load models.')).toBeVisible()
+  await page.getByLabel('I have read the license and accept it').check()
+  await expect(download).toBeDisabled()
+
+  // Before the engine is installed, the page said nothing about it.
+  installed = false
+  await page.reload()
+  await expect(page.getByText('Models are downloaded and loaded by the engine: install it above, then start it.')).toBeVisible()
+  await page.getByLabel('I have read the license and accept it').check()
+  await expect(download).toBeDisabled()
+})

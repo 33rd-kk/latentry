@@ -25,7 +25,8 @@ export function ModelsCard({ status: s, actions }: { status: EngineStatus; actio
       </CardHeader>
       <CardContent className="space-y-4 text-sm">
         {s.installed && <ModelsFolder status={s} onSaved={refresh} />}
-        {!engineUp && s.installed && <p className="text-muted-foreground">{t("setup.needEngine")}</p>}
+        {/* Downloads go through the engine, so say why Download stays off without one. */}
+        {!engineUp && <p className="text-muted-foreground">{t(s.installed ? "setup.needEngine" : "setup.needInstall")}</p>}
         {s.models && (
           <div className="space-y-2">
             <h3 className="text-xs font-medium text-muted-foreground uppercase">{t("setup.inFolder")}</h3>
