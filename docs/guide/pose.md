@@ -46,6 +46,7 @@ what the skeleton will cover.
 | Zoom in or out | Scroll, or pinch (×0.5 to ×6) |
 | Move the frame | Right-drag, Shift-drag, or drag with two fingers |
 | Move a joint | Drag the joint (see below) |
+| Take back the last move | **Undo**: a joint, a turn, a zoom or a move of the frame, one at a time |
 
 The angle and zoom show under the view. Press **Use this pose** to have the
 skeleton drawn from there; **Front view** goes back. The skeleton's
@@ -79,8 +80,9 @@ length, so a joint swings around rather than stretching.
   head. Fingers do not move one by one.
 - The hips stay where they are. To turn the whole figure, swing the camera.
 - Moving a shoulder does not move the head.
-- **Undo** takes back the last drag, **Reset joints** all of them. "Joints
-  moved: N" shows under the view. Press **Use this pose** to draw the
+- **Undo** takes back the last move, whether of a joint or of the camera,
+  in the order they were made; **Reset joints** puts all the joints back and
+  leaves the camera. "Joints moved: N" shows under the view. Press **Use this pose** to draw the
   skeleton with them.
 - The moves stay with the picture: picking other people or another angle
   keeps them, and a new picture starts as detected. They are held only in
