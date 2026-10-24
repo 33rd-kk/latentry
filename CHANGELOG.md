@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Accessibility**: screen readers now announce what each drop-down list
+  is for, such as Backend, Sampler or Tag spelling. Before, the lists on
+  Generate and Settings had no name. The red "Non-commercial" label on
+  Setup is darker in the light theme, so it is easier to read. The browser
+  tests now check each page with axe-core, in both themes.
+
 - **Fixed**: before the engine was installed, a model's **Download** button
   on Setup stayed off with nothing saying why. The Models card now says
   that models are downloaded by the engine, so it has to be installed and

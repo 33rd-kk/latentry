@@ -55,9 +55,9 @@ export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, 
         <>
           {upscalers.length > 1 && (
             <div className="space-y-1.5">
-              <Label>{t("generate.hires.upscaler")}</Label>
+              <Label htmlFor={`${sliderId}-upscaler`}>{t("generate.hires.upscaler")}</Label>
               <Select value={upscaler} onValueChange={(value) => update({ hrUpscaler: value })} disabled={disabled}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id={`${sliderId}-upscaler`} className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

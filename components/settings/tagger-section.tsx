@@ -1,5 +1,6 @@
 "use client"
 
+import { useId } from "react"
 import { CheckCircle2, XCircle } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -29,6 +30,7 @@ export function TaggerSection({
   onUseEnv: () => void
 }) {
   const t = useT()
+  const taggerId = useId()
   return (
     <Section
       title={t("settings.taggerTitle")}
@@ -38,9 +40,9 @@ export function TaggerSection({
     >
       <div className="space-y-4">
         <div className="max-w-sm space-y-1">
-          <Label>{t("settings.tagger")}</Label>
+          <Label htmlFor={taggerId}>{t("settings.tagger")}</Label>
           <Select value={draft.tagger} onValueChange={(tagger) => change("tagger", (current) => ({ ...current, tagger }))}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger id={taggerId} className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
