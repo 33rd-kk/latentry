@@ -19,6 +19,11 @@ requirements one by one.
 - **Devices you paired.** A paired device can generate, read the gallery
   folders and drive the GPU, as you can. It cannot change settings or
   install anything (unless you allow that with `SETTINGS_EDIT`).
+- **Owner devices**, which you paired with a code from a terminal on this
+  computer (`npm run owner-code`). They may also change settings and Setup
+  and pair other devices, as this computer may. Whoever copies an owner
+  device's cookie can do the same, so keep owner devices to networks you
+  trust ([An owner device](network.md#an-owner-device)).
 - **The backends you set up**, for what you send them. Latentry sends your
   prompts and pictures to the backend you choose, and to no other.
 
@@ -129,6 +134,9 @@ See [Privacy](privacy.md).
   Paired devices share ordinary runs, so one can watch or stop a run
   started on another; a secret run stays with the page that started it.
   Remove a device you no longer trust.
+- **An owner device.** It can do everything this computer can through
+  Latentry, settings included, except open its file manager. Remove it
+  when you no longer trust it.
 - **Traffic on your network.** Over plain `http://`, prompts, pictures and
   the pairing cookie travel unencrypted, and anyone who can watch your
   network can read them.

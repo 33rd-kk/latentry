@@ -479,7 +479,7 @@
   "settings.title": "Settings",
   "settings.intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
   "settings.version": "Latentry {version}",
-  "settings.lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost). Set SETTINGS_EDIT=lan to allow it from the network.",
+  "settings.lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost), or from an owner device. To make this browser one, run npm run owner-code on that computer (in Docker: docker compose exec latentry npm run owner-code) and enter the code on the pairing page.",
   "settings.lockedOff": "Settings are read-only here (SETTINGS_EDIT=off). Edit .env.local or latentry.settings.json instead.",
   "settings.fromSettings": "Set here",
   "settings.fromEnv": "From .env.local",
@@ -621,7 +621,7 @@
   "settings.pairingRemoveConfirm": "Remove “{name}”? It will need a new code to use Latentry again.",
   "setup.title": "Setup",
   "setup.intro": "Latentry can run its own generation engine on this computer. Everything it installs goes into {dir}; deleting that folder removes it.",
-  "setup.notLocal": "Setup can only be changed from the computer Latentry runs on.",
+  "setup.notLocal": "Setup can only be changed from the computer Latentry runs on, or from an owner device (run npm run owner-code on that computer).",
   "setup.readOnly": "Setup is read-only (SETTINGS_EDIT=off).",
   "setup.hardware": "This computer",
   "setup.noGpu": "No NVIDIA GPU found. The engine will run on the CPU, which takes minutes per picture.",
@@ -712,5 +712,8 @@
   "pair.again": "Pair it again with a new code",
   "pair.unpair": "Unpair this device",
   "pair.unpairConfirm": "Unpair this device? It will need a new code to use Latentry again.",
-  "setup.needInstall": "Models are downloaded and loaded by the engine: install it above, then start it."
+  "setup.needInstall": "Models are downloaded and loaded by the engine: install it above, then start it.",
+  "settings.pairingOwner": "Owner",
+  "settings.pairingOwnerHint": "An owner device may change settings and Setup, and pair other devices.",
+  "pair.ownerHint": "No browser on that computer, as with Latentry in Docker? Run npm run owner-code there (in Docker: docker compose exec latentry npm run owner-code) and type that code here: this browser becomes the owner and can pair your other devices."
 }

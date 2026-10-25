@@ -194,8 +194,11 @@ back to `.env.local`.
 - **Models are never part of Latentry.** The Setup page downloads only what
   you pick, after showing its license. NoobAI XL, for one, is non-commercial.
 - **Settings can only be changed on the machine running Latentry**
-  (`http://localhost`). Other devices see the app but not the settings page.
-  `SETTINGS_EDIT=lan` allows it from the network, `SETTINGS_EDIT=off` turns it
+  (`http://localhost`), or from an owner device: run `npm run owner-code` in
+  a terminal there and type the code into your browser
+  ([An owner device](https://33rd-kk.github.io/latentry/guide/network/#an-owner-device)).
+  Other devices see the app but not the settings page. `SETTINGS_EDIT=lan`
+  allows every device on the network instead, `SETTINGS_EDIT=off` turns it
   off. Since settings choose which folders are read and written, only open
   this up on a network you trust.
 - **It is meant for your own machine or LAN.** It listens on 127.0.0.1

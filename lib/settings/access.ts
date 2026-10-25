@@ -4,7 +4,8 @@
 // written, and they hold backend tokens. So changing them is narrower than
 // using the app:
 //
-//   SETTINGS_EDIT=local   (default) only from this machine: localhost / loopback
+//   SETTINGS_EDIT=local   (default) only from this machine (localhost /
+//                         loopback) or an owner device (lib/security/pairing.ts)
 //   SETTINGS_EDIT=lan     from any address /api answers (see route-guard.ts)
 //   SETTINGS_EDIT=off     never; the page is read-only and .env.local rules
 //
@@ -14,6 +15,7 @@
 // stops a program on the LAN that writes the headers; a reverse proxy on this
 // machine is still told apart by the client address it forwards.
 
+import { deviceCookie, pairedDevice, pairingEnabled } from '@/lib/security/pairing'
 import { isLoopbackAddress as isLoopback, peerAddress } from '@/lib/security/peer'
 import { clientIp } from '@/lib/security/request-budget'
 
@@ -50,10 +52,25 @@ export function isFromThisMachine(headers: Headers, env: Env = process.env): boo
   return isLoopback(host) && isLoopback(clientIp(headers)) && (peer === undefined || isLoopback(peer))
 }
 
+/** Whether the request comes from a paired owner device (lib/security/pairing.ts). */
+export function isOwnerDevice(headers: Headers, env: Env = process.env): boolean {
+  return pairingEnabled(env) && pairedDevice(deviceCookie(headers), Date.now(), env)?.owner === true
+}
+
+/**
+ * Whether the request may do what this machine may: change settings and
+ * Setup, and pair other devices. This machine itself, or an owner device.
+ * Not for what only makes sense on this machine (opening its file manager):
+ * that stays isFromThisMachine.
+ */
+export function mayAdminister(headers: Headers, env: Env = process.env): boolean {
+  return isFromThisMachine(headers, env) || isOwnerDevice(headers, env)
+}
+
 /** Why this request may not change settings, or null when it may. */
 export function editRefusal(headers: Headers, env: Env = process.env): 'off' | 'notLocal' | null {
   const mode = editMode(env)
   if (mode === 'off') return 'off'
   if (mode === 'lan') return null
-  return isFromThisMachine(headers, env) ? null : 'notLocal'
+  return mayAdminister(headers, env) ? null : 'notLocal'
 }

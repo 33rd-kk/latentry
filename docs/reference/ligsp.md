@@ -34,7 +34,7 @@ the protection, that is said too.
 | ID | Level | State | How |
 |---|---|---|---|
 | NET-1 | 1 | Met | Listens on 127.0.0.1 unless `LATENTRY_HOST` is set. The engine listens on 127.0.0.1 only. |
-| NET-2 | 2 | Met | A device other than this computer gets only the pairing page, and every `/api` call is refused, until it is paired. `LATENTRY_PAIRING=off` is meant only for use behind an authenticating reverse proxy. |
+| NET-2 | 2 | Met | A device other than this computer gets only the pairing page, and every `/api` call is refused, until it is paired. Settings and Setup stay with this computer and owner devices, paired with a code only a terminal on this computer can make. `LATENTRY_PAIRING=off` is meant only for use behind an authenticating reverse proxy. |
 | NET-3 | 1 | Met | Settings warns when a ComfyUI or AUTOMATIC1111 / Forge backend is at another computer's address without a token. |
 | NET-4 | 2 | Met | Decisions use the address the connection comes from; `X-Forwarded-For` is believed only from a proxy on this computer. |
 | NET-5 | 1 | Met | Connects only to the backends you set and to the fixed download sources on Setup. No telemetry (DATA-1). |
