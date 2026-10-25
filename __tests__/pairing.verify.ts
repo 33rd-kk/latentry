@@ -134,6 +134,11 @@ async function main(): Promise<void> {
   eq(redeemCode(owner, now), 'owner', 'the owner code is told apart')
   eq(redeemCode(ordinary, now), 'device', 'and the ordinary one still works beside it')
   eq(redeemCode(owner, now), null, 'an owner code works once too')
+  const spared = createOwnerCode(now).code
+  for (let i = 0; i < CODE_TRIES - 1; i++) {
+    eq(redeemCode(createCode(now).code, now), 'device', 'pairing phones…')
+  }
+  eq(redeemCode(spared, now), 'owner', `…${CODE_TRIES - 1} times costs the owner code no tries`)
   createOwnerCode(now)
   createCode(now)
   forgetAllDevices()
@@ -248,8 +253,19 @@ async function main(): Promise<void> {
   eq((await pairingAction(post('http://192.168.1.20:3000/api/settings/pairing', fromLan, { action: 'owner-code' }))).status, 403, 'a LAN device cannot make an owner code')
   const ownerMade = await (await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'owner-code' }))).json()
   check(typeof ownerMade.code?.code === 'string', 'this machine (a terminal on it) makes an owner code')
-  const ownerPaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', fromOwnerLan, { code: ownerMade.code.code, name: 'Laptop' }))
+  const logged: string[] = []
+  const realInfo = console.info
+  console.info = (...args: unknown[]) => void logged.push(args.join(' '))
+  let ownerPaired: Response
+  try {
+    ownerPaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', fromOwnerLan, { code: ownerMade.code.code, name: 'Laptop' }))
+  } finally {
+    console.info = realInfo
+  }
   eq(ownerPaired.status, 200, 'the owner code pairs')
+  check(/Max-Age=604800/.test(ownerPaired.headers.get('set-cookie') ?? ''), 'for 7 days, not 30')
+  check(logged.length === 1 && /owner: device \d+ was paired as an owner, until /.test(logged[0]), `the server log says an owner was added (${logged[0]})`)
+  check(!logged[0].includes(ownerMade.code.code) && !logged[0].includes('Laptop') && !logged[0].includes('192.168'), 'without the code, the name or the address')
   const ownerValue = (ownerPaired.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
   const asOwner = withCookie(fromOwnerLan, ownerValue)
   eq((await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: asOwner }))).json()).owner, true, 'as an owner device')
@@ -271,9 +287,26 @@ async function main(): Promise<void> {
   check(isOwnerDevice(owned) && !isFromThisMachine(owned), 'it is an owner, not this machine: opening the file manager stays with this machine')
   eq(editRefusal(owned, { ...process.env, SETTINGS_EDIT: 'off' }), 'off', 'SETTINGS_EDIT=off applies to an owner device too')
   check(!isOwnerDevice(owned, { ...process.env, LATENTRY_PAIRING: 'off' }), 'with pairing off there are no owners')
+  // A copied owner cookie cannot be kept alive with phone codes its holder makes.
+  const renewCode = await (await pairingAction(post('http://192.168.1.20:3000/api/settings/pairing', asOwner, { action: 'code' }))).json()
+  const renewed = await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...asOwner, [peer]: '192.168.1.42' }, { code: renewCode.code.code }))
+  const renewedValue = (renewed.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
+  eq(pairedDevice(renewedValue)?.owner, false, 'an owner that pairs again with an ordinary code is an ordinary device')
+  check(!verifyDevice(ownerValue), 'and its owner cookie stops working')
+  const owner2 = await (await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'owner-code' }))).json()
+  const ownerAgain = await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...fromLan, [peer]: '192.168.1.43', 'x-forwarded-proto': 'https' }, { code: owner2.code.code }))
+  check(/;\s*Secure/i.test(ownerAgain.headers.get('set-cookie') ?? ''), 'over https (at a proxy) the cookie is Secure')
+  check(!/;\s*Secure/i.test(ownerPaired.headers.get('set-cookie') ?? ''), 'over plain http it is not, or it would never be sent')
   const ownerId = listDevices().find((d) => d.owner)!.id
-  check(removeDevice(ownerId), 'the owner device is removed')
-  eq(editRefusal(owned), 'notLocal', 'and with it what it was allowed')
+  logged.length = 0
+  console.info = (...args: unknown[]) => void logged.push(args.join(' '))
+  try {
+    check(removeDevice(ownerId), 'the owner device is removed')
+  } finally {
+    console.info = realInfo
+  }
+  check(logged.length === 1 && /owner: device \d+ was removed/.test(logged[0]), 'and the log says so')
+  eq(editRefusal(new Headers(withCookie({ ...fromLan, [peer]: '192.168.1.43' }, ownerAgain.headers.get('set-cookie')!.split(';')[0].slice(DEVICE_COOKIE.length + 1)))), 'notLocal', 'and with it what it was allowed')
   forgetAllDevices()
 
   let limited = 0

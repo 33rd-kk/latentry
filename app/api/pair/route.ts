@@ -42,19 +42,31 @@ export async function POST(request: Request) {
 
   // Pairing again (before the old pairing ends) replaces this device's entry
   // rather than adding a second one, keeping its name unless a new one is
-  // given, and staying an owner if it was one.
+  // given. Only an owner code makes an owner: an ordinary code pairs it as an
+  // ordinary device, so a copied owner cookie cannot be kept alive with codes
+  // its holder makes for itself.
   const previous = pairedDevice(deviceCookie(request.headers))
-  const owner = kind === 'owner' || previous?.owner === true
-  const issued = issueDevice(Date.now(), process.env, cleanName(body?.name) ?? previous?.name ?? null, owner)
+  const issued = issueDevice(Date.now(), process.env, cleanName(body?.name) ?? previous?.name ?? null, kind === 'owner')
   if (previous) removeDevice(previous.id)
   const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
   response.cookies.set(DEVICE_COOKIE, issued.value, {
     httpOnly: true,
     sameSite: 'strict',
+    secure: isHttps(request),
     path: '/',
     maxAge: issued.maxAgeSeconds,
   })
   return response
+}
+
+/**
+ * Whether the page came over https, here or at a proxy in front: then the
+ * cookie is marked Secure, so the browser never sends it over plain http.
+ * A forged header can only make the cookie stricter.
+ */
+function isHttps(request: Request): boolean {
+  if (new URL(request.url).protocol === 'https:') return true
+  return request.headers.get('x-forwarded-proto')?.split(',')[0].trim().toLowerCase() === 'https'
 }
 
 export async function DELETE(request: Request) {

@@ -16,6 +16,7 @@
     "test:e2e": "node scripts/e2e.mjs",
     "docs:screenshots": "node scripts/docs-screenshots.mjs",
     "owner-code": "node scripts/owner-code.mjs",
+    "forget-devices": "node scripts/forget-devices.mjs",
     "coverage": "c8 node scripts/run-verify.mjs && node -e \"require('fs').rmSync('coverage/tmp', { recursive: true, force: true })\""
   },
   "dependencies": {
