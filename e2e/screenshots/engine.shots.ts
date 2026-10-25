@@ -41,8 +41,21 @@ test('the engine draws the gallery', async ({ page }) => {
   if (earlier && existsSync(earlier)) cpSync(earlier, path.join(root, 'out'), { recursive: true })
   const drawn = readdirSync(path.join(root, 'out')).join('\n')
   const missing = PICTURES.filter(([, , seed]) => !drawn.includes(`_engine_${seed}_`))
-  if (missing.length === 0) return
   await openGenerate(page, 'engine')
+  if (missing.length === 0) {
+    // Nothing to draw, so nothing loads the model; the shots after this need it in.
+    // Asked again until the engine is up to take it (409 until then).
+    await expect
+      .poll(
+        async () => {
+          const load = await page.request.post('/api/engine/models/load', { data: { id: process.env.DOCS_ENGINE_MODEL } })
+          return `${load.status()} ${await load.text()}`
+        },
+        { timeout: 3 * 60_000, intervals: [3000] }
+      )
+      .toMatch(/^202 /)
+    return
+  }
   const generate = page.getByRole('button', { name: 'Generate', exact: true })
   for (const [prompt, size, seed] of missing) {
     await page.locator('#prompt').fill(prompt)
@@ -82,6 +95,8 @@ take('screenshot-viewer')('viewer, with WD14 tags', async ({ page }) => {
 })
 
 take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
+  // With the gallery reused, the engine may still be loading its model.
+  test.setTimeout(10 * 60_000)
   // Tall enough that nothing scrolls under the sticky header.
   await page.setViewportSize({ width: 1280, height: 2400 })
   await openGallery(page)
@@ -96,20 +111,49 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
     await picker.click()
     await page.getByRole('option').filter({ has: page.getByText('engine', { exact: true }) }).click()
   }
-  // Draw the skeleton from the reference, then open the 3D view.
-  await page.getByRole('button', { name: "Use the source's pose" }).click()
+  // Draw the skeleton from the reference (pose shows once the model is in), then open the 3D view.
+  const fromSource = page.getByRole('button', { name: "Use the source's pose" })
+  await expect(fromSource).toBeVisible({ timeout: 5 * 60_000 })
+  await fromSource.click()
   await expect(page.getByRole('img', { name: 'Skeleton pose' })).toBeVisible({ timeout: 120_000 })
+  const isPose = (url: string) => /\/api\/gen\/[^/]+\/pose$/.test(new URL(url).pathname)
+  const answered = page.waitForResponse((response) => isPose(response.url()) && response.request().postDataJSON()?.want_3d === true)
   await page.getByRole('button', { name: '3D', exact: true }).click()
+  const response = await answered
+  const { width, height } = response.request().postDataJSON() as { width: number; height: number }
+  const answer = (await response.json()) as { person: number; people: { points_3d: number[][]; scores: number[] }[] }
   await expect(page.getByText(/^Yaw 0°/)).toBeVisible({ timeout: 120_000 })
   const view = page.locator('canvas:visible').last()
   await view.scrollIntoViewIfNeeded()
   const box = (await view.boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+  // Raise the lower hand: from the front, a point in picture widths (y down)
+  // shows where the 832×1216 picture, letterboxed onto the output, puts it.
+  const aspect = 1216 / 832
+  const scale = Math.min(width, height / aspect)
+  const onCanvas = ([x, y]: number[]) => ({
+    x: box.x + (((width - scale) / 2 + x * scale) / width) * box.width,
+    y: box.y + (((height - scale * aspect) / 2 + y * scale) / height) * box.height,
+  })
+  const { points_3d: points, scores } = answer.people[Math.max(0, answer.person)]
+  const wrist = [9, 10].filter((joint) => scores[joint] >= 0.3).sort((a, b) => points[b][1] - points[a][1])[0]
+  const shoulder = points[wrist - 4]
+  const from = onCanvas(points[wrist])
+  const outward = Math.sign(points[wrist][0] - shoulder[0]) || 1
+  await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 + 4, { steps: 6 })
+  await page.mouse.move(from.x + 18 * outward, from.y - 40, { steps: 8 })
   await page.mouse.up()
+  await expect(page.getByText('Joints moved: 1')).toBeVisible()
+
+  // Then swing the camera a little, from a corner well away from the figure.
+  await page.mouse.move(box.x + 8, box.y + box.height - 8)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 33, box.y + box.height - 6, { steps: 6 })
+  await page.mouse.up()
+  await expect(page.getByText(/^Yaw -?[1-9]\d*°/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use this pose' })).toBeEnabled()
-  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByRole('button', { name: 'Use this pose' }), page.locator('[data-slot="card"]').first())
+  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByText('Joints moved: 1'), page.locator('[data-slot="card"]').first(), 4)
 })
 
 take('manual-setup')('Setup with the engine running', async ({ page }) => {

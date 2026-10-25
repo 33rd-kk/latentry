@@ -35,7 +35,7 @@ run sends only the skeleton, so the people's looks do not carry over.
 
 ## Turn it and frame it in 3D
 
-![The skeleton and the 3D view turned to one side, with Use this pose](../assets/manual-3d.webp){ width="420" }
+![The skeleton and the 3D view turned to one side with a hand raised, Use this pose, Undo and Reset joints](../assets/manual-3d.webp){ width="420" }
 
 Press **3D** to open the 3D view. It has the output's shape and shows exactly
 what the skeleton will cover.
