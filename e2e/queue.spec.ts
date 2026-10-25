@@ -1,4 +1,4 @@
-// docs/guide/generate.md: while a run is going, Generate becomes Add to queue.
+// docs/guide/many.md: while a run is going, Generate becomes Add to queue.
 // The page lists the runs it queued, and any of them can be taken out again.
 // Another page sees only how many wait. Cancelling the running run starts the
 // next one. Runs on the mock diffusers-compatible server, whose run with

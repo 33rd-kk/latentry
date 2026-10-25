@@ -89,7 +89,7 @@ the protection, that is said too.
 | ID | Level | State | How |
 |---|---|---|---|
 | SUP-1 | 1 | Met | `npm ci` from `package-lock.json`; the engine's Python packages from a lock with the SHA-256 of every file. |
-| SUP-2 | 1 | Partly met | Each release's source is built by a workflow and attested ([checking a download](../getting-started.md#from-a-release-download-checked)), and nothing is piped into a shell. There are no prebuilt downloads yet. |
+| SUP-2 | 1 | Partly met | Each release's source is built by a workflow and attested ([checking a download](../install/native.md#from-a-release-download-checked)), and nothing is piped into a shell. There are no prebuilt downloads yet. |
 | SUP-3 | 1 | Met | Weekly `npm audit` and `pip-audit`, CodeQL, and Dependabot. |
 | SUP-4 | 1 | Met | [SECURITY.md](https://github.com/33rd-kk/latentry/blob/main/SECURITY.md) and GitHub's private reporting. |
 

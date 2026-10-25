@@ -88,7 +88,7 @@ turned off. A reload starts the page afresh.
 run is the only one told which it is, in secret mode or not, and in secret
 mode it does not show even the start of its prompt. Turning secret mode on
 while runs wait makes them secret runs once they start. The same goes for
-an [X/Y grid](generate.md#xy-grid): turned on while it waits or runs, every
+an [X/Y grid](many.md#xy-grid): turned on while it waits or runs, every
 cell becomes a secret run, the ones already drawn included. **Save sheet**
 is not offered in secret mode, and the server refuses it.
 

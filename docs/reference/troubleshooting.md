@@ -35,7 +35,7 @@ listed. Point the models folder at the right place on Setup.
 
 **"Backend is busy" or "runs are already waiting".** Each backend runs one
 job at a time, and up to 8 more wait in its
-[queue](../guide/generate.md#the-queue). Wait for one to start, take one of
+[queue](../guide/many.md#the-queue). Wait for one to start, take one of
 yours out, or use another backend.
 
 **"Backend … is not answering".** Check that the server runs and its URL on

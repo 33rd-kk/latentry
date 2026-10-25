@@ -1,4 +1,4 @@
-// docs/guide/generate.md: wildcards. The test run's settings point at a
+// docs/guide/many.md: wildcards. The test run's settings point at a
 // wildcards folder (scripts/e2e.mjs) with weather.txt ("light rain") and
 // places/coast.txt ("rocky coast"): the picker puts one in, the run is drawn
 // with its line, and the picture keeps the prompt as typed.

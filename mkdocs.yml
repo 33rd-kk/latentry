@@ -28,16 +28,25 @@ theme:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
-  - Guide:
-      - Generate: guide/generate.md
+  - Install:
+      - From source: install/native.md
+  - Generate:
+      - The generate page: guide/generate.md
+      - From a picture: guide/from-a-picture.md
+      - Bigger pictures: guide/bigger.md
+      - Many pictures: guide/many.md
       - Pose and the 3D view: guide/pose.md
-      - Gallery: guide/gallery.md
-      - Secret mode: guide/secret-mode.md
+  - Gallery: guide/gallery.md
+  - Devices:
+      - Owner device: guide/owner-device.md
+      - Other devices and security: guide/network.md
+  - Privacy and security:
       - Privacy: guide/privacy.md
+      - Secret mode: guide/secret-mode.md
+      - What it protects against: guide/threat-model.md
+  - Settings and Setup:
       - Setup and the engine: guide/engine.md
       - Settings: guide/settings.md
-      - Other devices and security: guide/network.md
-      - What it protects against: guide/threat-model.md
   - Reference:
       - Configuration: reference/configuration.md
       - Backends: reference/backends.md

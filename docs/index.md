@@ -16,14 +16,14 @@ it again by what it shows or how it was made.
 ## What it does
 
 - **Generate**: text-to-image, img2img (a variation, or a picture as a pose
-  reference) and inpainting with a painted mask. [Hires fix](guide/generate.md#hires-fix)
+  reference) and inpainting with a painted mask. [Hires fix](guide/bigger.md#hires-fix)
   redraws a new picture at a larger size, and
-  [Upscale](guide/generate.md#upscale-a-picture) does the same to one already
-  in the gallery. [Extend](guide/generate.md#extend-a-picture-outpainting)
+  [Upscale](guide/bigger.md#upscale-a-picture) does the same to one already
+  in the gallery. [Extend](guide/from-a-picture.md#extend-a-picture-outpainting)
   grows a picture's canvas and draws the new area, and
-  [wildcards](guide/settings.md#wildcards) fill in parts of a prompt from a
-  folder of text files. More runs [queue](guide/generate.md#the-queue)
-  behind the one going, and an [X/Y grid](guide/generate.md#xy-grid) draws a
+  [wildcards](guide/many.md#wildcards) fill in parts of a prompt from a
+  folder of text files. More runs [queue](guide/many.md#the-queue)
+  behind the one going, and an [X/Y grid](guide/many.md#xy-grid) draws a
   run again for each value of one or two settings.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
   picture to follow (one, several or everyone), turn the pose in 3D and frame
@@ -52,12 +52,17 @@ it again by what it shows or how it was made.
 
 1. [Getting started](getting-started.md): install, set up the engine,
    generate the first picture.
-2. The guide, page by page: [Generate](guide/generate.md),
-   [Pose and the 3D view](guide/pose.md), [Gallery](guide/gallery.md),
-   [Privacy](guide/privacy.md),
-   [Setup and the engine](guide/engine.md), [Settings](guide/settings.md).
-3. [Other devices and security](guide/network.md) before using it from a
+2. Generate: [the generate page](guide/generate.md),
+   [from a picture](guide/from-a-picture.md),
+   [bigger pictures](guide/bigger.md), [many pictures](guide/many.md) and
+   [pose and the 3D view](guide/pose.md).
+3. [Gallery](guide/gallery.md).
+4. Devices: an [owner device](guide/owner-device.md) when your browser is
+   not on the computer running Latentry, and
+   [other devices and security](guide/network.md) before using it from a
    phone.
+5. [Privacy](guide/privacy.md), [Secret mode](guide/secret-mode.md) and
+   [Settings](guide/settings.md).
 
 Latentry is open source (MIT):
 [github.com/33rd-kk/latentry](https://github.com/33rd-kk/latentry). Its pose

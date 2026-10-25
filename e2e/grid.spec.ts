@@ -1,4 +1,4 @@
-// docs/guide/generate.md, "X/Y grid": the run drawn again for each value of
+// docs/guide/many.md, "X/Y grid": the run drawn again for each value of
 // one or two settings, queued as one run, its cells filled in as they finish.
 // A finished grid can be saved as one sheet, which the gallery stacks with
 // its cells, and a grid that is going can be stopped as a whole. Runs on the
