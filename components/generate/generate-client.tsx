@@ -21,6 +21,7 @@ import { ResultsPanel } from "@/components/generate/results-panel"
 import { HiresSection } from "@/components/generate/hires-section"
 import { WorkflowPicker } from "@/components/generate/workflow-picker"
 import { DEFAULT_GRID_FORM, GridSection, type GridForm } from "@/components/generate/grid-section"
+import { BlockMenu, useShownBlocks } from "@/components/generate/block-menu"
 import { useBackends } from "@/hooks/use-backends"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
 import { useWildcards } from "@/hooks/use-wildcards"
@@ -121,14 +122,21 @@ export function GenerateClient() {
     },
     [profile]
   )
+  // Which of the form's optional blocks are shown; a hidden one is not used.
+  const { shown, setShown } = useShownBlocks()
   // Bumped per source, to give the tag extractor a fresh start.
   const [sourceVersion, setSourceVersion] = useState(0)
-  // A mask is drawn over one particular source, so a new source always drops it.
-  const changeSource = useCallback((next: SourceImage | null) => {
-    setSourceImage(next)
-    setMask(null)
-    setSourceVersion((version) => version + 1)
-  }, [])
+  // A mask is drawn over one particular source, so a new source always drops
+  // it. A source sent here (from the gallery or a result) shows its block.
+  const changeSource = useCallback(
+    (next: SourceImage | null) => {
+      setSourceImage(next)
+      setMask(null)
+      setSourceVersion((version) => version + 1)
+      if (next) setShown("source", true)
+    },
+    [setShown]
+  )
   // The tags the extractor last carried into the prompt — what "save character" offers to keep.
   const [lastExtractedTags, setLastExtractedTags] = useState("")
   const [poseSkeleton, setPoseSkeleton] = useState<PoseSkeleton | null>(null)
@@ -198,12 +206,28 @@ export function GenerateClient() {
   const statusCapabilities = status?.capabilities
   const statusHints = status?.hints
   const engineReady = statusHints?.pose?.need !== "engine"
-  const capabilities = useMemo(
+  // What the backend (or workflow) can do, and of that what the shown blocks use.
+  const available = useMemo(
     () =>
       statusCapabilities && workflow
         ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, hires: false }
         : statusCapabilities,
     [statusCapabilities, workflow, workflowPose, engineReady]
+  )
+  const showSource = shown("source")
+  const showPose = shown("pose")
+  const showHires = shown("hires")
+  const showGrid = shown("grid")
+  const capabilities = useMemo(
+    () =>
+      available && {
+        ...available,
+        img2img: available.img2img && showSource,
+        inpaint: available.inpaint && showSource,
+        pose: available.pose && showPose,
+        hires: available.hires && showHires,
+      },
+    [available, showSource, showPose, showHires]
   )
   const hints = useMemo(() => {
     if (!statusHints || !workflow || !engineReady) return statusHints
@@ -239,8 +263,11 @@ export function GenerateClient() {
 
   // The grid as it would be sent, and what the page makes of it before sending.
   const gridInput = useMemo<GridSpecInput | null>(
-    () => (gridForm.on ? { x: gridForm.x, ...(gridForm.y.kind !== "none" ? { y: { kind: gridForm.y.kind, text: gridForm.y.text } } : {}) } : null),
-    [gridForm]
+    () =>
+      gridForm.on && showGrid
+        ? { x: gridForm.x, ...(gridForm.y.kind !== "none" ? { y: { kind: gridForm.y.kind, text: gridForm.y.text } } : {}) }
+        : null,
+    [gridForm, showGrid]
   )
   const gridParsed = useMemo(
     () =>
@@ -418,7 +445,7 @@ export function GenerateClient() {
     ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple)
     : extending && sourceImage
       ? outpaintCanvas(sourceImage, extendSides)
-    : sourceImage
+    : sourceImage && capabilities?.img2img
       ? fitToImage(sourceImage, form.width, form.height, profile.sizeMultiple)
       : { width: form.width, height: form.height }
 
@@ -449,15 +476,28 @@ export function GenerateClient() {
             {workflows.length > 0 && (
               <WorkflowPicker workflows={workflows} value={workflow} onChange={(name) => update({ workflow: name })} />
             )}
+            <BlockMenu
+              shown={shown}
+              setShown={setShown}
+              blocks={[
+                { block: "characters" as const, holding: false },
+                ...(available?.img2img ? [{ block: "source" as const, holding: Boolean(sourceImage) }] : []),
+                ...(available?.pose ? [{ block: "pose" as const, holding: Boolean(poseSkeleton) }] : []),
+                ...(available?.hires ? [{ block: "hires" as const, holding: form.hires }] : []),
+                { block: "grid" as const, holding: gridForm.on },
+              ]}
+            />
           </CardHeader>
           <CardContent className="space-y-4">
-            <CharacterPresets
-              suggestedTags={lastExtractedTags}
-              artist={form.artist}
-              negativePrompt={form.negativePrompt}
-              seed={form.seed}
-              onApply={applyCharacter}
-            />
+            {shown("characters") && (
+              <CharacterPresets
+                suggestedTags={lastExtractedTags}
+                artist={form.artist}
+                negativePrompt={form.negativePrompt}
+                seed={form.seed}
+                onApply={applyCharacter}
+              />
+            )}
             <PromptSection
               form={form}
               profile={profile}
@@ -526,10 +566,10 @@ export function GenerateClient() {
                 defaultStrength={DEFAULT_POSE_STRENGTH}
                 onStrengthChange={setPoseStrength}
                 outputSize={outputSize}
-                source={sourceImage}
+                source={capabilities.img2img ? sourceImage : null}
               />
             )}
-            {!capabilities?.pose && poseSkeleton && (
+            {!available?.pose && poseSkeleton && (
               <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseDropped")}</p>
             )}
             {status.alive && <UnavailableFeatures hints={hints ?? {}} kind={status.kind} />}
@@ -554,15 +594,17 @@ export function GenerateClient() {
                 sizeMultiple={profile.sizeMultiple}
               />
             )}
-            <GridSection
-              value={gridForm}
-              onChange={setGridForm}
-              parsed={gridParsed}
-              imageCount={form.imageCount}
-              samplers={status.samplers}
-              schedulers={status.schedulers}
-              hires={hires || upscaling}
-            />
+            {showGrid && (
+              <GridSection
+                value={gridForm}
+                onChange={setGridForm}
+                parsed={gridParsed}
+                imageCount={form.imageCount}
+                samplers={status.samplers}
+                schedulers={status.schedulers}
+                hires={hires || upscaling}
+              />
+            )}
 
             <div className="flex gap-2">
               <Button
@@ -610,7 +652,7 @@ export function GenerateClient() {
           </CardContent>
         </Card>
 
-        <ResultsPanel job={job} queue={queue} grids={grids} labels={labels} onUseAsSource={capabilities?.img2img ? changeSource : undefined} />
+        <ResultsPanel job={job} queue={queue} grids={grids} labels={labels} onUseAsSource={available?.img2img ? changeSource : undefined} />
       </div>
     </div>
   )

@@ -327,6 +327,15 @@
         "hires": "The server's /api/health does not say \"hires\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md.",
         "upscale": "The server's /api/health does not say \"upscale\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to upscale a source, answer that and accept \"upscale\": true with \"init_image_base64\" and the hr_* fields on /api/generate. See docs/backend-api.md."
       }
+    },
+    "blocks": {
+      "label": "Show",
+      "characters": "Characters",
+      "source": "Source image",
+      "pose": "Pose",
+      "hires": "Hires fix",
+      "grid": "X/Y grid",
+      "holding": "Hidden, so not used. What it holds is kept for when it is shown again."
     }
   },
   "gallery": {
@@ -528,6 +537,16 @@
   },
   "settings": {
     "title": "Settings",
+    "nav": {
+      "label": "Sections",
+      "backends": "Backends",
+      "tagger": "Tagging",
+      "gallery": "Gallery",
+      "profiles": "Profiles",
+      "wildcards": "Wildcards",
+      "devices": "Devices",
+      "invalid": "Has a field to fix"
+    },
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
     "version": "Latentry {version}",
     "lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost), or from an owner device. To make this browser one, run npm run owner-code on that computer (in Docker: docker compose exec latentry npm run owner-code) and enter the code on the pairing page.",

@@ -1,7 +1,8 @@
-// The settings page: it shows what settings.json holds, saves a change and
-// shows it again after a reload, discards an unsaved one, tests a backend and
-// puts the server's complaints next to the field they are about. What a test
-// saves it takes back out, because the other specs share the server.
+// The settings page: it shows what settings.json holds, one section at a time,
+// saves a change and shows it again after a reload, discards an unsaved one,
+// tests a backend and puts the server's complaints next to the field they are
+// about. What a test saves it takes back out, because the other specs share
+// the server.
 
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
@@ -9,11 +10,43 @@ import { expect, test, type Page } from '@playwright/test'
 
 const card = (page: Page, title: string) => page.locator('[data-slot="card"]').filter({ has: page.getByText(title, { exact: true }) })
 const saveButton = (page: Page) => page.getByRole('button', { name: 'Save', exact: true })
+const tab = (page: Page, name: string) => page.getByRole('tab', { name: new RegExp(`^${name}`) })
 
-async function open(page: Page) {
-  await page.goto('/settings')
+/** Opens Settings at one section, as a link to it would. */
+async function open(page: Page, section = 'backends') {
+  await page.goto(`/settings#${section}`)
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 }
+
+test('the list on the left shows one section at a time, and the browser keeps the last one', async ({ page }) => {
+  await open(page)
+  await expect(tab(page, 'Backends')).toHaveAttribute('aria-selected', 'true')
+  await expect(card(page, 'Backends')).toBeVisible()
+  await expect(card(page, 'Gallery folders')).toHaveCount(0)
+
+  await tab(page, 'Gallery').click()
+  await expect(card(page, 'Gallery folders')).toBeVisible()
+  await expect(card(page, 'Backends')).toHaveCount(0)
+  await expect(page).toHaveURL(/\/settings#gallery$/)
+
+  // Without a section in the address, the one chosen last comes back.
+  await page.goto('/settings')
+  await expect(tab(page, 'Gallery')).toHaveAttribute('aria-selected', 'true')
+})
+
+test('a section with unsaved changes is marked in the list, and the change survives switching', async ({ page }) => {
+  await open(page, 'profiles')
+  const steps = card(page, 'Model profile defaults').locator('input[inputmode="decimal"]').nth(2)
+  await steps.fill('31')
+  await expect(tab(page, 'Profiles').getByRole('img', { name: 'Unsaved changes' })).toBeVisible()
+  await expect(tab(page, 'Backends').getByRole('img')).toHaveCount(0)
+
+  await tab(page, 'Backends').click()
+  await tab(page, 'Profiles').click()
+  await expect(steps).toHaveValue('31')
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await expect(tab(page, 'Profiles').getByRole('img')).toHaveCount(0)
+})
 
 async function save(page: Page) {
   await saveButton(page).click()
@@ -38,7 +71,7 @@ test('a read folder with a display name is saved, comes back after a reload, and
   // A read folder has to exist.
   const folder = path.join(process.env.E2E_ROOT!, 'extra')
   mkdirSync(folder, { recursive: true })
-  await open(page)
+  await open(page, 'gallery')
   const gallery = card(page, 'Gallery folders')
   const names = gallery.getByRole('textbox', { name: 'Display name' })
   // The save folder's display name comes first; read folders follow.
@@ -62,7 +95,7 @@ test('a read folder with a display name is saved, comes back after a reload, and
 })
 
 test('an unsaved profile change shows a reset, and Discard drops it', async ({ page }) => {
-  await open(page)
+  await open(page, 'profiles')
   const profiles = card(page, 'Model profile defaults')
   const steps = profiles.locator('input[inputmode="decimal"]').nth(2)
   await expect(steps).toHaveValue('')
@@ -105,6 +138,9 @@ test('what the server rejects is shown at its field, and nothing is saved', asyn
   await saveButton(page).click()
   await expect(page.getByText('Some values need fixing')).toBeVisible()
   await expect(backends.getByText('An http:// or https:// address.')).toHaveCount(1)
+  // The list says where, for when another section is open.
+  await expect(tab(page, 'Backends').getByRole('img', { name: 'Has a field to fix' })).toBeVisible()
+  await expect(tab(page, 'Gallery').getByRole('img')).toHaveCount(0)
 
   await page.reload()
   await expect(url).not.toHaveValue('not an address')
@@ -112,7 +148,7 @@ test('what the server rejects is shown at its field, and nothing is saved', asyn
 
 test('the pairing card says Latentry listens on this computer only', async ({ page }) => {
   // The browser tests' server is started by scripts/serve.mjs on 127.0.0.1.
-  await open(page)
+  await open(page, 'devices')
   await expect(page.getByText('Latentry listens on this computer only.', { exact: false })).toBeVisible()
   await expect(page.getByText('Latentry is open to your network', { exact: false })).toHaveCount(0)
 })

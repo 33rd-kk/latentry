@@ -23,6 +23,19 @@ form, so switching backends and back keeps what you typed.
 
 ![A workflow from the folder chosen on a ComfyUI backend, with the note under it](../assets/manual-workflow.webp){ width="420" }
 
+## Show only what you use
+
+The **Show** row under the backend hides the parts of the form you do not
+need: **Characters**, **Source image**, **Pose**, **Hires fix** and
+**X/Y grid** (only those the backend can do are listed). A hidden part is
+not used: a source image, a skeleton, hires fix or a grid in it is not sent.
+What it holds is kept, and an amber dot on its button says so, until you
+show it again. Sending a picture to the form as a source (from the gallery
+or a result) shows **Source image** again.
+
+Which parts are hidden is remembered in this browser only, and not while
+[secret mode](#secret-mode) is on.
+
 ## Prompts
 
 - **Artist**: a name, added to the prompt the way the profile writes it

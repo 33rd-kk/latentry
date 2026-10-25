@@ -715,5 +715,20 @@
   "setup.needInstall": "Models are downloaded and loaded by the engine: install it above, then start it.",
   "settings.pairingOwner": "Owner",
   "settings.pairingOwnerHint": "An owner device may change settings and Setup, and pair other devices.",
-  "pair.ownerHint": "No browser on that computer, as with Latentry in Docker? Run npm run owner-code there (in Docker: docker compose exec latentry npm run owner-code) and type that code here: this browser becomes the owner and can pair your other devices."
+  "pair.ownerHint": "No browser on that computer, as with Latentry in Docker? Run npm run owner-code there (in Docker: docker compose exec latentry npm run owner-code) and type that code here: this browser becomes the owner and can pair your other devices.",
+  "settings.nav.label": "Sections",
+  "settings.nav.backends": "Backends",
+  "settings.nav.tagger": "Tagging",
+  "settings.nav.gallery": "Gallery",
+  "settings.nav.profiles": "Profiles",
+  "settings.nav.wildcards": "Wildcards",
+  "settings.nav.devices": "Devices",
+  "settings.nav.invalid": "Has a field to fix",
+  "generate.blocks.label": "Show",
+  "generate.blocks.characters": "Characters",
+  "generate.blocks.source": "Source image",
+  "generate.blocks.pose": "Pose",
+  "generate.blocks.hires": "Hires fix",
+  "generate.blocks.grid": "X/Y grid",
+  "generate.blocks.holding": "Hidden, so not used. What it holds is kept for when it is shown again."
 }

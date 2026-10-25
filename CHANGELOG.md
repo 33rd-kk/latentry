@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Shorter Settings and Generate pages**: Settings shows one section at a
+  time, chosen from a list on the left; a dot marks a section with unsaved
+  changes or a field to fix, and `/settings#gallery` opens a section
+  directly. On Generate, the **Show** row hides the parts of the form you
+  do not use (characters, source image, pose, hires fix, X/Y grid). A
+  hidden part is not sent, and keeps what it holds until it is shown again.
+  Both choices are remembered in this browser only, and not in secret mode.
+
 - **Owner devices**: when you do not use a browser on the computer running
   Latentry (in Docker, or on a computer you use from your laptop), run
   `npm run owner-code` in a terminal there and type the code on the

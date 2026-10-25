@@ -48,8 +48,8 @@ test('an unknown wildcard stops the run and says which', async ({ page }) => {
 })
 
 test('the wildcards folder is set on Settings', async ({ page }) => {
-  await page.goto('/settings')
-  await expect(page.getByText('Wildcards', { exact: true })).toBeVisible()
+  await page.goto('/settings#wildcards')
+  await expect(page.getByRole('tabpanel').getByText('Wildcards', { exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: 'Wildcards folder' })).toHaveValue(/wildcards$/)
   await expect(page.getByRole('switch', { name: 'Use on paired devices' })).not.toBeChecked()
 })

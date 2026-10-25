@@ -327,6 +327,15 @@
         "hires": "サーバーの /api/health が \"hires\": true と答えていません。Latentry 自身のエンジンなら、この Latentry より古い版です。セットアップで「修復 / 更新」を実行し、停止してから起動してください。他のサーバーで Hires fix を使うには、そう答え、受け付けるアップスケーラーを \"upscalers\" に並べ、/api/generate で \"hr_scale\"、\"hr_steps\"、\"hr_denoise\"、\"hr_upscaler\" を受け付けてください。docs/backend-api.md を参照してください。",
         "upscale": "サーバーの /api/health が \"upscale\": true と答えていません。Latentry 自身のエンジンなら、この Latentry より古い版です。セットアップで「修復 / 更新」を実行し、停止してから起動してください。他のサーバーで元画像をアップスケールするには、そう答え、/api/generate で \"upscale\": true を \"init_image_base64\" と hr_* の項目と一緒に受け付けてください。docs/backend-api.md を参照してください。"
       }
+    },
+    "blocks": {
+      "label": "表示",
+      "characters": "キャラクター",
+      "source": "元画像",
+      "pose": "ポーズ",
+      "hires": "Hires fix",
+      "grid": "X/Y グリッド",
+      "holding": "非表示なので使われません。中身は再び表示するまで残ります。"
     }
   },
   "gallery": {
@@ -528,6 +537,16 @@
   },
   "settings": {
     "title": "設定",
+    "nav": {
+      "label": "セクション",
+      "backends": "バックエンド",
+      "tagger": "タグ付け",
+      "gallery": "ギャラリー",
+      "profiles": "プロファイル",
+      "wildcards": "ワイルドカード",
+      "devices": "端末",
+      "invalid": "直す項目があります"
+    },
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
     "lockedRemote": "設定を変えられるのは、Latentry を動かしているコンピューター（http://localhost で開く）か、持ち主の端末からだけです。このブラウザーを持ち主の端末にするには、そのコンピューターで npm run owner-code を実行し（Docker なら docker compose exec latentry npm run owner-code）、表示されたコードをペアリングのページで入力してください。",
