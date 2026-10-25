@@ -292,7 +292,16 @@ async function main(): Promise<void> {
     eq((await secretRoute(post('job/secret', { job: later.queued!.id }), params({ backend: 'mock' }))).status, 200, 'a waiting grid can be made secret by its id')
     eq([getGrid('mock', later.queued!.id)?.grid?.secret, getGrid('mock', later.queued!.id)?.input?.secret], [true, true], 'and every cell will run secret')
     mock.release()
-    await until(() => getGrid('mock', later.queued!.id)?.state === 'started' && getCurrentJob('mock')?.status === 'done', 'the secret grid to run')
+    // Until its last picture is saved too: a job is done before its save ends,
+    // and a save after the scratch folder is removed would leave it behind.
+    const savedAll = (id: string | null) => {
+      const job = id === null ? null : getJob('mock', id)
+      return job?.status === 'done' && job.images.every((image) => image.saved_name !== null)
+    }
+    await until(
+      () => getGrid('mock', later.queued!.id)?.state === 'started' && getGrid('mock', later.queued!.id)!.grid!.jobs.every(savedAll),
+      'the secret grid to run and save'
+    )
     const cellJobs = getGrid('mock', later.queued!.id)!.grid!.jobs
     check(cellJobs.every((id) => id !== null && getJob('mock', id)?.secret === true), 'its cells ran as secret runs')
     check(blocker.job !== undefined, 'the run ahead ran as usual')
