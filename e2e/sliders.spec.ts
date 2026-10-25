@@ -11,6 +11,8 @@ async function firstSlider(page: Page) {
   const root = page.locator('[data-slot="slider"]').first()
   const thumb = root.getByRole('slider')
   await expect(thumb).toBeVisible()
+  // Touches and clicks go to screen points, so the slider has to be on screen.
+  await root.scrollIntoViewIfNeeded()
   return { root, thumb }
 }
 

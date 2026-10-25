@@ -47,7 +47,7 @@ test('the pairing page asks for the code and a name', async ({ page }) => {
 
 // "Settings, Setup and the pairing card": the card offers a one-time code.
 test('the pairing card makes a code that works for 10 minutes', async ({ page }) => {
-  await page.goto('/settings')
+  await page.goto('/settings#devices')
   await page.getByRole('button', { name: 'Add a device' }).click()
   await expect(page.getByText(/It works once, for (9:5\d|10:00) more\./)).toBeVisible()
 })

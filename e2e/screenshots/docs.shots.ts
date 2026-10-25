@@ -193,7 +193,7 @@ take('manual-secret-results')('secret mode on Generate', async ({ page }) => {
 
 take('manual-pairing')('pairing card', async ({ page }) => {
   await generic(page)
-  await page.goto('/settings')
+  await page.goto('/settings#devices')
   const card = page.locator('[data-slot="card"]').filter({ has: page.getByText('Phones and other computers', { exact: true }) })
   await card.getByRole('button', { name: 'Add a device' }).click()
   await expect(card.getByText(/It works once, for/)).toBeVisible()
