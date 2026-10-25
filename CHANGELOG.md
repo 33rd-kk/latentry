@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **The manual is arranged by what you want to do**: Generate is split into
+  the generate page, **From a picture** (img2img, inpainting, Extend),
+  **Bigger pictures** (hires fix, Upscale) and **Many pictures** (the
+  queue, X/Y grid, wildcards). **Owner device** has its own page under
+  **Devices**, and checking a release download is on **Install from
+  source**. The existing pages keep their addresses.
+
 - **Shorter Settings and Generate pages**: Settings shows one section at a
   time, chosen from a list on the left; a dot marks a section with unsaved
   changes or a field to fix, and `/settings#gallery` opens a section

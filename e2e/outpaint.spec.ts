@@ -1,4 +1,4 @@
-// docs/guide/generate.md: Extend (outpainting). A source is chosen, the
+// docs/guide/from-a-picture.md: Extend (outpainting). A source is chosen, the
 // canvas grown on one side, and the run drawn on the mock A1111 web UI; the
 // picture is saved with mode "outpaint".
 

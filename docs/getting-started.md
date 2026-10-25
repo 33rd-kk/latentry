@@ -35,29 +35,8 @@ npm start
 Ctrl+C stops it. Latentry listens on this computer only; to use it from a
 phone, see [Other devices and security](guide/network.md).
 
-### From a release download, checked
-
-Instead of `git clone`, you can download a release's source from its
-[release page](https://github.com/33rd-kk/latentry/releases)
-(`latentry-X.Y.Z.tar.gz` or `.zip`) and check that it was made by
-Latentry's release workflow from that release's commit, before you run
-anything in it:
-
-```bash
-gh attestation verify latentry-X.Y.Z.tar.gz --repo 33rd-kk/latentry --source-ref refs/tags/vX.Y.Z
-```
-
-`--source-ref` makes it check that the file was built from the tag of that
-release (from 0.8.1 on). 0.8.0's files were added later, from `main`, so
-check those without it.
-
-This needs the [GitHub CLI](https://cli.github.com/). Without it, compare
-the file's SHA-256 with `SHA256SUMS` on the same page
-(`sha256sum -c SHA256SUMS --ignore-missing` on Linux, `shasum -a 256` on
-macOS, `Get-FileHash` in PowerShell); that shows the file is the one listed
-there, and the attestation shows who made it. Then unpack it and run the
-install script inside, as above. Git is still needed, for one of the
-packages.
+To check a release download before you run it, or to install without the
+built-in engine, see [Install from source](install/native.md).
 
 ## Set up the engine
 
@@ -81,10 +60,7 @@ The Setup page runs in three steps:
 See [Setup and the engine](guide/engine.md) for what each part shows.
 
 Prefer servers you already run? Add them on the [Settings](guide/settings.md)
-page instead, or list them in `.env.local`
-(see [Backends](reference/backends.md)). To use only those, install with
-`./install.sh --no-engine` (Windows: `install.ps1 -NoEngine`): the engine
-does not start with Latentry, and the script points you to Settings.
+page instead (see [Only the servers you already run](install/native.md#only-the-servers-you-already-run)).
 
 ## Generate the first picture
 
@@ -95,4 +71,10 @@ does not start with Latentry, and the script points you to Settings.
 3. Press **Generate**. Progress shows per step; the pictures appear on the
    right and are saved to the gallery folder (`output/` by default).
 
-Next: [Generate](guide/generate.md) for everything on that page.
+## Next
+
+- [Generate](guide/generate.md) for everything on that page, then
+  [From a picture](guide/from-a-picture.md),
+  [Bigger pictures](guide/bigger.md) and [Many pictures](guide/many.md).
+- [Other devices and security](guide/network.md) to use it from a phone
+  or another computer.

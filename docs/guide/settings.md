@@ -99,7 +99,7 @@ and a form reset.
 ## Wildcards
 
 **Wildcards folder** is an existing folder of `.txt` files, one choice per
-line, for `__name__` in a prompt (see [Generate](generate.md#prompts)).
+line, for `__name__` in a prompt (see [Wildcards](many.md#wildcards)).
 Subfolders work as `__folder/name__`, up to 3 deep. Lines starting with `#`
 and blank lines are skipped, and a file over 1 MB is not read. Latentry only
 reads the folder. Leave it empty for no wildcards.

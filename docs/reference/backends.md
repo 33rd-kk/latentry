@@ -41,8 +41,8 @@ control, rather than only hiding it.
    [Tags](../guide/gallery.md#tags).
 
 Latentry does these itself, so they work with every backend:
-[the queue](../guide/generate.md#the-queue), the
-[X/Y grid](../guide/generate.md#xy-grid), wildcards, the gallery and
+[the queue](../guide/many.md#the-queue), the
+[X/Y grid](../guide/many.md#xy-grid), wildcards, the gallery and
 [secret mode](../guide/secret-mode.md). For secret mode, what the backend
 itself keeps differs from one kind to another; see
 [What it does not do](../guide/secret-mode.md#what-it-does-not-do).
@@ -105,7 +105,7 @@ the run draws, and encodes the source with the checkpoint's VAE; **Strength**
 is how much is redrawn. One prompt per picture means **Cancel** stops the
 picture being drawn and skips the rest. It never sends a graph from the page,
 and it never cancels another client's prompt. While someone else's prompt is
-queued, a run waits in [Latentry's queue](../guide/generate.md#the-queue)
+queued, a run waits in [Latentry's queue](../guide/many.md#the-queue)
 until ComfyUI is free, rather than going into ComfyUI's queue behind it.
 
 ### Pose

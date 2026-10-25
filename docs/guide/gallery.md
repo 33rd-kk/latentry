@@ -97,7 +97,7 @@ you leave or reload the page; they are not remembered in the browser.
 ## Stacks and comparing
 
 **Stack** (under Filters) puts pictures that share a prompt, a seed, or an
-[X/Y grid](generate.md#xy-grid) (its cells and its sheet) into one card: the
+[X/Y grid](many.md#xy-grid) (its cells and its sheet) into one card: the
 first of them in the current order, with how many there are.
 Only pictures that match the search and filters count. Click a stack to see
 its pictures, and remove the **One stack** chip to go back. Stacking reads
@@ -105,7 +105,7 @@ the folder first, the way the orders by date made do; what it keeps in
 memory is a hash of each prompt, not the prompt.
 
 **X/Y grid** (under Filters) shows only the cells of
-[X/Y grids](generate.md#xy-grid), only their sheets, or only pictures that
+[X/Y grids](many.md#xy-grid), only their sheets, or only pictures that
 are from no grid.
 
 ![Two pictures of the same shape compared with a slider, and the settings that differ](../assets/manual-compare.webp){ width="640" }
@@ -156,7 +156,7 @@ From the panel:
 - **Use as pose reference**: its pose carries over to the
   [skeleton pose](pose.md), not its hair or outfit.
 - **Upscale**: opens the picture in Generate to make it larger and redraw its
-  detail ([Upscale a picture](generate.md#upscale-a-picture)), with its own
+  detail ([Upscale a picture](bigger.md#upscale-a-picture)), with its own
   prompts when it has them.
 - **Analyze with WD14**: read its tags now (saved into the file in a writable
   folder).

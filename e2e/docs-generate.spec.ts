@@ -1,6 +1,7 @@
-// What docs/guide/generate.md says about the form, checked on the mock
-// A1111 web UI ("mock") and the mock ComfyUI ("comfy"). Each test names the
-// section it checks; a failure here means the guide or the app is wrong.
+// What docs/guide/generate.md, from-a-picture.md and bigger.md say about the
+// form, checked on the mock A1111 web UI ("mock") and the mock ComfyUI
+// ("comfy"). Each test names the section it checks; a failure here means the
+// guide or the app is wrong.
 
 import { expect, test, type Page } from '@playwright/test'
 import sharp from 'sharp'

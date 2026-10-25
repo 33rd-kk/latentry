@@ -46,13 +46,13 @@ is free then:
 
 When it runs out of memory, it halves the batch and tries again.
 
-With [hires fix](generate.md#hires-fix) on, the engine draws one picture at
+With [hires fix](bigger.md#hires-fix) on, the engine draws one picture at
 a time: the first pass, then the second at the larger size, before the
 next. It upscales with Lanczos only, so no upscale model is fetched or
 loaded. The second pass encodes and decodes the larger picture tile by
 tile, so it fits beside the model (and the pose ControlNet) on a 16 GB GPU.
 On Anima, hires fix and a skeleton pose do not go together yet; an SDXL
-model takes both. [Upscale](generate.md#upscale-a-picture) works the same
+model takes both. [Upscale](bigger.md#upscale-a-picture) works the same
 way on a source picture: Lanczos to the larger size, then one tiled redraw.
 
 ## Models
