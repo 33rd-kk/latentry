@@ -10,6 +10,10 @@
   hidden part is not sent, and keeps what it holds until it is shown again.
   Both choices are remembered in this browser only, and not in secret mode.
 
+- **Fixed**: with the wildcard and LoRA pickers beside it, the **Positive
+  prompt** label broke onto two lines. It now stays on one, and the controls
+  next to it wrap instead.
+
 - **Owner devices**: when you do not use a browser on the computer running
   Latentry (in Docker, or on a computer you use from your laptop), run
   `npm run owner-code` in a terminal there and type the code on the
