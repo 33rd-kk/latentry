@@ -75,13 +75,52 @@ there is what makes an owner: an owner device cannot make another owner
 from its browser. Settings lists it with **Owner**, and **Remove** takes
 its rights away with its pairing.
 
+An owner device stays one for **7 days**, not 30, and only a new owner code
+renews it: pairing it again with an ordinary code makes it an ordinary
+device. Each time an owner is added or removed, Latentry's log says so
+(`[pairing] … owner: device 3 was paired as an owner`), with the device's
+number only, never the code, its name or its address. An owner you did not
+add shows up there and on Settings.
+
+**If an owner device may be in the wrong hands** (a lost laptop, a copied
+cookie), unpair everything from a terminal on that computer, then make
+yourself a new owner code:
+
+```bash
+npm run forget-devices -- --yes
+npm run owner-code
+# In Docker:
+docker compose exec latentry npm run forget-devices -- --yes
+```
+
+This works even if someone else, as an owner, removed your device.
+
 An owner device keeps its cookie as every paired device does. Over plain
 `http://` someone who can watch your network could copy it, and with it
-change your settings, so use an owner device on a network you trust.
+change your settings, so use an owner device on a network you trust, or
+put Latentry behind HTTPS (below).
 
 `SETTINGS_EDIT=lan` still lets every address that can reach Latentry change
 settings, paired or not. An owner device is the safer way, and it works
 from anywhere you paired it.
+
+### HTTPS
+
+Latentry itself serves plain `http://`. To keep cookies, prompts and
+pictures unreadable on your network, put a reverse proxy that does TLS on
+the same computer in front of it, for example [Caddy](https://caddyserver.com/):
+
+```text
+latentry.home.arpa {
+    tls internal
+    reverse_proxy 127.0.0.1:3000
+}
+```
+
+Keep Latentry on 127.0.0.1 (the default) so devices reach it only through
+the proxy, add the proxy's name to `ALLOWED_HOSTS`, and trust Caddy's local
+certificate on your devices. Over HTTPS the device cookie is marked
+`Secure`, so the browser never sends it over plain `http://`.
 
 ## Backends on other computers
 

@@ -23,7 +23,11 @@ requirements one by one.
   computer (`npm run owner-code`). They may also change settings and Setup
   and pair other devices, as this computer may. Whoever copies an owner
   device's cookie can do the same, so keep owner devices to networks you
-  trust ([An owner device](network.md#an-owner-device)).
+  trust, or use HTTPS ([An owner device](network.md#an-owner-device)).
+  To limit what a copy is worth, an owner lasts 7 days and only a new
+  owner code renews it, Latentry's log records every owner added or
+  removed, and `npm run forget-devices` unpairs everyone from a terminal
+  here.
 - **The backends you set up**, for what you send them. Latentry sends your
   prompts and pictures to the backend you choose, and to no other.
 

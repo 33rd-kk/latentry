@@ -56,6 +56,10 @@ type Env = Record<string, string | undefined>
 export const DEVICE_COOKIE = 'latentry_device'
 export const DEVICE_DAYS = 30
 const DEVICE_MS = DEVICE_DAYS * 24 * 60 * 60 * 1000
+// An owner device may change settings, so a copied owner cookie is worth more
+// than another: it lasts a week, and only a new owner code renews it.
+export const OWNER_DAYS = 7
+const OWNER_MS = OWNER_DAYS * 24 * 60 * 60 * 1000
 export const CODE_MS = 10 * 60 * 1000
 export const CODE_TRIES = 10
 // No 0/O, 1/I/L: read off one screen and typed on another.
@@ -260,8 +264,9 @@ export function listDevices(now = Date.now(), env: Env = process.env): PairedDev
 }
 
 /**
- * Pairs a new device, good for DEVICE_DAYS from `now`: puts it on the list
- * (dropping any that have expired) and returns its cookie's value.
+ * Pairs a new device, good for DEVICE_DAYS from `now` (OWNER_DAYS for an
+ * owner): puts it on the list (dropping any that have expired) and returns
+ * its cookie's value.
  */
 export function issueDevice(
   now = Date.now(),
@@ -270,17 +275,28 @@ export function issueDevice(
   owner = false
 ): { value: string; maxAgeSeconds: number; device: PairedDevice } {
   const current = listDevices(now, env)
+  const lifetime = owner ? OWNER_MS : DEVICE_MS
   const device: PairedDevice = {
     id: randomBytes(12).toString('base64url'),
     name: cleanName(name),
     number: current.reduce((max, d) => Math.max(max, d.number), 0) + 1,
     pairedAt: now,
-    expiresAt: now + DEVICE_MS,
+    expiresAt: now + lifetime,
     owner,
   }
   writeDevices([...current, device], env)
+  if (owner) logOwner(`device ${device.number} was paired as an owner, until ${new Date(device.expiresAt).toISOString()}`)
   const payload = `v1.${device.id}.${device.expiresAt}`
-  return { value: `${payload}.${signature(signingKey(env), payload)}`, maxAgeSeconds: DEVICE_MS / 1000, device }
+  return { value: `${payload}.${signature(signingKey(env), payload)}`, maxAgeSeconds: lifetime / 1000, device }
+}
+
+/**
+ * Owners coming and going, in the server's log, so whoever runs Latentry can
+ * see an owner they did not add. Only the device's number and the time:
+ * never a code, a name or an address.
+ */
+function logOwner(message: string): void {
+  console.info(`[pairing] ${new Date().toISOString()} owner: ${message}`)
 }
 
 /**
@@ -302,7 +318,7 @@ function findDevice(value: string | undefined, now: number, env: Env): PairedDev
   const parts = value.split('.')
   if (parts.length !== 4 || parts[0] !== 'v1') return null
   const expiresAt = Number(parts[2])
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + DEVICE_MS) return null
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + Math.max(DEVICE_MS, OWNER_MS)) return null
   const expected = Buffer.from(signature(signingKey(env), parts.slice(0, 3).join('.')))
   const sent = Buffer.from(parts[3])
   if (sent.length !== expected.length || !timingSafeEqual(sent, expected)) return null
@@ -317,9 +333,13 @@ export function verifyDevice(value: string | undefined, now = Date.now(), env: E
 /** Unpairs one device; false if it was not on the list. */
 export function removeDevice(id: string, now = Date.now(), env: Env = process.env): boolean {
   const current = listDevices(now, env)
-  const kept = current.filter((device) => device.id !== id)
-  if (kept.length === current.length) return false
-  writeDevices(kept, env)
+  const removed = current.find((device) => device.id === id)
+  if (!removed) return false
+  writeDevices(
+    current.filter((device) => device !== removed),
+    env
+  )
+  if (removed.owner) logOwner(`device ${removed.number} was removed`)
   return true
 }
 
@@ -329,6 +349,8 @@ export function removeDevice(id: string, now = Date.now(), env: Env = process.en
  * stays (the empty list is enough); change it in the keychain to replace it.
  */
 export function forgetAllDevices(env: Env = process.env): void {
+  // Counted while the old key can still read the list.
+  const owners = listDevices(Date.now(), env).filter((device) => device.owner).length
   if (!keyFromEnv(env)) {
     writeKey(keyPath(env))
     globalForPairing.__pairingKey = undefined
@@ -336,6 +358,7 @@ export function forgetAllDevices(env: Env = process.env): void {
   writeDevices([], env)
   globalForPairing.__pairingCode = null
   globalForPairing.__ownerCode = null
+  if (owners) logOwner(`every device was forgotten, ${owners} owner${owners === 1 ? '' : 's'} among them`)
 }
 
 function newCode(now: number): PendingCode {
@@ -368,29 +391,39 @@ export function normalizeCode(input: string): string {
 
 /**
  * Which code `input` is, if either: 'owner' for the owner code, 'device' for
- * the ordinary one, null for neither. A match uses that code up; every try
- * counts against each waiting code's CODE_TRIES, after which it is gone and
- * a new one is needed.
+ * the ordinary one, null for neither. A match uses that code up and leaves
+ * the other alone, so pairing a phone does not cost the owner code a try. A
+ * wrong code counts against each waiting code's CODE_TRIES, after which it is
+ * gone and a new one is needed.
  */
 export function redeemCode(input: string, now = Date.now()): 'owner' | 'device' | null {
-  if (tryCode('__ownerCode', input, now)) return 'owner'
-  if (tryCode('__pairingCode', input, now)) return 'device'
+  const owner = waiting('__ownerCode', now)
+  const device = waiting('__pairingCode', now)
+  if (owner && matches(owner, input)) {
+    globalForPairing.__ownerCode = null
+    return 'owner'
+  }
+  if (device && matches(device, input)) {
+    globalForPairing.__pairingCode = null
+    return 'device'
+  }
+  for (const [slot, code] of [['__ownerCode', owner], ['__pairingCode', device]] as const) {
+    if (code && --code.triesLeft <= 0) globalForPairing[slot] = null
+  }
   return null
 }
 
-function tryCode(slot: '__pairingCode' | '__ownerCode', input: string, now: number): boolean {
+/** The code in `slot` if it has not expired; an expired one is dropped. */
+function waiting(slot: '__pairingCode' | '__ownerCode', now: number): PendingCode | null {
   const current = globalForPairing[slot]
-  if (!current) return false
-  if (current.expiresAt <= now) {
-    globalForPairing[slot] = null
-    return false
-  }
-  current.triesLeft -= 1
+  if (current && current.expiresAt <= now) globalForPairing[slot] = null
+  return globalForPairing[slot] ?? null
+}
+
+function matches(code: PendingCode, input: string): boolean {
   const sent = Buffer.from(normalizeCode(input).padEnd(CODE_LENGTH).slice(0, 64))
-  const expected = Buffer.from(current.code)
-  const match = sent.length === expected.length && timingSafeEqual(sent, expected)
-  if (match || current.triesLeft <= 0) globalForPairing[slot] = null
-  return match
+  const expected = Buffer.from(code.code)
+  return sent.length === expected.length && timingSafeEqual(sent, expected)
 }
 
 /** The code waiting to be used, if any (for the Settings page on this machine). */

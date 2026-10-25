@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n"
 type ThisDevice =
   | { local: true }
   | { paired: false }
-  | { paired: true; name: string | null; number: number; pairedAt: number; expiresAt: number }
+  | { paired: true; name: string | null; number: number; pairedAt: number; expiresAt: number; owner: boolean }
 
 const DAY_MS = 24 * 60 * 60 * 1000
 /** From this many days before its pairing ends, a device is told on every page. */
@@ -54,9 +54,14 @@ export function PairingNotice() {
         <Clock className="h-3.5 w-3.5 shrink-0" />
         <span>
           {days <= 1 ? t("pair.endsToday") : t("pair.endsSoon", { days })}{" "}
-          <Link href="/pair" className="underline underline-offset-2">
-            {t("pair.again")}
-          </Link>
+          {/* Only a new owner code renews an owner, and it comes from a terminal there. */}
+          {device.owner ? (
+            t("pair.ownerAgain")
+          ) : (
+            <Link href="/pair" className="underline underline-offset-2">
+              {t("pair.again")}
+            </Link>
+          )}
         </span>
       </p>
     </div>
@@ -93,6 +98,7 @@ export function ThisDeviceCard() {
         <CardDescription>
           {t("pair.pairedAs", { name, date: date(device.pairedAt) })}{" "}
           {t("pair.endsOn", { date: date(device.expiresAt), days: daysLeft(device.expiresAt) })}
+          {device.owner && <span className="mt-1 block">{t("pair.isOwner")}</span>}
         </CardDescription>
       </CardHeader>
       <CardContent>

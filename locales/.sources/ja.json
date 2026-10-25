@@ -730,5 +730,7 @@
   "generate.blocks.pose": "Pose",
   "generate.blocks.hires": "Hires fix",
   "generate.blocks.grid": "X/Y grid",
-  "generate.blocks.holding": "Hidden, so not used. What it holds is kept for when it is shown again."
+  "generate.blocks.holding": "Hidden, so not used. What it holds is kept for when it is shown again.",
+  "pair.ownerAgain": "To stay the owner, run npm run owner-code on the computer running Latentry and pair again with that code.",
+  "pair.isOwner": "It is an owner device: it may change settings and Setup, and pair other devices, until then."
 }

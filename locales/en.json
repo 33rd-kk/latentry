@@ -800,6 +800,8 @@
     "endsSoon": "This device's pairing ends in {days} days.",
     "endsToday": "This device's pairing ends within a day.",
     "again": "Pair it again with a new code",
+    "ownerAgain": "To stay the owner, run npm run owner-code on the computer running Latentry and pair again with that code.",
+    "isOwner": "It is an owner device: it may change settings and Setup, and pair other devices, until then.",
     "unpair": "Unpair this device",
     "unpairConfirm": "Unpair this device? It will need a new code to use Latentry again."
   }

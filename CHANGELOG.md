@@ -23,6 +23,15 @@
   device cannot make another. Settings marks it **Owner**. Before, the only
   way was `SETTINGS_EDIT=lan`, which let every device on the network change
   settings.
+  - An owner device stays one for 7 days, and only a new owner code renews
+    it: pairing again with an ordinary code makes it an ordinary device.
+  - Latentry's log records each owner added or removed (the device's number
+    and the time only).
+  - `npm run forget-devices -- --yes` unpairs every device from a terminal
+    on that computer, for an owner device in the wrong hands.
+  - Over HTTPS (a reverse proxy in front), the device cookie is marked
+    `Secure`; the manual shows a Caddy example.
+  - Pairing a phone no longer costs a waiting owner code one of its tries.
 
 - **Fixed**: after secret mode was turned off, going to the gallery and back
   could bring back pictures of runs made in secret mode under **Earlier**.
