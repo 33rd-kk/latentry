@@ -91,8 +91,8 @@ export async function shot(page: Page, name: string, target?: Locator) {
   await writeWebp(name, png)
 }
 
-/** From the top of one locator to the bottom of another, across the page's width or the given column. */
-export async function shotBetween(page: Page, name: string, top: Locator, bottom: Locator, column?: Locator) {
+/** From the top of one locator to the bottom of another, across the page's width or the given column; `below` is the margin under it (smaller when the next line sits close). */
+export async function shotBetween(page: Page, name: string, top: Locator, bottom: Locator, column?: Locator, below = 12) {
   await checkClean(page)
   await page.waitForTimeout(400)
   const a = (await top.boundingBox())!
@@ -102,7 +102,7 @@ export async function shotBetween(page: Page, name: string, top: Locator, bottom
   const png = await page.screenshot({
     animations: 'disabled',
     fullPage: true,
-    clip: { x: Math.max(0, c.x - pad), y: Math.max(0, a.y - pad), width: Math.min(WIDTH, c.width + 2 * pad), height: b.y + b.height - a.y + 2 * pad },
+    clip: { x: Math.max(0, c.x - pad), y: Math.max(0, a.y - pad), width: Math.min(WIDTH, c.width + 2 * pad), height: b.y + b.height - a.y + pad + below },
   })
   await writeWebp(name, png)
 }
