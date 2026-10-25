@@ -59,7 +59,10 @@ export async function generic(page: Page) {
     for (const folder of [...folders].sort((a, b) => b.length - a.length)) {
       for (const form of [JSON.stringify(folder).slice(1, -1), folder.replaceAll('\\', '/')]) body = body.split(form).join('C:\\\\latentry')
     }
-    body = body.replace(/(127\.0\.0\.1|localhost):\d+/g, 'localhost:7860')
+    // The mock ComfyUI at ComfyUI's own default port, the rest at A1111's.
+    body = body
+      .replace(new RegExp(`(127\\.0\\.0\\.1|localhost):${process.env.E2E_COMFY_PORT}\\b`, 'g'), 'localhost:8188')
+      .replace(/(127\.0\.0\.1|localhost):(?!8188\b)\d+/g, 'localhost:7860')
     return route.fulfill({ response, body }).catch(() => {})
   })
 }

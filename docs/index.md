@@ -11,7 +11,7 @@ already run, or both. Your prompts, pictures and settings stay on your
 machine. Every picture is saved with how it was made, and the gallery finds
 it again by what it shows or how it was made.
 
-![The generate page: a reference's pose turned 30 degrees in the 3D view, and the two pictures generated from it](assets/screenshot-generate.webp)
+![The generate page: a reference's pose with a hand raised and turned in the 3D view, and the two pictures generated from it](assets/screenshot-generate.webp)
 
 ## What it does
 

@@ -2,8 +2,8 @@
 // docs:screenshots` with DOCS_ENGINE_MODELS set (see
 // scripts/docs-screenshots.mjs). The engine first draws a fresh gallery into
 // the temp folder from the prompts below, with fixed seeds; then the shots of
-// the gallery, the viewer, the 3D view, Setup and (with DOCS_COMFY_URL) a
-// ComfyUI workflow are taken from it.
+// the gallery, the viewer, the 3D view, the generate page, Setup and (with
+// DOCS_COMFY_URL) a ComfyUI workflow are taken from it.
 
 import { cpSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
@@ -36,9 +36,13 @@ const PICTURES: [string, string, number][] = [
 test('the engine draws the gallery', async ({ page }) => {
   test.setTimeout(30 * 60_000)
   // DOCS_ENGINE_GALLERY: the pictures an earlier run drew (its temp folder's
-  // out/, kept with E2E_KEEP=1); only the ones it lacks are drawn.
+  // out/, kept with E2E_KEEP=1); only the ones it lacks are drawn. Of that
+  // folder only the gallery's own are taken, not what a shot drew after.
   const earlier = process.env.DOCS_ENGINE_GALLERY
-  if (earlier && existsSync(earlier)) cpSync(earlier, path.join(root, 'out'), { recursive: true })
+  const ours = (name: string) => PICTURES.some(([, , seed]) => name.includes(`_engine_${seed}_`))
+  if (earlier && existsSync(earlier)) {
+    cpSync(earlier, path.join(root, 'out'), { recursive: true, filter: (from) => from === earlier || ours(path.basename(from)) })
+  }
   const drawn = readdirSync(path.join(root, 'out')).join('\n')
   const missing = PICTURES.filter(([, , seed]) => !drawn.includes(`_engine_${seed}_`))
   await openGenerate(page, 'engine')
@@ -94,11 +98,23 @@ take('screenshot-viewer')('viewer, with WD14 tags', async ({ page }) => {
   await shot(page, 'manual-viewer')
 })
 
-take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
-  // With the gallery reused, the engine may still be loading its model.
-  test.setTimeout(10 * 60_000)
-  // Tall enough that nothing scrolls under the sticky header.
+/**
+ * From the full-body picture in the gallery to its pose in the 3D view, a
+ * hand raised and the camera turned a little: on the engine, in a window tall
+ * enough that nothing scrolls under the sticky header.
+ */
+async function turnPose(page: Page) {
   await page.setViewportSize({ width: 1280, height: 2400 })
+  // The model's profile, set before the skeleton is drawn for its size. (A
+  // gallery reused from an earlier run loads the model without the form.)
+  await openGenerate(page, 'engine')
+  const profile = page.getByRole('main').getByRole('combobox').nth(1)
+  if (!(await profile.textContent())?.includes('Illustrious')) {
+    await profile.click()
+    await page.getByRole('option', { name: /^Illustrious \/ NoobAI/ }).click()
+    // The form is stored a moment after a change; leaving sooner loses it.
+    await expect.poll(() => page.evaluate(() => localStorage.getItem('latentry:form:engine') ?? '')).toContain('"profile":"illustrious"')
+  }
   await openGallery(page)
   await card(page, /1girl, solo, full_body, standing, waving/).click()
   const usePose = page.getByRole('button', { name: 'Use as pose reference' })
@@ -153,7 +169,44 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
   await page.mouse.up()
   await expect(page.getByText(/^Yaw -?[1-9]\d*°/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use this pose' })).toBeEnabled()
+}
+
+take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
+  // With the gallery reused, the engine may still be loading its model.
+  test.setTimeout(10 * 60_000)
+  await turnPose(page)
   await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByText('Joints moved: 1'), page.locator('[data-slot="card"]').first(), 4)
+})
+
+take('screenshot-generate')('the generate page: a pose turned in the 3D view, and two pictures drawn from it', async ({ page }) => {
+  test.setTimeout(15 * 60_000)
+  await turnPose(page)
+  await page.getByRole('button', { name: 'Use this pose' }).click()
+  await expect(page.getByRole('button', { name: 'Use this pose' })).toBeDisabled({ timeout: 120_000 })
+
+  // The skeleton alone: the reference stays in its hidden block, not sent, and
+  // the parts this run does not use are out of the way.
+  const shows = page.getByRole('group', { name: 'Show' })
+  for (const name of ['Characters', 'Source image', 'Hires fix', 'X/Y grid']) await shows.getByRole('button', { name: new RegExp(`^${name}`) }).click()
+  await page.locator('#prompt').fill(
+    '1girl, solo, short black hair, blue oversized hoodie, loose jeans, sneakers, front view, looking at viewer, smile, waving, simple background, white background'
+  )
+  await page.getByRole('textbox', { name: 'Seed (-1: random)' }).fill('1201')
+  const count = page.getByRole('slider', { name: /^Image count/ })
+  await count.focus()
+  await count.press('ArrowRight')
+  await expect(count).toHaveAttribute('aria-valuenow', '2')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  await expect(page.locator('img[alt^="Generated image, seed"]')).toHaveCount(2, { timeout: 5 * 60_000 })
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  // The profile picker is greyed out until the run has quite ended. (The
+  // backend picker stays grey: the engine is the only backend here.)
+  await expect(page.getByRole('main').getByRole('combobox').nth(1)).toBeEnabled({ timeout: 60_000 })
+
+  await page.setViewportSize({ width: 1280, height: 1150 })
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.mouse.move(1270, 1140)
+  await shot(page, 'screenshot-generate')
 })
 
 take('manual-setup')('Setup with the engine running', async ({ page }) => {
