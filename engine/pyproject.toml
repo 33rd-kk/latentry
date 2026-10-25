@@ -21,8 +21,8 @@ dependencies = [
     # finds people and draws skeletons; below 0.3 while its API may still
     # change between minor versions. peft loads Anima's pose LoRA.
     # 0.2.0 draws some of the people by a list (and pins its downloads, as 0.1.2 did);
-    # 0.3.0 moves joints ("edits").
-    "poseorbit>=0.3.0,<0.4",
+    # 0.3.0 moves joints ("edits"); 0.3.1 keeps a stray fingertip's depth near its hand.
+    "poseorbit>=0.3.1,<0.4",
     "peft>=0.15",
     # torch comes from PyTorch's index, which carries an old setuptools
     # (78.1, with known path-traversal advisories); this pulls a fixed one

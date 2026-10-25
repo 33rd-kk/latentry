@@ -14,8 +14,9 @@
   joint or of the camera, in the order they were made; **Reset joints** puts
   the joints back. **Use this pose** (before: **Use this angle**) draws the
   skeleton with the moved joints and the angle. The moves are kept in the page only.
-  Latentry's engine now needs poseorbit 0.3 (run **Repair / update** on
-  Setup once); for other backends, `/api/pose` takes `edits` and answers
+  Latentry's engine now needs poseorbit 0.3.1 (run **Repair / update** on
+  Setup once), which also keeps a stray fingertip's guessed depth from
+  drawing a long line once the pose is turned; for other backends, `/api/pose` takes `edits` and answers
   `movable` (see the backend API).
 - **Accessibility**: screen readers now announce what each drop-down list
   is for, such as Backend, Sampler or Tag spelling. Before, the lists on
