@@ -49,7 +49,10 @@ export function PairForm() {
           <KeyRound className="h-5 w-5" />
           {t("pair.title")}
         </CardTitle>
-        <CardDescription>{t("pair.hint")}</CardDescription>
+        <CardDescription className="space-y-2">
+          <span className="block">{t("pair.hint")}</span>
+          <span className="block">{t("pair.ownerHint")}</span>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">

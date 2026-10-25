@@ -47,10 +47,41 @@ the settings file.
 
 Paired devices can generate and use the gallery. **Settings and Setup stay
 read-only from them**: settings decide which folders are read and written.
-To allow changing them from the network as well, set `SETTINGS_EDIT=lan`
-(only on a network you trust: anyone who can change settings can point a
-backend at their own server and receive your prompts and pictures from then
-on); `SETTINGS_EDIT=off` makes them read-only everywhere.
+`SETTINGS_EDIT=off` makes them read-only everywhere.
+
+### An owner device
+
+When you do not use a browser on the computer running Latentry (it runs in
+Docker, or on a computer you use from your laptop), make your own browser
+its **owner device** instead. An owner device may change Settings and
+Setup and pair your other devices, as this computer may.
+
+1. On the computer running Latentry, in a terminal in the Latentry folder:
+
+    ```bash
+    npm run owner-code
+    # In Docker:
+    docker compose exec latentry npm run owner-code
+    ```
+
+    It prints a code, once (pass `-- --port 3001` if Latentry is not on
+    port 3000).
+2. Open Latentry in your browser. It shows **Pair this device**: type that
+   code there and choose **Pair**.
+
+The owner code works once, for 10 minutes, like the other codes. Only a
+terminal on that computer can make one, so being able to run a command
+there is what makes an owner: an owner device cannot make another owner
+from its browser. Settings lists it with **Owner**, and **Remove** takes
+its rights away with its pairing.
+
+An owner device keeps its cookie as every paired device does. Over plain
+`http://` someone who can watch your network could copy it, and with it
+change your settings, so use an owner device on a network you trust.
+
+`SETTINGS_EDIT=lan` still lets every address that can reach Latentry change
+settings, paired or not. An owner device is the safer way, and it works
+from anywhere you paired it.
 
 ## Backends on other computers
 

@@ -69,7 +69,10 @@ What it does guard against:
 - **Settings from the network**: by default only this machine may change
   settings (which decide the folders read and written, and where prompts
   are sent). This goes by the address the connection really comes from, not
-  only by headers. `SETTINGS_EDIT` changes that; see the README. With
+  only by headers. An owner device may too: a device paired with an owner
+  code, which only a request from this machine can make (`npm run
+  owner-code`, run in a terminal there), so an owner device cannot make
+  another owner. `SETTINGS_EDIT` changes the default; see the README. With
   `SETTINGS_EDIT=lan`, anyone on the LAN can point a backend at their own
   server and receive the prompts and pictures sent to it from then on.
 - **Network folders**: the Settings page refuses `\\server\share` folders

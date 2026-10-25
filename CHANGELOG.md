@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Owner devices**: when you do not use a browser on the computer running
+  Latentry (in Docker, or on a computer you use from your laptop), run
+  `npm run owner-code` in a terminal there and type the code on the
+  pairing page. That browser becomes an owner device: it may change
+  Settings and Setup and pair your other devices, as that computer may.
+  Only a terminal on that computer can make an owner code, so an owner
+  device cannot make another. Settings marks it **Owner**. Before, the only
+  way was `SETTINGS_EDIT=lan`, which let every device on the network change
+  settings.
+
 - **Fixed**: after secret mode was turned off, going to the gallery and back
   could bring back pictures of runs made in secret mode under **Earlier**.
   A page that has been in secret mode now keeps none of its runs for that

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { KeyRound, Loader2, Smartphone, Unlink, X } from "lucide-react"
 import { toast } from "sonner"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useI18n } from "@/lib/i18n"
@@ -13,6 +14,7 @@ interface PairedDevice {
   number: number
   pairedAt: number
   expiresAt: number
+  owner: boolean
 }
 
 interface PairingState {
@@ -34,8 +36,8 @@ async function fetchState(): Promise<PairingState | null> {
 /**
  * Pairing a phone or another computer (see lib/security/pairing.ts): a code
  * to type on that device, the devices paired so far (each can be removed),
- * and a way to forget them all. Shown only on the computer running Latentry;
- * elsewhere the API refuses and this hides.
+ * and a way to forget them all. Shown on the computer running Latentry and
+ * on an owner device; elsewhere the API refuses and this hides.
  */
 export function PairingCard() {
   const { t, locale } = useI18n()
@@ -155,7 +157,14 @@ export function PairingCard() {
                   return (
                     <li key={device.id} className="flex items-center gap-2 px-3 py-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm">{name}</p>
+                        <p className="flex items-center gap-1.5 text-sm">
+                          <span className="truncate">{name}</span>
+                          {device.owner && (
+                            <Badge variant="secondary" className="shrink-0" title={t("settings.pairingOwnerHint")}>
+                              {t("settings.pairingOwner")}
+                            </Badge>
+                          )}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {t("settings.pairingDeviceDates", { paired: date(device.pairedAt), ends: date(device.expiresAt), days })}
                         </p>

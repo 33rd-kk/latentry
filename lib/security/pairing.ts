@@ -23,7 +23,14 @@
 //           file too can read it; that is what the folder's permissions are for.
 //
 // Requests from this machine never need it, so a Latentry that listens only
-// on 127.0.0.1 behaves exactly as before. LATENTRY_PAIRING=off turns it off
+// on 127.0.0.1 behaves exactly as before.
+//
+// An owner device may also do what only this machine may (settings, Setup,
+// pairing others): for a Latentry in a container, or on a computer used from
+// another. Its code comes from an owner code, made only by a request from
+// this machine -- a terminal on it, `npm run owner-code` -- so being able to
+// run a command there is what makes an owner. Owner codes follow the same
+// rules as the others and are kept apart from them. LATENTRY_PAIRING=off turns it off
 // for everyone (for a reverse proxy that does its own login).
 //
 // Why not a library (looked at 2026-10): the crypto here is node:crypto's
@@ -77,6 +84,13 @@ export interface PairedDevice {
   number: number
   pairedAt: number
   expiresAt: number
+  /**
+   * An owner device may do what this machine may: change settings and Setup,
+   * and pair other devices. Paired with an owner code, which only a terminal
+   * on this machine can make (scripts/owner-code.mjs). Lists written before
+   * owners existed read as false.
+   */
+  owner: boolean
 }
 
 export const MAX_NAME_LENGTH = 40
@@ -87,8 +101,11 @@ export const MAX_NAME_LENGTH = 40
 const globalForPairing = globalThis as typeof globalThis & {
   __pairingKey?: { file: string; mtimeMs: number; key: Buffer }
   __pairingDevices?: { file: string; mtimeMs: number; devices: PairedDevice[] }
-  __pairingCode?: { code: string; expiresAt: number; triesLeft: number } | null
+  __pairingCode?: PendingCode | null
+  __ownerCode?: PendingCode | null
 }
+
+type PendingCode = { code: string; expiresAt: number; triesLeft: number }
 
 /** A new random key in `file`; with flag 'wx', only if there is no file yet. */
 function writeKey(file: string, flag: 'w' | 'wx' = 'w'): Buffer {
@@ -168,7 +185,7 @@ function signature(key: Buffer, payload: string): string {
   return createHmac('sha256', key).update(payload).digest('base64url')
 }
 
-function isDevice(value: unknown): value is PairedDevice {
+function isDevice(value: unknown): value is Omit<PairedDevice, 'owner'> & { owner?: unknown } {
   const d = value as PairedDevice
   return (
     !!d &&
@@ -209,7 +226,8 @@ function readDevices(env: Env): PairedDevice[] {
   let devices: PairedDevice[] = []
   try {
     const parsed = decryptList(found.text ?? '', env)
-    if (Array.isArray(parsed)) devices = parsed.filter(isDevice)
+    // Only a literal true makes an owner, so a list from before owners has none.
+    if (Array.isArray(parsed)) devices = parsed.filter(isDevice).map((device) => ({ ...device, owner: device.owner === true }))
   } catch {
     // Unreadable, tampered with or sealed with another key: no device is
     // paired until the list is written again.
@@ -248,7 +266,8 @@ export function listDevices(now = Date.now(), env: Env = process.env): PairedDev
 export function issueDevice(
   now = Date.now(),
   env: Env = process.env,
-  name: string | null = null
+  name: string | null = null,
+  owner = false
 ): { value: string; maxAgeSeconds: number; device: PairedDevice } {
   const current = listDevices(now, env)
   const device: PairedDevice = {
@@ -257,6 +276,7 @@ export function issueDevice(
     number: current.reduce((max, d) => Math.max(max, d.number), 0) + 1,
     pairedAt: now,
     expiresAt: now + DEVICE_MS,
+    owner,
   }
   writeDevices([...current, device], env)
   const payload = `v1.${device.id}.${device.expiresAt}`
@@ -315,14 +335,30 @@ export function forgetAllDevices(env: Env = process.env): void {
   }
   writeDevices([], env)
   globalForPairing.__pairingCode = null
+  globalForPairing.__ownerCode = null
+}
+
+function newCode(now: number): PendingCode {
+  let code = ''
+  for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
+  return { code, expiresAt: now + CODE_MS, triesLeft: CODE_TRIES }
 }
 
 /** A fresh pairing code, replacing any earlier one. */
 export function createCode(now = Date.now()): { code: string; expiresAt: number } {
-  let code = ''
-  for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
-  globalForPairing.__pairingCode = { code, expiresAt: now + CODE_MS, triesLeft: CODE_TRIES }
-  return { code, expiresAt: now + CODE_MS }
+  const { code, expiresAt } = (globalForPairing.__pairingCode = newCode(now))
+  return { code, expiresAt }
+}
+
+/**
+ * A fresh owner code, replacing any earlier one. Kept apart from the
+ * ordinary code: it is never shown on the Settings page, and making a code
+ * for a phone there does not replace it. Only for a request from this
+ * machine (app/api/settings/pairing), that is, a terminal on it.
+ */
+export function createOwnerCode(now = Date.now()): { code: string; expiresAt: number } {
+  const { code, expiresAt } = (globalForPairing.__ownerCode = newCode(now))
+  return { code, expiresAt }
 }
 
 /** "abcd-efgh" as typed -> "ABCDEFGH". */
@@ -331,21 +367,29 @@ export function normalizeCode(input: string): string {
 }
 
 /**
- * Whether `input` is the current code. A match uses it up; every try counts
- * against CODE_TRIES, after which the code is gone and a new one is needed.
+ * Which code `input` is, if either: 'owner' for the owner code, 'device' for
+ * the ordinary one, null for neither. A match uses that code up; every try
+ * counts against each waiting code's CODE_TRIES, after which it is gone and
+ * a new one is needed.
  */
-export function redeemCode(input: string, now = Date.now()): boolean {
-  const current = globalForPairing.__pairingCode
+export function redeemCode(input: string, now = Date.now()): 'owner' | 'device' | null {
+  if (tryCode('__ownerCode', input, now)) return 'owner'
+  if (tryCode('__pairingCode', input, now)) return 'device'
+  return null
+}
+
+function tryCode(slot: '__pairingCode' | '__ownerCode', input: string, now: number): boolean {
+  const current = globalForPairing[slot]
   if (!current) return false
   if (current.expiresAt <= now) {
-    globalForPairing.__pairingCode = null
+    globalForPairing[slot] = null
     return false
   }
   current.triesLeft -= 1
   const sent = Buffer.from(normalizeCode(input).padEnd(CODE_LENGTH).slice(0, 64))
   const expected = Buffer.from(current.code)
   const match = sent.length === expected.length && timingSafeEqual(sent, expected)
-  if (match || current.triesLeft <= 0) globalForPairing.__pairingCode = null
+  if (match || current.triesLeft <= 0) globalForPairing[slot] = null
   return match
 }
 

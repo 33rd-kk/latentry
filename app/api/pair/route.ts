@@ -16,16 +16,17 @@ const tries = (globalForPair.__pairTries ??= new FixedWindow(5))
  * are not paired yet (proxy.ts lets /api/pair through), so each handler
  * checks the cookie itself.
  *
- *   GET                             { local: true } | { paired: false } | { paired: true, name, number, pairedAt, expiresAt }
- *   POST   { code, name? }          pairs it: the code shown on the computer running Latentry in, a device cookie out
+ *   GET                             { local: true } | { paired: false } | { paired: true, name, number, pairedAt, expiresAt, owner }
+ *   POST   { code, name? }          pairs it: a code from the computer running Latentry in, a device cookie out
+ *                                   (an owner code, from a terminal there, makes an owner device)
  *   DELETE                          unpairs it
  */
 export async function GET(request: Request) {
   if (isFromThisMachine(request.headers)) return json({ local: true })
   const device = pairedDevice(deviceCookie(request.headers))
   if (!device) return json({ paired: false })
-  const { name, number, pairedAt, expiresAt } = device
-  return json({ paired: true, name, number, pairedAt, expiresAt })
+  const { name, number, pairedAt, expiresAt, owner } = device
+  return json({ paired: true, name, number, pairedAt, expiresAt, owner })
 }
 
 export async function POST(request: Request) {
@@ -36,14 +37,15 @@ export async function POST(request: Request) {
   }
 
   const body = await readJson(request)
-  if (typeof body?.code !== 'string' || !redeemCode(body.code)) {
-    return jsonError(serverMessage('pair.wrongCode'), 403)
-  }
+  const kind = typeof body?.code === 'string' ? redeemCode(body.code) : null
+  if (!kind) return jsonError(serverMessage('pair.wrongCode'), 403)
 
   // Pairing again (before the old pairing ends) replaces this device's entry
-  // rather than adding a second one, keeping its name unless a new one is given.
+  // rather than adding a second one, keeping its name unless a new one is
+  // given, and staying an owner if it was one.
   const previous = pairedDevice(deviceCookie(request.headers))
-  const issued = issueDevice(Date.now(), process.env, cleanName(body.name) ?? previous?.name ?? null)
+  const owner = kind === 'owner' || previous?.owner === true
+  const issued = issueDevice(Date.now(), process.env, cleanName(body?.name) ?? previous?.name ?? null, owner)
   if (previous) removeDevice(previous.id)
   const response = NextResponse.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } })
   response.cookies.set(DEVICE_COOKIE, issued.value, {

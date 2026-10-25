@@ -5,6 +5,7 @@
  *
  * Run with: npm test -- pairing
  */
+import { createCipheriv, createHmac, randomBytes } from 'node:crypto'
 import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -15,6 +16,7 @@ import {
   CODE_MS,
   CODE_TRIES,
   createCode,
+  createOwnerCode,
   currentCode,
   DEVICE_COOKIE,
   deviceCookie,
@@ -36,6 +38,7 @@ import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { engineEnv } from '../lib/engine/supervisor'
 import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
 import { GET as pairingSettings, POST as pairingAction } from '../app/api/settings/pairing/route'
+import { editRefusal, isFromThisMachine, isOwnerDevice } from '../lib/settings/access'
 import { proxy } from '../proxy'
 
 const scratch = mkdtempSync(path.join(tmpdir(), 'latentry-pairing-'))
@@ -105,28 +108,51 @@ async function main(): Promise<void> {
   rmSync(keyless, { recursive: true, force: true })
 
   // ── Codes ──
-  check(!redeemCode('ABCDEFGH', now), 'no code yet: nothing pairs')
+  eq(redeemCode('ABCDEFGH', now), null, 'no code yet: nothing pairs')
   const { code, expiresAt } = createCode(now)
   check(/^[A-HJKMNP-Z2-9]{8}$/.test(code), `8 characters without look-alikes (${code})`)
   eq(expiresAt, now + CODE_MS, 'good for 10 minutes')
   eq(currentCode(now)?.code, code, 'the Settings page can show it again')
   eq(normalizeCode(' abcd-efgh '), 'ABCDEFGH', 'typed with a dash, spaces or lower case is the same code')
-  check(redeemCode(`${code.slice(0, 4).toLowerCase()}-${code.slice(4)}`, now + 1000), 'the code pairs once')
-  check(!redeemCode(code, now + 2000), 'and only once')
+  eq(redeemCode(`${code.slice(0, 4).toLowerCase()}-${code.slice(4)}`, now + 1000), 'device', 'the code pairs once')
+  eq(redeemCode(code, now + 2000), null, 'and only once')
 
   const late = createCode(now).code
-  check(!redeemCode(late, now + CODE_MS), 'not after 10 minutes')
+  eq(redeemCode(late, now + CODE_MS), null, 'not after 10 minutes')
   check(currentCode(now + CODE_MS) === null, 'an expired code is not shown')
 
   const guessed = createCode(now).code
   for (let i = 0; i < CODE_TRIES - 1; i++) redeemCode('WRONGWRG', now)
   check(currentCode(now) !== null, `${CODE_TRIES - 1} wrong tries leave the code`)
   redeemCode('WRONGWRG', now)
-  check(!redeemCode(guessed, now), `after ${CODE_TRIES} wrong tries the right code no longer works`)
+  eq(redeemCode(guessed, now), null, `after ${CODE_TRIES} wrong tries the right code no longer works`)
 
+  // Owner codes: their own slot, never shown on Settings, not replaced by an ordinary code.
+  const owner = createOwnerCode(now).code
+  const ordinary = createCode(now).code
+  eq(currentCode(now)?.code, ordinary, 'the Settings page shows the ordinary code, never the owner code')
+  eq(redeemCode(owner, now), 'owner', 'the owner code is told apart')
+  eq(redeemCode(ordinary, now), 'device', 'and the ordinary one still works beside it')
+  eq(redeemCode(owner, now), null, 'an owner code works once too')
+  createOwnerCode(now)
   createCode(now)
   forgetAllDevices()
   check(currentCode(now) === null, 'forgetting every device also drops a waiting code')
+  eq(redeemCode(owner, now), null, 'and a waiting owner code')
+
+  // A list written before owners existed: its devices are not owners.
+  const legacy = issueDevice(now, process.env, 'Old phone')
+  const listKey = createHmac('sha256', Buffer.from(readFileSync(keyPath(), 'utf8').trim(), 'hex')).update('latentry pairing devices v1').digest()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', listKey, iv)
+  const { owner: _owner, ...withoutOwner } = legacy.device
+  const data = Buffer.concat([cipher.update(JSON.stringify([{ ...withoutOwner, owner: 'yes' }, { ...withoutOwner, id: 'x' }]), 'utf8'), cipher.final()])
+  writeFileSync(devicesPath(), JSON.stringify({ v: 1, iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64'), data: data.toString('base64') }))
+  const moved = new Date(Date.now() + 120_000)
+  utimesSync(devicesPath(), moved, moved)
+  eq(listDevices(now).map((d) => d.owner), [false, false], 'a device without owner, or with anything but true, is no owner')
+  eq(pairedDevice(legacy.value, now)?.name, 'Old phone', 'and the old list is still read')
+  forgetAllDevices()
 
   // ── Cookies and paths ──
   eq(deviceCookie(new Headers({ cookie: `a=1; ${DEVICE_COOKIE}=v1.x.1.y; b=2` })), 'v1.x.1.y', 'the device cookie is read from the Cookie header')
@@ -216,6 +242,40 @@ async function main(): Promise<void> {
   check(/Max-Age=0/.test(unpaired.headers.get('set-cookie') ?? ''), 'a device can unpair itself, and its cookie is cleared')
   check(!verifyDevice(newValue), 'after which it no longer verifies')
   eq(listDevices().length, 0, 'and it is off the list')
+
+  // ── Owner devices ──
+  const fromOwnerLan = { ...fromLan, [peer]: '192.168.1.40' }
+  eq((await pairingAction(post('http://192.168.1.20:3000/api/settings/pairing', fromLan, { action: 'owner-code' }))).status, 403, 'a LAN device cannot make an owner code')
+  const ownerMade = await (await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'owner-code' }))).json()
+  check(typeof ownerMade.code?.code === 'string', 'this machine (a terminal on it) makes an owner code')
+  const ownerPaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', fromOwnerLan, { code: ownerMade.code.code, name: 'Laptop' }))
+  eq(ownerPaired.status, 200, 'the owner code pairs')
+  const ownerValue = (ownerPaired.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
+  const asOwner = withCookie(fromOwnerLan, ownerValue)
+  eq((await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: asOwner }))).json()).owner, true, 'as an owner device')
+  const seen = await pairingSettings(new Request('http://192.168.1.20:3000/api/settings/pairing', { headers: asOwner }))
+  eq(seen.status, 200, 'an owner device sees the paired devices')
+  eq((await seen.json()).devices.map((d: { name: string; owner: boolean }) => [d.name, d.owner]), [['Laptop', true]], 'marked as the owner')
+  const phoneCode = await (await pairingAction(post('http://192.168.1.20:3000/api/settings/pairing', asOwner, { action: 'code' }))).json()
+  check(typeof phoneCode.code?.code === 'string', 'and makes a code for a phone')
+  eq((await pairingAction(post('http://192.168.1.20:3000/api/settings/pairing', asOwner, { action: 'owner-code' }))).status, 403, 'but not another owner code: only a terminal on this machine can')
+  const phonePaired = await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...fromLan, [peer]: '192.168.1.41' }, { code: phoneCode.code.code }))
+  const phoneValue = (phonePaired.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
+  const asPhone = withCookie({ ...fromLan, [peer]: '192.168.1.41' }, phoneValue)
+  eq((await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: asPhone }))).json()).owner, false, 'a phone paired that way is no owner')
+  eq((await pairingSettings(new Request('http://192.168.1.20:3000/api/settings/pairing', { headers: asPhone }))).status, 403, 'and cannot see the paired devices')
+
+  const owned = new Headers(asOwner)
+  const phoneHeaders = new Headers(asPhone)
+  eq([editRefusal(owned), editRefusal(phoneHeaders)], [null, 'notLocal'], 'an owner device may change settings and Setup; a phone may not')
+  check(isOwnerDevice(owned) && !isFromThisMachine(owned), 'it is an owner, not this machine: opening the file manager stays with this machine')
+  eq(editRefusal(owned, { ...process.env, SETTINGS_EDIT: 'off' }), 'off', 'SETTINGS_EDIT=off applies to an owner device too')
+  check(!isOwnerDevice(owned, { ...process.env, LATENTRY_PAIRING: 'off' }), 'with pairing off there are no owners')
+  const ownerId = listDevices().find((d) => d.owner)!.id
+  check(removeDevice(ownerId), 'the owner device is removed')
+  eq(editRefusal(owned), 'notLocal', 'and with it what it was allowed')
+  forgetAllDevices()
+
   let limited = 0
   for (let i = 0; i < 6; i++) {
     if ((await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...fromLan, [peer]: '192.168.1.32' }, { code: 'WRONGWRG' }))).status === 429) limited++
