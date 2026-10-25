@@ -806,9 +806,9 @@ pillow==13.0.0 \
     #   diffusers
     #   poseorbit
     #   torchvision
-poseorbit==0.3.0 \
-    --hash=sha256:a8cc66651f72f2e12ed87d54876ae24be859e32919b6570737f5d12d5e2bd9da \
-    --hash=sha256:c37f65fb615f8f6626b9e7dc68d17eb6bc862d62b234587ec4d1d26de707ea60
+poseorbit==0.3.1 \
+    --hash=sha256:a0cf629d47d63330febe13122d5c59b724856b888af53584e77658a649f68d95 \
+    --hash=sha256:ab4dd5e5ef733d9e4bc3ee6ad6822d8d21a25dd30aa4ea9885e9453540b1f085
     # via latentry-engine (engine/pyproject.toml)
 protobuf==7.36.2 \
     --hash=sha256:497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb \
