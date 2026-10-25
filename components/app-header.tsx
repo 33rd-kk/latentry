@@ -4,15 +4,15 @@ import { useState, useSyncExternalStore } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useTheme } from "next-themes"
-import { Cpu, Eye, EyeOff, Images, Languages, Moon, Settings, Sun, Wand2 } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select"
+import { Cpu, Eye, EyeOff, Images, Moon, Settings, Sun, Wand2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { LanguageMenu } from "@/components/language-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { PairingNotice } from "@/components/this-device"
 import { cn } from "@/lib/utils"
 import { preferences, STORAGE_EVENT_NAME, STORAGE_KEYS } from "@/lib/storage"
 import { isSecretMode } from "@/lib/secret-mode"
-import { LOCALES, useI18n } from "@/lib/i18n"
+import { useI18n } from "@/lib/i18n"
 
 function subscribeSecretMode(listener: () => void) {
   const onChange = (event: Event) => {
@@ -50,17 +50,8 @@ export function useShownInSecret<T>(): [T | null, (shown: T | null) => void] {
   return [shown, setShown]
 }
 
-/** "de" -> "Deutsch": a language's own name for itself, from the browser. */
-function languageName(code: string): string {
-  try {
-    return new Intl.DisplayNames([code], { type: "language" }).of(code) ?? code
-  } catch {
-    return code
-  }
-}
-
 export function AppHeader() {
-  const { locale, setLocale, t } = useI18n()
+  const { t } = useI18n()
   const { resolvedTheme, setTheme } = useTheme()
   const pathname = usePathname()
   const secret = useSecretMode()
@@ -108,25 +99,7 @@ export function AppHeader() {
             </TooltipTrigger>
             <TooltipContent className="max-w-64">{t("app.secretModeHint")}</TooltipContent>
           </Tooltip>
-          {/* Only once a second catalog exists (see locales/). Each language is
-              named in itself, so nothing here needs translating. */}
-          {LOCALES.length > 1 && (
-            <Select value={locale} onValueChange={setLocale}>
-              <SelectTrigger size="sm" className="w-auto gap-1 border-none shadow-none" aria-label="Language">
-                <Languages className="h-4 w-4" />
-                <span className="text-xs uppercase">{locale}</span>
-              </SelectTrigger>
-              {/* Below the button, at its right edge: the default item-aligned list
-                  ignores `align` and lands in the corner from the header's edge. */}
-              <SelectContent position="popper" align="end">
-                {LOCALES.map((code) => (
-                  <SelectItem key={code} value={code}>
-                    {languageName(code)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
+          <LanguageMenu />
           <Button
             variant="ghost"
             size="icon"

@@ -26,3 +26,13 @@ test('a Japanese browser gets Japanese, and the language menu switches to Englis
   await page.reload()
   await expect(page.getByRole('heading', { name: 'Settings', exact: true })).toBeVisible()
 })
+
+// The pairing page has no header, but a device that is not paired yet still
+// needs to read its steps in its own language.
+test('the pairing page has the language menu too', async ({ page }) => {
+  await page.goto('/pair')
+  await expect(page.getByText('この端末をペアリング')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Language' }).click()
+  await page.getByRole('option', { name: 'English' }).click()
+  await expect(page.getByText('Pair this device')).toBeVisible()
+})
