@@ -88,7 +88,7 @@ length, so a joint swings around rather than stretching.
   keeps them, and a new picture starts as detected. They are held only in
   the page, never saved.
 
-Moving joints needs poseorbit 0.3 in Latentry's engine (run **Repair /
+Moving joints needs poseorbit 0.3.1 in Latentry's engine (run **Repair /
 update** on [Setup](engine.md) once). On a backend that cannot, the view
 says so (see `movable` in the [backend API](../backend-api.md)).
 
