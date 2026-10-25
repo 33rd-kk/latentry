@@ -1,6 +1,6 @@
 # Settings
 
-![The Settings page: backends, WD14 tagging and gallery folders](../assets/manual-settings.webp)
+![The Settings page: the list of sections on the left, with Backends open](../assets/manual-settings.webp)
 
 Everything here is saved to `latentry.settings.json` on the server and
 applies at once, without a restart. What you leave untouched keeps coming

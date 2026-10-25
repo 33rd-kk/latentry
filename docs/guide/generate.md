@@ -1,6 +1,6 @@
 # Generate
 
-![The generate page](../assets/screenshot-generate.webp)
+![The generate page: the Show row, a skeleton turned in the 3D view, and the two pictures drawn from it](../assets/screenshot-generate.webp)
 
 The form on the left, the results on the right. Each backend keeps its own
 form, so switching backends and back keeps what you typed.
