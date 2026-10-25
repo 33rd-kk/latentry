@@ -99,17 +99,44 @@ take('manual-3d')('3D view, from a full-body picture', async ({ page }) => {
   // Draw the skeleton from the reference, then open the 3D view.
   await page.getByRole('button', { name: "Use the source's pose" }).click()
   await expect(page.getByRole('img', { name: 'Skeleton pose' })).toBeVisible({ timeout: 120_000 })
+  const isPose = (url: string) => /\/api\/gen\/[^/]+\/pose$/.test(new URL(url).pathname)
+  const answered = page.waitForResponse((response) => isPose(response.url()) && response.request().postDataJSON()?.want_3d === true)
   await page.getByRole('button', { name: '3D', exact: true }).click()
+  const response = await answered
+  const { width, height } = response.request().postDataJSON() as { width: number; height: number }
+  const answer = (await response.json()) as { person: number; people: { points_3d: number[][]; scores: number[] }[] }
   await expect(page.getByText(/^Yaw 0°/)).toBeVisible({ timeout: 120_000 })
   const view = page.locator('canvas:visible').last()
   await view.scrollIntoViewIfNeeded()
   const box = (await view.boundingBox())!
-  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+
+  // Raise the lower hand: from the front, a point in picture widths (y down)
+  // shows where the 832×1216 picture, letterboxed onto the output, puts it.
+  const aspect = 1216 / 832
+  const scale = Math.min(width, height / aspect)
+  const onCanvas = ([x, y]: number[]) => ({
+    x: box.x + (((width - scale) / 2 + x * scale) / width) * box.width,
+    y: box.y + (((height - scale * aspect) / 2 + y * scale) / height) * box.height,
+  })
+  const { points_3d: points, scores } = answer.people[Math.max(0, answer.person)]
+  const wrist = [9, 10].filter((joint) => scores[joint] >= 0.3).sort((a, b) => points[b][1] - points[a][1])[0]
+  const shoulder = points[wrist - 4]
+  const from = onCanvas(points[wrist])
+  const outward = Math.sign(points[wrist][0] - shoulder[0]) || 1
+  await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width / 2 + 25, box.y + box.height / 2 + 4, { steps: 6 })
+  await page.mouse.move(from.x + 18 * outward, from.y - 40, { steps: 8 })
   await page.mouse.up()
+  await expect(page.getByText('Joints moved: 1')).toBeVisible()
+
+  // Then swing the camera a little, from a corner well away from the figure.
+  await page.mouse.move(box.x + 8, box.y + box.height - 8)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 33, box.y + box.height - 6, { steps: 6 })
+  await page.mouse.up()
+  await expect(page.getByText(/^Yaw -?[1-9]\d*°/)).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use this pose' })).toBeEnabled()
-  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByRole('button', { name: 'Use this pose' }), page.locator('[data-slot="card"]').first())
+  await shotBetween(page, 'manual-3d', page.getByRole('img', { name: 'Skeleton pose' }), page.getByText('Joints moved: 1'), page.locator('[data-slot="card"]').first())
 })
 
 take('manual-setup')('Setup with the engine running', async ({ page }) => {
