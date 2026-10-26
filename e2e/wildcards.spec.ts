@@ -33,6 +33,21 @@ test('a wildcard is picked, filled in for the run, and kept with the picture', a
   await expect(page.getByText('wildcardrun lighthouse, __places/coast__, __weather__')).toBeVisible()
 })
 
+// The picker has no value of its own, so its list must open under the button
+// rather than where a chosen item would sit (it used to open at the top left).
+test('the wildcard list opens under its button', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('combobox', { name: 'Add a wildcard' }).click()
+  const list = page.getByRole('listbox')
+  await expect(page.getByRole('option', { name: 'weather' })).toBeVisible()
+  // By its label, not its role: an open list hides the rest of the page from roles.
+  const b = (await page.locator('[aria-label="Add a wildcard"]').boundingBox())!
+  const l = (await list.boundingBox())!
+  expect(Math.abs(l.x - b.x), 'the list starts where the button does').toBeLessThan(8)
+  expect(l.y, 'below the button').toBeGreaterThanOrEqual(b.y + b.height - 1)
+  expect(l.y - (b.y + b.height), 'just below it').toBeLessThan(16)
+})
+
 test('an unknown wildcard stops the run and says which', async ({ page }) => {
   await page.goto('/')
   const generate = page.getByRole('button', { name: 'Generate', exact: true })

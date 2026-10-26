@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Fixed**: the **Add a LoRA** and **Add a wildcard** lists opened off to
+  the side of their button. They now open just under it.
+
 - **Model info**: under the model on the generate page, keep where a
   checkpoint came from and the sampler, scheduler, steps, CFG, size,
   negative prompt and hires fix its page recommends, then put them on the
