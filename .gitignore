@@ -53,6 +53,9 @@ latentry.pairing-devices.json
 latentry.pairing-devices.json.*.tmp
 # the key made-up gallery folder names come from (lib/gallery/folder-names.ts)
 latentry.folder-names-key
+# each model's link and recommended settings (lib/models/info.ts)
+latentry.models.json
+latentry.models.json.*.tmp
 /.next-*/
 
 # engine runtime (uv, Python, venv, logs) and downloaded models

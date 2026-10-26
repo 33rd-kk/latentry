@@ -23,6 +23,27 @@ form, so switching backends and back keeps what you typed.
 
 ![A workflow from the folder chosen on a ComfyUI backend, with the note under it](../assets/manual-workflow.webp){ width="420" }
 
+### Model info
+
+Under the model, **Add model info** keeps notes on the checkpoint: the link
+it came from, and the sampler, scheduler, steps, CFG, size, negative prompt
+and hires fix its page recommends. **Use current values** fills them in from
+the form. Once saved, a line under the model shows them, with the link.
+
+**Apply recommended** puts them on the form. Only what you saved is changed,
+and the prompt never is. A sampler or scheduler this backend does not offer
+is left as it was, and the page names it. Switching models never changes
+the form by itself.
+
+Model info is kept by the checkpoint's file name, so the same file has the
+same info on the built-in engine, ComfyUI and AUTOMATIC1111 / Forge. A
+diffusers-compatible server does not name its file, so it has none.
+
+It is saved in `latentry.models.json`, next to the settings file, and only
+this computer and [owner devices](owner-device.md) can see or change it.
+Latentry never opens the link itself. Secret mode does not cover it, since
+it is not part of what you type into a run.
+
 ## Show only what you use
 
 The **Show** row under the backend hides the parts of the form you do not
