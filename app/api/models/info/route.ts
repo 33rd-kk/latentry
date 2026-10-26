@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   if (raw === null) return json({ models })
   const key = modelKey(raw)
   if (!key) return jsonError('A model file name', 400)
-  return json({ info: models[key] ?? null })
+  return json({ info: Object.hasOwn(models, key) ? models[key] : null })
 }
 
 /** Keeps a model's info: { name, info }. What is left out of `info` is not kept. */

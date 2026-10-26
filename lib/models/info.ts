@@ -50,11 +50,18 @@ export type ModelInfoErrors = Record<string, string>
  * A1111 name the same file alike. Null for anything that is not a file name.
  */
 export function modelName(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null
-  const name = (raw.trim().split(/[\\/]/).pop() ?? '').replace(/\s+\[[0-9a-f]+\]$/i, '').trim()
-  if (!name || name.length > MAX_NAME_LENGTH || name === '.' || name === '..' || /[\u0000-\u001f\u007f]/.test(name)) return null
+  // Bounded before any pattern runs: A1111's whole path, at most, plus its hash.
+  if (typeof raw !== 'string' || raw.length > MAX_RAW_NAME_LENGTH) return null
+  let name = (raw.trim().split(/[\\/]/).pop() ?? '').trim()
+  const hash = name.lastIndexOf(' [')
+  if (hash > 0 && /^\[[0-9a-f]+\]$/i.test(name.slice(hash + 1))) name = name.slice(0, hash).trim()
+  if (!name || name.length > MAX_NAME_LENGTH || name === '.' || name === '..' || RESERVED.has(name.toLowerCase()) || /[\u0000-\u001f\u007f]/.test(name)) return null
   return name
 }
+
+const MAX_RAW_NAME_LENGTH = 1024
+// Names an object already has: never a key, so no lookup or write reaches its prototype.
+const RESERVED = new Set(['__proto__', 'constructor', 'prototype'])
 
 /** The name a model's info is kept under: case does not tell two files apart on Windows. */
 export function modelKey(raw: unknown): string | null {
@@ -145,18 +152,18 @@ export function validateModelInfo(
  */
 export function parseStoredModelInfo(raw: unknown): Record<string, ModelInfo> {
   const models = (raw as { models?: unknown } | null)?.models
-  const out: Record<string, ModelInfo> = {}
-  if (!models || typeof models !== 'object' || Array.isArray(models)) return out
+  const out = new Map<string, ModelInfo>()
+  if (!models || typeof models !== 'object' || Array.isArray(models)) return {}
   for (const [key, entry] of Object.entries(models)) {
-    if (Object.keys(out).length >= MAX_MODEL_INFO_ENTRIES) break
+    if (out.size >= MAX_MODEL_INFO_ENTRIES) break
     if (!entry || typeof entry !== 'object') continue
     const name = modelName((entry as { name?: unknown }).name)
     if (!name || modelKey(name) !== key) continue
     const updatedAt = (entry as { updatedAt?: unknown }).updatedAt
     const checked = validateModelInfo(entry as Record<string, unknown>, name, typeof updatedAt === 'number' && Number.isFinite(updatedAt) ? updatedAt : 0)
-    if (checked.info) out[key] = checked.info
+    if (checked.info) out.set(key, checked.info)
   }
-  return out
+  return Object.fromEntries(out)
 }
 
 export function modelInfoPath(env: Env = process.env): string {
@@ -222,18 +229,17 @@ export async function saveModelInfo(key: string, info: ModelInfo | null, env: En
   const file = modelInfoPath(env)
   const { models, version } = readFile(env)
   if (version !== null && version > MODEL_INFO_VERSION) throw new NewerModelInfoError(version)
-  const next = { ...models }
+  const next = new Map(Object.entries(models))
   if (info) {
-    if (!(key in next) && Object.keys(next).length >= MAX_MODEL_INFO_ENTRIES) throw new TooManyModelsError()
-    next[key] = info
-  } else {
-    if (!(key in next)) return
-    delete next[key]
+    if (!next.has(key) && next.size >= MAX_MODEL_INFO_ENTRIES) throw new TooManyModelsError()
+    next.set(key, info)
+  } else if (!next.delete(key)) {
+    return
   }
   await mkdir(path.dirname(file), { recursive: true })
   const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`
   try {
-    await writeFile(temp, JSON.stringify({ version: MODEL_INFO_VERSION, models: next }, null, 2) + '\n', { mode: 0o600 })
+    await writeFile(temp, JSON.stringify({ version: MODEL_INFO_VERSION, models: Object.fromEntries(next) }, null, 2) + '\n', { mode: 0o600 })
     restrictToOwner(temp)
     await rename(temp, file)
   } catch (error) {

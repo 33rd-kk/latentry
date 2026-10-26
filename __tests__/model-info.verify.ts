@@ -34,6 +34,13 @@ eq(modelName('checkpoints/waiNSFW_v14.safetensors'), 'waiNSFW_v14.safetensors', 
 eq(modelKey('WaiNSFW_v14.safetensors'), modelKey('wainsfw_v14.safetensors'), 'case does not make another model')
 check(modelName('..') === null && modelName('') === null && modelName('a\u0000b') === null && modelName(42) === null, 'not a file name: refused')
 check(modelName('x'.repeat(201)) === null, 'nor one past 200 characters')
+check(['__proto__', 'Constructor', 'prototype'].every((name) => modelName(name) === null), "nor a name every object already has, so no key reaches a prototype")
+eq(modelName('x [not a hash].safetensors'), 'x [not a hash].safetensors', 'only a trailing [hex] is taken for the hash')
+{
+  const started = Date.now()
+  check(modelName(' '.repeat(100_000) + 'x') === null && modelName('a' + ' '.repeat(5_000) + '[0') === null, 'a long name is refused')
+  check(Date.now() - started < 200, 'without a slow pattern running over it')
+}
 
 // ── Links ──
 eq(safeUrl('https://civitai.com/models/1'), 'https://civitai.com/models/1', 'an https link is kept')
