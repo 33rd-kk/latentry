@@ -24,7 +24,9 @@ export function WildcardPicker({ names, onOpen, onPick }: WildcardPickerProps) {
       <SelectTrigger size="sm" className="w-fit" aria-label={t("generate.wildcards.add")}>
         <SelectValue placeholder={t("generate.wildcards.add")} />
       </SelectTrigger>
-      <SelectContent>
+      {/* Under the button: with no value of its own, the default (item-aligned)
+          has no item to line up with and opens the list off to the side. */}
+      <SelectContent position="popper" align="start">
         {names === null && <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("generate.wildcards.loading")}</p>}
         {names?.length === 0 && <p className="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">{t("generate.wildcards.none")}</p>}
         {names?.map((name) => (
