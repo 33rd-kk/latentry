@@ -1,17 +1,17 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import { deleteModelInfo, getModelInfo, putModelInfo, type ModelInfoDraft, type ModelInfoFailure } from "@/lib/models/client"
 import type { ModelInfo } from "@/lib/models/info"
 
-/** What is sent to keep a model's info: everything but its name and time. */
-export type ModelInfoDraft = Omit<ModelInfo, "name" | "updatedAt">
+export type { ModelInfoDraft } from "@/lib/models/client"
 
 export interface ModelInfoState {
   /** False for a client that may not see model info (a paired device), or while it is not known. */
   available: boolean
   info: ModelInfo | null
   /** Keeps the info; resolves to null, or the server's error with its field errors. */
-  save: (draft: ModelInfoDraft) => Promise<{ error: string; errors?: Record<string, string> } | null>
+  save: (draft: ModelInfoDraft) => Promise<ModelInfoFailure | null>
   remove: () => Promise<string | null>
 }
 
@@ -27,14 +27,9 @@ export function useModelInfo(name: string | null): ModelInfoState {
   useEffect(() => {
     if (!name) return
     let live = true
-    fetch(`/api/models/info?name=${encodeURIComponent(name)}`, { cache: "no-store" })
-      .then((response) => (response.ok ? response.json() : null))
-      .then((body: { info?: ModelInfo | null } | null) => {
-        if (live) setState({ name, available: Boolean(body), info: body?.info ?? null })
-      })
-      .catch(() => {
-        if (live) setState({ name, available: false, info: null })
-      })
+    void getModelInfo(name).then((info) => {
+      if (live) setState({ name, available: info !== undefined, info: info ?? null })
+    })
     return () => {
       live = false
     }
@@ -43,30 +38,19 @@ export function useModelInfo(name: string | null): ModelInfoState {
   const save = useCallback(
     async (draft: ModelInfoDraft) => {
       if (!name) return { error: "No model" }
-      const response = await fetch("/api/models/info", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, info: draft }),
-      }).catch(() => null)
-      const body = await response?.json().catch(() => null)
-      if (response?.ok) {
-        setState({ name, available: true, info: body?.info ?? null })
-        return null
-      }
-      return { error: String(body?.error ?? (response ? `HTTP ${response.status}` : "unreachable")), errors: body?.errors }
+      const result = await putModelInfo(name, draft)
+      if (!("info" in result)) return result
+      setState({ name, available: true, info: result.info })
+      return null
     },
     [name]
   )
 
   const remove = useCallback(async () => {
     if (!name) return null
-    const response = await fetch(`/api/models/info?name=${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => null)
-    if (response?.ok) {
-      setState({ name, available: true, info: null })
-      return null
-    }
-    const body = await response?.json().catch(() => null)
-    return String(body?.error ?? (response ? `HTTP ${response.status}` : "unreachable"))
+    const error = await deleteModelInfo(name)
+    if (!error) setState({ name, available: true, info: null })
+    return error
   }, [name])
 
   // What was read for another model is not this one's.

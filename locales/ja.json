@@ -545,7 +545,8 @@
       "profiles": "プロファイル",
       "wildcards": "ワイルドカード",
       "devices": "端末",
-      "invalid": "直す項目があります"
+      "invalid": "直す項目があります",
+      "models": "モデル情報"
     },
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
@@ -832,6 +833,12 @@
     "errorUrl": "http:// か https:// で始まるリンクにしてください。",
     "errorHires": "Hires fix の設定が範囲外です。",
     "newerFile": "モデル情報ファイルは新しい Latentry（バージョン {version}）が書いたものです。中身を失わないよう、この版では変更しません。",
-    "tooMany": "モデル情報は 1000 件までです。先にいくつか削除してください。"
+    "tooMany": "モデル情報は 1000 件までです。先にいくつか削除してください。",
+    "editFor": "{name} の情報を編集",
+    "settingsTitle": "モデル情報",
+    "settingsHint": "チェックポイントごとのリンクと推奨値です。ファイル名で保存し、読み込んでいないモデルも含みます。適用は生成ページから行います。下の保存ボタンとは別に、その場で保存されます。",
+    "settingsNone": "まだモデル情報はありません。",
+    "settingsAdd": "モデルの情報を追加",
+    "settingsAddHint": "バックエンドに表示されるチェックポイントのファイル名です（例: model.safetensors）。"
   }
 }

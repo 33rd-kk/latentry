@@ -12,6 +12,7 @@ const card = (page: Page) => page.getByRole('group', { name: 'Model info' })
 // The specs share one settings folder: leave no info behind for the next ones.
 test.afterEach(async ({ request }) => {
   await request.delete('/api/models/info?name=mock-model.safetensors')
+  await request.delete('/api/models/info?name=other-model.safetensors')
 })
 
 test('model info is saved, applied on request, and sent with the run', async ({ page }) => {
@@ -71,4 +72,40 @@ test('a bad link is refused by name', async ({ page }) => {
   await editor(page).getByLabel('Where it came from (link)').fill('javascript:alert(1)')
   await editor(page).getByRole('button', { name: 'Save' }).click()
   await expect(editor(page).getByText('A link starting with http:// or https://.')).toBeVisible()
+})
+
+test('Settings lists every model kept, and adds one that is not loaded', async ({ page, request }) => {
+  await request.delete('/api/models/info?name=other-model.safetensors')
+  await page.goto('/settings#models')
+  await expect(page.getByRole('tab', { name: /^Model info/ })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByText('No model info kept yet.')).toBeVisible()
+
+  // A model the backends do not have loaded: only reachable here.
+  await page.getByLabel('Add info for a model').fill('other-model.safetensors')
+  await page.getByRole('button', { name: 'Add model info' }).click()
+  const otherEditor = page.getByRole('group', { name: 'Info for other-model.safetensors' })
+  await expect(otherEditor.getByRole('button', { name: 'Use current values' })).toHaveCount(0)
+  await otherEditor.getByLabel('Steps').fill('20')
+  await otherEditor.getByLabel('Where it came from (link)').fill('https://example.com/other')
+  await otherEditor.getByRole('button', { name: 'Save' }).click()
+
+  const list = page.getByRole('list', { name: 'Model info' })
+  await expect(list.getByRole('listitem')).toHaveCount(1)
+  await expect(list).toContainText('other-model.safetensors')
+  await expect(list).toContainText('20 steps')
+  await expect(list.getByRole('link', { name: 'example.com' })).toHaveAttribute('rel', 'noopener noreferrer')
+  // Saved at once: nothing waits for the page's Save button.
+  await expect(page.getByText('Unsaved changes')).toHaveCount(0)
+
+  const { violations } = await new AxeBuilder({ page }).include('main').withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()
+  expect(violations.filter((item) => item.impact === 'serious' || item.impact === 'critical').map((item) => item.id), 'the section: serious or critical findings').toEqual([])
+
+  await list.getByRole('button', { name: 'Edit the info for other-model.safetensors' }).click()
+  await otherEditor.getByLabel('Steps').fill('24')
+  await otherEditor.getByRole('button', { name: 'Save' }).click()
+  await expect(list).toContainText('24 steps')
+
+  await list.getByRole('button', { name: 'Edit the info for other-model.safetensors' }).click()
+  await otherEditor.getByRole('button', { name: 'Delete' }).click()
+  await expect(page.getByText('No model info kept yet.')).toBeVisible()
 })

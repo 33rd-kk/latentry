@@ -29,6 +29,8 @@ Under the model, **Add model info** keeps notes on the checkpoint: the link
 it came from, and the sampler, scheduler, steps, CFG, size, negative prompt
 and hires fix its page recommends. **Use current values** fills them in from
 the form. Once saved, a line under the model shows them, with the link.
+Every model's info, including models that are not loaded, is listed on
+[Settings → Model info](settings.md#model-info).
 
 **Apply recommended** puts them on the form. Only what you saved is changed,
 and the prompt never is. A sampler or scheduler this backend does not offer

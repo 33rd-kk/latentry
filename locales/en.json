@@ -545,7 +545,8 @@
       "profiles": "Profiles",
       "wildcards": "Wildcards",
       "devices": "Devices",
-      "invalid": "Has a field to fix"
+      "invalid": "Has a field to fix",
+      "models": "Model info"
     },
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
     "version": "Latentry {version}",
@@ -832,6 +833,12 @@
     "errorUrl": "A link starting with http:// or https://.",
     "errorHires": "Hires fix settings out of range.",
     "newerFile": "The model info file was written by a newer Latentry (version {version}). This version leaves it unchanged so nothing in it is lost.",
-    "tooMany": "Info is kept for at most 1000 models. Delete some first."
+    "tooMany": "Info is kept for at most 1000 models. Delete some first.",
+    "editFor": "Edit the info for {name}",
+    "settingsTitle": "Model info",
+    "settingsHint": "Each checkpoint's link and recommended settings, by file name, including models that are not loaded. Applied from the generate page. Saved at once, apart from the Save button below.",
+    "settingsNone": "No model info kept yet.",
+    "settingsAdd": "Add info for a model",
+    "settingsAddHint": "The checkpoint file name, as the backend shows it (for example model.safetensors)."
   }
 }
