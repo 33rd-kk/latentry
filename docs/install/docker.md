@@ -57,6 +57,29 @@ your data.
   The `-v` deletes the volume, pictures and models included; leave it out
   to keep them.
 
+## If you used Latentry without Docker before
+
+Your browser keeps some things per address, not in Latentry: what you
+typed on the generate form, saved characters, the language and whether
+secret mode is on. Open the Docker one at the same address
+(`http://localhost:3000`) and they are there again. Settings, pictures and
+paired devices are on the server, so they do not come along.
+
+- **To start clean**, clear the site data for `localhost:3000` in your
+  browser (in Chrome or Edge: the icon left of the address > Site settings >
+  Delete data).
+- **To bring your pictures**, mount the old `output` folder read-only and
+  add it on Settings (see below), or copy them into the volume, from this
+  folder:
+
+    ```bash
+    docker compose cp /path/to/old/latentry/output/. latentry:/data/output
+    docker compose exec -u root latentry chown -R node:node /data/output
+    ```
+
+    The second line gives the copies to Latentry's user, so it can delete
+    them from the gallery.
+
 ## Your own picture folders
 
 To browse another tool's pictures, mount its folder read-only. In
