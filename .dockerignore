@@ -28,6 +28,7 @@
 **/latentry.pairing-key
 **/latentry.pairing-devices.json
 **/latentry.folder-names-key
+**/latentry.models.json*
 **/.runtime
 **/__pycache__
 **/.pytest_cache

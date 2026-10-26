@@ -4,6 +4,7 @@
 
 import { HIRES_DEFAULTS } from '@/lib/diffusion/hires'
 import { formatForProfile, getProfile, isProfileId, type Profile, type ProfileId } from '@/lib/profiles'
+import type { ModelInfo } from '@/lib/models/info'
 import { preferences, type HandoffSettings } from '@/lib/storage'
 
 export const DEFAULT = 'Default'
@@ -183,5 +184,64 @@ export function applySettings(form: FormState, settings: HandoffSettings, sameBa
         }
       : { hires: false }),
     presetName: CUSTOM_PRESET,
+  }
+}
+
+/** What the selected backend offers, for laying a model's recommended settings over the form. */
+export interface BackendOptions {
+  samplers: string[]
+  schedulers: string[]
+  upscalers: string[]
+}
+
+/**
+ * A model's recommended settings over a form: what the info says replaces,
+ * what it does not say stays, and the prompt is never touched. A sampler,
+ * scheduler or upscaler this backend does not offer is left as it was and
+ * named in `skipped`, so the page can say so; on a backend with no choice of
+ * them it is left alone without a word.
+ */
+export function applyModelInfo(form: FormState, info: ModelInfo, options: BackendOptions): { form: FormState; skipped: string[] } {
+  const skipped: string[] = []
+  const pick = (value: string | undefined, list: string[]): string | undefined => {
+    if (!value || list.length === 0) return undefined
+    if (list.includes(value)) return value
+    skipped.push(value)
+    return undefined
+  }
+  const sampler = pick(info.sampler, options.samplers)
+  const scheduler = pick(info.scheduler, options.schedulers)
+  const upscaler = info.hires ? (pick(info.hires.upscaler, options.upscalers) ?? form.hrUpscaler) : undefined
+  return {
+    form: {
+      ...form,
+      ...(info.width ? { width: info.width } : {}),
+      ...(info.height ? { height: info.height } : {}),
+      ...(info.steps ? { steps: info.steps } : {}),
+      ...(info.cfg !== undefined ? { cfg: info.cfg } : {}),
+      ...(info.negativePrompt !== undefined ? { negativePrompt: info.negativePrompt } : {}),
+      ...(sampler ? { sampler } : {}),
+      ...(scheduler ? { scheduler } : {}),
+      ...(info.hires
+        ? { hires: true, hrScale: info.hires.scale, hrSteps: info.hires.steps, hrDenoise: info.hires.denoise, hrUpscaler: upscaler ?? form.hrUpscaler }
+        : {}),
+      presetName: CUSTOM_PRESET,
+    },
+    skipped,
+  }
+}
+
+/** The form's settings as a model's info would keep them: what "Use current values" fills in. */
+export function modelInfoFromForm(form: FormState): Omit<ModelInfo, 'name' | 'updatedAt'> {
+  // "Default" is the backend's own choice, not a recommendation.
+  return {
+    ...(form.sampler !== DEFAULT ? { sampler: form.sampler } : {}),
+    ...(form.scheduler !== DEFAULT ? { scheduler: form.scheduler } : {}),
+    steps: form.steps,
+    cfg: form.cfg,
+    width: form.width,
+    height: form.height,
+    negativePrompt: form.negativePrompt,
+    ...(form.hires ? { hires: { scale: form.hrScale, steps: form.hrSteps, denoise: form.hrDenoise, upscaler: form.hrUpscaler } } : {}),
   }
 }

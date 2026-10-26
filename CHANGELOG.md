@@ -11,6 +11,15 @@
   this computer only until you change `compose.yaml`. The new
   `LATENTRY_TRUST_LOOPBACK=off` does the same outside Docker.
 
+- **Model info**: under the model on the generate page, keep where a
+  checkpoint came from and the sampler, scheduler, steps, CFG, size,
+  negative prompt and hires fix its page recommends, then put them on the
+  form with **Apply recommended**. Kept by file name for the built-in
+  engine, ComfyUI and AUTOMATIC1111 / Forge, in `latentry.models.json` next
+  to the settings file, for this computer and owner devices only. Latentry
+  never opens the link. **Settings → Model info** lists every model kept,
+  and adds info for a model that is not loaded.
+
 - **The manual is arranged by what you want to do**: Generate is split into
   the generate page, **From a picture** (img2img, inpainting, Extend),
   **Bigger pictures** (hires fix, Upscale) and **Many pictures** (the

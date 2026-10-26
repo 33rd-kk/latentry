@@ -40,6 +40,7 @@ at `/data` in the container:
 | In `/data` | What |
 |---|---|
 | `latentry.settings.json`, `latentry.pairing-*`, `latentry.folder-names-key` | Settings, the pairing key and the paired devices |
+| `latentry.models.json` | Each model's link and recommended settings |
 | `output/` | Your pictures (the gallery's save folder) |
 | `runtime/` | The engine: uv, Python, PyTorch, its logs |
 | `models/` | Models and the tagger, and `loras/` |
