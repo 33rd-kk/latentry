@@ -35,6 +35,7 @@ unless you set `LATENTRY_HOST`; see
 |---|---|---|
 | The gallery's save folder | Every finished picture, with its prompt and settings inside the file (the LoRAs used, by name and weight); WD14 tags, when you tag a picture there; LoRA hashes only if you turn **Write LoRA hashes** on | When you delete the files |
 | `.env.local`, `latentry.settings.json` | Backends, folders and options, and backend tokens (in the settings file when typed on Settings) | When you change or delete them |
+| `latentry.models.json` | [Model info](generate.md#model-info) you saved: a checkpoint's file name, its link and recommended settings. Only this computer and owner devices can read it, and Latentry never opens the link | When you delete it on the generate page, or delete the file |
 | `.runtime/`, `models/` | The engine, the models and the tagger you downloaded | When you delete them, or uninstall |
 | Hugging Face's cache (`~/.cache/huggingface`, or `HF_HOME`) | The config files of a single-file SDXL model (no weights, no prompts) | When you delete it |
 | This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, and display preferences such as tags under cards, the parts of the generate form you hid and the Settings section you opened last | Kept between visits. Clear the site's data to remove it |

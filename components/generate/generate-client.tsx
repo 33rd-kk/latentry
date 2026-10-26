@@ -13,6 +13,7 @@ import { SourceImageSlot, type SourceImage, type SourceMode } from "@/components
 import { ExtendControls } from "@/components/generate/extend-controls"
 import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
+import { ModelInfoCard } from "@/components/generate/model-info-card"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
 import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { PromptSection } from "@/components/generate/prompt-section"
@@ -28,6 +29,7 @@ import { useWildcards } from "@/hooks/use-wildcards"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
 import { useBackendPresets, useGenerateForm } from "@/hooks/use-generate-form"
 import { useGalleryHandoff } from "@/hooks/use-gallery-handoff"
+import { useModelInfo } from "@/hooks/use-model-info"
 import { useJobWatch } from "@/hooks/use-job-watch"
 import { useRunQueue } from "@/hooks/use-run-queue"
 import { useGridRuns } from "@/hooks/use-grid-runs"
@@ -36,7 +38,8 @@ import { useTabMemory } from "@/lib/generate/tab-memory"
 import { useComfyWorkflows } from "@/hooks/use-comfy-workflows"
 import { HIRES_LIMITS, hiresSize, LANCZOS } from "@/lib/diffusion/hires"
 import { img2imgSteps } from "@/lib/diffusion/img2img"
-import { accepted, DEFAULT } from "@/lib/generate/form"
+import { accepted, applyModelInfo, DEFAULT, modelInfoFromForm } from "@/lib/generate/form"
+import type { ModelInfo } from "@/lib/models/info"
 import { NO_SIDES, outpaintCanvas, outpaintFits, OUTPAINT_STRENGTH, type OutpaintSides } from "@/lib/generate/outpaint"
 import { isSecretMode } from "@/lib/secret-mode"
 import { MAX_REQUEST_BODY_BYTES } from "@/lib/limits"
@@ -98,6 +101,25 @@ export function GenerateClient() {
   useEffect(() => {
     if (!engineLoading) refreshBackends()
   }, [engineLoading, refreshBackends])
+
+  // ── What the user keeps about the model: its link and recommended settings ──
+  // By the checkpoint's file name. A diffusers server's model label is not one,
+  // so only the engine, ComfyUI and A1111 have it.
+  const infoModel = isEngine
+    ? engineModels.loading ? null : engineModels.current
+    : status && (status.kind === "comfyui" || status.kind === "a1111") ? status.model : null
+  const modelInfo = useModelInfo(infoModel)
+  const applyModelInfoToForm = useCallback(
+    (info: ModelInfo) => {
+      if (!form || !status) return
+      const options = { samplers: status.samplers, schedulers: status.schedulers, upscalers: status.upscalers ?? [] }
+      const { skipped } = applyModelInfo(form, info, options)
+      editForm((current) => applyModelInfo(current, info, options).form)
+      if (skipped.length) toast.warning(t("modelInfo.skipped", { names: skipped.join(", ") }))
+      else toast.success(t("modelInfo.applied", { name: info.name }))
+    },
+    [form, status, editForm, t]
+  )
 
   // ── img2img source, mask and pose ────────────────────────────────────────
   // Deliberately not part of the stored form: a data URL of a 2048px PNG would
@@ -473,6 +495,17 @@ export function GenerateClient() {
                   : undefined
               }
             />
+            {infoModel && modelInfo.available && (
+              <ModelInfoCard
+                name={infoModel}
+                state={modelInfo}
+                current={() => modelInfoFromForm({ ...form, sampler, scheduler })}
+                onApply={applyModelInfoToForm}
+                samplers={status.samplers}
+                schedulers={status.schedulers}
+                disabled={isGenerating}
+              />
+            )}
             {workflows.length > 0 && (
               <WorkflowPicker workflows={workflows} value={workflow} onChange={(name) => update({ workflow: name })} />
             )}

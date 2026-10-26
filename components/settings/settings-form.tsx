@@ -12,6 +12,7 @@ import { useT } from "@/lib/i18n"
 import { ThisDeviceCard } from "@/components/this-device"
 import { BackendsSection } from "./backends-section"
 import { GallerySection } from "./gallery-section"
+import { ModelsSection } from "./models-section"
 import { PairingCard } from "./pairing-card"
 import { ProfilesSection } from "./profiles-section"
 import { TaggerSection } from "./tagger-section"
@@ -19,13 +20,15 @@ import { WildcardsSection } from "./wildcards-section"
 
 // The page's sections, in the order the list shows them, and the parts of the
 // draft each one edits. A link can open one: /settings#gallery.
-const SECTIONS = ["backends", "tagger", "gallery", "profiles", "wildcards", "devices"] as const
+const SECTIONS = ["backends", "tagger", "gallery", "profiles", "models", "wildcards", "devices"] as const
 type SectionId = (typeof SECTIONS)[number]
 const SECTION_PARTS: Record<SectionId, readonly Part[]> = {
   backends: ["backends"],
   tagger: ["tagger", "wd14"],
   gallery: ["gallery"],
   profiles: ["profiles"],
+  // Saved at once, apart from the draft.
+  models: [],
   wildcards: ["wildcards"],
   devices: [],
 }
@@ -146,6 +149,9 @@ export function SettingsForm() {
           </TabsContent>
           <TabsContent value="profiles">
             <ProfilesSection view={view} profiles={draft.profiles} errors={errors} change={change} />
+          </TabsContent>
+          <TabsContent value="models">
+            <ModelsSection />
           </TabsContent>
           <TabsContent value="wildcards">
             <WildcardsSection draft={draft} errors={errors} change={change} />

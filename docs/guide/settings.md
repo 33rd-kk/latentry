@@ -8,8 +8,8 @@ from `.env.local`; a section's badge says which it uses ("Set here" or
 "From .env.local"), and **Use .env.local instead** goes back.
 
 The list on the left (above, on a phone) shows one section at a time:
-**Backends**, **Tagging**, **Gallery**, **Profiles**, **Wildcards** and
-**Devices**. A dot marks a section with unsaved changes, a red one a section
+**Backends**, **Tagging**, **Gallery**, **Profiles**, **Model info**,
+**Wildcards** and **Devices**. A dot marks a section with unsaved changes, a red one a section
 with a field to fix. **Save** at the bottom saves every section at once. A
 link can open a section, for example `/settings#gallery`; without one, the
 page opens at the section you chose last in this browser.
@@ -95,6 +95,20 @@ and a form reset.
   covers `score_9` and `score_8_up`. `-` keeps nothing.
 
 **Save** keeps the changes; **Discard** drops them.
+
+## Model info
+
+Every checkpoint you have kept [model info](generate.md#model-info) for,
+by file name, with its recommended settings and link. **Edit** opens the
+same editor as the generate page, where **Delete** removes it.
+
+**Add info for a model** takes a file name, for example
+`model.safetensors` (the list suggests the engine's models and the ones the
+backends have loaded), so you can note a model's settings without loading
+it. Applying them is done on the generate page.
+
+This section saves each change at once; the **Save** button at the bottom
+is not needed for it.
 
 ## Wildcards
 

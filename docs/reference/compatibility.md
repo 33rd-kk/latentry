@@ -49,6 +49,10 @@ page, carries a `version` number. It is `1` today.
 - A part that cannot be read is skipped with a warning. The rest of the file
   still applies.
 
+`latentry.models.json`, the [model info](../guide/generate.md#model-info)
+kept next to the settings file, carries its own `version`, `1` today, and
+follows the same rules. An entry that cannot be read is skipped.
+
 The tests of every release read a picture and a settings file saved by each
 release since 0.5.0, so a change that breaks an old one fails before it
 ships.
