@@ -1,0 +1,35 @@
+# Only what the image is built from goes in: everything is left out, then the
+# app's own folders and files are let back in. A new folder at the top stays
+# out until it is listed here, so the settings file, the pairing key, pictures,
+# models and local notes in a working copy never reach the build.
+*
+
+!app/
+!components/
+!engine/
+!hooks/
+!lib/
+!locales/
+!scripts/
+!components.json
+!instrumentation.ts
+!next.config.ts
+!package.json
+!package-lock.json
+!postcss.config.mjs
+!proxy.ts
+!tsconfig.json
+!LICENSE
+!NOTICE
+
+# Inside those, what is personal or only for checks and development.
+**/.env*
+**/*.settings.json
+**/latentry.pairing-key
+**/latentry.pairing-devices.json
+**/latentry.folder-names-key
+**/.runtime
+**/__pycache__
+**/.pytest_cache
+**/.ruff_cache
+engine/tests

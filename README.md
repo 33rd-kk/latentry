@@ -111,44 +111,61 @@ Use the built-in engine, the servers you already run, or both.
 
 ## Getting started
 
-Requires Node.js 22.19 or newer. The manual's
-[Support](https://33rd-kk.github.io/latentry/reference/support/) page lists
-the systems, GPUs and browsers that are checked.
+With Docker (Docker Desktop on Windows, Docker Engine on Linux). The
+manual's [Support](https://33rd-kk.github.io/latentry/reference/support/)
+page lists the systems, GPUs and browsers that are checked.
 
 ```bash
 git clone https://github.com/33rd-kk/latentry.git
 cd latentry
+docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   # with an NVIDIA GPU
+docker compose up -d --build                                       # without
+docker compose exec latentry npm run owner-code
+```
+
+The last command prints a one-time code. Open **http://localhost:3000**,
+type the code on **Pair this device**, and your browser becomes the
+**owner device**: it may change Settings and Setup. In a container no
+address is trusted as "this computer", so every browser pairs, yours
+included ([why](https://33rd-kk.github.io/latentry/install/docker/#why-your-browser-has-to-pair)).
+Then, on **Setup**:
+
+1. **Install the engine.** Latentry looks at your GPU and installs Python
+   3.12, the matching PyTorch build (CUDA 13.0 / 12.8 / 12.6 by driver, or
+   CPU), stock diffusers and its engine into the data volume. About 3–4 GB,
+   a few minutes.
+2. **Download a model.** Each is fetched from its publisher on Hugging Face
+   after you accept its license, which the page shows first (some are
+   non-commercial).
+3. **Download a tagger** for reading tags from pictures (WD14, Apache-2.0).
+
+Then **Generate**. Everything Latentry keeps (settings, pictures, engine,
+models) is in the `latentry-data` volume; `docker compose down -v` removes
+it all. Latentry is published on this computer only; to use it from a
+phone, see the manual's
+[Docker](https://33rd-kk.github.io/latentry/install/docker/#other-devices)
+page.
+
+**Without Docker** (on a Mac, where a container cannot use the GPU, or to
+run it directly), with Node.js 22.19 or newer:
+
+```bash
 ./install.sh                                         # Linux, macOS
 powershell -ExecutionPolicy Bypass -File install.ps1 # Windows
 ```
 
-The script installs and builds the web UI and starts it. When it says
-Ready, open **http://localhost:3000/setup** in your browser. There, in order:
-
-1. **Install the engine.** Latentry looks at your GPU and installs Python
-   3.12, the matching PyTorch build (CUDA 13.0 / 12.8 / 12.6 by driver, Apple
-   Metal, or CPU), stock diffusers and its engine, all under `.runtime/` in
-   the app folder. About 3–4 GB, a few minutes. Delete `.runtime/` to remove
-   it.
-2. **Download a model.** Each is fetched from its publisher on Hugging Face
-   after you accept its license, which the page shows first (some are
-   non-commercial). Or put your own SDXL `.safetensors` files in `models/`.
-3. **Download a tagger** for reading tags from pictures (WD14, Apache-2.0).
-
-Then **Generate**. The engine starts with Latentry from then on (turn that off
-on the Setup page or with `LATENTRY_ENGINE=off`); start Latentry with
-`npm start`.
-
-Latentry listens on this computer only. To use it from a phone or another
-computer, add `LATENTRY_HOST=0.0.0.0` to `.env.local`, restart it, and open
-`http://<this computer's address>:3000` there; on Windows, allow Node.js
-through the firewall on private networks when asked. The device asks to be
-paired: choose **Add a device** under **Settings** on this computer and type
-the code it shows. A device stays paired for 30 days.
+When it says Ready, open **http://localhost:3000/setup**; a browser on this
+computer needs no pairing. Start it again later with `npm start`. See
+[Without Docker](https://33rd-kk.github.io/latentry/install/native/).
 
 ### Using servers you already run
 
-To use only those, install with `./install.sh --no-engine` (Windows:
+In Docker, add them under **Settings**. A server on this computer is
+`http://host.docker.internal:<port>` from inside the container (see
+[Backends on this computer](https://33rd-kk.github.io/latentry/install/docker/#backends-on-this-computer)).
+The engine is not installed until you install it on Setup.
+
+Without Docker, to use only those, install with `./install.sh --no-engine` (Windows:
 `install.ps1 -NoEngine`): Latentry then skips the engine and points you to
 **Settings** instead of the Setup page.
 
@@ -194,9 +211,10 @@ back to `.env.local`.
 - **Models are never part of Latentry.** The Setup page downloads only what
   you pick, after showing its license. NoobAI XL, for one, is non-commercial.
 - **Settings can only be changed on the machine running Latentry**
-  (`http://localhost`), or from an owner device: run `npm run owner-code` in
-  a terminal there and type the code into your browser
-  ([An owner device](https://33rd-kk.github.io/latentry/guide/network/#an-owner-device)).
+  (`http://localhost`, without Docker), or from an owner device: run
+  `npm run owner-code` in a terminal there (in Docker,
+  `docker compose exec latentry npm run owner-code`) and type the code into
+  your browser ([Owner device](https://33rd-kk.github.io/latentry/guide/owner-device/)).
   Other devices see the app but not the settings page. `SETTINGS_EDIT=lan`
   allows every device on the network instead, `SETTINGS_EDIT=off` turns it
   off. Since settings choose which folders are read and written, only open

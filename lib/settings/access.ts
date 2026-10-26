@@ -9,6 +9,11 @@
 //   SETTINGS_EDIT=lan     from any address /api answers (see route-guard.ts)
 //   SETTINGS_EDIT=off     never; the page is read-only and .env.local rules
 //
+// LATENTRY_TRUST_LOOPBACK=off (set by the Docker image) counts no request as
+// this machine: in a container, a port forwarder may make other machines look
+// like loopback. Its owner devices then do what this machine would, and a
+// terminal in the container proves itself with lib/security/local-token.ts.
+//
 // "local" goes by the Host header and the forwarded client address, which a
 // browser cannot forge, and by the address the connection really came from
 // (lib/security/peer.ts), which nothing on the network can. The last is what
@@ -16,6 +21,7 @@
 // machine is still told apart by the client address it forwards.
 
 import { deviceCookie, pairedDevice, pairingEnabled } from '@/lib/security/pairing'
+import { trustsLoopback } from '@/lib/security/local-token'
 import { isLoopbackAddress as isLoopback, peerAddress } from '@/lib/security/peer'
 import { clientIp } from '@/lib/security/request-budget'
 
@@ -42,6 +48,7 @@ function hostnameOf(host: string): string {
  * this machine, like opening a picture in its file manager.
  */
 export function isFromThisMachine(headers: Headers, env: Env = process.env): boolean {
+  if (!trustsLoopback(env)) return false
   const host = hostnameOf(headers.get('host') ?? '')
   const peer = peerAddress(headers)
   // A server that is not stamping (started some way that skipped

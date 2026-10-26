@@ -34,6 +34,7 @@ import {
   removeDevice,
   verifyDevice,
 } from '../lib/security/pairing'
+import { hasLocalToken, LOCAL_TOKEN_HEADER, localTokenPath, trustsLoopback, writeLocalToken } from '../lib/security/local-token'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { engineEnv } from '../lib/engine/supervisor'
 import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
@@ -307,6 +308,47 @@ async function main(): Promise<void> {
   }
   check(logged.length === 1 && /owner: device \d+ was removed/.test(logged[0]), 'and the log says so')
   eq(editRefusal(new Headers(withCookie({ ...fromLan, [peer]: '192.168.1.43' }, ownerAgain.headers.get('set-cookie')!.split(';')[0].slice(DEVICE_COOKIE.length + 1)))), 'notLocal', 'and with it what it was allowed')
+  forgetAllDevices()
+
+  // ── LATENTRY_TRUST_LOOPBACK=off (the Docker image) ──
+  eq(localTokenPath({}), path.join(tmpdir(), 'latentry-local-token'), 'the token file is in the temp folder by default')
+  const tokenFile = path.join(scratch, 'local-token')
+  writeLocalToken({ LATENTRY_LOCAL_TOKEN_FILE: tokenFile })
+  check(!existsSync(tokenFile), 'with loopback trusted, no token is written')
+  check(trustsLoopback({}) && !trustsLoopback({ LATENTRY_TRUST_LOOPBACK: 'off' }), 'loopback is trusted unless LATENTRY_TRUST_LOOPBACK=off')
+  process.env.LATENTRY_TRUST_LOOPBACK = 'off'
+  process.env.LATENTRY_LOCAL_TOKEN_FILE = tokenFile
+  try {
+    check(!isFromThisMachine(new Headers(fromHere)), 'off: a request from 127.0.0.1 is not this computer')
+    eq(editRefusal(new Headers(fromHere)), 'notLocal', 'so it may not change settings')
+    eq(here('/api/gen/backends').status, 401, 'and must pair like any other device')
+    eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', fromHere, { action: 'owner-code' }))).status, 403, 'nor make an owner code from loopback alone')
+
+    writeLocalToken()
+    const token = readFileSync(tokenFile, 'utf8')
+    check(token.length >= 40, 'off: a random token is written at start')
+    const terminal = { ...fromHere, [LOCAL_TOKEN_HEADER]: token }
+    check(hasLocalToken(new Headers(terminal)), 'the token in the file is the one the server knows')
+    eq(proxy(new NextRequest('http://localhost:3000/api/settings/pairing', { method: 'POST', headers: terminal })).headers.get('x-middleware-next'), '1', 'with it, the pairing API is reached without pairing')
+    eq(proxy(new NextRequest('http://localhost:3000/api/gen/backends', { headers: terminal })).status, 401, 'but nothing else')
+    const made = await pairingAction(post('http://localhost:3000/api/settings/pairing', terminal, { action: 'owner-code' }))
+    eq(made.status, 200, 'the token makes an owner code')
+    check(typeof (await made.json()).code?.code === 'string', 'and the code is sent back')
+    eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', terminal, { action: 'forget' }))).status, 200, 'and may forget the devices')
+    eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', terminal, { action: 'code' }))).status, 403, 'but not make an ordinary code')
+    eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', terminal, { action: 'remove', id: 'x' }))).status, 403, 'nor remove one device')
+    eq((await pairingSettings(new Request('http://localhost:3000/api/settings/pairing', { headers: terminal }))).status, 403, 'nor list the devices')
+    const wrong = { ...fromHere, [LOCAL_TOKEN_HEADER]: token.slice(0, -1) + (token.endsWith('A') ? 'B' : 'A') }
+    check(!hasLocalToken(new Headers(wrong)) && !hasLocalToken(new Headers({ ...fromHere, [LOCAL_TOKEN_HEADER]: '' })), 'a wrong or empty token is not the token')
+    eq((await pairingAction(post('http://localhost:3000/api/settings/pairing', wrong, { action: 'owner-code' }))).status, 403, 'and makes no owner code')
+    writeLocalToken()
+    check(readFileSync(tokenFile, 'utf8') !== token, 'a restart replaces the token left by the last run')
+    check(!hasLocalToken(new Headers(terminal)), 'so the old one stops working')
+  } finally {
+    delete process.env.LATENTRY_TRUST_LOOPBACK
+    delete process.env.LATENTRY_LOCAL_TOKEN_FILE
+  }
+  check(isFromThisMachine(new Headers(fromHere)), 'with loopback trusted again, 127.0.0.1 is this computer')
   forgetAllDevices()
 
   let limited = 0

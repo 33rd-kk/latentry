@@ -29,6 +29,18 @@ Latentry itself, the web UI and the gallery, needs only Node.js. On a
 computer the engine does not support, you can still use Latentry with
 [backends](backends.md) you run yourself.
 
+## Docker
+
+| Where | Status | Notes |
+|---|---|---|
+| Docker Engine on Linux, x64 | Supported | CI builds the image and checks pairing and its contents on every pull request; the GPU through the NVIDIA Container Toolkit |
+| Docker Desktop on Windows 11, x64 (WSL 2) | Experimental | Checked by hand when it was added, not before each release |
+| Docker Desktop on macOS | Not recommended | A container cannot use the Mac's GPU, so the engine runs on the CPU only; install [without Docker](../install/native.md) |
+| Rootless Docker, Podman | Experimental | Every browser pairs, so these work as safely as Docker; not checked |
+
+The image is built from `compose.yaml` on your computer. See
+[Docker](../install/docker.md).
+
 ## Node.js
 
 Latentry needs **Node.js 22.19 or newer**. CI tests the 22, 24 and 26

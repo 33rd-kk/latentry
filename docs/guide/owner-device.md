@@ -1,16 +1,16 @@
 # Owner device
 
-When you do not use a browser on the computer running Latentry (it runs in
-Docker, or on a computer you use from your laptop), make your own browser
-its **owner device** instead. An owner device may change Settings and
+When Latentry runs in Docker, or on a computer you use from your laptop,
+your browser is not "this computer" to it. Make it Latentry's **owner
+device** instead. An owner device may change Settings and
 Setup and pair your other devices, as this computer may.
 
 1. On the computer running Latentry, in a terminal in the Latentry folder:
 
     ```bash
-    npm run owner-code
-    # In Docker:
     docker compose exec latentry npm run owner-code
+    # Without Docker:
+    npm run owner-code
     ```
 
     It prints a code, once (pass `-- --port 3001` if Latentry is not on

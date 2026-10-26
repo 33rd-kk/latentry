@@ -29,7 +29,8 @@ nav:
   - Home: index.md
   - Getting started: getting-started.md
   - Install:
-      - From source: install/native.md
+      - Docker: install/docker.md
+      - Without Docker: install/native.md
   - Generate:
       - The generate page: guide/generate.md
       - From a picture: guide/from-a-picture.md
