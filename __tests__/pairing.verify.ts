@@ -6,7 +6,7 @@
  * Run with: npm test -- pairing
  */
 import { createCipheriv, createHmac, randomBytes } from 'node:crypto'
-import { existsSync, mkdtempSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
+import { existsSync, lstatSync, mkdtempSync, readFileSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { NextRequest } from 'next/server'
@@ -344,6 +344,21 @@ async function main(): Promise<void> {
     writeLocalToken()
     check(readFileSync(tokenFile, 'utf8') !== token, 'a restart replaces the token left by the last run')
     check(!hasLocalToken(new Headers(terminal)), 'so the old one stops working')
+    // A link in its place is removed, not written through. (Windows may not
+    // let this user make links; then there is nothing to check.)
+    const target = path.join(scratch, 'link-target')
+    writeFileSync(target, 'untouched')
+    rmSync(tokenFile)
+    let linked = true
+    try {
+      symlinkSync(target, tokenFile)
+    } catch {
+      linked = false
+    }
+    if (linked) {
+      writeLocalToken()
+      check(readFileSync(target, 'utf8') === 'untouched' && !lstatSync(tokenFile).isSymbolicLink(), 'a link in place of the token file is replaced, not written through')
+    }
   } finally {
     delete process.env.LATENTRY_TRUST_LOOPBACK
     delete process.env.LATENTRY_LOCAL_TOKEN_FILE

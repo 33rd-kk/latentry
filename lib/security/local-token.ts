@@ -14,7 +14,7 @@
 //   LATENTRY_LOCAL_TOKEN_FILE   default: <temp dir>/latentry-local-token
 
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { lstatSync, unlinkSync, writeFileSync } from 'node:fs'
+import { unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { restrictExistingToOwner } from '@/lib/security/owner-only'
@@ -36,27 +36,35 @@ export function localTokenPath(env: Env = process.env): string {
 }
 
 /**
- * Writes a new token for this process, when loopback is not trusted. A file
- * left by an earlier run of this user is replaced; anything else in its place
- * (a link, another user's file) is left alone and no token is made, so the
+ * Writes a new token for this process, when loopback is not trusted. Whatever
+ * is in its place (a file from an earlier run, or a link) is removed first,
+ * never followed. Where that is not allowed (another user's file in the shared
+ * temp folder, which its sticky bit protects), no token is made, so the
  * scripts say Latentry refused.
  */
 export function writeLocalToken(env: Env = process.env): void {
   if (trustsLoopback(env)) return
   const file = localTokenPath(env)
   try {
-    const old = lstatSync(file)
-    if (!old.isFile() || (typeof process.getuid === 'function' && old.uid !== process.getuid())) {
+    unlinkSync(file)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'EPERM' || code === 'EACCES') {
       console.warn(`[security] ${path.basename(file)} is not this user's file; owner-code and forget-devices will not work`)
       return
     }
-    unlinkSync(file)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    if (code !== 'ENOENT') throw error
   }
   const token = randomBytes(32).toString('base64url')
-  // 'wx' fails rather than follow a link someone put there in between.
-  writeFileSync(file, token, { mode: 0o600, flag: 'wx' })
+  try {
+    // 'wx' creates the file or fails; it never writes through a link someone
+    // put there in between.
+    writeFileSync(file, token, { mode: 0o600, flag: 'wx' })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error
+    console.warn(`[security] ${path.basename(file)} came back while it was replaced; owner-code and forget-devices will not work`)
+    return
+  }
   restrictExistingToOwner(file)
   globalForToken.__latentryLocalToken = token
   process.once('exit', () => {
