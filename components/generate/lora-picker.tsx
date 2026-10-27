@@ -29,7 +29,9 @@ export function LoraPicker({ loras, family, onOpen, onPick, disabled }: LoraPick
       <SelectTrigger size="sm" className="w-fit" aria-label={t("generate.lora.add")}>
         <SelectValue placeholder={t("generate.lora.add")} />
       </SelectTrigger>
-      <SelectContent>
+      {/* Under the button: with no value of its own, the default (item-aligned)
+          has no item to line up with and opens the list off to the side. */}
+      <SelectContent position="popper" align="start">
         {loras === null && <p className="px-2 py-1.5 text-xs text-muted-foreground">{t("generate.lora.loading")}</p>}
         {loras?.length === 0 && <p className="max-w-64 px-2 py-1.5 text-xs text-muted-foreground">{t("generate.lora.none")}</p>}
         {loras?.map((lora) => {
