@@ -6,8 +6,10 @@ must be **paired** first, with a code shown on this computer.
 
 ## Use it from a phone or another computer
 
-By default Latentry listens on this computer only (127.0.0.1). To open it to
-your network:
+By default Latentry listens on this computer only (127.0.0.1). In Docker,
+publish it on your network in `compose.yaml` instead of steps 1–3 (see
+[Other devices](../install/docker.md#other-devices)). Without Docker, to open
+it to your network:
 
 1. Add to `.env.local` (in the Latentry folder):
 
@@ -21,7 +23,7 @@ your network:
 3. On Windows, when the firewall asks, allow Node.js on **private** networks.
 4. On the other device, open `http://<this computer's address>:3000`, for
    example `http://192.168.1.20:3000`. It shows **Pair this device**.
-5. On this computer, open **Settings**, scroll to **Phones and other
+5. On this computer (or your [owner device](owner-device.md)), open **Settings**, scroll to **Phones and other
    computers** and choose **Add a device**.
 6. Type the code it shows on the other device, give the device a name if
    you like (for example "My phone"), and choose **Pair**.

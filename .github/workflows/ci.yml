@@ -104,3 +104,15 @@ jobs:
       - run: uv pip install --python /tmp/engine --no-deps -e engine
       - run: uv pip install --python /tmp/engine pytest httpx
       - run: /tmp/engine/bin/python -m pytest engine/tests -q -p no:cacheprovider
+
+  # The Docker image (Dockerfile, compose.yaml): built and started as the
+  # manual says, then checked by scripts/docker-smoke.sh: every browser must
+  # pair, 127.0.0.1 inside the container is not trusted, owner-code makes an
+  # owner, and none of a working copy's personal files are in the image.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/docker-smoke.sh

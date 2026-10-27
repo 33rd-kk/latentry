@@ -15,12 +15,16 @@ requirements one by one.
 ## What Latentry trusts
 
 - **This computer**, and anyone who can use it as you. Latentry cannot
-  protect you from someone who is already logged in as you.
+  protect you from someone who is already logged in as you. In Docker, no
+  browser counts as this computer: being able to run `docker compose exec`
+  here is what makes an owner (see
+  [Docker](../install/docker.md#why-your-browser-has-to-pair)).
 - **Devices you paired.** A paired device can generate, read the gallery
   folders and drive the GPU, as you can. It cannot change settings or
   install anything (unless you allow that with `SETTINGS_EDIT`).
 - **Owner devices**, which you paired with a code from a terminal on this
-  computer (`npm run owner-code`). They may also change settings and Setup
+  computer (`npm run owner-code`, in Docker through `docker compose exec`).
+  They may also change settings and Setup
   and pair other devices, as this computer may. Whoever copies an owner
   device's cookie can do the same, so keep owner devices to networks you
   trust, or use HTTPS ([An owner device](owner-device.md)).

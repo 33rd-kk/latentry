@@ -93,6 +93,15 @@ What it does guard against:
 - **Pages** are sent with `Cache-Control: no-store`, a Content-Security-Policy
   that forbids framing and plugins, and a Permissions-Policy that turns off
   the camera, microphone and location.
+- **In Docker**, no address is trusted as this computer
+  (`LATENTRY_TRUST_LOOPBACK=off` in the image), because a port forwarder can
+  hand other machines' connections to a container as 127.0.0.1. Every
+  browser pairs, the first with an owner code. `npm run owner-code` and
+  `npm run forget-devices` prove they run in the container with a random
+  token written at start to a file only Latentry's user can read, outside
+  the data volume; it admits those two actions only. The image runs as an
+  ordinary user, and holds none of a working copy's personal files (CI
+  checks both).
 - **The engine** listens on 127.0.0.1 with a random token only Latentry
   holds, and answers only requests addressed to a loopback name, so a web
   page that re-resolves its hostname to this machine cannot drive it. Run by

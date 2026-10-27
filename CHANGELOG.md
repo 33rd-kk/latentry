@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Docker**: `docker compose up -d --build` runs Latentry in a container,
+  with its settings, pictures, engine and models in one data volume, and
+  `compose.gpu.yaml` gives it an NVIDIA GPU. Getting started now uses
+  Docker. In the container no address counts as this computer, not even
+  127.0.0.1, so every browser pairs: the first one with
+  `docker compose exec latentry npm run owner-code`. It is published on
+  this computer only until you change `compose.yaml`. The new
+  `LATENTRY_TRUST_LOOPBACK=off` does the same outside Docker.
+
 - **Fixed**: the **Add a LoRA** and **Add a wildcard** lists opened off to
   the side of their button. They now open just under it.
 
@@ -18,8 +27,8 @@
   the generate page, **From a picture** (img2img, inpainting, Extend),
   **Bigger pictures** (hires fix, Upscale) and **Many pictures** (the
   queue, X/Y grid, wildcards). **Owner device** has its own page under
-  **Devices**, and checking a release download is on **Install from
-  source**. The existing pages keep their addresses.
+  **Devices**, and checking a release download is on **Without
+  Docker**. The existing pages keep their addresses.
 
 - **Shorter Settings and Generate pages**: Settings shows one section at a
   time, chosen from a list on the left; a dot marks a section with unsaved

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { serverMessage } from '@/lib/i18n/core'
 import { checkRequestBudget, type BudgetRejection } from '@/lib/security/request-budget'
+import { hasLocalToken } from '@/lib/security/local-token'
 import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
 import { securityHeaders } from '@/lib/security/headers'
 import { checkApiRequest } from '@/lib/security/route-guard'
@@ -53,7 +54,10 @@ export function proxy(request: NextRequest) {
     pairingEnabled(process.env) &&
     !isPairingPath(pathname) &&
     !isFromThisMachine(request.headers) &&
-    !verifyDevice(deviceCookie(request.headers))
+    !verifyDevice(deviceCookie(request.headers)) &&
+    // A terminal in the container (lib/security/local-token.ts); the route
+    // lets it make an owner code or forget the devices, nothing else.
+    !(pathname === '/api/settings/pairing' && hasLocalToken(request.headers))
   ) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(

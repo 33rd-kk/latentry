@@ -1,0 +1,31 @@
+# Latentry with Docker Compose. See docs/install/docker.md.
+#
+#   docker compose up -d --build                                   start it
+#   docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   with an NVIDIA GPU
+#   docker compose exec latentry npm run owner-code                make your browser the owner
+#
+# Then open http://localhost:3000 and enter the code.
+
+services:
+  latentry:
+    build: .
+    image: latentry:local
+    init: true
+    restart: unless-stopped
+    ports:
+      # This computer only. To use Latentry from a phone on your network,
+      # publish it on every address instead; every device still has to pair:
+      #   - "3000:3000"
+      - "127.0.0.1:3000:3000"
+    volumes:
+      # Settings, keys, pictures, the engine and models.
+      - latentry-data:/data
+      # Another tool's pictures, read-only. Add the folder on Settings as
+      # /pictures/comfyui:
+      #   - /path/to/ComfyUI/output:/pictures/comfyui:ro
+    extra_hosts:
+      # A backend on this computer is http://host.docker.internal:<port>.
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  latentry-data:

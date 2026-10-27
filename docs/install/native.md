@@ -1,7 +1,9 @@
-# Install from source
+# Without Docker
 
-[Getting started](../getting-started.md) has the short version. This page
-adds what you may need besides it.
+[Getting started](../getting-started.md) uses Docker. Install Latentry this
+way instead on a Mac (where a container cannot use the GPU), or to run it
+directly with Node.js. A browser on the computer running it is then "this
+computer" and needs no pairing.
 
 ## What you need
 
@@ -61,6 +63,23 @@ macOS, `Get-FileHash` in PowerShell); that shows the file is the one listed
 there, and the attestation shows who made it. Then unpack it and run the
 install script inside, as above. Git is still needed, for one of the
 packages.
+
+## Set up the engine
+
+Open **Setup** and follow its three steps, as in
+[Getting started](../getting-started.md#set-up-the-engine). Without Docker:
+
+- The engine goes under `.runtime/` in the app folder (about 3–4 GB).
+  Deleting `.runtime/` removes it again; `LATENTRY_RUNTIME_DIR` puts it
+  somewhere else.
+- **Repair / update** makes the engine's environment match the pinned
+  packages exactly, so a package you added to it by hand is removed. To
+  take the newest packages instead (say, a pinned one has a known
+  vulnerability and no Latentry update has come), set
+  `LATENTRY_ENGINE_PACKAGES=latest` in `.env.local` and run **Repair /
+  update**; Setup then says the packages are not pinned.
+- Models go in `models/` in the app folder, or point the models folder at
+  models you already have.
 
 ## Only the servers you already run
 
