@@ -800,5 +800,7 @@
   "owner.after": "This browser then becomes an owner device for 7 days: it can change settings and Setup, and pair your other devices. The code works once and is shown only in that terminal.",
   "owner.copy": "Copy the command",
   "owner.copied": "Copied",
-  "pair.ownerEnded": "This browser was Latentry's owner device until {date}. To be the owner again, make a new owner code as below."
+  "pair.ownerEnded": "This browser was Latentry's owner device until {date}. To be the owner again, make a new owner code as below.",
+  "settings.pairingForgetSelfConfirm": "Forget every paired device, this browser too? To use it as the owner again, you will need a new owner code from a terminal on the computer running Latentry.",
+  "settings.pairingRemoveSelfConfirm": "Remove “{name}”? That is this browser: to use it as the owner again, you will need a new owner code from a terminal on the computer running Latentry."
 }

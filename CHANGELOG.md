@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Fixed**: a page left open on a device whose pairing ended, or that was
+  removed or forgotten, could keep showing other pages from the browser's
+  memory, with nothing loading, instead of going to the pairing page. It now
+  goes there as soon as Latentry answers that the device is not paired. An
+  owner device that presses **Forget all devices**, or removes itself, is
+  warned that it will need a new owner code from a terminal, and then goes
+  to the pairing page with the steps open.
+
 - **Making an owner device is explained step by step**: the pairing page
   (under **Make this browser the owner instead**), and Settings and Setup
   on a device that may not change them, now show where to open a terminal,

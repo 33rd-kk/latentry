@@ -43,6 +43,11 @@ days; then it asks for a new code.
   and when that ends, and **Unpair this device** unpairs it. From a week
   before the end (three days for an owner device), every page says so,
   with a link to pair it again.
+- **A device that is unpaired while a page is open** (its pairing ended, it
+  was removed, or every device was forgotten) goes to the pairing page as
+  soon as that page asks Latentry for anything. An owner device that
+  forgets every device, or removes itself, is told first that it will need
+  a new owner code from a terminal, then goes straight there.
 
 The list keeps only the name, when the device was paired and when that
 ends; nothing about when or how it is used. It is stored encrypted next to

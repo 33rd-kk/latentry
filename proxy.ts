@@ -6,6 +6,7 @@ import { hasLocalToken } from '@/lib/security/local-token'
 import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
 import { securityHeaders } from '@/lib/security/headers'
 import { checkApiRequest } from '@/lib/security/route-guard'
+import { UNPAIRED_HEADER } from '@/lib/security/unpaired'
 import { isFromThisMachine } from '@/lib/settings/access'
 
 /** Short page for a refused page load; a browser has no JSON handler to show. */
@@ -62,7 +63,7 @@ export function proxy(request: NextRequest) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
         { error: serverMessage('system.notPaired'), pairing: true },
-        { status: 401, headers: { 'Cache-Control': 'no-store' } }
+        { status: 401, headers: { 'Cache-Control': 'no-store', [UNPAIRED_HEADER]: '1' } }
       )
     }
     const pair = request.nextUrl.clone()
