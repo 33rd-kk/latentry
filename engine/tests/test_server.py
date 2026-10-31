@@ -147,6 +147,10 @@ def test_download_refuses_bad_names_before_starting(client: TestClient, body: di
         {"repo_id": "owner/name", "revision": "main"},
         {"repo_id": "owner/name", "revision": COMMIT.upper()},
         {"repo_id": "owner/name", "revision": COMMIT, "filename": "model.safetensors", "sha256": "abc"},
+        # Only the models folder or loras/, and a positive size.
+        {"repo_id": "owner/name", "revision": COMMIT, "filename": "model.safetensors", "sha256": SHA, "folder": ".."},
+        {"repo_id": "owner/name", "revision": COMMIT, "filename": "model.safetensors", "sha256": SHA, "folder": "controls"},
+        {"repo_id": "owner/name", "revision": COMMIT, "filename": "model.safetensors", "sha256": SHA, "size": 0},
     ],
 )
 def test_download_needs_a_commit_and_a_well_formed_hash(client: TestClient, body: dict[str, str]) -> None:

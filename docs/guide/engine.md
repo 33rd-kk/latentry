@@ -76,8 +76,24 @@ Face, under its own licence, into the **models folder**:
   against their SHA-256 before they are kept, so a repository that changes
   later cannot change what you get. The engine does the downloading, so
   **Download** works once the engine is installed and running.
+- **Download by Hugging Face URL**: for a model that is not in the list.
+  Paste the link of one `.safetensors` file on huggingface.co (from the
+  repository's **Files** tab), choose **Checkpoint** or **LoRA**, and press
+  **Check**. Latentry asks Hugging Face which commit the link points at and
+  the file's size and SHA-256, and shows them with the licence tag before
+  anything is downloaded. **Download** then fetches that commit, and the
+  file is kept only if its SHA-256 matches. A checkpoint goes into the
+  models folder, a LoRA into its `loras` folder; a file already there is
+  never replaced. Only `.safetensors` files are taken: no whole
+  repositories, and no `.ckpt`, `.pt` or `.bin`. The checksum proves you
+  got the file the link named, not that the model is safe or that its
+  licence suits you. Nobody has checked a model from a URL for you. A
+  repository that asks you to accept its terms needs that done on
+  huggingface.co and `HF_TOKEN` set for Latentry. The link is not kept
+  anywhere.
 - **Models folder**: point it at models you already have, such as a web UI's
-  `models/Stable-diffusion` folder.
+  `models/Stable-diffusion` folder. Downloads go into whichever folder is
+  set here.
 
 The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with
