@@ -8,10 +8,11 @@ import type { EngineActions } from "@/hooks/use-engine-status"
 import type { EngineStatus } from "@/lib/engine/status"
 import { useT } from "@/lib/i18n"
 import { CatalogItem } from "./catalog-item"
+import { HfDownload } from "./hf-download"
 import { gb } from "./log-view"
 import { ModelsFolder } from "./models-folder"
 
-/** The models folder, the models in it (load one), and the checkpoints to download. */
+/** The models folder, the models in it (load one), a file to download by URL, and the checkpoints to download. */
 export function ModelsCard({ status: s, actions }: { status: EngineStatus; actions: EngineActions }) {
   const t = useT()
   const { pending, refresh, act } = actions
@@ -60,6 +61,7 @@ export function ModelsCard({ status: s, actions }: { status: EngineStatus; actio
             })}
           </div>
         )}
+        {s.installed && <HfDownload status={s} actions={actions} canDownload={engineUp} />}
         <div className="space-y-2">
           <h3 className="text-xs font-medium text-muted-foreground uppercase">{t("setup.available")}</h3>
           {checkpoints.map((entry) => (

@@ -9,7 +9,7 @@ management for Latentry's engine manager.
     GET  /api/loras               the LoRAs in the models folder's loras folder
     GET  /api/models              the models folder, and what is loaded
     POST /api/models/load         { id }   (returns at once; watch /api/health)
-    POST /api/models/download     { repo_id, filename? }
+    POST /api/models/download     { repo_id, revision, filename?, sha256?, folder?, size? }
     GET  /api/models/downloads    progress of downloads
 
 Bound to 127.0.0.1 by default: Latentry talks to it, nothing else needs to.
@@ -117,10 +117,15 @@ class LoadBody(BaseModel):
 class DownloadBody(BaseModel):
     repo_id: str
     # A commit, never a branch, and for a single file its SHA-256: what
-    # arrives is what Latentry's catalog checked (lib/engine/catalog.ts).
+    # arrives is what Latentry's catalog checked (lib/engine/catalog.ts), or
+    # what the Hub listed for a URL the user typed (lib/engine/hf-resolve.ts).
     revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     filename: str | None = None
     sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
+    # Where a single file goes: the models folder, or loras/.
+    folder: Literal["", "loras"] = ""
+    # The file's size on the Hub; the download stops past it.
+    size: int | None = Field(None, gt=0)
 
 
 LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
@@ -377,7 +382,10 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             raise HTTPException(400, "filename must be a .safetensors file in the repository")
         if body.filename is not None and body.sha256 is None:
             raise HTTPException(400, "a single file needs its sha256")
-        return downloads.start(body.repo_id, body.filename, body.revision, body.sha256).describe()
+        try:
+            return downloads.start(body.repo_id, body.filename, body.revision, body.sha256, body.folder, body.size).describe()
+        except models.DownloadRefused as error:
+            raise HTTPException(error.status, str(error)) from None
 
     @app.get("/api/models/downloads")
     def list_downloads():

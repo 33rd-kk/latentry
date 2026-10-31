@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Download by Hugging Face URL**: on **Setup → Models**, paste the link
+  of one `.safetensors` file on huggingface.co and save it as a checkpoint
+  or a LoRA. **Check** shows the commit, size and licence tag first. The
+  download is pinned to that commit and kept only if its SHA-256 matches
+  what Hugging Face lists, as the built-in list already does. Only
+  `.safetensors` files from `https://huggingface.co` or `hf.co` are taken,
+  and only from this computer or an owner device. The engine no longer
+  replaces a file already in the models folder, and refuses a download
+  that would leave less than 1 GB free.
+
 - **Docker**: `docker compose up -d --build` runs Latentry in a container,
   with its settings, pictures, engine and models in one data volume, and
   `compose.gpu.yaml` gives it an NVIDIA GPU. Getting started now uses

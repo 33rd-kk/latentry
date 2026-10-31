@@ -36,6 +36,7 @@ import { GET as lorasRoute } from '../app/api/engine/loras/route'
 import { GET as modelsRoute } from '../app/api/engine/models/route'
 import { POST as loadRoute } from '../app/api/engine/models/load/route'
 import { POST as downloadRoute } from '../app/api/engine/models/download/route'
+import { POST as hfRoute } from '../app/api/engine/models/hf/route'
 import { catalogEntry } from '../lib/engine/catalog'
 import { engines, type EngineProcess } from '../lib/engine/supervisor'
 import { sourceEngineVersion, versionIn } from '../lib/engine/version'
@@ -47,6 +48,25 @@ const LOCAL = { host: 'localhost:3000', 'x-forwarded-for': '127.0.0.1' }
 const PHONE = { host: '192.168.1.20:3000', 'x-forwarded-for': '192.168.1.30' }
 const TOKEN = 'stand-in-engine-token'
 const SDXL = catalogEntry('sdxl-base-1.0')!
+
+// Hugging Face, stood in for: what the API answers for a file named by URL.
+const HF_URL = 'https://huggingface.co/someone/style/blob/main/sub/style.safetensors'
+const HF_COMMIT = 'abcdef0123456789abcdef0123456789abcdef01'
+const HF_SHA = 'f'.repeat(64)
+const hfAsked: { url: string; auth: string | null; redirect: string | undefined }[] = []
+const realFetch = globalThis.fetch
+delete process.env.HF_TOKEN
+globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+  const url = String(input)
+  if (!url.startsWith('https://huggingface.co/')) return realFetch(input, init)
+  hfAsked.push({ url, auth: new Headers(init?.headers).get('authorization'), redirect: init?.redirect })
+  return Response.json({
+    sha: HF_COMMIT,
+    cardData: { license: 'mit' },
+    gated: false,
+    siblings: [{ rfilename: 'sub/style.safetensors', size: 9, lfs: { sha256: HF_SHA, size: 9 } }],
+  })
+}) as typeof fetch
 
 const params = <T extends Record<string, string>>(value: T) => ({ params: Promise.resolve(value) }) as never
 
@@ -88,7 +108,12 @@ async function startStandInEngine() {
             load_error: 'out of memory',
           })
         case 'GET /api/models/downloads':
-          return reply(200, { downloads: [{ repo_id: SDXL.repo, filename: SDXL.filename, state: 'downloading', done_bytes: 1, total_bytes: 4, error: null }] })
+          return reply(200, {
+            downloads: [
+              { id: 'd1', repo_id: SDXL.repo, filename: SDXL.filename, folder: '', state: 'downloading', done_bytes: 1, total_bytes: 4, error: null },
+              { id: 'd2', repo_id: 'someone/style', filename: 'sub/style.safetensors', folder: 'loras', state: 'done', done_bytes: 9, total_bytes: 9, error: null },
+            ],
+          })
         case 'GET /api/loras':
           return reply(200, { loras: [{ name: 'style.safetensors', family: 'sdxl', license: 'MIT' }, { name: 'bare.safetensors' }, { name: '' }, { family: 'sdxl' }] })
         case 'POST /api/models/load':
@@ -282,9 +307,16 @@ async function main(): Promise<void> {
       ['stop', stopRoute],
       ['models/load', loadRoute],
       ['models/download', downloadRoute],
+      ['models/hf', hfRoute],
     ] as const) {
       eq((await route(request(`/api/engine/${name}`, { from: PHONE, body: { id: 'sdxl-base-1.0' } }))).status, 403, `a phone cannot ${name}`)
     }
+    eq(
+      (await downloadRoute(request('/api/engine/models/download', { from: PHONE, body: { url: HF_URL, revision: HF_COMMIT, folder: 'lora' } }))).status,
+      403,
+      'nor download by URL'
+    )
+    check(hfAsked.length === 0, 'and Hugging Face was not asked for a phone')
     process.env.SETTINGS_EDIT = 'off'
     eq((await installRoute(request('/api/engine/install'))).status, 403, 'nor can this machine install with SETTINGS_EDIT=off')
     delete process.env.SETTINGS_EDIT
@@ -309,6 +341,42 @@ async function main(): Promise<void> {
     eq((await loadRoute(request('/api/engine/models/load', { body: { id: 'mine.safetensors' } }))).status, 409, 'nothing loads without an engine')
     eq((await downloadRoute(request('/api/engine/models/download', { body: { id: 'any/repo' } }))).status, 404, 'only catalog entries are downloaded')
     eq((await downloadRoute(request('/api/engine/models/download', { body: { id: SDXL.id } }))).status, 409, 'and a checkpoint only by a running engine')
+    eq(
+      (await downloadRoute(request('/api/engine/models/download', { body: { url: HF_URL, revision: HF_COMMIT, folder: 'lora' } }))).status,
+      409,
+      'a URL too'
+    )
+    for (const body of [
+      { url: 'http://huggingface.co/someone/style/blob/main/sub/style.safetensors', revision: HF_COMMIT, folder: 'lora' },
+      { url: HF_URL, revision: 'main', folder: 'lora' },
+      { url: HF_URL, revision: HF_COMMIT, folder: '../controls' },
+    ]) {
+      eq((await downloadRoute(request('/api/engine/models/download', { body }))).status, 400, `a download by URL is refused: ${JSON.stringify(body)}`)
+    }
+    check(hfAsked.length === 0, 'all before Hugging Face is asked')
+
+    const [previewStatus, preview] = await read(await hfRoute(request('/api/engine/models/hf', { body: { url: HF_URL } })))
+    eq(
+      [previewStatus, preview],
+      [
+        200,
+        {
+          repo: 'someone/style',
+          path: 'sub/style.safetensors',
+          fileName: 'style.safetensors',
+          commit: HF_COMMIT,
+          sha256: HF_SHA,
+          size: 9,
+          license: 'mit',
+          gated: false,
+          token: false,
+        },
+      ],
+      'Check shows what a URL points at, without an engine'
+    )
+    eq(hfAsked.pop(), { url: `https://huggingface.co/api/models/someone/style/revision/main?blobs=true`, auth: null, redirect: 'manual' }, 'from a URL built for huggingface.co, no redirects')
+    const [ckptStatus, ckpt] = await read(await hfRoute(request('/api/engine/models/hf', { body: { url: 'https://huggingface.co/someone/style/blob/main/model.ckpt' } })))
+    eq([ckptStatus, ckpt.error], [400, 'i18n:setup.hf.error.notSafetensors'], 'a pickle file is refused, with a message the page translates')
 
     // ── The engine, with a stand-in running ──
     // The supervisor keeps its engines on globalThis (lib/engine/supervisor.ts);
@@ -376,6 +444,22 @@ async function main(): Promise<void> {
       engine.calls.find((call) => call.route === 'POST /api/models/download')?.body,
       { repo_id: SDXL.repo, revision: SDXL.revision, filename: SDXL.filename, sha256: SDXL.sha256![SDXL.filename!] },
       'pinned to its revision and checksum'
+    )
+    eq(
+      (await downloadRoute(request('/api/engine/models/download', { body: { url: HF_URL, revision: HF_COMMIT, folder: 'lora', sha256: '0'.repeat(64) } }))).status,
+      202,
+      'a file named by URL is downloaded by the engine'
+    )
+    eq(hfAsked.pop()?.url, `https://huggingface.co/api/models/someone/style/revision/${HF_COMMIT}?blobs=true`, 'looked up again at the commit the page was shown')
+    eq(
+      engine.calls.filter((call) => call.route === 'POST /api/models/download').pop()?.body,
+      { repo_id: 'someone/style', revision: HF_COMMIT, filename: 'sub/style.safetensors', sha256: HF_SHA, folder: 'loras', size: 9 },
+      "into loras/, pinned to that commit and the Hub's checksum, never the page's"
+    )
+    eq(
+      (live.urlDownloads as unknown[]) ?? null,
+      [{ id: 'd2', repo: 'someone/style', fileName: 'style.safetensors', folder: 'lora', state: 'done', doneBytes: 9, totalBytes: 9, error: null }],
+      'the setup page lists downloads by URL apart from the catalog'
     )
 
     eq((await read(await stopRoute(request('/api/engine/stop'))))[1], { status: 'stopped' }, 'stop')

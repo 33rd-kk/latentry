@@ -29,6 +29,14 @@ export interface CatalogView extends CatalogEntry {
   download: DownloadView | null
 }
 
+/** A file downloaded by its Hugging Face URL, not from the catalog. */
+export interface UrlDownloadView extends DownloadView {
+  id: string
+  repo: string
+  fileName: string
+  folder: 'checkpoint' | 'lora'
+}
+
 export interface EngineModel {
   id: string
   name: string
@@ -72,6 +80,8 @@ export interface EngineStatus {
   models: EngineModel[] | null
   current: string | null
   catalog: CatalogView[]
+  /** Downloads by URL that the running engine remembers, oldest first. */
+  urlDownloads: UrlDownloadView[]
 }
 
 // nvidia-smi takes a moment; the GPUs do not change while the app runs.
@@ -85,8 +95,10 @@ async function exists(file: string): Promise<boolean> {
 }
 
 interface EngineDownload {
+  id: string
   repo_id: string
   filename: string | null
+  folder?: string
   state: DownloadView['state']
   done_bytes: number
   total_bytes: number
@@ -182,5 +194,17 @@ export async function engineStatus(): Promise<EngineStatus> {
     models,
     current,
     catalog,
+    urlDownloads: downloads
+      .filter((download) => download.filename && !CATALOG.some((entry) => entry.repo === download.repo_id && entry.filename === download.filename))
+      .map((download) => ({
+        id: download.id,
+        repo: download.repo_id,
+        fileName: download.filename?.split('/').pop() ?? '',
+        folder: download.folder === 'loras' ? 'lora' : 'checkpoint',
+        state: download.state,
+        doneBytes: download.done_bytes,
+        totalBytes: download.total_bytes,
+        error: download.error,
+      })),
   }
 }
