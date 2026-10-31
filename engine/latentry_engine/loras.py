@@ -5,6 +5,9 @@ calls out of a prompt, and putting them on the pipeline for a run.
       style.safetensors              called as <lora:style:0.8>
       characters/hero.safetensors    called as <lora:hero>, folders are only for tidiness
 
+An Anima LoRA in kohya's layout is renamed for the loaded model before it
+goes on (lora_convert.py); diffusers itself reads only ComfyUI's.
+
 A LoRA's name is its file name without the extension, as in A1111, so a
 prompt written for the web UI works here unchanged. The calls are taken out
 of the prompt before it is encoded: left in, they would be read as words.
@@ -32,6 +35,7 @@ from collections import OrderedDict
 from dataclasses import dataclass
 from pathlib import Path
 
+from . import lora_convert
 from .models import FAMILY_ANIMA, FAMILY_SDXL, safetensors_header
 
 # SD 1.x LoRAs: recognised so they can be refused by name; no model here runs them.
@@ -42,6 +46,14 @@ FAMILY_SD15 = "sd15"
 CALL = re.compile(r"<(?:lora|lyco):([^:<>]+)(?::([^:<>]*))?(?::[^<>]*)?>", re.IGNORECASE)
 LICENSE_KEYS = ("modelspec.license", "license")
 ADAPTER_PREFIX = "lora_"
+SDXL_DEPTH = re.compile(r"_transformer_blocks_[1-9]_")
+# Tensor kinds of LyCORIS's other algorithms (LoHa, LoKr, OFT, IA3), which
+# diffusers cannot load. LoCon is kohya's lora_down/up and loads.
+LYCORIS_KINDS = {
+    "hada_w1_a": "LoHa", "hada_w1_b": "LoHa", "hada_w2_a": "LoHa", "hada_w2_b": "LoHa", "hada_t1": "LoHa", "hada_t2": "LoHa",
+    "lokr_w1": "LoKr", "lokr_w2": "LoKr", "lokr_w1_a": "LoKr", "lokr_w1_b": "LoKr", "lokr_w2_a": "LoKr", "lokr_w2_b": "LoKr", "lokr_t2": "LoKr",
+    "oft_blocks": "OFT", "oft_diag": "OFT", "on_input": "IA3",
+}
 DEFAULT_KEEP = 4
 
 
@@ -56,6 +68,8 @@ class LoraFile:
     family: str | None  # None: could not tell; diffusers decides when it loads
     size_bytes: int
     license: str | None = None
+    # A LyCORIS algorithm this engine cannot apply ("LoKr", "LoHa"…), else None.
+    lycoris: str | None = None
 
     def describe(self) -> dict:
         return {"name": self.name, "family": self.family, "size_bytes": self.size_bytes, "license": self.license}
@@ -78,11 +92,20 @@ def family_of(keys: list[str], metadata: dict[str, str]) -> str | None:
     hints = " ".join(metadata.get(key, "") for key in ("ss_base_model_version", "modelspec.architecture")).lower()
     if "anima" in hints or any(key.startswith(("diffusion_model.blocks.", "diffusion_model.llm_adapter.", "transformer.transformer_blocks.", "text_conditioner.")) for key in keys):
         return FAMILY_ANIMA
+    # kohya's layout (sd-scripts), often with no metadata at all.
+    if lora_convert.is_kohya_anima(keys):
+        return FAMILY_ANIMA
     if "sdxl" in hints or "stable-diffusion-xl" in hints:
         return FAMILY_SDXL
     if any(key.startswith(("lora_te1_", "lora_te2_", "text_encoder_2.", "lora_unet_input_blocks_", "lora_unet_output_blocks_", "lora_unet_middle_block_")) for key in keys):
         return FAMILY_SDXL
-    if any(key.startswith(("lora_te_", "lora_unet_down_blocks_", "lora_unet_up_blocks_")) for key in keys):
+    # kohya names with diffusers' block names are SD 1.x's usual layout, but
+    # other trainers write SDXL that way too: SDXL's attention blocks hold up
+    # to ten transformer blocks, SD 1.x's only one.
+    diffusers_names = [key for key in keys if key.startswith(("lora_unet_down_blocks_", "lora_unet_up_blocks_", "lora_unet_mid_block_"))]
+    if any(SDXL_DEPTH.search(key) for key in diffusers_names):
+        return FAMILY_SDXL
+    if diffusers_names or any(key.startswith("lora_te_") for key in keys):
         return FAMILY_SD15
     if any(key.startswith("unet.") for key in keys):
         return FAMILY_SDXL
@@ -95,7 +118,12 @@ def _describe(path: Path) -> LoraFile:
     except (OSError, ValueError, struct.error):
         keys, metadata = [], {}
     licence = next((metadata[key].strip()[:200] for key in LICENSE_KEYS if metadata.get(key, "").strip()), None)
-    return LoraFile(path.stem, path, family_of(keys, metadata), path.stat().st_size, licence)
+    return LoraFile(path.stem, path, family_of(keys, metadata), path.stat().st_size, licence, lycoris_kind(keys))
+
+
+def lycoris_kind(keys: list[str]) -> str | None:
+    """The LyCORIS algorithm a file uses that diffusers cannot load, if any."""
+    return next((LYCORIS_KINDS[kind] for key in keys if (kind := key.rsplit(".", 1)[-1]) in LYCORIS_KINDS), None)
 
 
 def scan(models_dir: Path) -> list[LoraFile]:
@@ -155,6 +183,8 @@ def resolve(prompt: str, models_dir: Path, family: str) -> tuple[str, list[LoraC
     resolved: list[LoraCall] = []
     for name, weight in calls:
         lora = available[name.lower()]
+        if lora.lycoris:
+            raise LoraError(f"The LoRA {lora.name} is a LyCORIS {lora.lycoris}, which this engine cannot apply. LoRA and LoCon files work.")
         if lora.family is not None and lora.family != family:
             raise LoraError(f"The LoRA {lora.name} was made for {lora.family.upper()} models, not the loaded {family.upper()} model.")
         if weight != 0:
@@ -163,6 +193,26 @@ def resolve(prompt: str, models_dir: Path, family: str) -> tuple[str, list[LoraC
 
 
 _hashes: dict[tuple[str, int, int], str] = {}
+
+
+def _weights(pipe, call: LoraCall) -> str | dict:
+    """What load_lora_weights is given: the file itself, or for an Anima LoRA
+    with kohya's names or tensor kinds, its tensors renamed for this model
+    (lora_convert.py)."""
+    keys, _ = safetensors_header(call.path)
+    if not lora_convert.needs_conversion(keys) or getattr(pipe, "transformer", None) is None:
+        return str(call.path)
+    from safetensors.torch import load_file
+
+    try:
+        tensors = lora_convert.to_kohya_names(load_file(str(call.path)))
+        return lora_convert.kohya_to_diffusers(tensors, lora_convert.module_names(pipe))
+    except lora_convert.UnsupportedLora as error:
+        raise LoraError(
+            f"The LoRA {call.name} has layers this engine cannot put on an Anima model ({error.unknown} of {error.total} tensors), "
+            "such as text-encoder or LyCORIS layers, or an embedding at another rank than the rest. "
+            "Applied in part it would not give what it was made for."
+        ) from None
 
 
 def addnet_hash(path: Path) -> str:
@@ -249,8 +299,14 @@ class LoraKeeper:
             if key not in self._kept:
                 name = f"{ADAPTER_PREFIX}{self._count}"
                 self._count += 1
-                pipe.load_lora_weights(str(call.path), adapter_name=name)
+                pipe.load_lora_weights(_weights(pipe, call), adapter_name=name)
+                # diffusers loads nothing, without a word, from a file whose
+                # layers it does not recognise.
+                if name not in adapter_names(pipe):
+                    raise LoraError(f"The LoRA {call.name} has no layers this model has, so it changes nothing. It may be in a layout this engine does not read.")
                 self._kept[key] = name
+        except LoraError:
+            raise
         except Exception as error:
             # diffusers says why in its own words, which can include the
             # file's path: those go to the log, not to the client.

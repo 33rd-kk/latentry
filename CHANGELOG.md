@@ -12,6 +12,22 @@
   replaces a file already in the models folder, and refuses a download
   that would leave less than 1 GB free.
 
+- **Fixed**: Anima LoRAs saved by kohya's sd-scripts (tensor names such as
+  `lora_unet_blocks_0_…`) were listed as an unknown family and could not
+  be used: diffusers loaded none of their layers. The engine now
+  recognises them as Anima and renames their layers for the loaded model. So are Anima LoRAs with
+  ComfyUI's names and kohya's `lora_down`/`lora_up` tensors, as LoRAs
+  extracted from a model come, including their LLM adapter's token
+  embedding. A LoRA with parts it cannot apply (text-encoder or LyCORIS
+  layers), or with no layer the model has, is refused with a message that
+  says so.
+
+- **Fixed**: an SDXL LoRA written with diffusers' block names and no
+  metadata (as some trainers save it) was taken for SD 1.x and refused on
+  SDXL. LyCORIS LoKr and LoHa files, which the engine cannot apply, are now
+  refused by name before the run, instead of failing with only an error
+  type.
+
 - **Docker**: `docker compose up -d --build` runs Latentry in a container,
   with its settings, pictures, engine and models in one data volume, and
   `compose.gpu.yaml` gives it an NVIDIA GPU. Getting started now uses
