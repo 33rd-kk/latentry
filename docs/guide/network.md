@@ -40,8 +40,9 @@ days; then it asks for a new code.
   unpairs one device; **Forget all devices** unpairs them all (for a lost
   phone, say).
 - **On a paired device**, its **Settings** page says what it is paired as
-  and when that ends, and **Unpair this device** unpairs it. From three days
-  before the end, every page says so, with a link to pair it again.
+  and when that ends, and **Unpair this device** unpairs it. From a week
+  before the end (three days for an owner device), every page says so,
+  with a link to pair it again.
 
 The list keeps only the name, when the device was paired and when that
 ends; nothing about when or how it is used. It is stored encrypted next to

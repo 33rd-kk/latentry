@@ -1,6 +1,7 @@
 "use client"
 
 import { Loader2 } from "lucide-react"
+import { OwnerCodeSteps } from "@/components/owner-code-steps"
 import { useEngineStatus } from "@/hooks/use-engine-status"
 import { useT } from "@/lib/i18n"
 import { EngineCard } from "./engine-card"
@@ -21,7 +22,13 @@ export function SetupPanel() {
     )
   }
   if (!status.editable) {
-    return <p className="text-sm text-muted-foreground">{t(status.reason === "off" ? "setup.readOnly" : "setup.notLocal")}</p>
+    if (status.reason === "off") return <p className="text-sm text-muted-foreground">{t("setup.readOnly")}</p>
+    return (
+      <div className="mx-auto max-w-2xl space-y-3">
+        <p className="text-sm text-muted-foreground">{t("setup.notLocal")}</p>
+        <OwnerCodeSteps />
+      </div>
+    )
   }
 
   return (

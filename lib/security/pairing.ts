@@ -12,7 +12,10 @@
 //           browser history and no terminal scrollback.
 //   cookie  v1.<device id>.<expires at>.<HMAC-SHA256>, HttpOnly,
 //           SameSite=Strict, good for 30 days. Signed with a random key kept
-//           next to the settings file; a new key forgets every device.
+//           next to the settings file; a new key forgets every device. An
+//           owner's starts o1 instead, and the browser keeps it OWNER_GRACE_DAYS
+//           past its end, letting nothing in: only so the pairing page can
+//           say this browser's owner pairing ended, and when.
 //   list    latentry.pairing-devices.json, next to the key: per device its
 //           id, the name it gave itself (or none), when it was paired and
 //           when that ends. Nothing about its use is recorded. A cookie
@@ -60,6 +63,10 @@ const DEVICE_MS = DEVICE_DAYS * 24 * 60 * 60 * 1000
 // than another: it lasts a week, and only a new owner code renews it.
 export const OWNER_DAYS = 7
 const OWNER_MS = OWNER_DAYS * 24 * 60 * 60 * 1000
+export const OWNER_GRACE_DAYS = 7
+const OWNER_GRACE_MS = OWNER_GRACE_DAYS * 24 * 60 * 60 * 1000
+const DEVICE_TAG = 'v1'
+const OWNER_TAG = 'o1'
 export const CODE_MS = 10 * 60 * 1000
 export const CODE_TRIES = 10
 // No 0/O, 1/I/L: read off one screen and typed on another.
@@ -286,8 +293,9 @@ export function issueDevice(
   }
   writeDevices([...current, device], env)
   if (owner) logOwner(`device ${device.number} was paired as an owner, until ${new Date(device.expiresAt).toISOString()}`)
-  const payload = `v1.${device.id}.${device.expiresAt}`
-  return { value: `${payload}.${signature(signingKey(env), payload)}`, maxAgeSeconds: lifetime / 1000, device }
+  const payload = `${owner ? OWNER_TAG : DEVICE_TAG}.${device.id}.${device.expiresAt}`
+  const maxAge = owner ? lifetime + OWNER_GRACE_MS : lifetime
+  return { value: `${payload}.${signature(signingKey(env), payload)}`, maxAgeSeconds: maxAge / 1000, device }
 }
 
 /**
@@ -314,15 +322,40 @@ export function pairedDevice(value: string | undefined, now = Date.now(), env: E
 }
 
 function findDevice(value: string | undefined, now: number, env: Env): PairedDevice | null {
+  const cookie = signedCookie(value, env)
+  if (!cookie || cookie.expiresAt <= now || cookie.expiresAt > now + Math.max(DEVICE_MS, OWNER_MS)) return null
+  // The tag is not matched against the list: owners paired before o1
+  // existed carry v1 cookies, and either way the key signed it as issued.
+  return listDevices(now, env).find((device) => device.id === cookie.id && device.expiresAt === cookie.expiresAt) ?? null
+}
+
+/** A cookie's id, end and kind, if this key signed it; whether it is still paired is not looked at. */
+function signedCookie(value: string | undefined, env: Env): { id: string; expiresAt: number; owner: boolean } | null {
   if (!value) return null
   const parts = value.split('.')
-  if (parts.length !== 4 || parts[0] !== 'v1') return null
+  if (parts.length !== 4 || (parts[0] !== DEVICE_TAG && parts[0] !== OWNER_TAG)) return null
   const expiresAt = Number(parts[2])
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + Math.max(DEVICE_MS, OWNER_MS)) return null
+  if (!Number.isSafeInteger(expiresAt)) return null
   const expected = Buffer.from(signature(signingKey(env), parts.slice(0, 3).join('.')))
   const sent = Buffer.from(parts[3])
   if (sent.length !== expected.length || !timingSafeEqual(sent, expected)) return null
-  return listDevices(now, env).find((device) => device.id === parts[1] && device.expiresAt === expiresAt) ?? null
+  return { id: parts[1], expiresAt, owner: parts[0] === OWNER_TAG }
+}
+
+/**
+ * When this browser's owner pairing ended, if it ended in the last
+ * OWNER_GRACE_DAYS: for the pairing page to say so and show how to make a
+ * new owner code. Lets nothing in. Null for anything else, including a
+ * cookie signed before the devices were forgotten with a new key.
+ */
+export function endedOwner(value: string | undefined, now = Date.now(), env: Env = process.env): number | null {
+  try {
+    const cookie = signedCookie(value, env)
+    if (!cookie?.owner || cookie.expiresAt > now || cookie.expiresAt <= now - OWNER_GRACE_MS) return null
+    return cookie.expiresAt
+  } catch {
+    return null
+  }
 }
 
 /** Whether a device cookie belongs to a device that is paired now. */

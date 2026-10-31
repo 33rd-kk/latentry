@@ -10,14 +10,19 @@ import { useI18n } from "@/lib/i18n"
 /** What /api/pair says about the device asking (see lib/security/pairing.ts). */
 type ThisDevice =
   | { local: true }
-  | { paired: false }
+  | { paired: false; ownerEndedAt?: number }
   | { paired: true; name: string | null; number: number; pairedAt: number; expiresAt: number; owner: boolean }
 
 const DAY_MS = 24 * 60 * 60 * 1000
-/** From this many days before its pairing ends, a device is told on every page. */
-const WARN_DAYS = 3
+/**
+ * From this many days before its pairing ends, a device is told on every
+ * page: a week of its 30 days, and 3 of an owner's 7, where a week would be
+ * every day.
+ */
+const WARN_DAYS = 7
+const OWNER_WARN_DAYS = 3
 
-function useThisDevice(): ThisDevice | null {
+export function useThisDevice(): ThisDevice | null {
   const [device, setDevice] = useState<ThisDevice | null>(null)
   useEffect(() => {
     let alive = true
@@ -40,14 +45,14 @@ function daysLeft(expiresAt: number): number {
 
 /**
  * Under the header on a paired phone or computer whose pairing ends within
- * WARN_DAYS days. Nothing on this machine, or with more time left.
+ * WARN_DAYS days (OWNER_WARN_DAYS for an owner). Nothing on this machine, or with more time left.
  */
 export function PairingNotice() {
   const { t } = useI18n()
   const device = useThisDevice()
   if (!device || !("paired" in device) || !device.paired) return null
   const days = daysLeft(device.expiresAt)
-  if (days > WARN_DAYS) return null
+  if (days > (device.owner ? OWNER_WARN_DAYS : WARN_DAYS)) return null
   return (
     <div className="border-t bg-amber-500/10 text-amber-900 dark:text-amber-200">
       <p className="container mx-auto flex max-w-7xl items-center gap-2 px-4 py-1.5 text-xs">
@@ -56,7 +61,14 @@ export function PairingNotice() {
           {days <= 1 ? t("pair.endsToday") : t("pair.endsSoon", { days })}{" "}
           {/* Only a new owner code renews an owner, and it comes from a terminal there. */}
           {device.owner ? (
-            t("pair.ownerAgain")
+            t.rich("pair.ownerAgain", {
+              link: (children) => (
+                // A full load, so the pairing page reads #owner and opens the steps.
+                <a href="/pair#owner" className="underline underline-offset-2">
+                  {children}
+                </a>
+              ),
+            })
           ) : (
             <Link href="/pair" className="underline underline-offset-2">
               {t("pair.again")}

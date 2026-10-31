@@ -5,7 +5,9 @@ your browser is not "this computer" to it. Make it Latentry's **owner
 device** instead. An owner device may change Settings and
 Setup and pair your other devices, as this computer may.
 
-1. On the computer running Latentry, in a terminal in the Latentry folder:
+1. On the computer running Latentry, open a terminal (on Windows,
+   PowerShell) in the folder you start Latentry from: with Docker, the one
+   that holds `compose.yaml`. Then:
 
     ```bash
     docker compose exec latentry npm run owner-code
@@ -16,7 +18,9 @@ Setup and pair your other devices, as this computer may.
     It prints a code, once (pass `-- --port 3001` if Latentry is not on
     port 3000).
 2. Open Latentry in your browser. It shows **Pair this device**: type that
-   code there and choose **Pair**.
+   code there and choose **Pair**. The same steps, with the commands to
+   copy, are under **Make this browser the owner instead** on that page, and
+   on Settings and Setup of a device that may not change them.
 
 The owner code works once, for 10 minutes, like the other codes. Only a
 terminal on that computer can make one, so being able to run a command
@@ -26,7 +30,12 @@ its rights away with its pairing.
 
 An owner device stays one for **7 days**, not 30, and only a new owner code
 renews it: pairing it again with an ordinary code makes it an ordinary
-device. Each time an owner is added or removed, Latentry's log says so
+device. From three days before the end, every page says so, with a link
+to the steps. Once it has ended, the pairing page says until when this
+browser was the owner and opens the steps: for that, the browser keeps an
+owner's cookie 7 days past the end, though it lets nothing in by then.
+
+Each time an owner is added or removed, Latentry's log says so
 (`[pairing] … owner: device 3 was paired as an owner`), with the device's
 number only, never the code, its name or its address. An owner you did not
 add shows up there and on Settings.

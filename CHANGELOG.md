@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+- **Making an owner device is explained step by step**: the pairing page
+  (under **Make this browser the owner instead**), and Settings and Setup
+  on a device that may not change them, now show where to open a terminal,
+  the command for Docker and without it (with a copy button on this
+  computer), and where to type the code. The notice that an owner device
+  is about to end links to them.
+- **An owner device whose 7 days have ended is told so**: the pairing page
+  says until when this browser was the owner and opens the steps for a new
+  owner code. For this the browser keeps an owner's cookie 7 days past its
+  end; it lets nothing in by then. Owners paired before this update are not
+  told, once.
+- Paired devices are told their pairing is ending from **a week** before
+  the end, not three days. Owner devices still from three days.
+
 - **Download by Hugging Face URL**: on **Setup → Models**, paste the link
   of one `.safetensors` file on huggingface.co and save it as a checkpoint
   or a LoRA. **Check** shows the commit, size and licence tag first. The

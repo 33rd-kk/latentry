@@ -550,7 +550,7 @@
     },
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
     "version": "Latentry {version}",
-    "lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost), or from an owner device. To make this browser one, run npm run owner-code on that computer (in Docker: docker compose exec latentry npm run owner-code) and enter the code on the pairing page.",
+    "lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost), or from an owner device. To make this browser an owner device:",
     "lockedOff": "Settings are read-only here (SETTINGS_EDIT=off). Edit .env.local or latentry.settings.json instead.",
     "fromSettings": "Set here",
     "fromEnv": "From .env.local",
@@ -702,7 +702,7 @@
   "setup": {
     "title": "Setup",
     "intro": "Latentry can run its own generation engine on this computer. Everything it installs goes into {dir}; deleting that folder removes it.",
-    "notLocal": "Setup can only be changed from the computer Latentry runs on, or from an owner device (run npm run owner-code on that computer).",
+    "notLocal": "Setup can only be changed from the computer Latentry runs on, or from an owner device. To make this browser an owner device:",
     "readOnly": "Setup is read-only (SETTINGS_EDIT=off).",
     "hardware": "This computer",
     "noGpu": "No NVIDIA GPU found. The engine will run on the CPU, which takes minutes per picture.",
@@ -816,7 +816,7 @@
   "pair": {
     "title": "Pair this device",
     "hint": "On the computer running Latentry, open Settings and choose Add a device, then type the code it shows here.",
-    "ownerHint": "No browser on that computer, as with Latentry in Docker? Run npm run owner-code there (in Docker: docker compose exec latentry npm run owner-code) and type that code here: this browser becomes the owner and can pair your other devices.",
+    "ownerHint": "No browser on the computer running Latentry, as in Docker? Make this browser the owner instead",
     "code": "Code",
     "submit": "Pair",
     "wrongCode": "That code is wrong or has expired. Make a new one on the computer running Latentry.",
@@ -829,10 +829,22 @@
     "endsSoon": "This device's pairing ends in {days} days.",
     "endsToday": "This device's pairing ends within a day.",
     "again": "Pair it again with a new code",
-    "ownerAgain": "To stay the owner, run npm run owner-code on the computer running Latentry and pair again with that code.",
+    "ownerAgain": "To stay the owner, <link>pair again with a new owner code</link>.",
+    "ownerEnded": "This browser was Latentry's owner device until {date}. To be the owner again, make a new owner code as below.",
     "isOwner": "It is an owner device: it may change settings and Setup, and pair other devices, until then.",
     "unpair": "Unpair this device",
     "unpairConfirm": "Unpair this device? It will need a new code to use Latentry again."
+  },
+  "owner": {
+    "terminal": "On the computer running Latentry, open a terminal (on Windows: PowerShell, from the Start menu) and go to the folder you started Latentry from (cd followed by the folder).",
+    "run": "Type the line for how you run Latentry and press Enter:",
+    "docker": "With Docker (the folder that holds compose.yaml)",
+    "native": "Without Docker (the Latentry folder)",
+    "enterHere": "It prints Owner code: ABCD-EFGH. Type that code in Code below within 10 minutes and press Pair.",
+    "enterOnPair": "It prints Owner code: ABCD-EFGH. Within 10 minutes, open <link>the pairing page</link> in this browser and type the code there.",
+    "after": "This browser then becomes an owner device for 7 days: it can change settings and Setup, and pair your other devices. The code works once and is shown only in that terminal.",
+    "copy": "Copy the command",
+    "copied": "Copied"
   },
   "modelInfo": {
     "title": "Model info",

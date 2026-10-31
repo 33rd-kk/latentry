@@ -550,7 +550,7 @@
     },
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
-    "lockedRemote": "設定を変えられるのは、Latentry を動かしているコンピューター（http://localhost で開く）か、持ち主の端末からだけです。このブラウザーを持ち主の端末にするには、そのコンピューターで npm run owner-code を実行し（Docker なら docker compose exec latentry npm run owner-code）、表示されたコードをペアリングのページで入力してください。",
+    "lockedRemote": "設定を変えられるのは、Latentry を動かしているコンピューター（http://localhost で開く）か、持ち主の端末からだけです。このブラウザーを持ち主の端末にするには:",
     "lockedOff": "ここでは設定は読み取り専用です（SETTINGS_EDIT=off）。代わりに .env.local か latentry.settings.json を編集してください。",
     "fromSettings": "ここで設定",
     "fromEnv": ".env.local から",
@@ -702,7 +702,7 @@
   "setup": {
     "title": "セットアップ",
     "intro": "Latentry はこのコンピューターで独自の生成エンジンを動かせます。インストールするものはすべて {dir} に入り、そのフォルダーを消せば取り除けます。",
-    "notLocal": "セットアップを変えられるのは、Latentry を動かしているコンピューターか、持ち主の端末からだけです（そのコンピューターで npm run owner-code を実行）。",
+    "notLocal": "セットアップを変えられるのは、Latentry を動かしているコンピューターか、持ち主の端末からだけです。このブラウザーを持ち主の端末にするには:",
     "readOnly": "セットアップは読み取り専用です（SETTINGS_EDIT=off）。",
     "hardware": "このコンピューター",
     "noGpu": "NVIDIA の GPU が見つかりません。エンジンは CPU で動き、1 枚に何分もかかります。",
@@ -816,7 +816,7 @@
   "pair": {
     "title": "この端末をペアリング",
     "hint": "Latentry を動かしているコンピューターで設定を開いて「端末を追加」を選び、表示されたコードをここに入力してください。",
-    "ownerHint": "Docker で動かしているなど、そのコンピューターでブラウザーを使わないときは、そこで npm run owner-code を実行し（Docker なら docker compose exec latentry npm run owner-code）、出たコードをここに入力してください。このブラウザーが持ち主になり、ほかの端末をペアリングできます。",
+    "ownerHint": "Docker で動かしているなど、Latentry のコンピューターでブラウザーを使わないときは、このブラウザーを持ち主にする",
     "code": "コード",
     "submit": "ペアリング",
     "wrongCode": "コードが違うか、期限が切れています。Latentry を動かしているコンピューターで新しいコードを作ってください。",
@@ -829,10 +829,22 @@
     "endsSoon": "この端末のペアリングは {days} 日後に終わります。",
     "endsToday": "この端末のペアリングは 1 日以内に終わります。",
     "again": "新しいコードでもう一度ペアリング",
-    "ownerAgain": "持ち主のままでいるには、Latentry を動かしているコンピューターで npm run owner-code を実行し、そのコードでもう一度ペアリングしてください。",
+    "ownerAgain": "持ち主のままでいるには、<link>新しい持ち主コードでもう一度ペアリング</link>してください。",
+    "ownerEnded": "このブラウザーは {date} まで Latentry の持ち主の端末でした。もう一度持ち主になるには、下の手順で新しい持ち主コードを作ってください。",
     "isOwner": "この端末は持ち主の端末です。それまでは設定とセットアップを変え、ほかの端末をペアリングできます。",
     "unpair": "この端末のペアリングを解除",
     "unpairConfirm": "この端末のペアリングを解除しますか？ また Latentry を使うには新しいコードが必要になります。"
+  },
+  "owner": {
+    "terminal": "Latentry を動かしているコンピューターでターミナルを開き（Windows ならスタートメニューの PowerShell）、Latentry を起動したフォルダーに移動します（cd のあとにフォルダー）。",
+    "run": "Latentry の動かし方に合った行を入力して Enter を押します:",
+    "docker": "Docker の場合（compose.yaml があるフォルダー）",
+    "native": "Docker を使わない場合（Latentry のフォルダー）",
+    "enterHere": "Owner code: ABCD-EFGH と表示されます。10 分以内に、そのコードを下の「コード」に入力して「ペアリング」を押してください。",
+    "enterOnPair": "Owner code: ABCD-EFGH と表示されます。10 分以内に、このブラウザーで<link>ペアリングのページ</link>を開いてコードを入力してください。",
+    "after": "これでこのブラウザーが 7 日間、持ち主の端末になり、設定やセットアップを変えたり、ほかの端末をペアリングしたりできます。コードは 1 回だけ使え、そのターミナルにだけ表示されます。",
+    "copy": "コマンドをコピー",
+    "copied": "コピーしました"
   },
   "modelInfo": {
     "title": "モデル情報",
