@@ -85,8 +85,13 @@ Which parts are hidden is remembered in this browser only, and not while
   family is greyed out). **Add a LoRA** is on this computer only, unless
   **Show the LoRA list on paired devices** is on (Setup > Engine): the list
   is the names of your LoRA files. The engine refuses a run that calls a LoRA it does
-  not have, instead of running without it. Other backends read the tag as
-  plain words, and the prompt shows a note saying so.
+  not have, instead of running without it. LoRA and LoCon files work in
+  kohya's, diffusers' and, for Anima, ComfyUI's layouts. LyCORIS LoKr and
+  LoHa files are refused by name. A LoRA with parts the engine cannot
+  apply, such as Anima text-encoder layers, is refused rather than applied
+  in part, and so is one with no layer the loaded model has.
+  Other backends read the tag as plain words, and the prompt shows a note
+  saying so.
 - **Wildcards**: `__name__` takes one line from a file of that name each
   run; see [Wildcards](many.md#wildcards).
 - **Saved characters**: save the tags that make a character, together with
