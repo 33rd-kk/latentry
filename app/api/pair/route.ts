@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { jsonError, json, readJson } from '@/lib/api'
 import { serverMessage } from '@/lib/i18n/core'
-import { cleanName, DEVICE_COOKIE, deviceCookie, issueDevice, pairedDevice, redeemCode, removeDevice } from '@/lib/security/pairing'
+import { cleanName, DEVICE_COOKIE, deviceCookie, endedOwner, issueDevice, pairedDevice, redeemCode, removeDevice } from '@/lib/security/pairing'
 import { clientIp, FixedWindow } from '@/lib/security/request-budget'
 import { isFromThisMachine } from '@/lib/settings/access'
 
@@ -16,15 +16,20 @@ const tries = (globalForPair.__pairTries ??= new FixedWindow(5))
  * are not paired yet (proxy.ts lets /api/pair through), so each handler
  * checks the cookie itself.
  *
- *   GET                             { local: true } | { paired: false } | { paired: true, name, number, pairedAt, expiresAt, owner }
+ *   GET                             { local: true } | { paired: false, ownerEndedAt? } | { paired: true, name, number, pairedAt, expiresAt, owner }
+ *                                   (ownerEndedAt: this browser's owner pairing ended then, within OWNER_GRACE_DAYS)
  *   POST   { code, name? }          pairs it: a code from the computer running Latentry in, a device cookie out
  *                                   (an owner code, from a terminal there, makes an owner device)
  *   DELETE                          unpairs it
  */
 export async function GET(request: Request) {
   if (isFromThisMachine(request.headers)) return json({ local: true })
-  const device = pairedDevice(deviceCookie(request.headers))
-  if (!device) return json({ paired: false })
+  const cookie = deviceCookie(request.headers)
+  const device = pairedDevice(cookie)
+  if (!device) {
+    const ownerEndedAt = endedOwner(cookie)
+    return json(ownerEndedAt ? { paired: false, ownerEndedAt } : { paired: false })
+  }
   const { name, number, pairedAt, expiresAt, owner } = device
   return json({ paired: true, name, number, pairedAt, expiresAt, owner })
 }

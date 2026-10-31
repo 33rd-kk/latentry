@@ -59,8 +59,10 @@ that it can read the answers too.
   anything but the pairing page. You pair it with a code shown only on this
   computer, which works once and expires after 10 minutes.
 - A paired device holds a signed cookie that page scripts cannot read. It
-  expires after 30 days, and you can remove one device, or all of them, on
-  Settings.
+  expires after 30 days (an owner device's after 7), and you can remove one
+  device, or all of them, on Settings. The browser keeps an owner's cookie
+  7 days past its end, so the pairing page can say the owner pairing ended;
+  by then it lets nothing in.
 - By default, Settings, Setup and the pairing card work from this computer
   only. Paired devices do not see this computer's paths or folder names.
 - Requests are limited per device, counted by the address the connection

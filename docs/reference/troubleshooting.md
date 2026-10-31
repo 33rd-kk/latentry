@@ -18,6 +18,11 @@ install script again.
 answer.** It is still starting: `docker compose ps` says **healthy** once it
 is ready. Run the command again then.
 
+**`docker compose exec` says `no configuration file provided`** (or that
+the service `latentry` is not running). The terminal is in another folder:
+go to the one that holds `compose.yaml` (`cd` followed by that folder) and
+run it again.
+
 **owner-code says Latentry refused.** The command must run in the Latentry
 container, as its own user (the default for `docker compose exec`). If the
 log says `latentry-local-token is not this user's file`, something else

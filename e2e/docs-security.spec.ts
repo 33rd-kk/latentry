@@ -45,6 +45,21 @@ test('the pairing page asks for the code and a name', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Pair', exact: true })).toBeVisible()
 })
 
+// owner-device.md: the owner-code steps, folded away on the pairing page and
+// open at /pair#owner, where the owner's renewal notice links.
+test('the pairing page explains how to make an owner code', async ({ page }) => {
+  await page.goto('/pair')
+  const command = page.getByText('docker compose exec latentry npm run owner-code', { exact: true })
+  await expect(command).toBeHidden()
+  await page.getByText('Make this browser the owner instead').click()
+  await expect(command).toBeVisible()
+  await expect(page.getByText('npm run owner-code', { exact: true })).toBeVisible()
+  await expect(page.getByText(/Type that code in Code below/)).toBeVisible()
+
+  await page.goto('/pair#owner')
+  await expect(command).toBeVisible()
+})
+
 // "Settings, Setup and the pairing card": the card offers a one-time code.
 test('the pairing card makes a code that works for 10 minutes', async ({ page }) => {
   await page.goto('/settings#devices')

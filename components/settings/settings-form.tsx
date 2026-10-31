@@ -3,12 +3,13 @@
 import { useCallback, useSyncExternalStore } from "react"
 import { Loader2, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useLocalText } from "@/hooks/use-local-text"
 import { useSettingsForm } from "@/hooks/use-settings-form"
 import type { Part } from "@/lib/settings/draft"
 import { useT } from "@/lib/i18n"
+import { OwnerCodeSteps } from "@/components/owner-code-steps"
 import { ThisDeviceCard } from "@/components/this-device"
 import { BackendsSection } from "./backends-section"
 import { GallerySection } from "./gallery-section"
@@ -80,6 +81,11 @@ export function SettingsForm() {
             <CardTitle>{t("settings.title")}</CardTitle>
             <CardDescription>{t(view.reason === "off" ? "settings.lockedOff" : "settings.lockedRemote")}</CardDescription>
           </CardHeader>
+          {view.reason === "notLocal" && (
+            <CardContent>
+              <OwnerCodeSteps />
+            </CardContent>
+          )}
         </Card>
         <PairingCard />
         <ThisDeviceCard />

@@ -21,6 +21,7 @@ import {
   DEVICE_COOKIE,
   deviceCookie,
   devicesPath,
+  endedOwner,
   forgetAllDevices,
   isPairingPath,
   issueDevice,
@@ -68,6 +69,28 @@ async function main(): Promise<void> {
   forgetAllDevices()
   check(!verifyDevice(device.value, now), 'forgetting every device: a cookie signed before no longer verifies')
   check(verifyDevice(issueDevice(now).value, now), 'one issued after does')
+
+  // ── An owner's cookie, and after it ends ──
+  const DAY = 86_400_000
+  const ownerCookie = issueDevice(now, process.env, null, true)
+  check(ownerCookie.value.startsWith('o1.'), 'an owner cookie is tagged o1')
+  eq(ownerCookie.maxAgeSeconds, 14 * 24 * 60 * 60, 'and the browser keeps it 7 days past the owner pairing')
+  check(verifyDevice(ownerCookie.value, now + 6 * DAY) && !verifyDevice(ownerCookie.value, now + 7 * DAY + 1), 'which itself lasts 7 days')
+  eq(endedOwner(ownerCookie.value, now + 6 * DAY), null, 'while paired, it has not ended')
+  eq(endedOwner(ownerCookie.value, now + 8 * DAY), ownerCookie.device.expiresAt, 'after, the pairing page is told when it ended')
+  eq(endedOwner(ownerCookie.value, now + 14 * DAY + 1), null, 'but not past the 7 days the browser keeps it')
+  const plainCookie = issueDevice(now)
+  eq(endedOwner(plainCookie.value, now + 31 * DAY), null, 'an ordinary cookie never says owner')
+  const [, oid, oexp, osig] = plainCookie.value.split('.')
+  const retagged = ['o1', oid, oexp, osig].join('.')
+  check(endedOwner(retagged, now + 31 * DAY) === null && !verifyDevice(retagged, now), 'nor can it be retagged o1: the tag is signed')
+  const listKeyHex = readFileSync(keyPath(), 'utf8').trim()
+  const oldOwner = issueDevice(now, process.env, null, true).device
+  const oldPayload = `v1.${oldOwner.id}.${oldOwner.expiresAt}`
+  const oldValue = `${oldPayload}.${createHmac('sha256', Buffer.from(listKeyHex, 'hex')).update(oldPayload).digest('base64url')}`
+  check(pairedDevice(oldValue, now)?.owner === true, 'an owner cookie from before o1 (tagged v1) still works')
+  forgetAllDevices()
+  eq(endedOwner(ownerCookie.value, now + 8 * DAY), null, 'forgetting every device forgets ended owners too')
 
   // ── The list of devices ──
   forgetAllDevices()
@@ -264,7 +287,7 @@ async function main(): Promise<void> {
     console.info = realInfo
   }
   eq(ownerPaired.status, 200, 'the owner code pairs')
-  check(/Max-Age=604800/.test(ownerPaired.headers.get('set-cookie') ?? ''), 'for 7 days, not 30')
+  check(/Max-Age=1209600/.test(ownerPaired.headers.get('set-cookie') ?? ''), 'for 7 days, not 30 (the browser keeps the cookie 7 more, to be told it ended)')
   check(logged.length === 1 && /owner: device \d+ was paired as an owner, until /.test(logged[0]), `the server log says an owner was added (${logged[0]})`)
   check(!logged[0].includes(ownerMade.code.code) && !logged[0].includes('Laptop') && !logged[0].includes('192.168'), 'without the code, the name or the address')
   const ownerValue = (ownerPaired.headers.get('set-cookie') ?? '').split(';')[0].slice(DEVICE_COOKIE.length + 1)
@@ -298,6 +321,10 @@ async function main(): Promise<void> {
   const ownerAgain = await pairRoute(post('http://192.168.1.20:3000/api/pair', { ...fromLan, [peer]: '192.168.1.43', 'x-forwarded-proto': 'https' }, { code: owner2.code.code }))
   check(/;\s*Secure/i.test(ownerAgain.headers.get('set-cookie') ?? ''), 'over https (at a proxy) the cookie is Secure')
   check(!/;\s*Secure/i.test(ownerPaired.headers.get('set-cookie') ?? ''), 'over plain http it is not, or it would never be sent')
+  const lapsed = issueDevice(Date.now() - 8 * 86_400_000, process.env, null, true)
+  const lapsedView = await (await thisDeviceRoute(new Request('http://192.168.1.20:3000/api/pair', { headers: withCookie(fromLan, lapsed.value) }))).json()
+  eq(lapsedView, { paired: false, ownerEndedAt: lapsed.device.expiresAt }, 'an owner whose pairing ended is told when, and is not paired')
+  eq(lan('/settings', { cookie: `${DEVICE_COOKIE}=${lapsed.value}` }).status, 307, 'and is sent to the pairing page')
   const ownerId = listDevices().find((d) => d.owner)!.id
   logged.length = 0
   console.info = (...args: unknown[]) => void logged.push(args.join(' '))

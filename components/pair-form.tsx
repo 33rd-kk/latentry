@@ -1,23 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { KeyRound, Loader2 } from "lucide-react"
+import { OwnerCodeSteps } from "@/components/owner-code-steps"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { useT } from "@/lib/i18n"
+import { useThisDevice } from "@/components/this-device"
+import { useI18n } from "@/lib/i18n"
+
+const noChange = () => () => {}
 
 /**
  * Pairs a phone or another computer: the code from the Settings page on the
  * computer running Latentry, typed here (see lib/security/pairing.ts).
  */
 export function PairForm() {
-  const t = useT()
+  const { t, locale } = useI18n()
+  const device = useThisDevice()
+  const ownerEndedAt = device && "paired" in device && !device.paired ? device.ownerEndedAt : undefined
   const [code, setCode] = useState("")
   const [name, setName] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const ownerOpen = useSyncExternalStore(noChange, () => window.location.hash === "#owner", () => false)
 
   const submit = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -51,8 +58,19 @@ export function PairForm() {
         </CardTitle>
         <CardDescription className="space-y-2">
           <span className="block">{t("pair.hint")}</span>
-          <span className="block">{t("pair.ownerHint")}</span>
         </CardDescription>
+        {ownerEndedAt && (
+          <p role="status" className="rounded-md bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200">
+            {t("pair.ownerEnded", { date: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(ownerEndedAt) })}
+          </p>
+        )}
+        {/* Open at /pair#owner, where the owner's renewal notice links, and for an owner whose pairing ended. */}
+        <details id="owner" open={ownerOpen || !!ownerEndedAt} className="min-w-0 rounded-md border px-3 py-2 text-sm">
+          <summary className="cursor-pointer font-medium">{t("pair.ownerHint")}</summary>
+          <div className="pt-2">
+            <OwnerCodeSteps onPairPage />
+          </div>
+        </details>
       </CardHeader>
       <CardContent>
         <form onSubmit={submit} className="space-y-3">
