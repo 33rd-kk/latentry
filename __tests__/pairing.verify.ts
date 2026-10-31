@@ -36,6 +36,7 @@ import {
   verifyDevice,
 } from '../lib/security/pairing'
 import { hasLocalToken, LOCAL_TOKEN_HEADER, localTokenPath, trustsLoopback, writeLocalToken } from '../lib/security/local-token'
+import { UNPAIRED_HEADER } from '../lib/security/unpaired'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { engineEnv } from '../lib/engine/supervisor'
 import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
@@ -211,6 +212,8 @@ async function main(): Promise<void> {
   const paired = issueDevice()
   eq(lan('/api/gen/backends', { cookie: `${DEVICE_COOKIE}=${paired.value}` }).headers.get('x-middleware-next'), '1', 'a paired device is let through')
   eq(lan('/api/gen/backends', { cookie: `${DEVICE_COOKIE}=${paired.value}x` }).status, 401, 'a tampered cookie is not')
+  eq(lan('/api/gen/backends').headers.get(UNPAIRED_HEADER), '1', "the 401 is marked, so the page goes to the pairing page (components/unpaired-guard.tsx)")
+  eq(lan('/api/gen/backends', { cookie: `${DEVICE_COOKIE}=${paired.value}` }).headers.get(UNPAIRED_HEADER), null, 'a paired request is not')
   eq(proxy(new NextRequest('http://192.168.1.20:3000/api/gen/backends', { headers: { host: 'localhost', 'x-forwarded-for': '127.0.0.1', [peer]: '192.168.1.30', 'sec-fetch-site': 'same-origin' } })).status, 401, 'forged local headers do not make a LAN device local')
   process.env.LATENTRY_PAIRING = 'off'
   eq(lan('/api/gen/backends').headers.get('x-middleware-next'), '1', 'LATENTRY_PAIRING=off lets everyone through')

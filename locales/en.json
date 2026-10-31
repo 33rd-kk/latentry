@@ -687,6 +687,8 @@
     "pairingCodeHint": "Type this code on the other device. It works once, for {minutes}:{seconds} more.",
     "pairingForget": "Forget all devices",
     "pairingForgetConfirm": "Forget every paired device? Each will need a new code.",
+    "pairingForgetSelfConfirm": "Forget every paired device, this browser too? To use it as the owner again, you will need a new owner code from a terminal on the computer running Latentry.",
+    "pairingRemoveSelfConfirm": "Remove “{name}”? That is this browser: to use it as the owner again, you will need a new owner code from a terminal on the computer running Latentry.",
     "pairingForgotten": "Every paired device was forgotten.",
     "pairingFailed": "That did not work. Reload the page and try again.",
     "pairingDevices": "Paired devices: {count}",

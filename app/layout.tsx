@@ -4,6 +4,7 @@ import "./globals.css"
 import { ThemeProvider } from "@/components/theme-provider"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { Toaster } from "@/components/ui/sonner"
+import { UnpairedGuard } from "@/components/unpaired-guard"
 import { I18nProvider } from "@/lib/i18n"
 
 const fontSans = Geist({ variable: "--font-sans", subsets: ["latin"] })
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           <I18nProvider>
             <TooltipProvider>{children}</TooltipProvider>
             <Toaster />
+            <UnpairedGuard />
           </I18nProvider>
         </ThemeProvider>
       </body>

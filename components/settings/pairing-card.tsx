@@ -6,6 +6,7 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { useThisDevice } from "@/components/this-device"
 import { useI18n } from "@/lib/i18n"
 
 interface PairedDevice {
@@ -44,6 +45,10 @@ export function PairingCard() {
   const [state, setState] = useState<PairingState | null>(null)
   const [busy, setBusy] = useState(false)
   const [now, setNow] = useState(() => Date.now())
+  // An owner device here unpairs itself too when it forgets every device or
+  // removes its own entry; the computer running Latentry never does.
+  const thisDevice = useThisDevice()
+  const ownNumber = thisDevice && "paired" in thisDevice && thisDevice.paired ? thisDevice.number : null
 
   useEffect(() => {
     let alive = true
@@ -76,6 +81,10 @@ export function PairingCard() {
     return () => clearInterval(timer)
   }, [expiresAt])
 
+  // A full load, so no page the router kept is shown instead (see
+  // components/unpaired-guard.tsx), with the owner-code steps open.
+  const leave = () => window.location.replace("/pair#owner")
+
   const post = async (body: Record<string, unknown>) => {
     setBusy(true)
     try {
@@ -102,15 +111,18 @@ export function PairingCard() {
   }
 
   const remove = async (device: PairedDevice, name: string) => {
-    if (!window.confirm(t("settings.pairingRemoveConfirm", { name }))) return
+    const itself = device.number === ownNumber
+    if (!window.confirm(t(itself ? "settings.pairingRemoveSelfConfirm" : "settings.pairingRemoveConfirm", { name }))) return
     const data = await post({ action: "remove", id: device.id })
+    if (data && itself) return leave()
     if (data) setState((s) => (s ? { ...s, devices: data.devices } : s))
   }
 
   const forget = async () => {
-    if (!window.confirm(t("settings.pairingForgetConfirm"))) return
+    if (!window.confirm(t(ownNumber === null ? "settings.pairingForgetConfirm" : "settings.pairingForgetSelfConfirm"))) return
     const data = await post({ action: "forget" })
     if (!data) return
+    if (ownNumber !== null) return leave()
     setState((s) => (s ? { ...s, code: null, devices: [] } : s))
     toast.success(t("settings.pairingForgotten"))
   }

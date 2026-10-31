@@ -687,6 +687,8 @@
     "pairingCodeHint": "このコードを相手の端末に入力してください。1 回だけ、あと {minutes}:{seconds} 使えます。",
     "pairingForget": "すべての端末を解除",
     "pairingForgetConfirm": "ペアリングしたすべての端末を解除しますか？ どれも新しいコードが必要になります。",
+    "pairingForgetSelfConfirm": "このブラウザーも含め、ペアリングしたすべての端末を解除しますか？ もう一度持ち主として使うには、Latentry を動かしているコンピューターのターミナルで新しい持ち主コードを作る必要があります。",
+    "pairingRemoveSelfConfirm": "「{name}」を解除しますか？ これはこのブラウザーです。もう一度持ち主として使うには、Latentry を動かしているコンピューターのターミナルで新しい持ち主コードを作る必要があります。",
     "pairingForgotten": "ペアリングしたすべての端末を解除しました。",
     "pairingFailed": "うまくいきませんでした。ページを再読み込みしてもう一度お試しください。",
     "pairingDevices": "ペアリングした端末：{count} 台",
