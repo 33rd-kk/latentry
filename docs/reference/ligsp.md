@@ -73,7 +73,7 @@ the protection, that is said too.
 | ID | Level | State | How |
 |---|---|---|---|
 | MOD-1 | 1 | Met | The engine reads weights only from `.safetensors`. A model folder whose weights come only in a pickle format is refused. |
-| MOD-2 | 1 | Met | Downloads come from a fixed commit, and each file is checked against its SHA-256 before it is used. |
+| MOD-2 | 1 | Met | Downloads come from a fixed commit, and each file is checked against its SHA-256 before it is used. A file downloaded by its Hugging Face URL is pinned to the commit shown on **Check** and to the SHA-256 the Hub lists, looked up by the server. |
 | MOD-3 | 1 | Partly met | Loads read from disk. The config files a single-file SDXL checkpoint needs are fetched once from a fixed commit and checked. An SDXL inpainting checkpoint still lets diffusers fetch its configs from the Hub on its first load. |
 | MOD-4 | 1 | Met | Models are listed from their safetensors headers only. |
 

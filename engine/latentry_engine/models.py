@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import struct
 import threading
 import time
@@ -160,6 +161,10 @@ class Download:
     # The commit downloaded, and the file's SHA-256 (see Downloads).
     revision: str = ""
     sha256: str | None = None
+    # "" for the models folder itself, "loras" for a LoRA (see FOLDERS).
+    folder: str = ""
+    # The size the Hub lists for the file; more than this is never written.
+    size: int | None = None
     state: str = "queued"  # queued | downloading | verifying | done | error
     done_bytes: int = 0
     total_bytes: int = 0
@@ -172,6 +177,7 @@ class Download:
             "id": self.id,
             "repo_id": self.repo_id,
             "filename": self.filename,
+            "folder": self.folder,
             "state": self.state,
             "done_bytes": self.done_bytes,
             "total_bytes": self.total_bytes,
@@ -212,25 +218,77 @@ def is_repo_id(repo_id: str) -> bool:
     return len(parts) == 2 and all(_REPO_PART.fullmatch(part) and part not in (".", "..") and not part.endswith(".") for part in parts)
 
 
+# Where a single file may go inside the models folder: the folder itself
+# (checkpoints) or loras/ (loras.py reads it).
+FOLDERS = ("", "loras")
+
+# Left free on the disk after a download, so the models folder never fills it.
+FREE_MARGIN = 1 << 30
+
+
+class DownloadRefused(ValueError):
+    """A download that cannot start; `status` is the HTTP status for the page."""
+
+    def __init__(self, message: str, status: int = 400):
+        super().__init__(message)
+        self.status = status
+
+
 class Downloads:
     """Hugging Face downloads into the models folder, one at a time, with progress."""
 
     # Finished downloads are listed for the page to show; only the latest are kept.
     KEEP_FINISHED = 20
+    # Downloads waiting or running at once; each waits on its own thread.
+    MAX_PENDING = 4
 
     def __init__(self, models_dir: Path):
         self.models_dir = models_dir
         self.items: dict[str, Download] = {}
         self._lock = threading.Lock()
 
-    def start(self, repo_id: str, filename: str | None, revision: str, sha256: str | None = None) -> Download:
+    def target(self, filename: str, folder: str = "") -> Path:
+        """Where a single file lands: its bare name, in the models folder or one of FOLDERS."""
+        if folder not in FOLDERS:
+            raise DownloadRefused("folder is the models folder or loras")
+        base = self.models_dir / folder if folder else self.models_dir
+        target = base / Path(filename).name
+        if target.resolve().parent != base.resolve():
+            raise DownloadRefused(f"{filename} does not name a file inside the models folder")
+        return target
+
+    def _check_space(self, size: int | None) -> None:
+        if not size:
+            return
+        self.models_dir.mkdir(parents=True, exist_ok=True)
+        if shutil.disk_usage(self.models_dir).free < size + FREE_MARGIN:
+            raise DownloadRefused("Not enough free disk space for this model", 507)
+
+    def start(
+        self, repo_id: str, filename: str | None, revision: str, sha256: str | None = None, folder: str = "", size: int | None = None
+    ) -> Download:
         if not is_repo_id(repo_id):
             raise ValueError("repo_id is owner/name")
         if not _COMMIT.fullmatch(revision):
             raise ValueError("revision is a commit hash")
         if filename is not None and not (sha256 and _SHA256.fullmatch(sha256)):
             raise ValueError("a single file needs its sha256")
-        item = Download(uuid.uuid4().hex, repo_id, filename, revision, sha256)
+        if filename is None and folder:
+            raise DownloadRefused("only a single file goes into a subfolder")
+        if size is not None and size <= 0:
+            raise DownloadRefused("size is a positive number of bytes")
+        pending = [old for old in self.items.values() if old.state in ("queued", "downloading", "verifying")]
+        if len(pending) >= self.MAX_PENDING:
+            raise DownloadRefused("Too many downloads waiting; try again when one has finished", 429)
+        if filename is not None:
+            target = self.target(filename, folder)
+            if target.exists():
+                raise DownloadRefused(f"{target.name} is already in the folder", 409)
+            # Not the same file twice at once: the second would download it all, then be refused.
+            if any(old.filename and self.target(old.filename, old.folder) == target for old in pending):
+                raise DownloadRefused(f"{target.name} is already downloading", 409)
+        self._check_space(size)
+        item = Download(uuid.uuid4().hex, repo_id, filename, revision, sha256, folder, size)
         finished = [key for key, old in self.items.items() if old.state in ("done", "error")]
         for key in finished[: max(0, len(finished) - self.KEEP_FINISHED + 1)]:
             del self.items[key]
@@ -258,23 +316,33 @@ class Downloads:
         from huggingface_hub import hf_hub_url
 
         url = hf_hub_url(item.repo_id, item.filename, revision=item.revision)
+        # requests drops this header when a redirect leaves huggingface.co (to its CDN).
         headers = {"Authorization": f"Bearer {os.environ['HF_TOKEN']}"} if os.environ.get("HF_TOKEN") else {}
-        target = self.models_dir / Path(item.filename).name
+        target = self.target(item.filename, item.folder)
         partial = target.with_name(target.name + ".part")
         digest = hashlib.sha256()
         try:
+            # Another download may have taken the space while this one waited.
+            self._check_space(item.size)
+            target.parent.mkdir(parents=True, exist_ok=True)
             with requests.get(url, headers=headers, stream=True, timeout=60) as response:
                 if response.status_code in (401, 403):
                     raise RuntimeError("This model needs a Hugging Face token or accepting its license on huggingface.co (set HF_TOKEN).")
                 response.raise_for_status()
                 item.total_bytes = int(response.headers.get("content-length") or 0)
+                limit = item.size or item.total_bytes or None
                 with partial.open("wb") as file:
                     for chunk in response.iter_content(chunk_size=1 << 20):
+                        if limit is not None and item.done_bytes + len(chunk) > limit:
+                            raise RuntimeError(f"{item.filename} is larger than the Hub says; nothing was kept")
                         file.write(chunk)
                         digest.update(chunk)
                         item.done_bytes += len(chunk)
             if digest.hexdigest() != item.sha256:
                 raise RuntimeError(f"{item.filename} did not match its pinned SHA-256; nothing was kept")
+            # Never over a file already there (a model, or one kept under the same name).
+            if target.exists():
+                raise RuntimeError(f"{target.name} is already in the folder; nothing was replaced")
         except BaseException:
             partial.unlink(missing_ok=True)
             raise

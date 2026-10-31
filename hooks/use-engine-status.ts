@@ -43,7 +43,9 @@ export function useEngineStatus() {
     engineStatus &&
       (engineStatus.install.state === "running" ||
         engineStatus.engines.some((engine) => engine.state === "starting" || engine.loading) ||
-        engineStatus.catalog.some((entry) => ["queued", "downloading", "verifying"].includes(entry.download?.state ?? "")))
+        [...engineStatus.catalog.map((entry) => entry.download), ...(engineStatus.urlDownloads ?? [])].some((download) =>
+          ["queued", "downloading", "verifying"].includes(download?.state ?? "")
+        ))
   )
 
   useEffect(() => {

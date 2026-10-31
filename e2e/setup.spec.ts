@@ -145,6 +145,54 @@ test('models: load one, download after accepting, choose a tagger, set the folde
     ])
 })
 
+test('models: check a Hugging Face URL, then download that commit as a LoRA', async ({ page }) => {
+  const { state, calls } = await fakeEngine(page)
+  state.running = true
+  const commit = 'abcdef0123456789abcdef0123456789abcdef01'
+  const url = 'https://huggingface.co/someone/style/blob/main/style.safetensors'
+  // Registered last, so they answer before the fake above.
+  await page.route(/\/api\/engine\/models\/hf$/, (route) => {
+    const typed = route.request().postDataJSON().url
+    if (typed !== url) return route.fulfill({ status: 400, json: { error: 'i18n:setup.hf.error.notSafetensors' } })
+    return route.fulfill({
+      json: { repo: 'someone/style', path: 'style.safetensors', fileName: 'style.safetensors', commit, sha256: 'f'.repeat(64), size: 150 * 1024 ** 2, license: 'mit', gated: false, token: false },
+    })
+  })
+  await page.route(/\/api\/engine$/, (route) =>
+    route.fulfill({
+      json: {
+        ...status(true),
+        urlDownloads: [{ id: 'd1', repo: 'other/model', fileName: 'broken.safetensors', folder: 'checkpoint', state: 'error', doneBytes: 0, totalBytes: 0, error: 'did not match' }],
+      },
+    })
+  )
+  await page.goto('/setup')
+
+  await expect(page.getByText('broken.safetensors')).toBeVisible()
+  await expect(page.getByText('Download failed: did not match')).toBeVisible()
+
+  const field = page.getByLabel('Download by Hugging Face URL')
+  await field.fill('https://huggingface.co/someone/style/blob/main/style.ckpt')
+  await page.getByRole('button', { name: 'Check', exact: true }).click()
+  await expect(page.getByText(/^Only \.safetensors files are downloaded/)).toBeVisible()
+
+  await field.fill(url)
+  await page.getByRole('button', { name: 'LoRA', exact: true }).click()
+  await page.getByRole('button', { name: 'Check', exact: true }).click()
+  await expect(page.getByText('someone/style · commit abcdef0123')).toBeVisible()
+  await expect(page.getByText('License: mit')).toBeVisible()
+  await expect(page.getByText(/^Not in Latentry's list/)).toBeVisible()
+
+  const download = page.getByRole('button', { name: 'Download as LoRA · 0.15 GB' })
+  await expect(download).toBeDisabled()
+  await page.getByLabel('I have read the license and accept it').nth(0).check()
+  await download.click()
+  await expect
+    .poll(() => calls.at(-1))
+    .toEqual({ method: 'POST', path: '/api/engine/models/download', body: { url, revision: commit, folder: 'lora' } })
+  await expect(field).toHaveValue('')
+})
+
 test('without a running engine, Models says why Download stays off', async ({ page }) => {
   await fakeEngine(page)
   let installed = true

@@ -103,7 +103,9 @@ class FakeResponse:
         yield self.body
 
 
-def fetch_one_file(tmp_path: Path, monkeypatch, body: bytes, sha256: str) -> tuple[models.Download, list[str]]:
+def fetch_one_file(
+    tmp_path: Path, monkeypatch, body: bytes, sha256: str, folder: str = "", size: int | None = None
+) -> tuple[models.Download, list[str]]:
     import huggingface_hub
     import requests
 
@@ -111,7 +113,7 @@ def fetch_one_file(tmp_path: Path, monkeypatch, body: bytes, sha256: str) -> tup
     monkeypatch.setattr(huggingface_hub, "hf_hub_url", lambda repo, filename, revision: f"https://hf.example/{repo}/resolve/{revision}/{filename}")
     monkeypatch.setattr(requests, "get", lambda url, **kwargs: asked.append(url) or FakeResponse(body))
     downloads = models.Downloads(tmp_path)
-    item = models.Download("one", "owner/name", "model.safetensors", COMMIT, sha256)
+    item = models.Download("one", "owner/name", "model.safetensors", COMMIT, sha256, folder, size)
     downloads._run(item)
     return item, asked
 
@@ -127,6 +129,65 @@ def test_a_single_file_with_the_wrong_hash_leaves_nothing(tmp_path: Path, monkey
     item, _ = fetch_one_file(tmp_path, monkeypatch, b"tampered", hashlib.sha256(b"weights").hexdigest())
     assert item.state == "error" and "SHA-256" in (item.error or "")
     assert list(tmp_path.iterdir()) == []
+
+
+def test_a_lora_goes_into_the_loras_folder(tmp_path: Path, monkeypatch) -> None:
+    body = b"lora"
+    item, _ = fetch_one_file(tmp_path, monkeypatch, body, hashlib.sha256(body).hexdigest(), folder="loras", size=len(body))
+    assert item.state == "done" and (tmp_path / "loras" / "model.safetensors").read_bytes() == body
+    assert item.describe()["folder"] == "loras"
+
+
+def test_more_bytes_than_the_hub_lists_leave_nothing(tmp_path: Path, monkeypatch) -> None:
+    body = b"weights and then some"
+    item, _ = fetch_one_file(tmp_path, monkeypatch, body, hashlib.sha256(body).hexdigest(), size=7)
+    assert item.state == "error" and "larger" in (item.error or "")
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_download_never_replaces_a_file(tmp_path: Path, monkeypatch) -> None:
+    (tmp_path / "model.safetensors").write_bytes(b"mine")
+    item, _ = fetch_one_file(tmp_path, monkeypatch, b"weights", hashlib.sha256(b"weights").hexdigest())
+    assert item.state == "error" and "already" in (item.error or "")
+    assert (tmp_path / "model.safetensors").read_bytes() == b"mine"
+    assert sorted(path.name for path in tmp_path.iterdir()) == ["model.safetensors"]
+
+
+def refused(call) -> int:
+    try:
+        call()
+    except models.DownloadRefused as error:
+        return error.status
+    raise AssertionError("started")
+
+
+def test_start_refuses_a_file_already_there_a_bad_folder_and_a_full_disk(tmp_path: Path, monkeypatch) -> None:
+    downloads = models.Downloads(tmp_path)
+    sha = hashlib.sha256(b"x").hexdigest()
+    (tmp_path / "loras").mkdir()
+    (tmp_path / "loras" / "style.safetensors").write_bytes(b"mine")
+    assert refused(lambda: downloads.start("owner/name", "sub/style.safetensors", COMMIT, sha, "loras")) == 409
+    assert refused(lambda: downloads.start("owner/name", "model.safetensors", COMMIT, sha, "..")) == 400
+    assert refused(lambda: downloads.start("owner/name", "model.safetensors", COMMIT, sha, "controls")) == 400
+    assert refused(lambda: downloads.start("owner/name", None, COMMIT, None, "loras")) == 400
+    monkeypatch.setattr(models.shutil, "disk_usage", lambda path: type("Usage", (), {"free": models.FREE_MARGIN})())
+    assert refused(lambda: downloads.start("owner/name", "model.safetensors", COMMIT, sha, "", 1)) == 507
+    assert downloads.items == {}
+
+
+def test_start_refuses_a_file_that_is_already_downloading(tmp_path: Path) -> None:
+    downloads = models.Downloads(tmp_path)
+    sha = hashlib.sha256(b"x").hexdigest()
+    downloads.items["first"] = models.Download("first", "owner/name", "style.safetensors", COMMIT, sha, "loras", state="downloading")
+    assert refused(lambda: downloads.start("other/repo", "sub/style.safetensors", COMMIT, sha, "loras")) == 409
+    assert list(downloads.items) == ["first"]
+
+
+def test_start_refuses_past_the_pending_cap(tmp_path: Path) -> None:
+    downloads = models.Downloads(tmp_path)
+    for index in range(models.Downloads.MAX_PENDING):
+        downloads.items[str(index)] = models.Download(str(index), "owner/name", None, COMMIT)
+    assert refused(lambda: downloads.start("owner/name", "model.safetensors", COMMIT, hashlib.sha256(b"x").hexdigest())) == 429
 
 
 def test_verify_files_removes_what_does_not_match(tmp_path: Path) -> None:

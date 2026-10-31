@@ -783,7 +783,35 @@
     "modelsFolderHint": "Point it at models you already have, such as a web UI's models/Stable-diffusion folder. Single .safetensors files and diffusers folders directly inside it are listed. The engine restarts to pick it up.",
     "modelsFolderDefault": "Use the default",
     "save": "Save",
-    "saved": "Saved"
+    "saved": "Saved",
+    "hf": {
+      "title": "Download by Hugging Face URL",
+      "check": "Check",
+      "folder": "Save as",
+      "checkpoint": "Checkpoint",
+      "lora": "LoRA",
+      "hint": "Paste the link to one .safetensors file on huggingface.co. A checkpoint goes into the models folder, a LoRA into its loras folder. Check shows what the link points at before anything is downloaded.",
+      "from": "{repo} · commit {commit}",
+      "noLicense": "none stated",
+      "gated": "Gated",
+      "needToken": "This repository asks you to accept its terms first: accept them on huggingface.co and set HF_TOKEN for Latentry, then restart it.",
+      "unchecked": "Not in Latentry's list: nobody has checked this model for you. The download is pinned to this commit and checked against the SHA-256 Hugging Face lists, which proves it is this file, not that it is safe or that its license suits you.",
+      "downloadCheckpoint": "Download as checkpoint · {size}",
+      "downloadLora": "Download as LoRA · {size}",
+      "error": {
+        "url": "That is not a link to a file on Hugging Face. Copy the link of one .safetensors file from the repository's Files tab.",
+        "host": "Only https links to huggingface.co (or hf.co) are accepted.",
+        "notFile": "That link points at a repository or page, not one file. Open the file in the Files tab and copy its link.",
+        "notSafetensors": "Only .safetensors files are downloaded. Other formats such as .ckpt, .pt or .bin can run code when they are loaded.",
+        "revision": "The branch or commit in that link is not one Latentry can use.",
+        "unreachable": "Could not reach Hugging Face.",
+        "moved": "Hugging Face answered with a redirect, as it does for a renamed repository. Open the link in a browser and copy the new one.",
+        "private": "Hugging Face refused: the repository is private or gated. Set HF_TOKEN for an account that may download it.",
+        "missing": "That file is not in the repository at that branch or commit.",
+        "noHash": "Hugging Face lists no SHA-256 for that file, so it could not be checked. It is not downloaded.",
+        "lookup": "Hugging Face gave an answer Latentry could not use."
+      }
+    }
   },
   "pair": {
     "title": "Pair this device",

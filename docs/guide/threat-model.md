@@ -98,6 +98,15 @@ been taken over through their extensions.
   come from a fixed commit, and each file is checked against its SHA-256
   before it is used. So are the config files a single SDXL checkpoint
   needs.
+- A file you download by its Hugging Face URL is pinned the same way: to
+  the commit the link pointed at when you pressed **Check**, and to the
+  SHA-256 Hugging Face lists for it, which Latentry looks up itself rather
+  than taking from the page. Only `https://huggingface.co` (or `hf.co`)
+  links to one `.safetensors` file are accepted, and Latentry builds the
+  addresses it asks, so a link cannot send it anywhere else. Redirects
+  from the Hugging Face API are refused, and `HF_TOKEN` is never sent to
+  another address. This proves the file is the one at that commit. It
+  does not prove that whoever published it is honest.
 - The engine's Python packages are installed from a lock with the SHA-256
   of every file. A file that does not match is never installed.
 - The install scripts install Latentry's own JavaScript packages with

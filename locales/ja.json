@@ -783,7 +783,35 @@
     "modelsFolderHint": "web UI の models/Stable-diffusion フォルダーなど、すでに持っているモデルの場所を指定します。直下にある単体の .safetensors ファイルと diffusers フォルダーが一覧に出ます。反映のためにエンジンが再起動します。",
     "modelsFolderDefault": "既定を使う",
     "save": "保存",
-    "saved": "保存しました"
+    "saved": "保存しました",
+    "hf": {
+      "title": "Hugging Face の URL でダウンロード",
+      "check": "確認",
+      "folder": "保存先",
+      "checkpoint": "チェックポイント",
+      "lora": "LoRA",
+      "hint": "huggingface.co にある .safetensors ファイル 1 つのリンクを貼り付けてください。チェックポイントはモデルフォルダーに、LoRA はその中の loras フォルダーに入ります。「確認」では、ダウンロードの前にリンク先が何かを表示します。",
+      "from": "{repo} · コミット {commit}",
+      "noLicense": "記載なし",
+      "gated": "要同意",
+      "needToken": "このリポジトリは先に利用条件への同意を求めています。huggingface.co で同意し、Latentry に HF_TOKEN を設定してから再起動してください。",
+      "unchecked": "Latentry の一覧にないモデルです。誰もこのモデルを確認していません。ダウンロードはこのコミットに固定され、Hugging Face が示す SHA-256 で照合されます。これで分かるのは「このファイルであること」までで、安全であることやライセンスが用途に合うことは保証されません。",
+      "downloadCheckpoint": "チェックポイントとしてダウンロード · {size}",
+      "downloadLora": "LoRA としてダウンロード · {size}",
+      "error": {
+        "url": "Hugging Face のファイルへのリンクではありません。リポジトリの Files タブから .safetensors ファイル 1 つのリンクをコピーしてください。",
+        "host": "受け付けるのは huggingface.co（または hf.co）への https のリンクだけです。",
+        "notFile": "このリンクはファイルではなく、リポジトリやページを指しています。Files タブでファイルを開き、そのリンクをコピーしてください。",
+        "notSafetensors": "ダウンロードできるのは .safetensors ファイルだけです。.ckpt・.pt・.bin などの形式は、読み込むときにコードを実行できてしまいます。",
+        "revision": "リンクにあるブランチやコミットは Latentry では使えません。",
+        "unreachable": "Hugging Face に接続できませんでした。",
+        "moved": "Hugging Face がリダイレクトを返しました。リポジトリの名前が変わったときに起きます。ブラウザでリンクを開き、新しいリンクをコピーしてください。",
+        "private": "Hugging Face に断られました。非公開か、同意が必要なリポジトリです。ダウンロードできるアカウントの HF_TOKEN を設定してください。",
+        "missing": "そのブランチまたはコミットに、このファイルはありません。",
+        "noHash": "Hugging Face がこのファイルの SHA-256 を示していないため、照合できません。ダウンロードしません。",
+        "lookup": "Hugging Face から、Latentry が扱えない応答が返りました。"
+      }
+    }
   },
   "pair": {
     "title": "この端末をペアリング",

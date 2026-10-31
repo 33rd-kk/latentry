@@ -2,10 +2,20 @@
 
 ## Unreleased
 
+- **Download by Hugging Face URL**: on **Setup → Models**, paste the link
+  of one `.safetensors` file on huggingface.co and save it as a checkpoint
+  or a LoRA. **Check** shows the commit, size and licence tag first. The
+  download is pinned to that commit and kept only if its SHA-256 matches
+  what Hugging Face lists, as the built-in list already does. Only
+  `.safetensors` files from `https://huggingface.co` or `hf.co` are taken,
+  and only from this computer or an owner device. The engine no longer
+  replaces a file already in the models folder, and refuses a download
+  that would leave less than 1 GB free.
+
 - **Fixed**: Anima LoRAs saved by kohya's sd-scripts (tensor names such as
   `lora_unet_blocks_0_…`) were listed as an unknown family and could not
-  be used: diffusers loaded none of their layers. The engine now recognises them as Anima and
-  renames their layers for the loaded model. So are Anima LoRAs with
+  be used: diffusers loaded none of their layers. The engine now
+  recognises them as Anima and renames their layers for the loaded model. So are Anima LoRAs with
   ComfyUI's names and kohya's `lora_down`/`lora_up` tensors, as LoRAs
   extracted from a model come, including their LLM adapter's token
   embedding. A LoRA with parts it cannot apply (text-encoder or LyCORIS
