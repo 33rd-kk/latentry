@@ -2,53 +2,16 @@
 
 ## Unreleased
 
-- **Fixed**: a page left open on a device whose pairing ended, or that was
-  removed or forgotten, could keep showing other pages from the browser's
-  memory, with nothing loading, instead of going to the pairing page. It now
-  goes there as soon as Latentry answers that the device is not paired. An
-  owner device that presses **Forget all devices**, or removes itself, is
-  warned that it will need a new owner code from a terminal, and then goes
-  to the pairing page with the steps open.
+## 0.13.0 (2026-11-01)
 
-- **Making an owner device is explained step by step**: the pairing page
-  (under **Make this browser the owner instead**), and Settings and Setup
-  on a device that may not change them, now show where to open a terminal,
-  the command for Docker and without it (with a copy button on this
-  computer), and where to type the code. The notice that an owner device
-  is about to end links to them.
-- **An owner device whose 7 days have ended is told so**: the pairing page
-  says until when this browser was the owner and opens the steps for a new
-  owner code. For this the browser keeps an owner's cookie 7 days past its
-  end; it lets nothing in by then. Owners paired before this update are not
-  told, once.
-- Paired devices are told their pairing is ending from **a week** before
-  the end, not three days. Owner devices still from three days.
+**Upgrading from 0.12.0**: after the usual update, open **Setup** and run
+**Repair / update** on the engine once: moving a joint in the 3D view needs
+poseorbit 0.3.1. Then make sure the engine runs 0.8.0 (Setup says so while
+an older one runs; stop and start it). An install without Docker keeps
+working and updates as before. A new Docker install keeps its settings,
+pictures, engine and models in its own data volume, so it starts empty.
 
-- **Download by Hugging Face URL**: on **Setup → Models**, paste the link
-  of one `.safetensors` file on huggingface.co and save it as a checkpoint
-  or a LoRA. **Check** shows the commit, size and licence tag first. The
-  download is pinned to that commit and kept only if its SHA-256 matches
-  what Hugging Face lists, as the built-in list already does. Only
-  `.safetensors` files from `https://huggingface.co` or `hf.co` are taken,
-  and only from this computer or an owner device. The engine no longer
-  replaces a file already in the models folder, and refuses a download
-  that would leave less than 1 GB free.
-
-- **Fixed**: Anima LoRAs saved by kohya's sd-scripts (tensor names such as
-  `lora_unet_blocks_0_…`) were listed as an unknown family and could not
-  be used: diffusers loaded none of their layers. The engine now
-  recognises them as Anima and renames their layers for the loaded model. So are Anima LoRAs with
-  ComfyUI's names and kohya's `lora_down`/`lora_up` tensors, as LoRAs
-  extracted from a model come, including their LLM adapter's token
-  embedding. A LoRA with parts it cannot apply (text-encoder or LyCORIS
-  layers), or with no layer the model has, is refused with a message that
-  says so.
-
-- **Fixed**: an SDXL LoRA written with diffusers' block names and no
-  metadata (as some trainers save it) was taken for SD 1.x and refused on
-  SDXL. LyCORIS LoKr and LoHa files, which the engine cannot apply, are now
-  refused by name before the run, instead of failing with only an error
-  type.
+**Docker and owner devices**
 
 - **Docker**: `docker compose up -d --build` runs Latentry in a container,
   with its settings, pictures, engine and models in one data volume, and
@@ -58,38 +21,6 @@
   `docker compose exec latentry npm run owner-code`. It is published on
   this computer only until you change `compose.yaml`. The new
   `LATENTRY_TRUST_LOOPBACK=off` does the same outside Docker.
-
-- **Fixed**: the **Add a LoRA** and **Add a wildcard** lists opened off to
-  the side of their button. They now open just under it.
-
-- **Model info**: under the model on the generate page, keep where a
-  checkpoint came from and the sampler, scheduler, steps, CFG, size,
-  negative prompt and hires fix its page recommends, then put them on the
-  form with **Apply recommended**. Kept by file name for the built-in
-  engine, ComfyUI and AUTOMATIC1111 / Forge, in `latentry.models.json` next
-  to the settings file, for this computer and owner devices only. Latentry
-  never opens the link. **Settings → Model info** lists every model kept,
-  and adds info for a model that is not loaded.
-
-- **The manual is arranged by what you want to do**: Generate is split into
-  the generate page, **From a picture** (img2img, inpainting, Extend),
-  **Bigger pictures** (hires fix, Upscale) and **Many pictures** (the
-  queue, X/Y grid, wildcards). **Owner device** has its own page under
-  **Devices**, and checking a release download is on **Without
-  Docker**. The existing pages keep their addresses.
-
-- **Shorter Settings and Generate pages**: Settings shows one section at a
-  time, chosen from a list on the left; a dot marks a section with unsaved
-  changes or a field to fix, and `/settings#gallery` opens a section
-  directly. On Generate, the **Show** row hides the parts of the form you
-  do not use (characters, source image, pose, hires fix, X/Y grid). A
-  hidden part is not sent, and keeps what it holds until it is shown again.
-  Both choices are remembered in this browser only, and not in secret mode.
-
-- **Fixed**: with the wildcard and LoRA pickers beside it, the **Positive
-  prompt** label broke onto two lines. It now stays on one, and the controls
-  next to it wrap instead.
-
 - **Owner devices**: when you do not use a browser on the computer running
   Latentry (in Docker, or on a computer you use from your laptop), run
   `npm run owner-code` in a terminal there and type the code on the
@@ -108,11 +39,41 @@
   - Over HTTPS (a reverse proxy in front), the device cookie is marked
     `Secure`; the manual shows a Caddy example.
   - Pairing a phone no longer costs a waiting owner code one of its tries.
+- **Making an owner device is explained step by step**: the pairing page
+  (under **Make this browser the owner instead**), and Settings and Setup
+  on a device that may not change them, now show where to open a terminal,
+  the command for Docker and without it (with a copy button on this
+  computer), and where to type the code. The notice that an owner device
+  is about to end links to them.
+- **An owner device whose 7 days have ended is told so**: the pairing page
+  says until when this browser was the owner and opens the steps for a new
+  owner code. For this the browser keeps an owner's cookie 7 days past its
+  end; it lets nothing in by then. Owners paired before this update are not
+  told, once.
+- Paired devices are told their pairing is ending from **a week** before
+  the end, not three days. Owner devices still from three days.
 
-- **Fixed**: after secret mode was turned off, going to the gallery and back
-  could bring back pictures of runs made in secret mode under **Earlier**.
-  A page that has been in secret mode now keeps none of its runs for that
-  trip, even after secret mode is turned off; a reload starts it afresh.
+**Models**
+
+- **Download by Hugging Face URL**: on **Setup → Models**, paste the link
+  of one `.safetensors` file on huggingface.co and save it as a checkpoint
+  or a LoRA. **Check** shows the commit, size and licence tag first. The
+  download is pinned to that commit and kept only if its SHA-256 matches
+  what Hugging Face lists, as the built-in list already does. Only
+  `.safetensors` files from `https://huggingface.co` or `hf.co` are taken,
+  and only from this computer or an owner device. The engine no longer
+  replaces a file already in the models folder, and refuses a download
+  that would leave less than 1 GB free.
+- **Model info**: under the model on the generate page, keep where a
+  checkpoint came from and the sampler, scheduler, steps, CFG, size,
+  negative prompt and hires fix its page recommends, then put them on the
+  form with **Apply recommended**. Kept by file name for the built-in
+  engine, ComfyUI and AUTOMATIC1111 / Forge, in `latentry.models.json` next
+  to the settings file, for this computer and owner devices only. Latentry
+  never opens the link. **Settings → Model info** lists every model kept,
+  and adds info for a model that is not loaded.
+
+**Generate and pose**
 
 - **Move a joint in the 3D pose view**: drag the head, a shoulder, elbow,
   wrist, knee, ankle or a foot to change the detected pose. What hangs from
@@ -120,55 +81,90 @@
   takes the forearm and hand along. **Undo** takes back the last move, of a
   joint or of the camera, in the order they were made; **Reset joints** puts
   the joints back. **Use this pose** (before: **Use this angle**) draws the
-  skeleton with the moved joints and the angle. The moves are kept in the page only.
-  Latentry's engine now needs poseorbit 0.3.1 (run **Repair / update** on
-  Setup once), which also keeps a stray fingertip's guessed depth from
-  drawing a long line once the pose is turned; for other backends, `/api/pose` takes `edits` and answers
-  `movable` (see the backend API).
+  skeleton with the moved joints and the angle. The moves are kept in the
+  page only. Latentry's engine now needs poseorbit 0.3.1 (run **Repair /
+  update** on Setup once), which also keeps a stray fingertip's guessed
+  depth from drawing a long line once the pose is turned; for other
+  backends, `/api/pose` takes `edits` and answers `movable` (see the
+  backend API).
+- **Shorter Settings and Generate pages**: Settings shows one section at a
+  time, chosen from a list on the left; a dot marks a section with unsaved
+  changes or a field to fix, and `/settings#gallery` opens a section
+  directly. On Generate, the **Show** row hides the parts of the form you
+  do not use (characters, source image, pose, hires fix, X/Y grid). A
+  hidden part is not sent, and keeps what it holds until it is shown again.
+  Both choices are remembered in this browser only, and not in secret mode.
+
+**Japanese and accessibility**
+
+- **Japanese**: the UI is now in Japanese too. A browser set to Japanese
+  gets it on its first visit, and the language menu in the header switches
+  between Japanese and English. The manual stays in English. The
+  translation was written without sending the UI's text to a translation
+  service, and a new `file` translation provider lets others do the same.
 - **Accessibility**: screen readers now announce what each drop-down list
   is for, such as Backend, Sampler or Tag spelling. Before, the lists on
   Generate and Settings had no name. The red "Non-commercial" label on
   Setup is darker in the light theme, so it is easier to read. The browser
   tests now check each page with axe-core, in both themes.
 
-- **Fixed**: before the engine was installed, a model's **Download** button
-  on Setup stayed off with nothing saying why. The Models card now says
-  that models are downloaded by the engine, so it has to be installed and
-  started first.
-- **Japanese**: the UI is now in Japanese too. A browser set to Japanese
-  gets it on its first visit, and the language menu in the header switches
-  between Japanese and English. The manual stays in English. The
-  translation was written without sending the UI's text to a translation
-  service, and a new `file` translation provider lets others do the same.
+**Manual and contributing**
 
+- **The manual is arranged by what you want to do**: Generate is split into
+  the generate page, **From a picture** (img2img, inpainting, Extend),
+  **Bigger pictures** (hires fix, Upscale) and **Many pictures** (the
+  queue, X/Y grid, wildcards). **Owner device** has its own page under
+  **Devices**, and checking a release download is on **Without
+  Docker**. The existing pages keep their addresses.
 - **Support**: a new **Support** page in the manual says which systems,
   Node.js versions, GPUs and browsers are supported, and which are
   experimental: macOS on Apple Silicon, and Safari and Firefox. Only the
   latest release gets fixes.
-
 - **Contributing**: a new `CONTRIBUTING.md` says how to report a problem,
   set up a checkout, run the checks and open a pull request. The bug and
   idea forms on GitHub ask you to leave out paths, names and private
   pictures, and send security reports to private reporting.
-- **Compatibility**: a new **Compatibility** page in the manual says what
-  stays compatible between releases: pictures' records, the settings file,
-  the documented environment variables, the backend API (now marked
-  version 1) and page addresses. It also says how a change is announced
-  first. The tests now read a settings file and a picture saved by each
-  release since 0.5.0, so a change that breaks an old one fails before it
-  ships.
-- **Docs**: the **Backends** page has a table of what each backend can do:
-  the engine with SDXL or Anima, a `diffusers` server, A1111 / Forge, and
-  ComfyUI with the built-in graph or your own workflow. Anima's limits (no
-  inpainting or Extend, no hires fix together with a pose) are in it.
-- **Changed**: a picture saved by a newer Latentry, with a higher record
-  `schema`, is now read for the fields this release knows. Before, its
-  settings were not read at all. A settings file from a newer Latentry is
-  read the same way, and is no longer saved over, since that would drop
-  what this release does not know. The Settings page says so instead.
-- **Fixed**: between one queued run ending and the next starting, the
-  button briefly read **Generate** although a click would still add to the
-  queue. It now reads **Add to queue** until the queue is empty.
+
+**Fixed**
+
+- A page left open on a device whose pairing ended, or that was removed or
+  forgotten, could keep showing other pages from the browser's memory, with
+  nothing loading, instead of going to the pairing page. It now goes there
+  as soon as Latentry answers that the device is not paired. An owner
+  device that presses **Forget all devices**, or removes itself, is warned
+  that it will need a new owner code from a terminal, and then goes to the
+  pairing page with the steps open.
+- Anima LoRAs saved by kohya's sd-scripts (tensor names such as
+  `lora_unet_blocks_0_…`) were listed as an unknown family and could not
+  be used: diffusers loaded none of their layers. The engine now
+  recognises them as Anima and renames their layers for the loaded model.
+  So are Anima LoRAs with ComfyUI's names and kohya's
+  `lora_down`/`lora_up` tensors, as LoRAs extracted from a model come,
+  including their LLM adapter's token embedding. A LoRA with parts it
+  cannot apply (text-encoder or LyCORIS layers), or with no layer the model
+  has, is refused with a message that says so.
+- An SDXL LoRA written with diffusers' block names and no metadata (as some
+  trainers save it) was taken for SD 1.x and refused on SDXL. LyCORIS LoKr
+  and LoHa files, which the engine cannot apply, are now refused by name
+  before the run, instead of failing with only an error type.
+- After secret mode was turned off, going to the gallery and back could
+  bring back pictures of runs made in secret mode under **Earlier**. A page
+  that has been in secret mode now keeps none of its runs for that trip,
+  even after secret mode is turned off; a reload starts it afresh.
+- Before the engine was installed, a model's **Download** button on Setup
+  stayed off with nothing saying why. The Models card now says that models
+  are downloaded by the engine, so it has to be installed and started
+  first.
+- The **Add a LoRA** and **Add a wildcard** lists opened off to the side of
+  their button. They now open just under it.
+- With the wildcard and LoRA pickers beside it, the **Positive prompt**
+  label broke onto two lines. It now stays on one, and the controls next
+  to it wrap instead.
+
+**Dependencies**
+
+- Development-only packages with known advisories were updated, and
+  routine minor updates were taken for the UI, the CI actions and ruff.
 
 ## 0.12.0 (2026-10-24)
 
