@@ -26,8 +26,8 @@ it again by what it shows or how it was made.
   behind the one going, and an [X/Y grid](guide/many.md#xy-grid) draws a
   run again for each value of one or two settings.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
-  picture to follow (one, several or everyone), turn the pose in 3D and frame
-  it, then generate along that skeleton. See
+  picture to follow (one, several or everyone), turn the pose in 3D, drag a
+  joint and frame it, then generate along that skeleton. See
   [Pose and the 3D view](guide/pose.md).
 - **Several backends and model families**: each backend keeps its own form,
   and a model profile (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
@@ -45,8 +45,9 @@ it again by what it shows or how it was made.
   (hair, eyes, outfit…); tags under every gallery card; tag a whole selection
   at once.
 - **Built-in engine**: Latentry installs and runs stock diffusers on your
-  NVIDIA GPU from its Setup page, and downloads models only after showing
-  their licence.
+  NVIDIA GPU from its Setup page, in Docker or without it, and downloads
+  models only after showing their licence, or one `.safetensors` file from
+  a Hugging Face link, pinned to its commit.
 
 ## Where to start
 

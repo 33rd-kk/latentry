@@ -28,9 +28,10 @@ made, then sends those settings back to the form to make it again.
   for each value of one or two settings, to compare them side by side.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
-  pose in 3D and frame it, then generate along that skeleton. Works on the
-  built-in engine (SDXL family and Anima), on ComfyUI with a ControlNet, and
-  on servers that offer pose control; detection and turning come from
+  pose in 3D, drag a joint and frame it, then generate along that skeleton.
+  Works on the built-in engine (SDXL family and Anima), on ComfyUI with a
+  ControlNet, and on servers that offer pose control; detection and turning
+  come from
   [poseorbit](https://github.com/33rd-kk/poseorbit).
 - **A gallery that knows how every picture was made.** Every finished image
   is saved with its settings embedded (readable by A1111's PNG Info too).
@@ -52,7 +53,8 @@ made, then sends those settings back to the form to make it again.
 - **Several backends, several model families.** Each backend keeps its own
   form. A *profile* (Anima, SDXL, Illustrious / NoobAI, Pony, generic) sets
   sizes, steps, CFG, negative prompt, artist notation and quality tags. Change
-  it any time.
+  it any time. Keep a model's link and the settings its page recommends, and
+  put them on the form with one click.
 - Light and dark. The UI is in English and Japanese, and other languages
   can be added (see [Translations](#translations)).
 
