@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **The engine's Python packages** are pinned as of 2026-11-01: torch 2.15.0
+  for CPU and Apple Silicon (CUDA builds are unchanged), with newer
+  transformers, fastapi, starlette and onnxruntime. Run **Repair / update**
+  on Setup to get them.
+
 ## 0.13.0 (2026-11-01)
 
 **Upgrading from 0.12.0**: after the usual update, open **Setup** and run
