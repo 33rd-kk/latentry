@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Anima lists only the sampler it can use**: with an Anima model loaded,
+  the engine offers *Default* (the model's own flow-match Euler) for the
+  sampler and scheduler, instead of SDXL samplers that do not fit its
+  flow-match scheduler, and refuses the others with a clear message. SDXL models keep the full list.
+  See [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+
 - **Setup says when the engine's packages are behind**: after an update
   that pins newer Python packages, Setup asks you to run **Repair / update**,
   so you no longer need the release notes to know.

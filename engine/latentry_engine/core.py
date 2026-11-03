@@ -243,7 +243,7 @@ class Engine:
         kind = "inpaint" if request.mask is not None else "img2img" if request.init_image is not None else "txt2img"
         pose = request.pose_skeleton is not None
         pipe = self._variant(kind, pose)
-        pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
+        pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
 
         source = flatten(request.init_image) if request.init_image is not None else None
         if request.upscale and source is not None:
@@ -266,7 +266,7 @@ class Engine:
             hires_schedule_steps = hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, loaded.family)
             hires_steps = img2img_steps(hires_schedule_steps, request.hr_denoise, loaded.family)
             hires_pipe = self._variant("img2img", pose)
-            hires_pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
+            hires_pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
             hires_skeleton = letterbox(request.pose_skeleton, (hires_width, hires_height)) if pose else None
         total_steps = steps + hires_steps
 
@@ -386,7 +386,7 @@ class Engine:
         loaded = self.loaded
         assert loaded
         pipe = loaded.pipe
-        pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
+        pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
         source = flatten(request.init_image) if request.init_image is not None else None
         if request.upscale and source is not None:
             width, height = hires_size(source.width, source.height, request.hr_scale, 16)

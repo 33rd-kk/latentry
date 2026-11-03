@@ -220,8 +220,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             "load_error": engine.load_error,
             "busy": run["lock"].locked() or engine.loading is not None,
             "run_id": run["id"],
-            "samplers": samplers.SAMPLER_NAMES,
-            "schedulers": samplers.SCHEDULE_NAMES,
+            # Only what the loaded model can use: Anima has no SDXL samplers.
+            "samplers": samplers.names_for(loaded.family if loaded else None),
+            "schedulers": samplers.schedules_for(loaded.family if loaded else None),
             "gpu": plan.describe(),
             **engine.capabilities(),
         }
