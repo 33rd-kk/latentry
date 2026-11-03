@@ -10,7 +10,7 @@ import { chooseTorch, parseNvidiaSmi, type Gpu } from '../lib/engine/gpus'
 import { isSha256 } from '../lib/engine/download'
 import { isPinnedUv, uvAsset, uvEnvironment, venvOnOtherPython } from '../lib/engine/install'
 import { UV_SHA256, UV_VERSION, uvUrl } from '../lib/engine/uv-release'
-import { LOCKED_BACKENDS, LOCKED_ON, lockAgeDays, lockFailure, lockIsStale, lockName, torchRunsOn, wantsLatest } from '../lib/engine/locks'
+import { LOCKED_BACKENDS, LOCKED_ON, lockAgeDays, lockFailure, lockIsStale, lockName, lockOutdated, torchRunsOn, wantsLatest } from '../lib/engine/locks'
 import { lineSplitter } from '../lib/engine/lines'
 import { loraAccess } from '../lib/engine/lora-access'
 import { readdirSync, readFileSync } from 'node:fs'
@@ -85,6 +85,12 @@ check(!wantsLatest({ LATENTRY_ENGINE_PACKAGES: 'newest' }), 'only "latest" turns
 eq(lockAgeDays(new Date('2026-10-22T12:00:00Z'), '2026-10-12'), 10, 'lock age in days')
 check(!lockIsStale(new Date('2027-04-10T00:00:00Z'), '2026-10-12'), 'under 180 days: not stale')
 check(lockIsStale(new Date('2027-04-11T00:00:00Z'), '2026-10-12'), 'over 180 days: stale')
+check(lockOutdated({ lockedOn: '2026-10-21' }, '2026-11-01'), 'installed from an older lock: Setup says to repair')
+check(!lockOutdated({ lockedOn: '2026-11-01' }, '2026-11-01'), 'from this lock: nothing to say')
+check(!lockOutdated({ lockedOn: '2026-12-01' }, '2026-11-01'), 'from a newer one (an older Latentry run again): nothing either')
+check(!lockOutdated(null) && !lockOutdated(undefined), 'not pinned: the unpinned note says why instead')
+check(!lockOutdated({ lockedOn: 'garbage' }, '2026-11-01'), 'a record it cannot read: no guess')
+check(lockOutdated({ lockedOn: '2026-10-21' }), "compared with this Latentry's lock by default")
 eq(lockFailure('error: No solution found\n  cause: Because there is no version of zipp==999.0.0 and you require it'), 'missing', 'a version no longer offered: retry unpinned')
 eq(lockFailure('Failed to download `torch==2.14.1+cu130`\n  HTTP status client error (404 Not Found)'), 'missing', 'a file gone (404): retry unpinned')
 eq(lockFailure('  cause: Hash mismatch for `zipp==4.1.1`\n  Expected: ...'), 'stop', 'a hash mismatch: stop')
