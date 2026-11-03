@@ -30,6 +30,7 @@ const RECORD_FIELDS = [
   ['0.11.0', ''],
   ['0.12.0', 'grid'],
   ['0.13.0', ''],
+  ['0.14.0', ''],
 ]
 
 function fieldsOf(version) {
