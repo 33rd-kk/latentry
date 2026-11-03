@@ -128,8 +128,13 @@ of it, upscale it or grow its canvas. See [From a picture](from-a-picture.md).
 
 Progress shows overall and per image. Each finished picture has:
 
-- **In gallery** (it was saved), **Use as source**, **Download**.
-- Click it to view it full screen.
+- **In gallery** (it was saved), **Use as source**.
+- **Save without settings**: the picture without its prompt, seed, LoRAs,
+  workflow or EXIF, the pixels untouched. It is made in the page from the
+  picture already on screen, so nothing is sent for it.
+- **Save with settings**: the gallery's copy, with everything Latentry
+  recorded. Shown once the picture is in the gallery.
+- Click it to view it full screen; the viewer's panel has the same two.
 
 When a new run starts, the pictures on screen move down to **Earlier**,
 newest first, so a queue of runs piles up instead of each replacing the

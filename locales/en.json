@@ -209,7 +209,7 @@
     "blurPicture": "Blur picture",
     "fullScreen": "View full screen",
     "imageAlt": "Generated image, seed {seed}",
-    "save": "Download",
+    "saveOriginalHint": "Saves the gallery's copy, with the prompt, seed and everything else Latentry recorded.",
     "saved": "In gallery",
     "saveFailed": "Generated, but saving to the gallery folder failed ({reason}). Check GALLERY_SAVE_DIR.",
     "useAsSource": "Use as source",

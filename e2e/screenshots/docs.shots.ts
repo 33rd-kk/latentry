@@ -188,7 +188,7 @@ take('manual-secret-results')('secret mode on Generate', async ({ page }) => {
   await page.getByRole('button', { name: 'Secret mode' }).first().click()
   await page.getByRole('button', { name: 'Generate', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Show results' })).toBeVisible()
-  await shotBetween(page, 'manual-secret-results', page.getByText('Pictures blurred in secret mode.'), page.getByRole('link', { name: 'Download' }), page.locator('[data-slot="card"]').nth(1))
+  await shotBetween(page, 'manual-secret-results', page.getByText('Pictures blurred in secret mode.'), page.getByRole('button', { name: 'Save without settings' }).first(), page.locator('[data-slot="card"]').nth(1))
 })
 
 take('manual-settings')('Settings, its list of sections and Backends', async ({ page }) => {

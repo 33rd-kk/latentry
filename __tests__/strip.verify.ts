@@ -21,6 +21,7 @@ import {
   stripJpeg,
   stripMetadata,
   stripPng,
+  stripPngBytes,
   stripWebp,
   writePngText,
 } from '../lib/image-meta'
@@ -87,6 +88,16 @@ async function main() {
     check(!cleanPng.includes(Buffer.from('secret prompt')), 'and the prompt is nowhere in the bytes')
     check((await pixels(cleanPng)).equals(await pixels(png)), 'the pixels are exactly as they were')
     check(stripPng(png.subarray(0, png.length - 20)) === null, 'a cut-off PNG is refused')
+    // The browser's copy (Generate's Save without settings) is the same function on plain bytes.
+    const fromBytes = stripPngBytes(new Uint8Array(png))
+    check(!!fromBytes && Buffer.from(fromBytes).equals(cleanPng), 'on plain bytes: the same file as the server makes')
+    const kept = readChunks(png).filter((chunk) => !['tEXt', 'zTXt', 'iTXt', 'eXIf', 'tIME'].includes(chunk.type))
+    check(Buffer.concat([png.subarray(0, 8), ...kept.map((chunk) => encodeChunk(chunk.type, chunk.data))]).equals(cleanPng), 'every chunk that stays is as it was, CRC included')
+    check(stripPngBytes(new Uint8Array(png.subarray(0, png.length - 20))) === null, 'on plain bytes, a cut-off PNG is refused too')
+    check(stripPngBytes(new Uint8Array(png.subarray(8))) === null && stripPngBytes(new Uint8Array(0)) === null, 'and so is one without its signature')
+    const offset = new Uint8Array(png.length + 3)
+    offset.set(png, 3)
+    check(!!stripPngBytes(offset.subarray(3))?.every((byte, i) => byte === cleanPng[i]), 'a view into a larger buffer reads from its own start')
 
     // ── JPEG ──
     const jpeg = await image

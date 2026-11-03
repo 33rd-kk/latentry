@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Save without settings on the Generate page**: each result, and the
+  viewer's panel, has **Save without settings**, made in the page from the
+  picture on screen (nothing is sent for it), and **Save with settings**,
+  the gallery's copy, once the picture is in the gallery. The plain
+  **Download** link and the viewer's own save button are gone. See
+  [Results](https://33rd-kk.github.io/latentry/guide/generate/#results).
+
 - **Setup says when the engine's packages are behind**: after an update
   that pins newer Python packages, Setup asks you to run **Repair / update**,
   so you no longer need the release notes to know.
