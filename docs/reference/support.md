@@ -33,13 +33,15 @@ computer the engine does not support, you can still use Latentry with
 
 | Where | Status | Notes |
 |---|---|---|
-| Docker Engine on Linux, x64 | Supported | CI builds the image and checks pairing and its contents on every pull request; the GPU through the NVIDIA Container Toolkit |
+| Docker Engine on Linux, x64 | Supported | CI builds the image and checks pairing and its contents on every pull request, and each release checks its own image the same way; the GPU through the NVIDIA Container Toolkit |
+| Docker Engine on Linux, ARM64 | Experimental | Each release's image is built and checked on ARM64 too. The built-in engine has no pinned packages there (Setup says so) and has not been run on it; backends you run work as anywhere |
 | Docker Desktop on Windows 11, x64 (WSL 2) | Experimental | Checked by hand when it was added, not before each release |
 | Docker Desktop on macOS | Not recommended | A container cannot use the Mac's GPU, so the engine runs on the CPU only; install [without Docker](../install/native.md) |
 | Rootless Docker, Podman | Experimental | Every browser pairs, so these work as safely as Docker; not checked |
 
-The image is built from `compose.yaml` on your computer. See
-[Docker](../install/docker.md).
+`compose.yaml` uses the official image each release publishes, or builds
+it on your computer with `compose.build.yaml`. See
+[Docker](../install/docker.md#the-image).
 
 ## Node.js
 

@@ -2,7 +2,7 @@
 # NVIDIA Container Toolkit (on Windows, Docker Desktop with WSL 2 and a
 # current NVIDIA driver). Use it on top of compose.yaml:
 #
-#   docker compose -f compose.yaml -f compose.gpu.yaml up -d --build
+#   docker compose -f compose.yaml -f compose.gpu.yaml up -d
 
 services:
   latentry:

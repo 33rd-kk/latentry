@@ -2,10 +2,39 @@
 
 ## Unreleased
 
+## 0.14.0 (2026-11-03)
+
+**Upgrading from 0.13.0**: after the usual update, open **Setup** and run
+**Repair / update** on the engine once, for the newer packages below.
+With Docker, `git pull` then `docker compose up -d` (with
+`-f compose.yaml -f compose.gpu.yaml` for a GPU) now downloads the official
+image instead of building one; your data volume, and with it your
+settings, pairings, pictures, engine and models, stays as it is. To keep
+building it yourself, add `-f compose.build.yaml`.
+
+**Docker**
+
+- **An official image**: each release now publishes
+  `ghcr.io/33rd-kk/latentry:X.Y.Z` for x64 and ARM64, and `compose.yaml`
+  uses this release's. The release workflow builds it from the release's
+  commit, runs the same pairing and contents checks as CI on each platform
+  before it gets its version, and attests it, so
+  `gh attestation verify oci://ghcr.io/33rd-kk/latentry:0.14.0 --repo 33rd-kk/latentry`
+  shows it was made there. There is no `latest` tag: nothing changes until
+  you update. See
+  [The image](https://33rd-kk.github.io/latentry/install/docker/#the-image).
+- `compose.build.yaml` builds the image from the Latentry folder instead.
+
+**Engine**
+
 - **The engine's Python packages** are pinned as of 2026-11-01: torch 2.15.0
   for CPU and Apple Silicon (CUDA builds are unchanged), with newer
   transformers, fastapi, starlette and onnxruntime. Run **Repair / update**
   on Setup to get them.
+
+**Other**
+
+- Updated dependencies, including onnxruntime-node 1.31.1 and three 0.187.0.
 
 ## 0.13.0 (2026-11-01)
 

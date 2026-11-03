@@ -13,7 +13,7 @@ starts the container (`up`).
 ## Start, stop, update
 
 ```bash
-docker compose up -d --build     # start (builds the image when it changed)
+docker compose up -d             # start (downloads the image the first time)
 docker compose stop              # stop
 docker compose logs -f latentry  # follow the log
 ```
@@ -21,16 +21,52 @@ docker compose logs -f latentry  # follow the log
 It starts again by itself after a restart of Docker or the computer, until
 you stop it.
 
-To update, take the new version and build again:
+To update, take the new version and start again:
 
 ```bash
 git pull
-docker compose up -d --build
+docker compose up -d
 ```
 
-Your settings, pictures, engine and models stay: they are in the data
-volume, not in the image. [Compatibility](../reference/compatibility.md)
-says what an update may change.
+`compose.yaml` names the release's image, so the new version's image is
+downloaded and started. Your settings, pictures, engine and models stay:
+they are in the data volume, not in the image.
+[Compatibility](../reference/compatibility.md) says what an update may
+change.
+
+## The image
+
+`compose.yaml` uses Latentry's official image,
+`ghcr.io/33rd-kk/latentry:X.Y.Z`, for x64 and ARM64 computers. Each
+release builds it on GitHub from the release's commit, runs the same checks
+as CI on it (every browser pairs, the image holds no personal files), and
+only then gives it the version. There is no `latest`: each release's
+`compose.yaml` names its own version, so nothing changes until you update.
+
+To check that an image was made by Latentry's release workflow from that
+release's commit, with the [GitHub CLI](https://cli.github.com/):
+
+```bash
+gh attestation verify oci://ghcr.io/33rd-kk/latentry:X.Y.Z --repo 33rd-kk/latentry --source-ref refs/tags/vX.Y.Z
+```
+
+Images from 0.14.0 on can be checked this way. Use only this image, or one
+you built yourself: an image from anywhere else can do anything with your
+settings, keys and pictures.
+
+### Build it yourself
+
+To build the image from the Latentry folder instead, add
+`compose.build.yaml`:
+
+```bash
+docker compose -f compose.yaml -f compose.build.yaml up -d --build
+docker compose -f compose.yaml -f compose.gpu.yaml -f compose.build.yaml up -d --build   # with an NVIDIA GPU
+```
+
+Use the same files for every `up` afterwards, and after each `git pull`.
+The data volume is the same either way, so you can switch between the
+two.
 
 ## Where the data is
 
