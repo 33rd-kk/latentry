@@ -163,6 +163,24 @@ function serialized<T>(task: () => Promise<T>): Promise<T> {
   return run
 }
 
+// Windows refuses to rename over a file another process has open for a moment
+// (a reader, a virus scanner): EPERM, EBUSY or EACCES. It clears quickly.
+const BUSY_CODES = new Set(['EPERM', 'EBUSY', 'EACCES'])
+const RENAME_TRIES = 8
+
+async function renameOver(from: string, to: string): Promise<void> {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await rename(from, to)
+      return
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code
+      if (attempt >= RENAME_TRIES || !code || !BUSY_CODES.has(code)) throw error
+      await new Promise((resolve) => setTimeout(resolve, 25 * attempt))
+    }
+  }
+}
+
 async function update(env: Env, change: (ratings: Ratings) => Ratings): Promise<void> {
   const file = ratingsPath(env)
   const { ratings, version } = readFile(env)
@@ -176,7 +194,7 @@ async function update(env: Env, change: (ratings: Ratings) => Ratings): Promise<
   try {
     await writeFile(temp, JSON.stringify({ version: RATINGS_VERSION, folders }) + '\n', { mode: 0o600 })
     restrictToOwner(temp)
-    await rename(temp, file)
+    await renameOver(temp, file)
   } catch (error) {
     await unlink(temp).catch(() => {})
     throw error
