@@ -495,7 +495,32 @@
     "bulkProgress": "{done} / {total} · tagged {tagged} · skipped {skipped} · failed {failed}",
     "bulkDismiss": "Dismiss",
     "bulkFailed": "Tagging could not start",
-    "bulkCancelled": "Tagging stopped"
+    "bulkCancelled": "Tagging stopped",
+    "suggest": {
+      "label": "Suggestions",
+      "count": "{count} shown",
+      "kind": {
+        "value": "Setting",
+        "field": "Setting",
+        "syntax": "How to search"
+      },
+      "about": {
+        "exact": "A tag exactly: \"long hair\" is not \"very long hair\"",
+        "exclude": "Leave out the pictures that match",
+        "atLeast": "This number or more",
+        "atMost": "This number or less",
+        "model": "The model name contains",
+        "lora": "A LoRA name contains",
+        "sampler": "The sampler name contains",
+        "seed": "The seed",
+        "steps": "The steps",
+        "cfg": "The CFG scale",
+        "w": "The width in pixels",
+        "h": "The height in pixels"
+      },
+      "note": "Tags and names are suggested from the {count} pictures shown so far only; those of pictures not shown yet are not. The search itself looks through the whole folder.",
+      "noteSecret": "Secret mode: no tags or names are suggested, only how to write a search."
+    }
   },
   "lightbox": {
     "copiedWhat": "Copied {what}",

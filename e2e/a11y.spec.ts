@@ -64,6 +64,16 @@ test.describe('opened views', () => {
     await expect(page.getByRole('link', { name: 'In gallery' })).toBeVisible()
   }
 
+  test('the search suggestions have no serious accessibility findings', async ({ page }) => {
+    await generate(page, `a11ysuggest${Date.now()} harbour`)
+    await page.goto('/gallery')
+    const box = page.getByPlaceholder('Search prompts, tags, models, file names')
+    await box.fill('a11ysugg')
+    await expect(page.getByRole('listbox', { name: 'Suggestions' }).getByRole('option').first()).toBeVisible()
+    await box.press('ArrowDown')
+    await scan(page, 'search suggestions')
+  })
+
   test('the viewer and Compare have no serious accessibility findings', async ({ page }) => {
     const tag = `a11yspec${Date.now()}`
     await generate(page, `${tag} harbour`)

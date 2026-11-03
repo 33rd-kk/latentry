@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Suggestions in the gallery's search box**: tags of the pictures shown so
+  far (with how many carry each), settings by name and their values, and
+  how to write a search (`"exact"`, `-leave out`, `steps:>=`). ↓ / ↑,
+  Enter or Tab, Esc. A note under the list says tags come only from the
+  pictures shown; the search itself still covers the whole folder. Nothing
+  is asked of the server for them or kept, and secret mode suggests only how
+  to search. See [Suggestions](https://33rd-kk.github.io/latentry/guide/gallery/#suggestions).
+
 ## 0.14.0 (2026-11-03)
 
 **Upgrading from 0.13.0**: after the usual update, open **Setup** and run

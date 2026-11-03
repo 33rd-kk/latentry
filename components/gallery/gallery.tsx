@@ -17,6 +17,8 @@ import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type Ga
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import { useSeenFacets } from "@/hooks/use-seen-facets"
+import { useSeenTags } from "@/hooks/use-seen-tags"
+import type { SuggestSource } from "@/lib/gallery/suggest"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
@@ -54,6 +56,12 @@ export function Gallery() {
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
   const seenFacets = useSeenFacets(activeDir, page.pictures)
+  // The search box's suggestions: only from the pictures this page has shown.
+  const seenTags = useSeenTags(activeDir, page.pictures)
+  const suggestSource = useMemo<SuggestSource>(
+    () => ({ tags: seenTags.tags, samplers: seenTags.samplers, models: seenFacets.models, loras: seenFacets.loras }),
+    [seenTags, seenFacets.models, seenFacets.loras]
+  )
   // The whole folder's names, asked for only while the panel is open, and
   // never in secret mode (the panel shows no names then).
   const folderFacets = useFolderFacets(activeDir, filtersOpen && !secret)
@@ -88,6 +96,9 @@ export function Gallery() {
         searchText={searchText}
         onSearchText={setSearchText}
         onSearchFocus={setSearchFocused}
+        secret={secret}
+        suggestSource={suggestSource}
+        suggestFrom={seenTags.pictureCount}
         query={query}
         onChange={changeFilters}
         filtersOpen={filtersOpen}

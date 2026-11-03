@@ -495,7 +495,32 @@
     "bulkProgress": "{done} / {total} · タグ付け {tagged} · スキップ {skipped} · 失敗 {failed}",
     "bulkDismiss": "閉じる",
     "bulkFailed": "タグ付けを開始できませんでした",
-    "bulkCancelled": "タグ付けを停止しました"
+    "bulkCancelled": "タグ付けを停止しました",
+    "suggest": {
+      "label": "入力候補",
+      "count": "表示中 {count} 枚",
+      "kind": {
+        "value": "設定",
+        "field": "設定",
+        "syntax": "検索の書き方"
+      },
+      "about": {
+        "exact": "タグの完全一致: \"long hair\" は \"very long hair\" に一致しません",
+        "exclude": "一致する画像を除く",
+        "atLeast": "この数以上",
+        "atMost": "この数以下",
+        "model": "モデル名に含む",
+        "lora": "LoRA 名に含む",
+        "sampler": "サンプラー名に含む",
+        "seed": "シード",
+        "steps": "ステップ数",
+        "cfg": "CFG スケール",
+        "w": "幅 (ピクセル)",
+        "h": "高さ (ピクセル)"
+      },
+      "note": "タグと名前の候補は、表示した {count} 枚の画像からだけ出しています。まだ表示していない画像のものは出ません。検索そのものはフォルダ全体が対象です。",
+      "noteSecret": "シークレットモード中: タグや名前は候補に出さず、検索の書き方だけを出します。"
+    }
   },
   "lightbox": {
     "copiedWhat": "{what} をコピーしました",

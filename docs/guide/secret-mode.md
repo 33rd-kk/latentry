@@ -45,6 +45,7 @@ reloaded). Deleting a character deletes it for good, in either mode.
   picture and all of that while it stays on screen. Moving to another
   picture blurs and hides again, and so does coming back to it or closing
   the viewer.
+- The search box suggests no tags or names, only how to write a search.
 - **Compare** blurs both pictures and hides their differing settings and
   tags. **Show for this comparison** reveals them until the comparison is
   closed.
