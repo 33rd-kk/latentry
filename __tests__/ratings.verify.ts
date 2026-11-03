@@ -178,14 +178,16 @@ async function main() {
     rmSync(path.join(folder, 'x.png'))
     invalidateListing(dir)
     await listEntries(dir)
-    // The drop is not waited for by the listing; give it its turn.
-    for (let i = 0; i < 20 && folderRatings(folder).has('x.png'); i += 1) await new Promise((resolve) => setTimeout(resolve, 10))
+    // The drop is not waited for by the listing; give it up to 5 s (a slow
+    // CI disk writes the file well after 200 ms).
+    for (let i = 0; i < 200 && folderRatings(folder).has('x.png'); i += 1) await new Promise((resolve) => setTimeout(resolve, 25))
     check(!folderRatings(folder).has('x.png') && folderRatings(folder).get('a.png') === 5, 'listing a folder forgets the stars of a file no longer in it')
     rmSync(path.join(folder, 'a.png'))
     rmSync(path.join(folder, 'b.png'))
     invalidateListing(dir)
     await listEntries(dir)
-    await new Promise((resolve) => setTimeout(resolve, 50))
+    // Nothing should come; long enough that a drop would have shown by now.
+    await new Promise((resolve) => setTimeout(resolve, 500))
     eq(folderRatings(folder).size, 2, 'but not when the folder looks empty, as a drive not mounted yet would')
 
     // ── A newer file ──

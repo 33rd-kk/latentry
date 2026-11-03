@@ -505,6 +505,20 @@
       "stars": "{count} of 5 stars",
       "clearHint": "Take the rating away",
       "failed": "Could not save the rating."
+    },
+    "download": {
+      "clean": "Save without settings",
+      "cleanHint": "Saves the picture without its prompt, seed, LoRAs, workflow or EXIF. The picture itself is not changed.",
+      "original": "Save with settings",
+      "originalHint": "Saves the file as it is, with everything it says about how it was made.",
+      "bulkClean": "Download {count} without settings",
+      "bulkOriginal": "With settings",
+      "failed": "Could not save: {error}",
+      "leftOut": "{count} could not be cleaned and were left out.",
+      "notCleaned": "This picture could not be read well enough to remove its settings, so it was not saved.",
+      "tooLarge": "Too large to download at once. Choose fewer pictures.",
+      "noneSaved": "None of these pictures could be saved.",
+      "tooMany": "Choose 1 to {count} pictures to download at once."
     }
   },
   "lightbox": {
