@@ -64,7 +64,7 @@ rm -f "$jar"
 image() { MSYS_NO_PATHCONV=1 docker run --rm --entrypoint "$@"; }
 files=$(image sh "$img" -c 'cd /app && find . -path ./node_modules -prune -o -print')
 check 'no .env file' '! grep -qE "/\.env" <<<"$files"'
-check 'no settings file, pairing key, folder-name key or model info' '! grep -qE "latentry\.(settings\.json|pairing-|folder-names-key|models\.json)" <<<"$files"'
+check 'no settings file, pairing key, folder-name key, model info or ratings' '! grep -qE "latentry\.(settings\.json|pairing-|folder-names-key|models\.json|ratings\.json)" <<<"$files"'
 check 'no pictures, notes, audits, tests or docs' '! grep -qE "^\./(output|notes|audit|__tests__|e2e|docs|coverage|\.git)(/|$)" <<<"$files"'
 check 'models points into the data volume' '[ "$(image readlink "$img" /app/models)" = /data/models ]'
 check 'it runs as an ordinary user' '[ "$(image id "$img" -u)" != 0 ]'

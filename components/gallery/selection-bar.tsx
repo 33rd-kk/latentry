@@ -1,16 +1,18 @@
 "use client"
 
-import { Columns2, Tags, X } from "lucide-react"
+import { useState } from "react"
+import { Columns2, Download, Loader2, Tags, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Switch } from "@/components/ui/switch"
-import type { GalleryFolder, GalleryPicture } from "@/hooks/use-gallery"
+import { saveDownload, type GalleryFolder, type GalleryPicture } from "@/hooks/use-gallery"
 import type { GallerySelection } from "@/hooks/use-gallery-selection"
 import { useT } from "@/lib/i18n"
 
 /**
  * While selecting, or while a bulk tagging run is on screen: how many are
- * selected, quick ways to select, comparing two, and tagging them all.
+ * selected, quick ways to select, comparing two, downloading them (without
+ * their settings unless asked), and tagging them all.
  */
 export function SelectionBar({
   selection,
@@ -27,7 +29,24 @@ export function SelectionBar({
 }) {
   const t = useT()
   const { selecting, selected, setSelected, skipTagged, setSkipTagged, bulk, runBulkTag } = selection
+  const [downloading, setDownloading] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
   if (!selecting && !bulk.progress) return null
+
+  const download = async (clean: boolean) => {
+    if (!folder) return
+    setDownloading(true)
+    setNote(null)
+    const names = pictures.filter((picture) => selected.has(picture.name)).map((picture) => picture.name)
+    const result = await saveDownload(
+      "/api/gallery/download",
+      { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: folder.index, names, clean }) },
+      "latentry-pictures.zip"
+    )
+    setDownloading(false)
+    if (!result.ok) setNote(t("gallery.download.failed", { error: t.server(result.error) }))
+    else if (result.leftOut) setNote(t("gallery.download.leftOut", { count: result.leftOut }))
+  }
   return (
     <div className="space-y-2 rounded-md border bg-muted/30 p-3">
       <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -67,6 +86,27 @@ export function SelectionBar({
           <Columns2 className="mr-1 h-4 w-4" />
           {t("gallery.compare.button")}
         </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={selected.size === 0 || downloading || !folder}
+          title={t("gallery.download.cleanHint")}
+          onClick={() => void download(true)}
+        >
+          {downloading ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Download className="mr-1 h-4 w-4" />}
+          {t("gallery.download.bulkClean", { count: selected.size })}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          disabled={selected.size === 0 || downloading || !folder}
+          title={t("gallery.download.originalHint")}
+          onClick={() => void download(false)}
+        >
+          {t("gallery.download.bulkOriginal")}
+        </Button>
         <label className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={skipTagged} onCheckedChange={setSkipTagged} disabled={bulk.running} />
           {t("gallery.skipTagged")}
@@ -82,6 +122,7 @@ export function SelectionBar({
           </Button>
         )}
       </div>
+      {note && <p className="text-xs text-muted-foreground">{note}</p>}
       {selecting && folder && !folder.writable && <p className="text-xs text-muted-foreground">{t("gallery.bulkReadOnly")}</p>}
       {selecting && !canTag && <p className="text-xs text-muted-foreground">{t("gallery.bulkNoTagger")}</p>}
       {bulk.progress && (

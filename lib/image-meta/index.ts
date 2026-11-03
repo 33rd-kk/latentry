@@ -5,9 +5,11 @@
 // Kept free of the app (see README.md) so it can become its own package.
 
 export { readImageInfo, readImageInfoFrom, type ImageFormat, type ImageInfo } from './read'
+export { exifOrientation, stripJpeg, stripMetadata, stripPng, stripWebp } from './strip'
 export { decodeUserComment, readExifText, tiffOf, type ExifText } from './exif'
 export {
   decodeTextChunk,
+  encodeChunk,
   encodeTextChunk,
   isPng,
   LATENTRY_KEY,

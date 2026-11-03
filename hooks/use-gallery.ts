@@ -22,6 +22,8 @@ export interface GalleryPicture {
   meta: ImageMeta | null
   /** When stacking: the stack this picture stands for (see lib/gallery/fs.ts). */
   stack?: { key: string; count: number }
+  /** Stars given to it, when it has any (lib/gallery/ratings.ts). */
+  stars?: number
 }
 
 export function pictureUrl(picture: { dir: number; name: string }, thumb = false): string {
@@ -71,6 +73,8 @@ export interface GalleryPage {
   reload: () => void
   /** Replaces one picture's metadata in place, after its tags were written. */
   patch: (picture: GalleryPicture, meta: ImageMeta) => void
+  /** Gives one picture its new stars in place (0 for none). */
+  patchStars: (picture: GalleryPicture, stars: number) => void
 }
 
 /**
@@ -157,7 +161,27 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
     )
   }, [])
 
-  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch }
+  const patchStars = useCallback((picture: GalleryPicture, stars: number) => {
+    setPictures((previous) =>
+      previous.map((item) => (item.dir === picture.dir && item.name === picture.name ? { ...item, stars: stars || undefined } : item))
+    )
+  }, [])
+
+  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch, patchStars }
+}
+
+/** Saves a picture's stars (0 takes them away); whether it worked. */
+export async function saveRating(picture: { dir: number; name: string }, stars: number): Promise<boolean> {
+  try {
+    const response = await fetch(`${pictureUrl(picture)}/rating`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stars }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
 }
 
 function names(value: unknown): string[] {
@@ -203,4 +227,49 @@ export async function fetchPicture(url: string): Promise<Blob> {
   const response = await fetch(url)
   if (!response.ok) throw new Error(String(response.status))
   return response.blob()
+}
+
+/** The file name a response's Content-Disposition gives, UTF-8 form first. */
+function dispositionName(header: string | null, fallback: string): string {
+  const utf8 = header?.match(/filename\*=UTF-8''([^;]+)/i)?.[1]
+  if (utf8) {
+    try {
+      return decodeURIComponent(utf8)
+    } catch {
+      // Fall through to the plain form.
+    }
+  }
+  return header?.match(/filename="([^"]+)"/i)?.[1] ?? fallback
+}
+
+/**
+ * Fetches a download and saves it through the browser, so a refusal can be
+ * shown where the button is instead of as a page of JSON. The file is held in
+ * this page's memory only until the browser has it.
+ */
+export async function saveDownload(
+  url: string,
+  init: RequestInit | undefined,
+  fallbackName: string
+): Promise<{ ok: true; leftOut: number } | { ok: false; error: string }> {
+  try {
+    const response = await fetch(url, { cache: "no-store", ...init })
+    if (!response.ok) {
+      const data = await response.json().catch(() => null)
+      return { ok: false, error: typeof data?.error === "string" ? data.error : `HTTP ${response.status}` }
+    }
+    const blob = await response.blob()
+    const href = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = href
+    link.download = dispositionName(response.headers.get("content-disposition"), fallbackName)
+    document.body.append(link)
+    link.click()
+    link.remove()
+    // After the click has handed the file over.
+    setTimeout(() => URL.revokeObjectURL(href), 1000)
+    return { ok: true, leftOut: Number(response.headers.get("x-latentry-left-out")) || 0 }
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) }
+  }
 }

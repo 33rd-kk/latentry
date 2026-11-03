@@ -16,6 +16,15 @@
 /** The day the locks were resolved for (uv's --exclude-newer). scripts/lock-engine.mjs reads it from here. */
 export const LOCKED_ON = '2026-11-01'
 
+/**
+ * Whether the engine was installed from an older lock than this Latentry's:
+ * its pinned packages are behind, and Repair / update brings the new ones.
+ * Dates compare as text (YYYY-MM-DD). False for an install that is not pinned.
+ */
+export function lockOutdated(lock: { lockedOn: string } | null | undefined, current: string = LOCKED_ON): boolean {
+  return !!lock && /^\d{4}-\d{2}-\d{2}$/.test(lock.lockedOn) && lock.lockedOn < current
+}
+
 /** After this long the Setup page says the pinned packages may have known vulnerabilities. */
 export const LOCK_STALE_DAYS = 180
 
