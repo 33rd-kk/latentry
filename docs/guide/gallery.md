@@ -45,10 +45,32 @@ Type in **Search prompts, tags, models, file names**:
   `-model:pony`, `-lora:detail`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
   just text.
 
-While you use the search box, the same tips show under it. **Hide tips**
-turns them off (this browser remembers that), and the **?** next to the box
-(**Show search tips**) brings them back. **Refresh** picks up pictures that
-arrived from elsewhere.
+### Suggestions
+
+As you type, the search box suggests what can follow:
+
+- **Tags** of the pictures shown so far, starting with what you typed
+  first, each with how many of them carry it. Inside quotes the tag comes
+  quoted (exact), after a `-` with its `-`.
+- **Settings** by name (`mo` → `model:`), the models, LoRAs and samplers of
+  the pictures shown after `model:`, `lora:` and `sampler:`, and `>=` / `<=`
+  after a number key.
+- **How to search**, in an empty term: `"…"` (exact), `-…` (leave out) and
+  every `key:`.
+
+**↓** and **↑** move through the list, **Enter** or **Tab** takes the one
+marked, **Esc** closes it; a click takes one too. Nothing is marked until you
+press ↓, so Enter alone never changes what you typed.
+
+**Only the pictures shown so far** are looked at for tags and names, as the
+note under the list says: the ones this page has loaded in this folder,
+more as you scroll. Tags of pictures not shown yet are not suggested, but
+the search itself still looks through the whole folder. The suggestions
+come from what the page already has: nothing more is asked of Latentry, and
+nothing is kept after you leave. In [secret mode](secret-mode.md) no tags or
+names are suggested, only how to write a search.
+
+**Refresh** picks up pictures that arrived from elsewhere.
 
 ## Order and filters
 

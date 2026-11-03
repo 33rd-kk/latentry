@@ -472,14 +472,6 @@
     "strength": "強度",
     "hires": "Hires",
     "hiresValue": "{scale}× {upscaler}、ノイズ除去 {denoise}",
-    "searchHintTerms": "語はカンマで区切り、すべての語が一致する必要があります。1 つの語は複数の単語でもかまいません。",
-    "searchHintExact": "引用符で囲むと 1 つのタグに完全一致します。\"very long hair\" には一致しません。ビューアーから送ったタグは引用符付きです。",
-    "searchHintSpelling": "アンダースコアと空白は同じとみなし、大文字と小文字は区別しません。",
-    "searchHintOther": "引用符のない語は、モデルとファイル名にも一致します。",
-    "searchHintFields": "設定を指定：model、sampler、lora はその文字を含むもの、seed、steps、cfg、w、h は =、>、>=、<、<= で数を比べます。",
-    "searchHintExclude": "先頭に - を付けると、一致する画像を除きます：-smile、-\"long hair\"、-model:pony、-lora:detail。",
-    "searchHintHide": "ヒントを隠す",
-    "searchHintShow": "検索のヒントを表示",
     "showTags": "タグ",
     "select": "選択",
     "cardNoTags": "タグはまだありません",
@@ -525,6 +517,31 @@
       "missing": "なし",
       "sheet": "グリッドのシート",
       "place": "X/Y グリッド"
+    },
+    "suggest": {
+      "label": "入力候補",
+      "count": "表示中 {count} 枚",
+      "kind": {
+        "value": "設定",
+        "field": "設定",
+        "syntax": "検索の書き方"
+      },
+      "about": {
+        "exact": "タグの完全一致: \"long hair\" は \"very long hair\" に一致しません",
+        "exclude": "一致する画像を除く",
+        "atLeast": "この数以上",
+        "atMost": "この数以下",
+        "model": "モデル名に含む",
+        "lora": "LoRA 名に含む",
+        "sampler": "サンプラー名に含む",
+        "seed": "シード",
+        "steps": "ステップ数",
+        "cfg": "CFG スケール",
+        "w": "幅 (ピクセル)",
+        "h": "高さ (ピクセル)"
+      },
+      "note": "タグと名前の候補は、表示した {count} 枚の画像からだけ出しています。まだ表示していない画像のものは出ません。検索そのものはフォルダ全体が対象です。",
+      "noteSecret": "シークレットモード中: タグや名前は候補に出さず、検索の書き方だけを出します。"
     }
   },
   "lightbox": {

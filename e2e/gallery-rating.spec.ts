@@ -37,6 +37,8 @@ test('stars are given, shown, filtered and ordered by', async ({ page }) => {
   await page.goto('/gallery')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('rating spec')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   await expect(thumbs).toHaveCount(2)
 
   // The newer one (orchard) comes first: give it 2 stars with the mouse.
@@ -90,6 +92,8 @@ test('secret mode neither shows nor gives stars', async ({ page }) => {
   await page.goto('/gallery')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('rating spec secret')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
   const saved = ratingSaved(page, 4)

@@ -12,12 +12,13 @@ import { GalleryToolbar } from "./gallery-toolbar"
 import { SelectionBar } from "./selection-bar"
 import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
-import { SearchHint } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { pictureUrl, saveRating, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import { useSeenFacets } from "@/hooks/use-seen-facets"
+import { useSeenTags } from "@/hooks/use-seen-tags"
+import type { SuggestSource } from "@/lib/gallery/suggest"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
 import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
@@ -35,7 +36,6 @@ export function Gallery() {
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [searchText, setSearchText] = useState("")
-  const [searchFocused, setSearchFocused] = useState(false)
   const [q, setQ] = useState("")
   // The order and filters live only as long as the page: nothing about what
   // was looked for is kept in the browser or the address bar.
@@ -55,6 +55,12 @@ export function Gallery() {
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
   const seenFacets = useSeenFacets(activeDir, page.pictures)
+  // The search box's suggestions: only from the pictures this page has shown.
+  const seenTags = useSeenTags(activeDir, page.pictures)
+  const suggestSource = useMemo<SuggestSource>(
+    () => ({ tags: seenTags.tags, samplers: seenTags.samplers, models: seenFacets.models, loras: seenFacets.loras }),
+    [seenTags, seenFacets.models, seenFacets.loras]
+  )
   // The whole folder's names, asked for only while the panel is open, and
   // never in secret mode (the panel shows no names then).
   const folderFacets = useFolderFacets(activeDir, filtersOpen && !secret)
@@ -62,6 +68,16 @@ export function Gallery() {
   // Tags under each card, on or off for every card at once, remembered here.
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
   const selection = useGallerySelection(activeDir, `${activeDir}|${toParams(query)}`, page)
+
+  // The search tips that came before the suggestions remembered being hidden
+  // here; nothing reads that any more, so it is not left behind.
+  useEffect(() => {
+    try {
+      localStorage.removeItem("latentry:search-hint-hidden")
+    } catch {
+      // Storage blocked: there is nothing there either.
+    }
+  }, [])
 
   // The search applies after typing pauses, not on every keystroke.
   useEffect(() => {
@@ -124,7 +140,9 @@ export function Gallery() {
         onDir={setDir}
         searchText={searchText}
         onSearchText={setSearchText}
-        onSearchFocus={setSearchFocused}
+        secret={secret}
+        suggestSource={suggestSource}
+        suggestFrom={seenTags.pictureCount}
         query={query}
         onChange={changeFilters}
         filtersOpen={filtersOpen}
@@ -134,7 +152,6 @@ export function Gallery() {
         onShowTags={setShowTags}
         selection={selection}
       />
-      <SearchHint visible={searchFocused || searchText.trim().length > 0} />
       <FilterPanel
         open={filtersOpen}
         query={query}

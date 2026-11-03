@@ -74,6 +74,15 @@ Settings (**Test**).
 **A turned pose comes out from behind.** See the tips in
 [Pose and the 3D view](../guide/pose.md).
 
+## Gallery
+
+**A tag I know is there is not suggested.** The search box suggests tags
+(and model, LoRA and sampler names) only from the pictures shown so far:
+scroll down to load more, and their tags join the suggestions. Type the tag
+in full, or as `"tag"` for an exact match, to search the whole folder for it
+anyway; the search is not limited to what is shown. In secret mode no tags
+are suggested at all. See [Suggestions](../guide/gallery.md#suggestions).
+
 ## Using it from another device
 
 **The page does not open on the phone.** Latentry listens on this computer

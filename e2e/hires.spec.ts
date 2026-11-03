@@ -42,6 +42,8 @@ test('hires fix is sent with the chosen upscaler and kept in the picture', async
   // The side panel: the file's own size, and the size it was drawn at beside it.
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill(PROMPT)
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()

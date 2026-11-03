@@ -1,12 +1,11 @@
 "use client"
 
-import { CheckSquare, FolderOpen, Lock, RefreshCw, Search, Tags } from "lucide-react"
+import { CheckSquare, FolderOpen, Lock, RefreshCw, Tags } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { PRIVATE_TEXT } from "@/lib/secret-mode"
 import { FilterToggle, SortSelect } from "./gallery-filters"
-import { SearchHintToggle } from "./search-hint"
+import { SearchBox } from "./search-suggestions"
+import type { SuggestSource } from "@/lib/gallery/suggest"
 import type { GalleryFolder, GalleryPage } from "@/hooks/use-gallery"
 import type { GallerySelection } from "@/hooks/use-gallery-selection"
 import type { GalleryQuery } from "@/lib/gallery/filter"
@@ -21,7 +20,9 @@ export function GalleryToolbar({
   onDir,
   searchText,
   onSearchText,
-  onSearchFocus,
+  secret,
+  suggestSource,
+  suggestFrom,
   query,
   onChange,
   filtersOpen,
@@ -36,7 +37,11 @@ export function GalleryToolbar({
   onDir: (dir: number) => void
   searchText: string
   onSearchText: (text: string) => void
-  onSearchFocus: (focused: boolean) => void
+  secret: boolean
+  /** What the search box suggests from: the pictures shown so far. */
+  suggestSource: SuggestSource
+  /** How many pictures that is. */
+  suggestFrom: number
   query: GalleryQuery
   onChange: (patch: Partial<GalleryQuery>) => void
   filtersOpen: boolean
@@ -62,19 +67,13 @@ export function GalleryToolbar({
           </TabsList>
         </Tabs>
       )}
-      <div className="relative min-w-48 flex-1">
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          {...PRIVATE_TEXT}
-          value={searchText}
-          onChange={(event) => onSearchText(event.target.value)}
-          onFocus={() => onSearchFocus(true)}
-          onBlur={() => onSearchFocus(false)}
-          placeholder={t("gallery.search")}
-          className="pl-8"
-        />
-      </div>
-      <SearchHintToggle />
+      <SearchBox
+        value={searchText}
+        onChange={onSearchText}
+        secret={secret}
+        source={suggestSource}
+        pictureCount={suggestFrom}
+      />
       <SortSelect value={query.sort ?? DEFAULT_SORT} onChange={(sort) => onChange({ sort })} />
       <FilterToggle open={filtersOpen} query={query} onToggle={onToggleFilters} />
       <Button variant="ghost" size="icon" onClick={page.reload} aria-label={t("gallery.refresh")} title={t("gallery.refresh")}>

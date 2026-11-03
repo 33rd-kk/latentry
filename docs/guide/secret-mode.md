@@ -47,6 +47,7 @@ reloaded). Deleting a character deletes it for good, in either mode.
   the viewer.
 - Stars are not shown on cards or in the viewer, and cannot be given:
   rating a picture would leave a record of it.
+- The search box suggests no tags or names, only how to write a search.
 - **Compare** blurs both pictures and hides their differing settings and
   tags. **Show for this comparison** reveals them until the comparison is
   closed.

@@ -30,6 +30,8 @@ async function drawTwo(page: Page, backend: string, prompt: string) {
 
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill(prompt)
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   await expect(page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')).toHaveCount(2)
 }
 

@@ -472,14 +472,6 @@
     "strength": "Strength",
     "hires": "Hires",
     "hiresValue": "{scale}× {upscaler}, denoise {denoise}",
-    "searchHintTerms": "Commas separate terms; every term must match. A term can be several words.",
-    "searchHintExact": "Quotes match one tag exactly: not \"very long hair\". Tags sent from the viewer are quoted.",
-    "searchHintSpelling": "Underscores and spaces are the same, and case does not matter.",
-    "searchHintOther": "Unquoted terms also match the model and the file name.",
-    "searchHintFields": "A setting: model, sampler or lora contains the text; seed, steps, cfg, w and h compare numbers with =, >, >=, < or <=.",
-    "searchHintExclude": "A leading - leaves out pictures that match: -smile, -\"long hair\", -model:pony, -lora:detail.",
-    "searchHintHide": "Hide tips",
-    "searchHintShow": "Show search tips",
     "showTags": "Tags",
     "select": "Select",
     "cardNoTags": "No tags yet",
@@ -525,6 +517,31 @@
       "missing": "Not here",
       "sheet": "Grid sheet",
       "place": "X/Y grid"
+    },
+    "suggest": {
+      "label": "Suggestions",
+      "count": "{count} shown",
+      "kind": {
+        "value": "Setting",
+        "field": "Setting",
+        "syntax": "How to search"
+      },
+      "about": {
+        "exact": "A tag exactly: \"long hair\" is not \"very long hair\"",
+        "exclude": "Leave out the pictures that match",
+        "atLeast": "This number or more",
+        "atMost": "This number or less",
+        "model": "The model name contains",
+        "lora": "A LoRA name contains",
+        "sampler": "The sampler name contains",
+        "seed": "The seed",
+        "steps": "The steps",
+        "cfg": "The CFG scale",
+        "w": "The width in pixels",
+        "h": "The height in pixels"
+      },
+      "note": "Tags and names are suggested from the {count} pictures shown so far only; those of pictures not shown yet are not. The search itself looks through the whole folder.",
+      "noteSecret": "Secret mode: no tags or names are suggested, only how to write a search."
     }
   },
   "lightbox": {

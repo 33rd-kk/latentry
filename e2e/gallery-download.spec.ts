@@ -27,6 +27,8 @@ test('a picture is saved without its settings unless asked', async ({ page }) =>
   await page.goto('/gallery')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('download spec')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   await expect(thumbs).toHaveCount(2)
 
   await thumbs.first().click()

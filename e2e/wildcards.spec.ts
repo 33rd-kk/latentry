@@ -23,6 +23,8 @@ test('a wildcard is picked, filled in for the run, and kept with the picture', a
 
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('wildcardrun')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
