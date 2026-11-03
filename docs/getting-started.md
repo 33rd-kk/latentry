@@ -29,11 +29,12 @@ are checked.
 ```bash
 git clone https://github.com/33rd-kk/latentry.git
 cd latentry
-docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   # with an NVIDIA GPU
-docker compose up -d --build                                       # without
+docker compose -f compose.yaml -f compose.gpu.yaml up -d   # with an NVIDIA GPU
+docker compose up -d                                       # without
 ```
 
-The first start builds the image, which takes a few minutes. Latentry then
+The first start downloads Latentry's official image, which takes a few
+minutes ([how to check it](install/docker.md#the-image)). Latentry then
 listens on **<http://localhost:3000>**, on this computer only.
 
 ## Make this browser the owner

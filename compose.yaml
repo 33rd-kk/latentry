@@ -1,15 +1,20 @@
 # Latentry with Docker Compose. See docs/install/docker.md.
 #
-#   docker compose up -d --build                                   start it
-#   docker compose -f compose.yaml -f compose.gpu.yaml up -d --build   with an NVIDIA GPU
+#   docker compose up -d                                           start it
+#   docker compose -f compose.yaml -f compose.gpu.yaml up -d       with an NVIDIA GPU
 #   docker compose exec latentry npm run owner-code                make your browser the owner
 #
 # Then open http://localhost:3000 and enter the code.
+#
+# To build the image from this folder instead of using the official one, add
+# -f compose.build.yaml (see that file).
 
 services:
   latentry:
-    build: .
-    image: latentry:local
+    # The official image of this release, built and attested by Latentry's
+    # release workflow. Each release names its own version here; check it with
+    #   gh attestation verify oci://ghcr.io/33rd-kk/latentry:0.14.0 --repo 33rd-kk/latentry
+    image: ghcr.io/33rd-kk/latentry:0.14.0
     init: true
     restart: unless-stopped
     ports:
