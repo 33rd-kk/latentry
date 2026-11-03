@@ -495,7 +495,13 @@
     "bulkProgress": "{done} / {total} · タグ付け {tagged} · スキップ {skipped} · 失敗 {failed}",
     "bulkDismiss": "閉じる",
     "bulkFailed": "タグ付けを開始できませんでした",
-    "bulkCancelled": "タグ付けを停止しました"
+    "bulkCancelled": "タグ付けを停止しました",
+    "gridView": {
+      "open": "ビューアで開く",
+      "missing": "なし",
+      "sheet": "グリッドのシート",
+      "place": "X/Y グリッド"
+    }
   },
   "lightbox": {
     "copiedWhat": "{what} をコピーしました",

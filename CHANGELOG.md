@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **X/Y grids in the gallery**: an opened **Stack: Same X/Y grid** card
+  shows the grid as it was asked for, with its values across and down and
+  the sheet below, and the viewer's panel says a picture's place in the
+  grid. New cells record their place on each axis, so the order is the one
+  typed. See [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
+
 ## 0.14.0 (2026-11-03)
 
 **Upgrading from 0.13.0**: after the usual update, open **Setup** and run

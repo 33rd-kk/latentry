@@ -495,7 +495,13 @@
     "bulkProgress": "{done} / {total} · tagged {tagged} · skipped {skipped} · failed {failed}",
     "bulkDismiss": "Dismiss",
     "bulkFailed": "Tagging could not start",
-    "bulkCancelled": "Tagging stopped"
+    "bulkCancelled": "Tagging stopped",
+    "gridView": {
+      "open": "Open in the viewer",
+      "missing": "Not here",
+      "sheet": "Grid sheet",
+      "place": "X/Y grid"
+    }
   },
   "lightbox": {
     "copiedWhat": "Copied {what}",

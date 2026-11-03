@@ -76,6 +76,18 @@ test('a grid fills in cell by cell, and its sheet is saved and stacked with it',
   await expect(thumbs).toHaveCount(1)
   await expect(page.getByTitle('7 pictures. Click to see them all.')).toHaveText('7')
 
+  // Opened, the stack is the grid again: CFG across, steps down, the sheet apart.
+  await thumbs.first().click()
+  const table = page.getByRole('table', { name: 'CFG × Steps' })
+  await expect(table.getByRole('columnheader')).toContainText(['', '4', '6', '8'])
+  await expect(table.getByRole('rowheader')).toContainText(['10', '20'])
+  await expect(table.locator('img[alt^="Cell "]')).toHaveCount(6)
+  await expect(page.getByText('Grid sheet', { exact: true })).toBeVisible()
+  await table.locator('img[alt="Cell 6, 20"]').click()
+  if (!(await page.getByRole('dialog').getByText('X/Y grid', { exact: true }).isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await expect(page.getByRole('dialog')).toContainText('CFG: 6 · Steps: 20')
+  await page.keyboard.press('Escape')
+
   // The X/Y grid filter: the sheet alone, or the cells alone.
   await page.getByRole('combobox', { name: 'Stack' }).click()
   await page.getByRole('option', { name: "Don't stack" }).click()

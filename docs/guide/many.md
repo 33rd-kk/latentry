@@ -58,7 +58,13 @@ without it.
   picture it stopped on, which the cell shows marked **Stopped**.
 - Each cell's pictures are saved like any others, and record the grid and
   their place in it. In the gallery, **Stack: Same X/Y grid** puts a grid's
-  pictures in one card.
+  pictures in one card. Opened, the card shows the grid again: the X values
+  across, the Y values down, each cell's first picture (with how many it
+  has), **Not here** for a cell with no picture left, and the sheet below.
+  Click a picture to open it; the side panel says its place in the grid.
+  Grids saved before 0.15 do not record the order the values were typed in:
+  numbers are put in numeric order, other values in the order their cells
+  were made. In secret mode the values are not shown.
 - **Save sheet** puts a finished grid's cells in one picture, with the values
   written above and beside them and the settings they change at the top, and
   saves it to the gallery. It uses the first picture of each finished cell,

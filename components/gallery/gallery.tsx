@@ -6,6 +6,7 @@ import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { GalleryPanel } from "./gallery-panel"
 import { GalleryGrid } from "./gallery-grid"
+import { GridSheetView } from "./grid-sheet-view"
 import { GalleryNotConfigured } from "./not-configured"
 import { GalleryToolbar } from "./gallery-toolbar"
 import { SelectionBar } from "./selection-bar"
@@ -122,15 +123,20 @@ export function Gallery() {
       <SelectionBar selection={selection} pictures={page.pictures} folder={folder} canTag={tagger !== null} onCompare={setComparing} />
       {folder && !folder.writable && <p className="text-xs text-muted-foreground">{t("gallery.readOnlyHint")}</p>}
 
-      <GalleryGrid
-        page={page}
-        secret={secret}
-        showTags={showTags}
-        selection={selection}
-        onOpen={setViewing}
-        onChange={changeFilters}
-        onSearchText={setSearchText}
-      />
+      {/* An opened X/Y grid stack is shown as the grid; anything else as cards. */}
+      {query.group === "grid" && query.stack ? (
+        <GridSheetView page={page} secret={secret} onOpen={setViewing} />
+      ) : (
+        <GalleryGrid
+          page={page}
+          secret={secret}
+          showTags={showTags}
+          selection={selection}
+          onOpen={setViewing}
+          onChange={changeFilters}
+          onSearchText={setSearchText}
+        />
+      )}
 
       <CompareDialog pair={comparing} onClose={() => setComparing(null)} secret={secret} />
       <ImageLightbox
