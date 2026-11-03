@@ -5,10 +5,11 @@
 # (LATENTRY_TRUST_LOOPBACK=off): every browser pairs, the first one with a
 # code from `docker compose exec latentry npm run owner-code`.
 
-# node:22.23.2-bookworm-slim, pinned so a build is reproducible.
-ARG NODE_IMAGE=node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9
+# node:22.23.2-bookworm-slim, pinned so a build is reproducible. Written out
+# rather than through an ARG, so Dependabot can keep it current.
+FROM node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9 AS base
 
-FROM ${NODE_IMAGE} AS build
+FROM base AS build
 # git: one package (panorail) comes from its GitHub tag.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates git \
@@ -28,7 +29,7 @@ RUN arch=$(case "$(uname -m)" in aarch64) echo arm64 ;; *) echo x64 ;; esac) \
   && rm -f "$ort/linux/$arch"/libonnxruntime_providers_cuda.so "$ort/linux/$arch"/libonnxruntime_providers_tensorrt.so \
   && rm -rf node_modules/@playwright node_modules/playwright node_modules/playwright-core
 
-FROM ${NODE_IMAGE}
+FROM base
 # ca-certificates: the engine's downloads (uv, Python, PyTorch, models).
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates \
@@ -55,3 +56,12 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:3000/pair').then((r) => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
 CMD ["node", "scripts/serve.mjs", "start"]
+# Last, so a new version reuses every layer above. The release workflow sets
+# them for the official image, ghcr.io/33rd-kk/latentry.
+ARG VERSION=local
+ARG REVISION=unknown
+LABEL org.opencontainers.image.title="Latentry" \
+      org.opencontainers.image.source="https://github.com/33rd-kk/latentry" \
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.revision="${REVISION}"

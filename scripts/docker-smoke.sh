@@ -4,23 +4,39 @@
 # anyone, a code from `npm run owner-code` makes an owner who may change the
 # settings, and the image holds none of a working copy's personal files.
 #
-#   scripts/docker-smoke.sh       (CI's docker job; needs Docker Compose)
+#   scripts/docker-smoke.sh                       (CI's docker job; needs Docker Compose)
+#   LATENTRY_IMAGE=ghcr.io/...@sha256:... scripts/docker-smoke.sh
 #
-# It builds and starts compose.yaml's service and removes it, with its data
+# It builds the image from this folder (compose.build.yaml), or with
+# LATENTRY_IMAGE pulls that one instead (the release workflow, for each image
+# it pushes), starts compose.yaml's service and removes it, with its data
 # volume, when done.
 
 set -euo pipefail
 
-compose() { docker compose -p latentry-smoke "$@"; }
+override=
+if [ -n "${LATENTRY_IMAGE:-}" ]; then
+  img=$LATENTRY_IMAGE
+  override=$(mktemp)
+  printf 'services:\n  latentry:\n    image: "%s"\n    pull_policy: always\n' "$img" > "$override"
+  compose_files=(-f compose.yaml -f "$override")
+  up=(up -d)
+else
+  img=latentry:local
+  compose_files=(-f compose.yaml -f compose.build.yaml)
+  up=(up -d --build)
+fi
+compose() { docker compose -p latentry-smoke "${compose_files[@]}" "$@"; }
 failed=0
 check() { if eval "$2"; then echo "ok   $1"; else echo "FAIL $1"; failed=1; fi; }
 cleanup() {
   if [ "$failed" -ne 0 ]; then compose logs --no-color latentry | tail -50 || true; fi
   compose down -v --remove-orphans >/dev/null 2>&1 || true
+  if [ -n "$override" ]; then rm -f "$override"; fi
 }
 trap cleanup EXIT
 
-compose up -d --build --wait --wait-timeout 180
+compose "${up[@]}" --wait --wait-timeout 180
 
 base=http://127.0.0.1:3000
 status() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
@@ -46,12 +62,12 @@ rm -f "$jar"
 # What the image holds. (MSYS_NO_PATHCONV: Git Bash on Windows would
 # rewrite the container paths.)
 image() { MSYS_NO_PATHCONV=1 docker run --rm --entrypoint "$@"; }
-files=$(image sh latentry:local -c 'cd /app && find . -path ./node_modules -prune -o -print')
+files=$(image sh "$img" -c 'cd /app && find . -path ./node_modules -prune -o -print')
 check 'no .env file' '! grep -qE "/\.env" <<<"$files"'
 check 'no settings file, pairing key, folder-name key or model info' '! grep -qE "latentry\.(settings\.json|pairing-|folder-names-key|models\.json)" <<<"$files"'
 check 'no pictures, notes, audits, tests or docs' '! grep -qE "^\./(output|notes|audit|__tests__|e2e|docs|coverage|\.git)(/|$)" <<<"$files"'
-check 'models points into the data volume' '[ "$(image readlink latentry:local /app/models)" = /data/models ]'
-check 'it runs as an ordinary user' '[ "$(image id latentry:local -u)" != 0 ]'
-check 'which cannot change the app' '! image sh latentry:local -c "touch /app/package.json" 2>/dev/null'
+check 'models points into the data volume' '[ "$(image readlink "$img" /app/models)" = /data/models ]'
+check 'it runs as an ordinary user' '[ "$(image id "$img" -u)" != 0 ]'
+check 'which cannot change the app' '! image sh "$img" -c "touch /app/package.json" 2>/dev/null'
 
 exit "$failed"

@@ -1,0 +1,11 @@
+# Builds Latentry's image from this folder instead of using the official one.
+# Use it on top of compose.yaml (and compose.gpu.yaml, for a GPU):
+#
+#   docker compose -f compose.yaml -f compose.build.yaml up -d --build
+#
+# The data volume is the same either way, so you can switch between the two.
+
+services:
+  latentry:
+    build: .
+    image: latentry:local
