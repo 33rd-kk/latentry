@@ -61,3 +61,14 @@ updates:
     groups:
       actions:
         patterns: ["*"]
+  # The Dockerfile's Node.js base image, pinned by digest. Only Node 22 is
+  # taken: the image follows the Node.js Latentry supports, not the newest.
+  # compose.yaml's own image (ghcr.io/33rd-kk/latentry) is bumped by each
+  # release pull request, not here.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: node
+        update-types: [version-update:semver-major]

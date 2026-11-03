@@ -105,10 +105,12 @@ jobs:
       - run: uv pip install --python /tmp/engine pytest httpx
       - run: /tmp/engine/bin/python -m pytest engine/tests -q -p no:cacheprovider
 
-  # The Docker image (Dockerfile, compose.yaml): built and started as the
-  # manual says, then checked by scripts/docker-smoke.sh: every browser must
-  # pair, 127.0.0.1 inside the container is not trusted, owner-code makes an
-  # owner, and none of a working copy's personal files are in the image.
+  # The Docker image (Dockerfile, compose.yaml): built from this commit with
+  # compose.build.yaml and started as the manual says, then checked by
+  # scripts/docker-smoke.sh: every browser must pair, 127.0.0.1 inside the
+  # container is not trusted, owner-code makes an owner, and none of a working
+  # copy's personal files are in the image. release.yml runs the same checks
+  # on each image it pushes.
   docker:
     runs-on: ubuntu-latest
     steps:
