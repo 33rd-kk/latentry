@@ -10,6 +10,7 @@ import { splitTags, toSpacedTags } from "@/lib/tags"
 import { tagForPrompt } from "@/lib/tag-groups"
 import type { ImageMeta, ImageTag } from "@/lib/image-meta"
 import { useT } from "@/lib/i18n"
+import { StarRating } from "./star-rating"
 
 interface GalleryPanelProps {
   picture: GalleryPicture
@@ -25,6 +26,10 @@ interface GalleryPanelProps {
   onSearch: (tag: string) => void
   /** The picture's metadata after its tags were written back. */
   onMetaChange: (picture: GalleryPicture, meta: ImageMeta) => void
+  /** Gives the picture 1–5 stars, or none with 0. Not offered in secret mode. */
+  onRate: (stars: number) => void
+  /** Set when saving the stars failed. */
+  rateError: boolean
 }
 
 function readAsDataUrl(blob: Blob): Promise<string> {
@@ -43,7 +48,7 @@ const WD14_CHARACTER = 4
  * tags, and the ways back into the form. The viewer sits above every toast,
  * so outcomes are said here, in the panel.
  */
-export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revealed, onReveal, onSearch, onMetaChange }: GalleryPanelProps) {
+export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revealed, onReveal, onSearch, onMetaChange, onRate, rateError }: GalleryPanelProps) {
   const t = useT()
   const router = useRouter()
   const meta = picture.meta
@@ -183,6 +188,13 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
       <p className="truncate text-xs font-medium text-white/60" title={picture.name}>
         {picture.name}
       </p>
+      {/* Secret mode leaves nothing behind, a rating included. */}
+      {!secret && (
+        <div className="space-y-1">
+          <StarRating value={picture.stars ?? 0} onChange={onRate} />
+          {rateError && <p className="text-xs text-white/70">{t("gallery.rating.failed")}</p>}
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-1">
         {meta && meta.prompt && (

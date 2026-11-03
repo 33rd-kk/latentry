@@ -54,6 +54,8 @@ export interface GalleryQuery {
   group?: StackGroup
   /** With `group`: show the pictures of this one stack (its key). */
   stack?: string
+  /** Only pictures given at least this many stars (1–5); 1 is every rated picture. */
+  minStars?: number
 }
 
 const SINCE_MS: Record<Since, number> = {
@@ -86,6 +88,11 @@ function stackKey(value: string | null): string | undefined {
   return value && /^(?:[0-9a-f]{40}|-?\d{1,20}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/.test(value) ? value : undefined
 }
 
+function stars(value: string | null): number | undefined {
+  const number = Number(value)
+  return Number.isInteger(number) && number >= 1 && number <= 5 ? number : undefined
+}
+
 function text(value: string | null, max = MAX_TEXT): string | undefined {
   const trimmed = value?.trim().slice(0, max)
   return trimmed || undefined
@@ -114,6 +121,7 @@ export function toParams(query: GalleryQuery): URLSearchParams {
   set('lora', text(query.lora ?? null))
   set('source', query.source)
   if (query.untagged) set('untagged', '1')
+  set('stars', stars(String(query.minStars))?.toString())
   set('grid', query.grid)
   set('group', query.group)
   if (query.group) set('stack', stackKey(query.stack ?? null))
@@ -138,6 +146,7 @@ export function fromParams(params: URLSearchParams): GalleryQuery {
     lora: text(params.get('lora')),
     source: oneOf(SOURCES, params.get('source')),
     untagged: params.get('untagged') === '1' || undefined,
+    minStars: stars(params.get('stars')),
     grid: oneOf(GRID_KINDS, params.get('grid')),
     group,
     stack: group ? stackKey(params.get('stack')) : undefined,
@@ -158,6 +167,7 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.lora,
     query.source,
     query.untagged,
+    query.minStars,
     query.grid,
     query.group,
     query.stack,
@@ -175,6 +185,11 @@ export function formatOf(name: string): Format | null {
   const extension = name.slice(name.lastIndexOf('.') + 1).toLowerCase()
   if (extension === 'jpeg') return 'jpg'
   return (FORMATS as readonly string[]).includes(extension) ? (extension as Format) : null
+}
+
+/** Whether a picture with `stars` (0 for none) passes the stars filter. */
+export function matchesStars(stars: number, query: GalleryQuery): boolean {
+  return !query.minStars || stars >= query.minStars
 }
 
 /** The filters a directory listing can answer: age and file type. */
