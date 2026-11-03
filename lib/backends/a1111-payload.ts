@@ -59,14 +59,10 @@ export async function toA1111Payload(
   }
   if (request.sampler && request.sampler !== DEFAULT) body.sampler_name = request.sampler
   if (request.scheduler && request.scheduler !== DEFAULT) body.scheduler = request.scheduler
-  // For this run only: the web UI puts its own settings back afterwards.
-  const overrides: Record<string, unknown> = {}
-  if (request.clip_skip !== undefined) overrides.CLIP_stop_at_last_layers = request.clip_skip
-  if (request.vae) overrides.sd_vae = request.vae
-  if (Object.keys(overrides).length) {
-    body.override_settings = overrides
-    body.override_settings_restore_afterwards = true
-  }
+  // No CLIP skip or VAE here (the status offers neither). Tried on Forge Neo
+  // with an SDXL model: CLIP_stop_at_last_layers in override_settings changed
+  // nothing in the picture, and once left the web UI's own setting changed
+  // after the run. Latentry does not change a web UI's settings.
 
   if (!request.init_image_base64) {
     if (request.hr_scale !== undefined) {

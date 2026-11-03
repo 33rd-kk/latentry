@@ -24,8 +24,8 @@ control, rather than only hiding it.
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph |
 | LoRAs | Yes | Yes | If it says so¹ | Yes | Yes | With a checkpoint loader³ |
-| CLIP skip | Yes | No | If it says so¹ | Yes | Yes | No: the workflow's own |
-| Another VAE | From `models/vae/` | No | If it says so¹ | From its list (A1111; not Forge) | From its `vae` folder | No: the workflow's own |
+| CLIP skip | Yes | No | If it says so¹ | No: set it in the web UI⁵ | Yes | No: the workflow's own |
+| Another VAE | From `models/vae/` | No | If it says so¹ | No: set it in the web UI⁵ | From its `vae` folder | No: the workflow's own |
 | Tagging by the backend⁴ | No | No | Unless it says no¹ | With its WD14 tagger extension | No | No |
 | **Cancel** | Stops that run | Stops that run | Stops that run | At the web UI's next step; the unfinished picture is saved | Stops that picture, skips the rest | Stops that picture, skips the rest |
 | Choosing the model | [Setup](../guide/engine.md) | [Setup](../guide/engine.md) | On the server | In the web UI | **Model** on Settings | The workflow's own, or **Model** on Settings³ |
@@ -41,6 +41,10 @@ control, rather than only hiding it.
    like) always keeps its own model, and refuses LoRA calls.
 4. Latentry's own WD14 tagger works whatever the backend; see
    [Tags](../guide/gallery.md#tags).
+5. Latentry would have to change the web UI's own settings for the run
+   (`override_settings`). Tried on Forge Neo with an SDXL model, CLIP skip
+   that way changed nothing in the picture, and once the setting stayed
+   changed after the run, so Latentry leaves both to the web UI.
 
 Latentry does these itself, so they work with every backend:
 [the queue](../guide/many.md#the-queue), the

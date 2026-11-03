@@ -291,9 +291,8 @@ Start the web UI with `--api` (and `--api-auth user:password` if you set
 | `GET /sdapi/v1/progress?skip_current_image=true` | Health, busy state, progress |
 | `GET /sdapi/v1/options` | The loaded checkpoint's name |
 | `GET /sdapi/v1/samplers`, `/sdapi/v1/schedulers` | The sampler and scheduler lists |
-| `GET /sdapi/v1/sd-vae` | The VAE files, by name (the path it also gives stays on the server). Forge has no such list, so no VAE is offered there. |
 | `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers. `None` is left out, and so is any whose model is only a URL: using it would make the web UI download a model file (usually a pickled `.pth`). Without an answer, Lanczos only. |
-| `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. CLIP skip and a VAE go in `override_settings` (`CLIP_stop_at_last_layers`, `sd_vae`) for that run only. |
+| `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. No `override_settings`: Latentry never changes the web UI's own settings, so CLIP skip and the VAE stay the web UI's. |
 | `POST /sdapi/v1/extra-single-image` | Upscale: enlarges the source to the exact size (`resize_mode: 1`) with the chosen upscaler before `img2img` redraws it at that size, with a schedule long enough to run exactly the hires steps. |
 | `POST /sdapi/v1/interrupt` | Cancel |
 | `GET /tagger/v1/interrogators`, `POST /tagger/v1/interrogate` | WD14 tagging, if the [tagger extension](https://github.com/picobyte/stable-diffusion-webui-wd14-tagger) is installed |

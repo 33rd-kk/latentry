@@ -143,12 +143,10 @@ async function main() {
 
   const t2i = await toA1111Payload(REQUEST, 8)
   eq(t2i?.path, '/sdapi/v1/txt2img', 'no source is txt2img')
-  check(!('override_settings' in (t2i?.body ?? {})), 'no settings overridden unless asked')
   const tuned = await toA1111Payload({ ...REQUEST, clip_skip: 2, vae: 'fix.safetensors' }, 8)
-  eq(
-    [tuned?.body.override_settings, tuned?.body.override_settings_restore_afterwards],
-    [{ CLIP_stop_at_last_layers: 2, sd_vae: 'fix.safetensors' }, true],
-    'CLIP skip and the VAE for this run only, put back afterwards'
+  check(
+    !('override_settings' in (tuned?.body ?? {})) && !('override_settings' in (t2i?.body ?? {})),
+    "a web UI's own settings are never overridden, not even for CLIP skip or a VAE asked for"
   )
   check(!('enable_hr' in (t2i?.body ?? {})) && !('denoising_strength' in (t2i?.body ?? {})), 'no hires fix unless asked')
   const hires = await toA1111Payload({ ...REQUEST, hr_scale: 1.5, hr_steps: 0, hr_denoise: 0.35, hr_upscaler: 'R-ESRGAN 4x+' }, 8)
