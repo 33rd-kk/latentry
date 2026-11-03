@@ -49,12 +49,20 @@ export interface ImageMeta {
 /**
  * Where a picture sits in an X/Y grid: the grid's id (random, shared by its
  * cells) and the value each axis set. A grid's sheet has every value of an
- * axis, joined with ", ".
+ * axis, joined with ", ". Cells saved since Latentry 0.15 also say their
+ * place among the axis's values: `index` of `count`.
  */
+export interface GridAxisUse {
+  axis: string
+  value: string
+  index?: number
+  count?: number
+}
+
 export interface GridUse {
   id: string
-  x: { axis: string; value: string }
-  y?: { axis: string; value: string }
+  x: GridAxisUse
+  y?: GridAxisUse
 }
 
 /** The JSON stored under the `latentry` keyword. */
@@ -628,17 +636,26 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
   }
 }
 
-/** A record's grid place, when it is well-formed. */
+// More values than any grid has on one axis: a place past this is not one.
+const MAX_GRID_VALUES = 64
+
+/** A record's grid place, when it is well-formed. A place (index of count) only when both make sense. */
 function recordGrid(value: unknown): { grid: GridUse } | null {
   const grid = value as Partial<GridUse> | null | undefined
-  const axis = (part: unknown): part is { axis: string; value: string } =>
+  const axis = (part: unknown): part is GridAxisUse =>
     typeof (part as { axis?: unknown })?.axis === 'string' && typeof (part as { value?: unknown })?.value === 'string'
+  const read = (part: GridAxisUse): GridAxisUse => {
+    const { index, count } = part
+    const placed =
+      Number.isInteger(index) && Number.isInteger(count) && (count as number) >= 1 && (count as number) <= MAX_GRID_VALUES && (index as number) >= 0 && (index as number) < (count as number)
+    return { axis: part.axis, value: part.value, ...(placed ? { index, count } : {}) }
+  }
   if (!grid || typeof grid.id !== 'string' || !/^[\w-]{1,64}$/.test(grid.id) || !axis(grid.x)) return null
   return {
     grid: {
       id: grid.id,
-      x: { axis: grid.x.axis, value: grid.x.value },
-      ...(axis(grid.y) ? { y: { axis: grid.y.axis, value: grid.y.value } } : {}),
+      x: read(grid.x),
+      ...(axis(grid.y) ? { y: read(grid.y) } : {}),
     },
   }
 }

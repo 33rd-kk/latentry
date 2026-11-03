@@ -39,6 +39,7 @@ export {
   parseTags,
   type ComfyRoles,
   type ComfySlot,
+  type GridAxisUse,
   type GridUse,
   type HiresUse,
   type ImageMeta,

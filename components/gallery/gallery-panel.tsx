@@ -183,6 +183,13 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     if (meta.cfg !== undefined) facts.push([t("gallery.cfg"), meta.cfg])
     if (meta.sampler) facts.push([t("gallery.sampler"), [meta.sampler, meta.scheduler].filter(Boolean).join(" / ")])
     if (meta.strength !== undefined) facts.push([t("gallery.strength"), meta.strength])
+    if (meta.grid && !hidden) {
+      const place = [meta.grid.x, meta.grid.y]
+        .filter((part) => part !== undefined)
+        .map((part) => `${t(`generate.grid.axis.${part.axis}` as "generate.grid.axis.cfg")}: ${part.value}`)
+        .join(" · ")
+      facts.push([meta.mode === "sheet" ? t("gallery.gridView.sheet") : t("gallery.gridView.place"), place])
+    }
     if (meta.hires) {
       facts.push([t("gallery.hires"), t("gallery.hiresValue", { scale: meta.hires.scale, upscaler: meta.hires.upscaler, denoise: meta.hires.denoise })])
     }

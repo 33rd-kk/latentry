@@ -54,11 +54,15 @@ export interface GridCell {
   yValue: string | null
 }
 
-/** What a picture's record says of the grid it was drawn for. */
+/**
+ * What a picture's record says of the grid it was drawn for: each axis's
+ * value, and since 0.15 its place among the axis's values (`index` of
+ * `count`), so the gallery can lay the grid out as it was asked for.
+ */
 export interface GridPlace {
   id: string
-  x: { axis: GridAxisKind; value: string }
-  y?: { axis: GridAxisKind; value: string }
+  x: { axis: GridAxisKind; value: string; index: number; count: number }
+  y?: { axis: GridAxisKind; value: string; index: number; count: number }
 }
 
 export type GridError =
@@ -278,8 +282,10 @@ export function cellRequest(base: GenerateRequest, spec: GridSpec, cell: GridCel
 export function gridPlace(id: string, spec: GridSpec, cell: GridCell): GridPlace {
   return {
     id,
-    x: { axis: spec.x.kind, value: spec.x.labels[cell.x] ?? cell.xValue },
-    ...(spec.y && cell.yValue !== null ? { y: { axis: spec.y.kind, value: spec.y.labels[cell.y] ?? cell.yValue } } : {}),
+    x: { axis: spec.x.kind, value: spec.x.labels[cell.x] ?? cell.xValue, index: cell.x, count: spec.x.values.length },
+    ...(spec.y && cell.yValue !== null
+      ? { y: { axis: spec.y.kind, value: spec.y.labels[cell.y] ?? cell.yValue, index: cell.y, count: spec.y.values.length } }
+      : {}),
   }
 }
 

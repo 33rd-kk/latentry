@@ -519,6 +519,12 @@
       "tooLarge": "Too large to download at once. Choose fewer pictures.",
       "noneSaved": "None of these pictures could be saved.",
       "tooMany": "Choose 1 to {count} pictures to download at once."
+    },
+    "gridView": {
+      "open": "Open in the viewer",
+      "missing": "Not here",
+      "sheet": "Grid sheet",
+      "place": "X/Y grid"
     }
   },
   "lightbox": {
