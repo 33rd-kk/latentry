@@ -2,9 +2,15 @@
 
 ## Unreleased
 
-- **Setup says when the engine's packages are behind**: after an update
-  that pins newer Python packages, Setup asks you to run **Repair / update**,
-  so you no longer need the release notes to know.
+## 0.15.0 (2026-11-04)
+
+**Upgrading from 0.14.0**: nothing to do beyond the usual update. With
+Docker, `git pull` then `docker compose up -d` (with
+`-f compose.yaml -f compose.gpu.yaml` for a GPU) downloads this release's
+image.
+
+**Gallery**
+
 - **Stars in the gallery**: rate a picture from 1 to 5 in the viewer (or
   with **1**–**5** on the keyboard), see its stars on its card, show only
   pictures with at least some stars, and order by **Most stars first**.
@@ -34,6 +40,12 @@
   to search. They take the place of the tips shown under the box before
   (and of **Hide tips** / **Show search tips**). See
   [Suggestions](https://33rd-kk.github.io/latentry/guide/gallery/#suggestions).
+
+**Setup**
+
+- **Setup says when the engine's packages are behind**: after an update
+  that pins newer Python packages, Setup asks you to run **Repair / update**,
+  so you no longer need the release notes to know.
 
 ## 0.14.0 (2026-11-03)
 
