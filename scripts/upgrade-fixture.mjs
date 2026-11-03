@@ -29,6 +29,7 @@ const RECORD_FIELDS = [
   ['0.10.0', 'prompt_template'],
   ['0.11.0', ''],
   ['0.12.0', 'grid'],
+  ['0.13.0', ''],
 ]
 
 function fieldsOf(version) {
