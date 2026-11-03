@@ -7,7 +7,7 @@
 
 # node:22.23.2-bookworm-slim, pinned so a build is reproducible. Written out
 # rather than through an ARG, so Dependabot can keep it current.
-FROM node:22.23.2-bookworm-slim@sha256:48e4b67d85f87bd551df43704e24d252f56cc5f8e9718841aace50f19948f0f9 AS base
+FROM node:22.23.4-bookworm-slim@sha256:4b150b48b4116e2a22f2c39cc27025fbf4f153e2078fd3b14d159fdb5c7279da AS base
 
 FROM base AS build
 # git: one package (panorail) comes from its GitHub tag.
