@@ -68,6 +68,8 @@ test('a grid fills in cell by cell, and its sheet is saved and stacked with it',
   // The gallery stacks the grid's six cells and its sheet.
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('grid lighthouse')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(7)
   await page.getByRole('button', { name: 'Filters', exact: true }).click()

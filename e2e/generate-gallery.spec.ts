@@ -40,6 +40,8 @@ test('a generated picture is saved and opens from the gallery', async ({ page })
   expect((await folders.json()).dirs, 'the temp save folder is the only folder').toHaveLength(1)
   // Other tests save to the same folder: this run's picture is the one with its prompt.
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill(PROMPT)
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await expect(thumbs.first()).toHaveJSProperty('complete', true)

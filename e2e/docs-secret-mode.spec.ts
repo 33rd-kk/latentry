@@ -60,6 +60,8 @@ test('compare in secret mode hides both until shown', async ({ page }) => {
   }
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('docssecretcompare')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   await expect(page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')).toHaveCount(2)
   await toggle(page).click()
   await page.getByRole('button', { name: 'Select', exact: true }).click()

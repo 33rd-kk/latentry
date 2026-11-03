@@ -80,6 +80,8 @@ test.describe('opened views', () => {
     await generate(page, `${tag} meadow`)
     await page.goto('/gallery')
     await page.getByPlaceholder('Search prompts, tags, models, file names').fill(tag)
+    // The suggestions would cover the pictures: closed, as a person would.
+    await page.keyboard.press('Escape')
     const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
     await expect(thumbs).toHaveCount(2)
 

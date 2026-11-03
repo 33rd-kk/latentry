@@ -37,6 +37,8 @@ test('a source is extended on one side and drawn as one picture', async ({ page 
 
   await page.goto('/gallery')
   await page.getByPlaceholder('Search prompts, tags, models, file names').fill('outpaintrun')
+  // The suggestions would cover the pictures: closed, as a person would.
+  await page.keyboard.press('Escape')
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
