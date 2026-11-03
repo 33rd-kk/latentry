@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- **Setup says when the engine's packages are behind**: after an update
+  that pins newer Python packages, Setup asks you to run **Repair / update**,
+  so you no longer need the release notes to know.
 - **Stars in the gallery**: rate a picture from 1 to 5 in the viewer (or
   with **1**–**5** on the keyboard), see its stars on its card, show only
   pictures with at least some stars, and order by **Most stars first**.
