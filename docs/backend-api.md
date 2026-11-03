@@ -46,6 +46,8 @@ should answer `401` when it is missing or wrong. `/api/health` and
   "tagger": true,
   "hires": true,
   "upscalers": ["Lanczos"],
+  "clip_skip": true,
+  "vaes": ["Default", "sdxl-vae-fp16-fix.safetensors"],
   "unavailable": { "inpaint": "This model has no inpainting pipeline." }
 }
 ```
@@ -61,6 +63,8 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
 | `hires`, `upscalers` | no | `hires: true` enables hires fix (the `hr_*` fields below). `upscalers` lists the `hr_upscaler` values it takes; without it, `["Lanczos"]`. |
 | `upscale` | no | `true` enables Upscale: a source sent with `upscale: true` and the `hr_*` fields. |
+| `clip_skip` | no | `true` shows **CLIP skip** and sends `clip_skip` with a run. |
+| `vaes` | no | The `vae` values it takes, `Default` first (the checkpoint's own). Without it, no VAE is offered. |
 | `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint`, `pose` or `hires`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
 
 Any 2xx answer marks the backend as up.
@@ -97,11 +101,16 @@ steps.
   "mask_base64": "…", "mask_blur": 4,
   "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
   "hr_scale": 2, "hr_steps": 0, "hr_denoise": 0.4, "hr_upscaler": "Lanczos",
+  "clip_skip": 2, "vae": "sdxl-vae-fp16-fix.safetensors",
   "lora_hashes": false
 }
 ```
 
 - `seed: -1` is random. With `image_count > 1`, image *i* uses `seed + i`.
+- **CLIP skip** (servers with `clip_skip: true`): `clip_skip` (1–12) as A1111
+  counts it, 1 the last layer, 2 the one before. Left out for the server's
+  own. **VAE**: `vae`, one of the health's `vaes` other than `Default`; left
+  out for the checkpoint's own.
 - **img2img**: `init_image_base64` + `strength` (0–1). The output should
   keep the source's aspect ratio at about `width × height` pixels, snapped to
   what the model needs (Latentry assumes multiples of 16 for the pose preview).
@@ -282,8 +291,9 @@ Start the web UI with `--api` (and `--api-auth user:password` if you set
 | `GET /sdapi/v1/progress?skip_current_image=true` | Health, busy state, progress |
 | `GET /sdapi/v1/options` | The loaded checkpoint's name |
 | `GET /sdapi/v1/samplers`, `/sdapi/v1/schedulers` | The sampler and scheduler lists |
+| `GET /sdapi/v1/sd-vae` | The VAE files, by name (the path it also gives stays on the server). Forge has no such list, so no VAE is offered there. |
 | `GET /sdapi/v1/upscalers`, `/sdapi/v1/latent-upscale-modes` | The hires fix upscalers. `None` is left out, and so is any whose model is only a URL: using it would make the web UI download a model file (usually a pickled `.pth`). Without an answer, Lanczos only. |
-| `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. |
+| `POST /sdapi/v1/txt2img`, `/sdapi/v1/img2img` | Generating. One image per iteration (`batch_size: 1`, `n_iter: count`) so progress counts images. `save_images: false`, since Latentry saves its own copy. CLIP skip and a VAE go in `override_settings` (`CLIP_stop_at_last_layers`, `sd_vae`) for that run only. |
 | `POST /sdapi/v1/extra-single-image` | Upscale: enlarges the source to the exact size (`resize_mode: 1`) with the chosen upscaler before `img2img` redraws it at that size, with a schedule long enough to run exactly the hires steps. |
 | `POST /sdapi/v1/interrupt` | Cancel |
 | `GET /tagger/v1/interrogators`, `POST /tagger/v1/interrogate` | WD14 tagging, if the [tagger extension](https://github.com/picobyte/stable-diffusion-webui-wd14-tagger) is installed |
@@ -324,6 +334,7 @@ Nothing to install on the ComfyUI side. Latentry uses:
 | `GET /queue` | Busy state; which prompt is running, for cancel |
 | `GET /object_info/CheckpointLoaderSimple`, `/KSampler`, `/LoraLoader` | The checkpoints, samplers, schedulers and LoRA files |
 | `GET /object_info/UpscaleModelLoader` | The upscale models hires fix can use, offered by file name only |
+| `GET /object_info/VAELoader` | The VAE files. On the built-in graph a chosen one is loaded with `VAELoader` for every encode and decode, and CLIP skip is a `CLIPSetLastLayer` node (2 is `-2`) |
 | `POST /prompt` | One graph per picture, built by Latentry |
 | `GET /ws?clientId=…` | Progress (`progress`, `executing`, `execution_success`, `execution_error`, `execution_interrupted`) |
 | `GET /history/{prompt_id}` | When the prompt is done (polled when the socket cannot be opened), and its output |

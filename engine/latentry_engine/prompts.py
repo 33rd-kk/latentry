@@ -28,21 +28,28 @@ def _pad(tokenizer, chunk: list[int]) -> list[int]:
     return ids + [pad] * (WINDOW + 2 - len(ids))
 
 
-def _encode(encoder, tokenizer, windows: list[list[int]], device, want_pooled: bool):
+# A1111's count: 2 is the layer before the last, which SDXL conditions on.
+DEFAULT_CLIP_SKIP = 2
+
+
+def _encode(encoder, tokenizer, windows: list[list[int]], device, want_pooled: bool, clip_skip: int = DEFAULT_CLIP_SKIP):
     hidden, pooled = [], None
     for index, chunk in enumerate(windows):
         ids = torch.tensor([_pad(tokenizer, chunk)], device=device)
         out = encoder(ids, output_hidden_states=True)
-        # SDXL conditions on the penultimate layer of both encoders.
-        hidden.append(out.hidden_states[-2])
+        # Counted from the last layer (1); never past the first one (the
+        # first of hidden_states is the embeddings, not a layer).
+        hidden.append(out.hidden_states[-min(max(clip_skip, 1), len(out.hidden_states) - 1)])
         if want_pooled and index == 0:
             pooled = out[0]
     return torch.cat(hidden, dim=1), pooled
 
 
 @torch.no_grad()
-def encode_sdxl(pipe, prompt: str, negative: str, device) -> dict:
-    """Embeddings for StableDiffusionXL*Pipeline's prompt_embeds arguments."""
+def encode_sdxl(pipe, prompt: str, negative: str, device, clip_skip: int | None = None) -> dict:
+    """Embeddings for StableDiffusionXL*Pipeline's prompt_embeds arguments.
+    `clip_skip` as A1111 counts it; None for SDXL's own (2)."""
+    skip = clip_skip or DEFAULT_CLIP_SKIP
     tokenizers = [pipe.tokenizer, pipe.tokenizer_2]
     encoders = [pipe.text_encoder, pipe.text_encoder_2]
 
@@ -57,7 +64,7 @@ def encode_sdxl(pipe, prompt: str, negative: str, device) -> dict:
         parts, pooled = [], None
         for encoder, tokenizer, windows in zip(encoders, tokenizers, all_windows):
             second = encoder is pipe.text_encoder_2
-            hidden, maybe_pooled = _encode(encoder, tokenizer, padded(windows), device, want_pooled=second)
+            hidden, maybe_pooled = _encode(encoder, tokenizer, padded(windows), device, want_pooled=second, clip_skip=skip)
             parts.append(hidden)
             if second:
                 pooled = maybe_pooled

@@ -113,6 +113,14 @@ of it, upscale it or grow its canvas. See [From a picture](from-a-picture.md).
 - **Steps**, **Image count** (1 to 16 pictures in one run), **Sampler**,
   **Scheduler** and **Guidance scale** (CFG). Backends with speed presets show **Speed preset** instead of
   sampler and steps; **Custom** brings them back.
+- **CLIP skip** and **VAE**, on backends that take them (see
+  [Backends](../reference/backends.md)). CLIP skip counts as A1111 does: 1
+  reads the prompt from CLIP's last layer, 2 from the one before, which is
+  what SDXL models use anyway; **Backend default** leaves it to the backend.
+  **VAE** lists the backend's VAE files; **The model's own** keeps the one in
+  the checkpoint. Both are saved with the picture, and **Generate with these
+  settings** brings them back. A ComfyUI workflow sets its own, so neither is
+  shown with one.
 - A slider moved away from its default shows a small arrow at the end of its
   label: press it to put that one slider back to the profile's value.
 - On a phone or tablet, a slider moves only when you drag its knob. A swipe

@@ -72,6 +72,10 @@ class Loaded:
     pose_adapter: object = None
     # The prompt LoRAs left in this model's layers between runs.
     lora_keeper: LoraKeeper = field(default_factory=LoraKeeper)
+    # The checkpoint's own VAE, kept while another is in use, and the name of
+    # that other one (None: its own).
+    own_vae: object = None
+    vae_name: str | None = None
 
 
 def place(pipe, plan: GpuPlan) -> None:
@@ -122,7 +126,41 @@ def load_sdxl(info: ModelInfo, plan: GpuPlan, controls_dir: Path) -> Loaded:
     pipe.vae.enable_slicing()
     place(pipe, plan)
     pipe.set_progress_bar_config(disable=True)
-    return Loaded(info, FAMILY_SDXL, pipe, pipe.scheduler)
+    return Loaded(info, FAMILY_SDXL, pipe, pipe.scheduler, own_vae=pipe.vae)
+
+
+def load_vae(path: Path, plan: GpuPlan, controls_dir: Path):
+    """An SDXL VAE from one .safetensors file, with the pinned SDXL configs (no Hub lookup)."""
+    from diffusers import AutoencoderKL
+
+    vae = AutoencoderKL.from_single_file(
+        str(path), config=str(sdxl_config(controls_dir)), subfolder="vae", torch_dtype=plan.dtype, local_files_only=True
+    )
+    if plan.dtype == torch.float16:
+        # As with the checkpoint's own: SDXL VAEs overflow in fp16 unless upcast.
+        vae.config.force_upcast = True
+    vae.enable_slicing()
+    return vae
+
+
+def use_vae(loaded: Loaded, name: str | None, path: Path | None, plan: GpuPlan, controls_dir: Path, load=load_vae) -> None:
+    """Draws with the VAE `name` (its file at `path`), or the checkpoint's own
+    with None. SDXL only; nothing happens when it is already in use. The
+    img2img, inpaint and pose pipelines were made with the old one, so they
+    are made again on their next use."""
+    if loaded.family != FAMILY_SDXL or name == loaded.vae_name:
+        return
+    if name is not None and path is None:
+        raise EngineError(f"There is no VAE named {name}")
+    vae = loaded.own_vae if name is None else load(path, plan, controls_dir)
+    loaded.pipe.register_modules(vae=vae)
+    loaded.variants.clear()
+    if plan.offload == "none":
+        vae.to(plan.device)
+    else:
+        # The offload hooks were made for the old one.
+        place(loaded.pipe, plan)
+    loaded.vae_name = name
 
 
 def load_anima(info: ModelInfo, plan: GpuPlan) -> Loaded:

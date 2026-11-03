@@ -255,3 +255,17 @@ def test_generate_reads_the_hires_fields() -> None:
     body = server.GenerateBody(prompt="x", hr_scale=1.5, hr_steps=12, hr_denoise=0.35, hr_upscaler="Lanczos")
     assert (body.hr_scale, body.hr_steps, body.hr_denoise) == (1.5, 12, 0.35)
     assert server.GenerateBody(prompt="x").hr_scale is None
+
+
+def test_without_a_model_neither_clip_skip_nor_a_vae_is_offered(client: TestClient) -> None:
+    body = client.get("/api/health").json()
+    assert body["clip_skip"] is False and body["vaes"] == []
+
+
+def test_vaes_lists_the_vae_folder(client: TestClient, models_dir: Path) -> None:
+    headers = auth(TOKEN)
+    (models_dir / "vae").mkdir()
+    write_safetensors(models_dir / "vae" / "fix.safetensors", ["decoder.x"])
+    assert client.get("/api/vaes", headers=headers).json() == {"vaes": ["fix.safetensors"]}
+    # Not a checkpoint: the models list does not take it for one.
+    assert all(model["id"] != "fix.safetensors" for model in client.get("/api/models", headers=headers).json()["models"])

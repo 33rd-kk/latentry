@@ -182,6 +182,10 @@
     "customHint": "サンプラーとステップ数を自分で決めます。",
     "sampler": "サンプラー",
     "scheduler": "スケジューラー",
+    "clipSkip": "CLIP スキップ",
+    "clipSkipHint": "プロンプトを読む CLIP の層を、最後から数えて指定します。1 は最後の層、2 はその 1 つ前です (SDXL のモデルはもともと 2 を使います)。",
+    "vae": "VAE",
+    "vaeDefault": "モデル内蔵のもの",
     "guidanceScale": "ガイダンススケール：{value}",
     "hires": {
       "title": "Hires fix",

@@ -37,9 +37,10 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import __version__, loras, models, pose_control, samplers
+from . import __version__, loras, models, pose_control, samplers, vaes
 from .core import Cancelled, Engine, EngineError, GenerateRequest
 from .gpu import plan as gpu_plan
+from .models import FAMILY_SDXL
 from .pictures import decode_image
 
 # What one request may carry. Latentry sends at most 48 MB (lib/limits.ts),
@@ -81,6 +82,10 @@ class GenerateBody(BaseModel):
     # Say each applied LoRA's hash in the image events. Off unless asked:
     # a hash identifies the file on this machine.
     lora_hashes: bool = False
+    # As A1111 counts it (2: the layer before the last); SDXL only.
+    clip_skip: int | None = Field(None, ge=1, le=12)
+    # A VAE in <models>/vae, by file name; SDXL only.
+    vae: str | None = Field(None, max_length=255)
 
 
 class PoseEditBody(BaseModel):
@@ -122,8 +127,8 @@ class DownloadBody(BaseModel):
     revision: str = Field(pattern=r"^[0-9a-f]{40}$")
     filename: str | None = None
     sha256: str | None = Field(None, pattern=r"^[0-9a-f]{64}$")
-    # Where a single file goes: the models folder, or loras/.
-    folder: Literal["", "loras"] = ""
+    # Where a single file goes: the models folder, loras/ or vae/.
+    folder: Literal["", "loras", "vae"] = ""
     # The file's size on the Hub; the download stops past it.
     size: int | None = Field(None, gt=0)
 
@@ -209,6 +214,8 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
     @app.get("/api/health")
     def health():
         loaded = engine.loaded
+        sdxl = loaded is not None and loaded.family == FAMILY_SDXL
+        vae_names = vaes.scan(models_dir) if sdxl else []
         return {
             "status": "ok",
             "engine": "latentry",
@@ -222,6 +229,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             "run_id": run["id"],
             "samplers": samplers.SAMPLER_NAMES,
             "schedulers": samplers.SCHEDULE_NAMES,
+            # CLIP skip and another VAE: SDXL only (docs/backend-api.md).
+            "clip_skip": sdxl,
+            "vaes": ["Default", *vae_names] if sdxl and vae_names else [],
             "gpu": plan.describe(),
             **engine.capabilities(),
         }
@@ -268,6 +278,11 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             prompt, calls = loras.resolve(body.prompt, models_dir, engine.loaded.family)
         except loras.LoraError as error:
             raise HTTPException(400, str(error)) from error
+        # Another VAE only for SDXL, and only one the folder holds; Anima keeps its own.
+        vae_name = body.vae if body.vae and body.vae != "Default" and engine.loaded.family == FAMILY_SDXL else None
+        vae_path = vaes.find(models_dir, vae_name) if vae_name else None
+        if vae_name and vae_path is None:
+            raise HTTPException(400, f"There is no VAE named {vae_name}")
         if not run["lock"].acquire(blocking=False):
             raise HTTPException(409, "A generation is already running")
         try:
@@ -294,6 +309,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 upscale=body.upscale,
                 loras=calls,
                 lora_hashes=body.lora_hashes,
+                clip_skip=body.clip_skip,
+                vae=vae_name,
+                vae_path=vae_path,
             )
         except Exception as error:
             run["lock"].release()
@@ -368,6 +386,10 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
     @app.get("/api/loras")
     def list_loras():
         return {"loras": [lora.describe() for lora in loras.scan(models_dir)]}
+
+    @app.get("/api/vaes")
+    def list_vaes():
+        return {"vaes": vaes.scan(models_dir)}
 
     @app.post("/api/models/load")
     def load(body: LoadBody):

@@ -82,6 +82,11 @@ class GenerateRequest:
     loras: list[loras.LoraCall] = field(default_factory=list)
     # Say each LoRA's hash in the image events (A1111's "Lora hashes").
     lora_hashes: bool = False
+    # Which CLIP layer the prompt is read from, as A1111 counts it; None for SDXL's own (2).
+    clip_skip: int | None = None
+    # Another VAE (SDXL only), by name and its file in <models>/vae; None for the checkpoint's own.
+    vae: str | None = None
+    vae_path: Path | None = None
 
 
 def _tile_large(vae, width: int, height: int) -> None:
@@ -242,6 +247,8 @@ class Engine:
         assert loaded
         kind = "inpaint" if request.mask is not None else "img2img" if request.init_image is not None else "txt2img"
         pose = request.pose_skeleton is not None
+        # Before the pipeline is picked: a new VAE makes the variants anew.
+        pipelines.use_vae(loaded, request.vae, request.vae_path, self.plan, self.controls_dir)
         pipe = self._variant(kind, pose)
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler)
 
@@ -280,7 +287,7 @@ class Engine:
 
         with loaded.lora_keeper.applied(pipe, request.loras):
             device = getattr(pipe, "_execution_device", self.plan.device)
-            embeds = encode_sdxl(pipe, request.prompt, request.negative_prompt, device)
+            embeds = encode_sdxl(pipe, request.prompt, request.negative_prompt, device, request.clip_skip)
             seeds = self._seeds(request)
             generator_device = "cpu" if self.plan.offload != "none" else self.plan.device
             done = 0

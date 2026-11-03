@@ -120,6 +120,8 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         cfg: meta.cfg,
         sampler: meta.sampler,
         scheduler: meta.scheduler,
+        ...(meta.clipSkip !== undefined ? { clipSkip: meta.clipSkip } : {}),
+        ...(meta.vae ? { vae: meta.vae } : {}),
         ...(meta.hires ? { hires: meta.hires } : {}),
       },
     })
@@ -170,6 +172,8 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     if (meta.steps !== undefined) facts.push([t("gallery.steps"), meta.steps])
     if (meta.cfg !== undefined) facts.push([t("gallery.cfg"), meta.cfg])
     if (meta.sampler) facts.push([t("gallery.sampler"), [meta.sampler, meta.scheduler].filter(Boolean).join(" / ")])
+    if (meta.clipSkip !== undefined) facts.push([t("generate.clipSkip"), meta.clipSkip])
+    if (meta.vae) facts.push([t("generate.vae"), meta.vae])
     if (meta.strength !== undefined) facts.push([t("gallery.strength"), meta.strength])
     if (meta.hires) {
       facts.push([t("gallery.hires"), t("gallery.hiresValue", { scale: meta.hires.scale, upscaler: meta.hires.upscaler, denoise: meta.hires.denoise })])

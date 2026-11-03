@@ -66,6 +66,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     scheduler: request.scheduler,
     steps: request.num_inference_steps,
     cfg: request.guidance_scale,
+    ...(request.clip_skip !== undefined ? { clip_skip: request.clip_skip } : {}),
+    ...(request.vae ? { vae: request.vae } : {}),
     ...(request.strength !== undefined ? { strength: request.strength } : {}),
     ...(hires ? { hires } : {}),
     // Names and weights only: a hash says which file, and is written only where asked.

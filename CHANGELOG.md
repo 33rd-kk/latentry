@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **CLIP skip and VAE** on the Generate page, for the engine (SDXL models),
+  A1111 (VAE from its list; Forge offers CLIP skip only) and ComfyUI's
+  built-in graph. Both are saved with the picture, in the infotext as A1111
+  writes them (`Clip skip`, `VAE`), and come back with **Generate with
+  these settings**. The engine takes VAEs from `models/vae/`. A
+  `diffusers` server offers them by saying `clip_skip` and `vaes` in its
+  health. See [Generate](https://33rd-kk.github.io/latentry/guide/generate/).
+
 ## 0.14.0 (2026-11-03)
 
 **Upgrading from 0.13.0**: after the usual update, open **Setup** and run

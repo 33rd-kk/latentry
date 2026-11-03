@@ -72,6 +72,20 @@ function image(value: unknown): string | undefined {
  * fields only, each typed and clamped, so nothing the browser adds reaches a
  * backend. Null when there is no prompt.
  */
+export const CLIP_SKIP_MIN = 1
+export const CLIP_SKIP_MAX = 12
+
+/**
+ * A VAE as a backend lists it: a file name, perhaps under a folder of its
+ * own models folder ("sdxl/x.safetensors" on ComfyUI), never a way out of
+ * it. "Default" (the checkpoint's own) is no name.
+ */
+export function vaeName(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value || value === 'Default' || value.length > 255) return undefined
+  if (/[\0-\x1f\x7f]/.test(value) || value.split(/[\\/]/).some((part) => part === '..' || part === '')) return undefined
+  return value
+}
+
 export function toGenerateRequest(body: Record<string, unknown>): GenerateRequest | null {
   const prompt = str(body.prompt).trim()
   if (!prompt) return null
@@ -99,6 +113,12 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
   }
   // A file name only; the backend resolves it inside its own folder (lib/backends/comfy-workflows.ts).
   if (typeof body.workflow === 'string' && WORKFLOW_NAME.test(body.workflow)) request.workflow = body.workflow
+  // A workflow sets its own CLIP layer and VAE, so these go with the built-in graphs only.
+  if (!request.workflow) {
+    if (typeof body.clip_skip === 'number') request.clip_skip = Math.round(num(body.clip_skip, CLIP_SKIP_MIN, CLIP_SKIP_MIN, CLIP_SKIP_MAX))
+    const vae = vaeName(body.vae)
+    if (vae) request.vae = vae
+  }
   const pose = image(body.pose_image_base64)
   if (pose) {
     request.pose_image_base64 = pose

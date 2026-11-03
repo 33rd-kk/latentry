@@ -94,6 +94,10 @@ Face, under its own licence, into the **models folder**:
 - **Models folder**: point it at models you already have, such as a web UI's
   `models/Stable-diffusion` folder. Downloads go into whichever folder is
   set here.
+- **VAEs**: put a VAE's `.safetensors` file in the models folder's `vae`
+  folder, and the Generate page offers it under **VAE** for SDXL-family
+  models (Anima keeps its own). It is read with the same pinned SDXL
+  configs as a checkpoint, with nothing fetched.
 
 The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with

@@ -26,6 +26,10 @@ export interface ImageMeta {
   cfg?: number
   sampler?: string
   scheduler?: string
+  /** As A1111 counts it: 2 is the CLIP layer before the last. */
+  clipSkip?: number
+  /** The VAE named instead of the checkpoint's own. */
+  vae?: string
   strength?: number
   /** Hires fix; `width` and `height` are then the first pass's size. */
   hires?: HiresUse
@@ -76,6 +80,10 @@ export interface LatentryRecord {
   scheduler: string
   steps: number
   cfg: number
+  /** Only when one was asked for: as A1111 counts it (since 0.15). */
+  clip_skip?: number
+  /** Only when one was named instead of the checkpoint's own (since 0.15). */
+  vae?: string
   strength?: number
   /** Hires fix; `width` and `height` are then the first pass's size, as in A1111's infotext. */
   hires?: HiresUse
@@ -197,6 +205,8 @@ export function parseA1111Parameters(text: string): ImageMeta {
     cfg: num('CFG scale'),
     sampler: settings.Sampler,
     scheduler: settings['Schedule type'],
+    clipSkip: num('Clip skip'),
+    ...(settings.VAE ? { vae: settings.VAE } : {}),
     ...(hires ? { hires } : { strength: num('Denoising strength') }),
     model: settings.Model,
     loras: uniqueLoras([
@@ -222,6 +232,8 @@ export function formatA1111Parameters(record: LatentryRecord, loraHashes: LoraUs
     `Seed: ${record.seed}`,
     `Size: ${record.width}x${record.height}`,
     ...(record.model ? [`Model: ${quoteIfNeeded(record.model)}`] : []),
+    ...(record.vae ? [`VAE: ${quoteIfNeeded(record.vae)}`] : []),
+    ...(record.clip_skip !== undefined ? [`Clip skip: ${record.clip_skip}`] : []),
     ...(record.strength !== undefined ? [`Denoising strength: ${record.strength}`] : []),
     ...(record.hires
       ? [
@@ -614,6 +626,8 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     cfg: num(record.cfg),
     sampler: str(record.sampler),
     scheduler: str(record.scheduler),
+    clipSkip: num(record.clip_skip),
+    ...(str(record.vae) ? { vae: record.vae } : {}),
     strength: num(record.strength),
     ...(recordHires(record.hires) ?? {}),
     model: str(record.model),

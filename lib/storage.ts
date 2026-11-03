@@ -168,6 +168,8 @@ export interface HandoffSettings {
   cfg?: number
   sampler?: string
   scheduler?: string
+  clipSkip?: number
+  vae?: string
   /** Hires fix, when the picture was drawn with it; `width` and `height` are then its first pass's. */
   hires?: { scale: number; steps: number; denoise: number; upscaler: string }
 }

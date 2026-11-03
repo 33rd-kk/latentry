@@ -50,6 +50,8 @@ interface HealthBody {
   hires?: unknown
   upscale?: unknown
   upscalers?: unknown
+  clip_skip?: unknown
+  vaes?: unknown
   /** Per feature, the server's own reason it is off. */
   unavailable?: unknown
 }
@@ -125,6 +127,9 @@ export class DiffusersAdapter implements BackendAdapter {
       samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
       schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
       upscalers: hires || upscale ? (stringList(health?.upscalers) ?? [LANCZOS]) : [],
+      // Only a server that says so (docs/backend-api.md): one that does not would drop the fields.
+      clipSkip: health?.clip_skip === true,
+      vaes: stringList(health?.vaes) ?? [],
       ...(problem ? { problem } : {}),
     }
   }

@@ -54,6 +54,8 @@ interface StaticInfo {
   samplers: string[]
   schedulers: string[]
   upscalers: string[]
+  /** Its VAE files by name (A1111's /sdapi/v1/sd-vae); Forge, which has no such list, gives none. */
+  vaes: string[]
   taggerModel: string | null
 }
 
@@ -79,7 +81,7 @@ function localUpscalers(body: unknown): string[] {
   })
 }
 
-function names(body: unknown, key: 'name' | 'label'): string[] {
+function names(body: unknown, key: 'name' | 'label' | 'model_name'): string[] {
   if (!Array.isArray(body)) return []
   return body
     .map((item) => (item && typeof item === 'object' ? (item as Record<string, unknown>)[key] ?? (item as Record<string, unknown>).name : null))
@@ -121,12 +123,13 @@ export class A1111Adapter implements BackendAdapter {
         return null
       }
     }
-    const [samplers, schedulers, upscalers, latentModes, interrogators] = await Promise.all([
+    const [samplers, schedulers, upscalers, latentModes, interrogators, vaes] = await Promise.all([
       get('/sdapi/v1/samplers'),
       get('/sdapi/v1/schedulers'),
       get('/sdapi/v1/upscalers'),
       get('/sdapi/v1/latent-upscale-modes'),
       get('/tagger/v1/interrogators'),
+      get('/sdapi/v1/sd-vae'),
     ])
     const models = Array.isArray((interrogators as { models?: unknown })?.models)
       ? ((interrogators as { models: unknown[] }).models.filter((m) => typeof m === 'string') as string[])
@@ -138,6 +141,8 @@ export class A1111Adapter implements BackendAdapter {
       schedulers: names(schedulers, 'label'),
       // Pixel upscalers, then the latent ones.
       upscalers: [...localUpscalers(upscalers), ...names(latentModes, 'name')],
+      // By name only: its `filename` is a path on that computer.
+      vaes: names(vaes, 'model_name'),
       taggerModel: chooseTaggerModel(models, process.env.A1111_TAGGER_MODEL?.trim()),
     }
     // Only a complete answer is cached; a web UI still starting up is asked again.
@@ -178,6 +183,8 @@ export class A1111Adapter implements BackendAdapter {
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
       // Lanczos is built into the web UI; a list it did not give still has that.
       upscalers: info.upscalers.length ? info.upscalers : [LANCZOS],
+      clipSkip: true,
+      vaes: info.vaes.length ? [DEFAULT, ...info.vaes] : [],
       ...(problem ? { problem } : {}),
     }
   }

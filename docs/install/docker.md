@@ -79,7 +79,7 @@ at `/data` in the container:
 | `latentry.models.json` | Each model's link and recommended settings |
 | `output/` | Your pictures (the gallery's save folder) |
 | `runtime/` | The engine: uv, Python, PyTorch, its logs |
-| `models/` | Models and the tagger, and `loras/` |
+| `models/` | Models and the tagger, and `loras/` and `vae/` |
 
 Nothing of it is in the image, so an image can be shared or rebuilt without
 your data.

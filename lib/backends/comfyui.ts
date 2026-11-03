@@ -234,6 +234,8 @@ interface StaticInfo {
   controlnets: string[] | null
   /** UpscaleModelLoader's files, folders included; empty without the node. */
   upscaleModels: string[]
+  /** VAELoader's files, folders included; empty without the node. */
+  vaes: string[]
 }
 
 /** Finds a running engine to draw skeletons with; null when none runs. Separable for the verify script. */
@@ -352,6 +354,17 @@ export function buildComfyGraph(
     model = [id, 0]
     clip = [id, 1]
   })
+  // CLIP skip, as A1111 counts it: 2 is ComfyUI's -2, the layer before the last.
+  if (request.clip_skip !== undefined) {
+    graph['46'] = { class_type: 'CLIPSetLastLayer', inputs: { clip, stop_at_clip_layer: -request.clip_skip } }
+    clip = ['46', 0]
+  }
+  // Another VAE than the checkpoint's own, for every encode and decode.
+  let vae: [string, number] = ['1', 2]
+  if (request.vae) {
+    graph['47'] = { class_type: 'VAELoader', inputs: { vae_name: request.vae } }
+    vae = ['47', 0]
+  }
   graph['2'] = { class_type: 'CLIPTextEncode', inputs: { text: withoutLoraCalls(request.prompt), clip } }
   graph['3'] = { class_type: 'CLIPTextEncode', inputs: { text: request.negative_prompt, clip } }
   // Pictures to a latent at `size`: upscaled by the model when one is chosen,
@@ -363,7 +376,7 @@ export function buildComfyGraph(
       pixels = ['45', 0]
     }
     graph['41'] = { class_type: 'ImageScale', inputs: { image: pixels, upscale_method: 'lanczos', width: size.width, height: size.height, crop: 'disabled' } }
-    graph['42'] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae: ['1', 2] } }
+    graph['42'] = { class_type: 'VAEEncode', inputs: { pixels: ['41', 0], vae } }
     return ['42', 0]
   }
   let latent: [string, number] = ['4', 0]
@@ -374,7 +387,7 @@ export function buildComfyGraph(
     latent = enlarged(['8', 0], upscale)
   } else if (images) {
     graph['8'] = { class_type: 'LoadImage', inputs: { image: images.source } }
-    graph['9'] = { class_type: 'VAEEncode', inputs: { pixels: ['8', 0], vae: ['1', 2] } }
+    graph['9'] = { class_type: 'VAEEncode', inputs: { pixels: ['8', 0], vae } }
     latent = ['9', 0]
     if (images.mask) {
       // The mask is white (redraw) on black (keep); its red channel is the mask.
@@ -400,7 +413,7 @@ export function buildComfyGraph(
         strength: options.pose.strength,
         start_percent: 0,
         end_percent: 1,
-        vae: ['1', 2],
+        vae,
       },
     }
     positive = ['34', 0]
@@ -429,12 +442,12 @@ export function buildComfyGraph(
   // Hires fix: decode, upscale (with a model, then to the exact size), encode,
   // and sample again with the same prompts (and skeleton) at hr_denoise.
   if (request.hr_scale !== undefined && !images) {
-    graph['40'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae: ['1', 2] } }
+    graph['40'] = { class_type: 'VAEDecode', inputs: { samples: ['5', 0], vae } }
     const size = hiresSize(snap(request.width), snap(request.height), request.hr_scale, options.sizeMultiple)
     graph[HIRES_SAMPLER] = sampler(hiresSteps(request), request.hr_denoise ?? 0.4, enlarged(['40', 0], size))
     last = [HIRES_SAMPLER, 0]
   }
-  graph['6'] = { class_type: 'VAEDecode', inputs: { samples: last, vae: ['1', 2] } }
+  graph['6'] = { class_type: 'VAEDecode', inputs: { samples: last, vae } }
   let picture: [string, number] = ['6', 0]
   // Inpaint (and Extend): the drawn picture only where the mask is white,
   // the source's own pixels elsewhere, blended along the softened edge.
@@ -496,13 +509,14 @@ export class ComfyUIAdapter implements BackendAdapter {
     const key = `${this.config.id}|${this.config.url}`
     const cached = staticInfo.get(key)
     if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
-    const [checkpoints, sampler, loras, controlnets, apply, upscalers] = await Promise.all([
+    const [checkpoints, sampler, loras, controlnets, apply, upscalers, vaes] = await Promise.all([
       this.getOrNull('/object_info/CheckpointLoaderSimple'),
       this.getOrNull('/object_info/KSampler'),
       this.getOrNull('/object_info/LoraLoader'),
       this.getOrNull('/object_info/ControlNetLoader'),
       this.getOrNull(`/object_info/${CONTROLNET_APPLY}`),
       this.getOrNull('/object_info/UpscaleModelLoader'),
+      this.getOrNull('/object_info/VAELoader'),
     ])
     const canApply = !!apply && typeof apply === 'object' && CONTROLNET_APPLY in apply
     const info: StaticInfo = {
@@ -513,6 +527,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       loras: comboOptions(loras, 'LoraLoader', 'lora_name'),
       controlnets: canApply ? comboOptions(controlnets, 'ControlNetLoader', 'control_net_name') : null,
       upscaleModels: comboOptions(upscalers, 'UpscaleModelLoader', 'model_name') ?? [],
+      vaes: comboOptions(vaes, 'VAELoader', 'vae_name') ?? [],
     }
     // Only a complete answer is cached; a ComfyUI still starting is asked again.
     if (checkpoints !== null && sampler !== null) staticInfo.set(key, info)
@@ -577,6 +592,9 @@ export class ComfyUIAdapter implements BackendAdapter {
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
       upscalers: alive ? upscalerNames(info.upscaleModels) : [],
+      // On the built-in graph, from core nodes (CLIPSetLastLayer, VAELoader).
+      clipSkip: alive,
+      vaes: alive && info.vaes.length ? [DEFAULT, ...info.vaes] : [],
       ...(problem ? { problem } : {}),
     }
   }

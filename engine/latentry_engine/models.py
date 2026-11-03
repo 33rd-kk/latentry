@@ -220,7 +220,7 @@ def is_repo_id(repo_id: str) -> bool:
 
 # Where a single file may go inside the models folder: the folder itself
 # (checkpoints) or loras/ (loras.py reads it).
-FOLDERS = ("", "loras")
+FOLDERS = ("", "loras", "vae")
 
 # Left free on the disk after a download, so the models folder never fills it.
 FREE_MARGIN = 1 << 30

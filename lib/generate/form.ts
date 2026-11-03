@@ -34,6 +34,10 @@ export interface FormState {
   scheduler: string
   steps: number
   cfg: number
+  /** 0 for the backend's own; else as A1111 counts it (2: the layer before the last). */
+  clipSkip: number
+  /** A VAE from the backend's list; DEFAULT for the checkpoint's own. */
+  vae: string
   presetName: string
   /** A ComfyUI backend's workflow from its folder, by name; "" for the built-in graph. */
   workflow: string
@@ -61,6 +65,8 @@ export function defaultForm(profile: Profile): FormState {
     scheduler: DEFAULT,
     steps: profile.defaults.steps,
     cfg: profile.defaults.cfg,
+    clipSkip: 0,
+    vae: DEFAULT,
     presetName: CUSTOM_PRESET,
     workflow: '',
     hires: false,
@@ -94,6 +100,8 @@ export function readStoredForm(backendId: string, fallbackProfile: ProfileId): F
     scheduler: text(raw.scheduler, base.scheduler),
     steps: number(raw.steps, base.steps),
     cfg: number(raw.cfg, base.cfg),
+    clipSkip: number(raw.clipSkip, base.clipSkip),
+    vae: text(raw.vae, base.vae),
     presetName: text(raw.presetName, base.presetName),
     workflow: text(raw.workflow, base.workflow),
     hires: typeof raw.hires === 'boolean' ? raw.hires : base.hires,
@@ -173,6 +181,9 @@ export function applySettings(form: FormState, settings: HandoffSettings, sameBa
     ...(settings.cfg !== undefined ? { cfg: settings.cfg } : {}),
     ...(settings.sampler ? { sampler: settings.sampler } : {}),
     ...(settings.scheduler ? { scheduler: settings.scheduler } : {}),
+    // What the picture names, or the backend's own when it names none.
+    clipSkip: settings.clipSkip ?? 0,
+    vae: settings.vae ?? DEFAULT,
     // On exactly when the picture was drawn with it: its size is the first pass's.
     ...(settings.hires
       ? {

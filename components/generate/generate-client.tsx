@@ -258,6 +258,8 @@ export function GenerateClient() {
   }, [statusHints, workflow, workflowPose, engineReady])
   const sampler = form ? accepted(form.sampler, status?.samplers ?? []) : DEFAULT
   const scheduler = form ? accepted(form.scheduler, status?.schedulers ?? []) : DEFAULT
+  const vae = form ? accepted(form.vae, status?.vaes ?? []) : DEFAULT
+  const clipSkip = form && status?.clipSkip && !workflow ? form.clipSkip : 0
   // Hires fix redraws a txt2img picture; with a source image the run is img2img.
   const canHires = Boolean(capabilities?.hires && !(sourceImage && capabilities.img2img))
   const hires = Boolean(form?.hires && canHires)
@@ -346,6 +348,8 @@ export function GenerateClient() {
       scheduler,
       num_inference_steps: form.steps,
       guidance_scale: form.cfg,
+      ...(clipSkip ? { clip_skip: clipSkip } : {}),
+      ...(vae !== DEFAULT && !workflow ? { vae } : {}),
       profile: form.profile,
       // Secret mode: the server keeps this run to this page only.
       secret: isSecretMode(),
@@ -427,7 +431,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, clipSkip, vae, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -617,6 +621,8 @@ export function GenerateClient() {
               onPresetChange={applyPreset}
               sampler={sampler}
               scheduler={scheduler}
+              vae={vae}
+              workflow={Boolean(workflow)}
             />
             {canHires && (
               <HiresSection

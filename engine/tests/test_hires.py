@@ -62,7 +62,7 @@ def engine(monkeypatch: pytest.MonkeyPatch):
     engine.loaded = Loaded(info=None, family=FAMILY_SDXL, pipe=first, base_scheduler=None)
     engine.loaded.lora_keeper = type("Keeper", (), {"applied": staticmethod(lambda pipe, calls: contextlib.nullcontext())})()
     monkeypatch.setattr(engine, "_variant", lambda kind, pose=False: first if kind == "txt2img" else second)
-    monkeypatch.setattr(core, "encode_sdxl", lambda pipe, prompt, negative, device: {"prompt_embeds": "embeds"})
+    monkeypatch.setattr(core, "encode_sdxl", lambda pipe, prompt, negative, device, clip_skip=None: {"prompt_embeds": "embeds"})
     monkeypatch.setattr(core.samplers, "configure", lambda base, sampler, schedule: "scheduler")
     return engine, first, second, vae
 

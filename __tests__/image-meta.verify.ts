@@ -188,6 +188,12 @@ async function main() {
   )
   const base = { schema: 1, backend: 'engine', kind: 'diffusers', profile: 'sdxl', model: null, mode: 'txt2img', prompt: 'x, <lora:style:0.6>', negative_prompt: '', seed: 1, width: 8, height: 8, sampler: 'Euler', scheduler: 'Default', steps: 1, cfg: 5, created: '' } as const
   check(!formatA1111Parameters(base).includes('Lora hashes'), 'no Lora hashes unless given')
+  check(!/Clip skip|VAE/.test(formatA1111Parameters(base)), 'no CLIP skip or VAE unless one was asked for')
+  const tunedText = formatA1111Parameters({ ...base, clip_skip: 2, vae: 'fix, v2.safetensors' })
+  check(tunedText.includes('VAE: "fix, v2.safetensors"') && tunedText.includes('Clip skip: 2'), 'written as A1111 writes them')
+  eq([parseA1111Parameters(tunedText).clipSkip, parseA1111Parameters(tunedText).vae], [2, 'fix, v2.safetensors'], 'and read back')
+  const tunedRecord = parseLatentryRecord(JSON.stringify({ ...base, clip_skip: 2, vae: 'fix.safetensors' }))
+  eq([tunedRecord?.clipSkip, tunedRecord?.vae], [2, 'fix.safetensors'], 'the record keeps them too')
   check(!formatA1111Parameters(base, [{ name: 'style', weight: 0.6 }]).includes('Lora hashes'), 'nor for LoRAs without a hash')
   const hashed = formatA1111Parameters(base, [{ name: 'style', weight: 0.6, hash: 'abcdef012345' }, { name: 'b', weight: 1, hash: '0123456789ab' }])
   check(hashed.includes('Lora hashes: "style: abcdef012345, b: 0123456789ab"'), 'Lora hashes as A1111 writes them')

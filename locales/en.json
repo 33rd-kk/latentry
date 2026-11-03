@@ -182,6 +182,10 @@
     "customHint": "Your own sampler and step count.",
     "sampler": "Sampler",
     "scheduler": "Scheduler",
+    "clipSkip": "CLIP skip",
+    "clipSkipHint": "Which CLIP layer the prompt is read from, counted from the last: 1 is the last, 2 the one before (what SDXL models use anyway).",
+    "vae": "VAE",
+    "vaeDefault": "The model's own",
     "guidanceScale": "Guidance scale: {value}",
     "hires": {
       "title": "Hires fix",

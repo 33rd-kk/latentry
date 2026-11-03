@@ -88,6 +88,10 @@ export interface BackendStatus {
   schedulers: string[]
   /** The values hr_upscaler accepts, as the backend lists them; empty while it has no hires fix. */
   upscalers: string[]
+  /** Whether it applies `clip_skip`; the field is hidden otherwise. */
+  clipSkip?: boolean
+  /** The VAEs `vae` may name, Default first; empty or missing hides the field. */
+  vaes?: string[]
   /** While it is down: why, when that is known. */
   problem?: BackendProblem
 }
@@ -117,6 +121,14 @@ export interface GenerateRequest {
   scheduler: string
   num_inference_steps: number
   guidance_scale: number
+  /**
+   * Which CLIP layer the prompt is read from, counted from the last, as A1111
+   * says it: 1 is the last layer, 2 the one before (what SDXL uses anyway).
+   * Left out for the backend's own.
+   */
+  clip_skip?: number
+  /** A VAE from the backend's own list, by name; left out for the checkpoint's own. */
+  vae?: string
   /** img2img source: base64 PNG/JPEG/WebP, bare or as a data: URL. */
   init_image_base64?: string
   strength?: number

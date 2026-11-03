@@ -143,6 +143,13 @@ async function main() {
 
   const t2i = await toA1111Payload(REQUEST, 8)
   eq(t2i?.path, '/sdapi/v1/txt2img', 'no source is txt2img')
+  check(!('override_settings' in (t2i?.body ?? {})), 'no settings overridden unless asked')
+  const tuned = await toA1111Payload({ ...REQUEST, clip_skip: 2, vae: 'fix.safetensors' }, 8)
+  eq(
+    [tuned?.body.override_settings, tuned?.body.override_settings_restore_afterwards],
+    [{ CLIP_stop_at_last_layers: 2, sd_vae: 'fix.safetensors' }, true],
+    'CLIP skip and the VAE for this run only, put back afterwards'
+  )
   check(!('enable_hr' in (t2i?.body ?? {})) && !('denoising_strength' in (t2i?.body ?? {})), 'no hires fix unless asked')
   const hires = await toA1111Payload({ ...REQUEST, hr_scale: 1.5, hr_steps: 0, hr_denoise: 0.35, hr_upscaler: 'R-ESRGAN 4x+' }, 8)
   eq(
@@ -528,6 +535,17 @@ async function main() {
   eq(parsed({ hr_scale: 9, hr_denoise: 5, hr_steps: -3 })?.hr_scale, 4, 'the scale is held to 4096 a side')
   eq(parsed({ width: 2048, hr_scale: 3 })?.hr_scale, 2, 'and to 4096 for the longer side')
   eq(parsed({ hr_scale: 2, hr_upscaler: 'a\nb' })?.hr_upscaler, 'Lanczos', 'an upscaler name with control characters falls back to Lanczos')
+
+  // ── CLIP skip and VAE in a request ──
+  eq([parsed({ clip_skip: 2.4 })?.clip_skip, parsed({ clip_skip: 0 })?.clip_skip, parsed({ clip_skip: 99 })?.clip_skip], [2, 1, 12], 'CLIP skip is a whole number from 1 to 12')
+  eq('clip_skip' in (parsed({}) ?? {}), false, 'and left out unless asked')
+  eq(parsed({ vae: 'sdxl/fix.safetensors' })?.vae, 'sdxl/fix.safetensors', 'a VAE by name, under a folder of the backend\'s own')
+  eq(
+    ['Default', '', '../x.safetensors', 'a/../b', 'a\nb', 'x'.repeat(256), 42].map((vae) => parsed({ vae })?.vae),
+    Array(7).fill(undefined),
+    'never "Default", a way out of its folder, control characters, or something too long'
+  )
+  eq([parsed({ workflow: 'portrait.json', clip_skip: 2, vae: 'fix.safetensors' })].map((request) => [request?.clip_skip, request?.vae]), [[undefined, undefined]], 'a workflow sets its own')
   eq('hr_scale' in (parsed({ hr_scale: 2, init_image_base64: 'AAAA' }) ?? {}), false, 'not with a source image: that run is img2img')
   eq('hr_scale' in (parsed({ hr_scale: 2, workflow: 'mine' }) ?? {}), false, 'nor with a workflow, which has its own passes')
 

@@ -28,9 +28,13 @@ interface SettingsSectionProps {
   /** The sampler and scheduler as the backend accepts them. */
   sampler: string
   scheduler: string
+  /** The VAE shown: the form's when the backend lists it. */
+  vae: string
+  /** A ComfyUI workflow sets its own CLIP layer and VAE. */
+  workflow: boolean
 }
 
-/** The knobs: size, seed, steps, image count, speed preset, sampler and scheduler, CFG. */
+/** The knobs: size, seed, steps, image count, speed preset, sampler and scheduler, CLIP skip and VAE, CFG. */
 export function SettingsSection({
   form,
   profile,
@@ -42,6 +46,8 @@ export function SettingsSection({
   onPresetChange,
   sampler,
   scheduler,
+  vae,
+  workflow,
 }: SettingsSectionProps) {
   const t = useT()
   const sliderId = useId()
@@ -204,6 +210,45 @@ export function SettingsSection({
                   {status.schedulers.map((option) => (
                     <SelectItem key={option} value={option}>
                       {option === DEFAULT ? t("generate.backendDefault") : option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!workflow && (status.clipSkip || (status.vaes?.length ?? 0) > 0) && (
+        <div className="grid grid-cols-2 gap-4">
+          {status.clipSkip && (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${sliderId}-clip-skip`}>{t("generate.clipSkip")}</Label>
+              <Select value={String(form.clipSkip)} onValueChange={(value) => update({ clipSkip: Number(value), presetName: CUSTOM_PRESET })}>
+                <SelectTrigger id={`${sliderId}-clip-skip`} className="w-full" title={t("generate.clipSkipHint")}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[0, 1, 2, 3, 4].map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option === 0 ? t("generate.backendDefault") : String(option)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {(status.vaes?.length ?? 0) > 0 && (
+            <div className="space-y-1.5">
+              <Label htmlFor={`${sliderId}-vae`}>{t("generate.vae")}</Label>
+              <Select value={vae} onValueChange={(value) => update({ vae: value, presetName: CUSTOM_PRESET })}>
+                <SelectTrigger id={`${sliderId}-vae`} className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {status.vaes!.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option === DEFAULT ? t("generate.vaeDefault") : option}
                     </SelectItem>
                   ))}
                 </SelectContent>

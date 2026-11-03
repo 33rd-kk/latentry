@@ -209,6 +209,18 @@ async function main() {
   eq(graph['10'].inputs, { model: ['1', 0], clip: ['1', 1], lora_name: 'styles/Ink.safetensors', strength_model: 0.7, strength_clip: 0.7 }, 'the LoRA sits between the checkpoint and the rest')
   eq([graph['2'].inputs.text, graph['2'].inputs.clip, graph['3'].inputs.text], ['1girl, smile', ['10', 1], 'lowres'], 'prompts go through the LoRA\'s CLIP')
   eq(graph['4'].inputs, { width: 832, height: 1216, batch_size: 1 }, 'the size is snapped to the profile\'s multiple')
+  check(!('46' in graph) && !('47' in graph) && (graph['6'].inputs.vae as [string, number])[0] === '1', 'no CLIP skip and the checkpoint\'s own VAE unless asked')
+  {
+    const tuned = buildComfyGraph(
+      { ...REQUEST, clip_skip: 2, vae: 'sdxl/fix.safetensors', hr_scale: 1.5, hr_steps: 0, hr_denoise: 0.4 },
+      { checkpoint: 'c', loras: [{ file: 'styles/Ink.safetensors', weight: 0.7 }], seed: 5, sizeMultiple: 8 }
+    )
+    eq(tuned['46'], { class_type: 'CLIPSetLastLayer', inputs: { clip: ['10', 1], stop_at_clip_layer: -2 } }, 'CLIP skip 2 is ComfyUI\'s -2, after the LoRAs')
+    eq([tuned['2'].inputs.clip, tuned['3'].inputs.clip], [['46', 0], ['46', 0]], 'and both prompts read through it')
+    eq(tuned['47'], { class_type: 'VAELoader', inputs: { vae_name: 'sdxl/fix.safetensors' } }, 'another VAE is loaded')
+    const vaeInputs = Object.values(tuned).filter((node) => 'vae' in node.inputs).map((node) => node.inputs.vae as [string, number])
+    check(vaeInputs.length >= 3 && vaeInputs.every((vae) => vae[0] === '47'), 'and every encode and decode uses it, hires fix included')
+  }
   eq(
     [graph['5'].inputs.seed, graph['5'].inputs.steps, graph['5'].inputs.cfg, graph['5'].inputs.sampler_name, graph['5'].inputs.scheduler, graph['5'].inputs.model],
     [5, 2, 5, 'euler', 'karras', ['10', 0]],
