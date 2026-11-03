@@ -1,18 +1,23 @@
 "use client"
 
 import type { InstallRecord } from "@/lib/engine/install"
-import { lockIsStale } from "@/lib/engine/locks"
+import { LOCKED_ON, lockIsStale, lockOutdated } from "@/lib/engine/locks"
 import { useT, type MessageKey } from "@/lib/i18n"
 
 /**
  * Whether the engine's Python packages are the pinned ones, under the install
  * line on Setup: when they were pinned (and a nudge once that is long ago, as
- * security fixes come only with a new lock), or why they are not.
+ * security fixes come only with a new lock), or why they are not. When this
+ * Latentry pins newer packages than were installed, it says to run Repair /
+ * update, so an update does not rely on its release notes being read.
  */
 export function PinnedNote({ installed }: { installed: InstallRecord }) {
   const t = useT()
   if (installed.lock) {
     const date = installed.lock.lockedOn
+    if (lockOutdated(installed.lock)) {
+      return <p className="text-xs text-amber-600 dark:text-amber-500">{t("setup.pinnedOutdated", { date, current: LOCKED_ON })}</p>
+    }
     return lockIsStale(new Date(), date) ? (
       <p className="text-xs text-amber-600 dark:text-amber-500">{t("setup.pinnedStale", { date })}</p>
     ) : (

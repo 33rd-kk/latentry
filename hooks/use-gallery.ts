@@ -22,6 +22,8 @@ export interface GalleryPicture {
   meta: ImageMeta | null
   /** When stacking: the stack this picture stands for (see lib/gallery/fs.ts). */
   stack?: { key: string; count: number }
+  /** Stars given to it, when it has any (lib/gallery/ratings.ts). */
+  stars?: number
 }
 
 export function pictureUrl(picture: { dir: number; name: string }, thumb = false): string {
@@ -71,6 +73,8 @@ export interface GalleryPage {
   reload: () => void
   /** Replaces one picture's metadata in place, after its tags were written. */
   patch: (picture: GalleryPicture, meta: ImageMeta) => void
+  /** Gives one picture its new stars in place (0 for none). */
+  patchStars: (picture: GalleryPicture, stars: number) => void
 }
 
 /**
@@ -157,7 +161,27 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
     )
   }, [])
 
-  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch }
+  const patchStars = useCallback((picture: GalleryPicture, stars: number) => {
+    setPictures((previous) =>
+      previous.map((item) => (item.dir === picture.dir && item.name === picture.name ? { ...item, stars: stars || undefined } : item))
+    )
+  }, [])
+
+  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch, patchStars }
+}
+
+/** Saves a picture's stars (0 takes them away); whether it worked. */
+export async function saveRating(picture: { dir: number; name: string }, stars: number): Promise<boolean> {
+  try {
+    const response = await fetch(`${pictureUrl(picture)}/rating`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stars }),
+    })
+    return response.ok
+  } catch {
+    return false
+  }
 }
 
 function names(value: unknown): string[] {

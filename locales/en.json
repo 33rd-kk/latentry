@@ -356,7 +356,8 @@
       "pixels-desc": "Most pixels first",
       "pixels-asc": "Fewest pixels first",
       "indexing": "Reading the folder to sort it: {done} / {total} pictures",
-      "tooLarge": "This folder has {total} pictures, too many to sort this way. Choose another order."
+      "tooLarge": "This folder has {total} pictures, too many to sort this way. Choose another order.",
+      "stars-desc": "Most stars first"
     },
     "filter": {
       "button": "Filters",
@@ -405,7 +406,10 @@
       "group-prompt": "Same prompt",
       "group-seed": "Same seed",
       "group-grid": "Same X/Y grid",
-      "inStack": "One stack"
+      "inStack": "One stack",
+      "stars": "Stars",
+      "anyStars": "Rated or not",
+      "starsAtLeast": "{count} or more"
     },
     "compare": {
       "button": "Compare",
@@ -496,6 +500,12 @@
     "bulkDismiss": "Dismiss",
     "bulkFailed": "Tagging could not start",
     "bulkCancelled": "Tagging stopped",
+    "rating": {
+      "label": "Rating",
+      "stars": "{count} of 5 stars",
+      "clearHint": "Take the rating away",
+      "failed": "Could not save the rating."
+    },
     "download": {
       "clean": "Save without settings",
       "cleanHint": "Saves the picture without its prompt, seed, LoRAs, workflow or EXIF. The picture itself is not changed.",
@@ -743,6 +753,7 @@
     "installed": "PyTorch {torch} and diffusers {diffusers}, running on {device}.",
     "pinned": "Python packages pinned as of {date} and checked against their hashes.",
     "pinnedStale": "These pinned packages are from {date}, over six months ago, and may have known vulnerabilities. Check for a Latentry update, or set LATENTRY_ENGINE_PACKAGES=latest and run Repair / update to take the newest.",
+    "pinnedOutdated": "Python packages pinned as of {date}. This Latentry pins newer ones, as of {current}: run Repair / update to install them.",
     "unpinned": {
       "latest": "Python packages are the newest ones, not pinned (LATENTRY_ENGINE_PACKAGES=latest). They are not checked against hashes.",
       "no-lock": "Latentry has no pinned package set for this computer, so the Python packages are not pinned or checked against hashes.",

@@ -7,9 +7,10 @@ import path from 'node:path'
 import { metaFromText, readImageInfo, type ImageMeta } from '../image-meta'
 import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
-import { matchesCheap, matchesMeta, needsMeta, toParams, type GalleryQuery, type StackGroup } from './filter'
+import { matchesCheap, matchesMeta, matchesStars, needsMeta, toParams, type GalleryQuery, type StackGroup } from './filter'
 import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
 import { facetsOf, indexStatus, stackKeyOf, withIndexValues, type Facets } from './folder-index'
+import { dropMissingRatings, folderRatings } from './ratings'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
 
@@ -26,6 +27,8 @@ export interface GalleryItem extends GalleryEntry {
   meta: ImageMeta | null
   /** When stacking: the stack this picture stands for, if it has others. */
   stack?: { key: string; count: number }
+  /** Stars given to it (lib/gallery/ratings.ts), when it has any. */
+  stars?: number
 }
 
 /**
@@ -148,6 +151,13 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
   }
   entries.sort(compareEntries('newest'))
   listings.set(dir.path, { dirMtime: dirStat.mtimeMs, at: Date.now(), entries })
+  // Ratings of files no longer here go. Not when the folder looks empty: a
+  // drive that is not there yet should not take every rating with it.
+  if (entries.length) {
+    dropMissingRatings(dir.path, new Set(entries.map((entry) => entry.name))).catch((error) =>
+      console.error('[ratings] could not drop those of missing files:', error instanceof Error ? error.message : error)
+    )
+  }
   return entries
 }
 
@@ -195,9 +205,13 @@ export async function itemInfo(dir: GalleryDir, entry: GalleryEntry): Promise<Ga
 const sortedListings = new WeakMap<GalleryEntry[], Map<SortKey, GalleryEntry[]>>()
 
 /** The listing in `sort`'s order. A meta order needs the folder's index ready first. */
-function sortedEntries(dir: GalleryDir, entries: GalleryEntry[], sort: SortKey): GalleryEntry[] {
+function sortedEntries(dir: GalleryDir, entries: GalleryEntry[], sort: SortKey, stars: ReadonlyMap<string, number>): GalleryEntry[] {
   // listEntries already sorts newest first.
   if (sort === 'newest') return entries
+  // Ratings change without the listing changing, so this order is not kept.
+  if (sort === 'stars-desc') {
+    return entries.map((entry) => ({ ...entry, stars: stars.get(entry.name) ?? 0 })).sort(compareEntries(sort))
+  }
   let orders = sortedListings.get(entries)
   if (!orders) sortedListings.set(entries, (orders = new Map()))
   let sorted = orders.get(sort)
@@ -234,7 +248,9 @@ export async function listPage(
     if (status.state === 'too-large') return { items: [], nextCursor: null, indexing: { tooLarge: true, total: status.total } }
     if (status.state === 'indexing') return { items: [], nextCursor: null, indexing: { done: status.done, total: status.total } }
   }
-  let entries = sortedEntries(dir, listing, sort).filter((entry) => matchesCheap(entry, filter, now))
+  const stars = folderRatings(dir.path)
+  const starsOf = (name: string) => stars.get(name) ?? 0
+  let entries = sortedEntries(dir, listing, sort, stars).filter((entry) => matchesCheap(entry, filter, now) && matchesStars(starsOf(entry.name), filter))
   const { group, stack } = filter
   // Inside one stack: only its pictures, unstacked.
   if (group && stack) entries = entries.filter((entry) => stackKeyOf(dir, entry.name, group) === stack)
@@ -243,7 +259,7 @@ export async function listPage(
   const filtering = terms.length > 0 || needsMeta(filter)
   const matches = (item: GalleryItem) =>
     matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta, item), terms))
-  if (group && !stack) return stackedPage(dir, listing, entries, { ...options, sort, group, matches: filtering ? matches : null })
+  if (group && !stack) return stackedPage(dir, listing, entries, { ...options, sort, group, stars, matches: filtering ? matches : null })
 
   const start = startIndex(entries, options.cursor, sort)
   if (start === -1) return { items: [], nextCursor: null }
@@ -256,7 +272,7 @@ export async function listPage(
   while (index < entries.length && items.length < options.limit && scanned < scanLimit) {
     const batch = entries.slice(index, index + 32)
     // Only the listing's own fields: a meta order's values stay out of the reply.
-    const infos = await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
+    const infos = (await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))).map((item) => withStars(item, stars))
     for (let i = 0; i < infos.length; i += 1) {
       index += 1
       scanned += 1
@@ -289,9 +305,18 @@ async function stackedPage(
   dir: GalleryDir,
   listing: GalleryEntry[],
   entries: GalleryEntry[],
-  options: { cursor?: string | null; limit: number; filter: GalleryQuery; sort: SortKey; group: StackGroup; matches: ((item: GalleryItem) => boolean) | null }
+  options: {
+    cursor?: string | null
+    limit: number
+    filter: GalleryQuery
+    sort: SortKey
+    group: StackGroup
+    stars: ReadonlyMap<string, number>
+    matches: ((item: GalleryItem) => boolean) | null
+  }
 ): Promise<GalleryPage> {
-  const cacheKey = toParams(options.filter).toString()
+  // The ratings themselves are part of the key: giving stars changes the stars filter and order.
+  const cacheKey = `${toParams(options.filter)}|${options.filter.minStars || options.sort === 'stars-desc' ? JSON.stringify([...options.stars]) : ''}`
   let cached = stackedListings.get(listing)
   if (!cached) stackedListings.set(listing, (cached = new Map()))
   let stacked = cached.get(cacheKey)
@@ -325,7 +350,7 @@ async function stackedPage(
   const page = stacked.entries.slice(start, start + options.limit)
   const items = await Promise.all(
     page.map(async ({ name, mtime, size }) => {
-      const item = await itemInfo(dir, { name, mtime, size })
+      const item = withStars(await itemInfo(dir, { name, mtime, size }), options.stars)
       const stack = stacked!.stacks.get(name)
       return stack && stack.count > 1 ? { ...item, stack: { ...stack } } : item
     })
@@ -333,6 +358,11 @@ async function stackedPage(
   const end = start + page.length
   const last = stacked.entries[end - 1]
   return { items, nextCursor: end < stacked.entries.length && last ? encodeCursor(last, options.sort) : null }
+}
+
+function withStars(item: GalleryItem, stars: ReadonlyMap<string, number>): GalleryItem {
+  const given = stars.get(item.name)
+  return given ? { ...item, stars: given } : item
 }
 
 /** Every model and LoRA named in the folder, for the filters; or the progress while the folder is read. */

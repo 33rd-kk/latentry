@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Setup says when the engine's packages are behind**: after an update
+  that pins newer Python packages, Setup asks you to run **Repair / update**,
+  so you no longer need the release notes to know.
+- **Stars in the gallery**: rate a picture from 1 to 5 in the viewer (or
+  with **1**–**5** on the keyboard), see its stars on its card, show only
+  pictures with at least some stars, and order by **Most stars first**.
+  Phones and other paired devices can rate too. The stars are kept in
+  `latentry.ratings.json` next to the settings file, never in the picture,
+  so a shared picture does not carry them; pictures in read-only folders
+  can be rated as well. See
+  [Stars](https://33rd-kk.github.io/latentry/guide/gallery/#stars).
 - **Save without settings**: the gallery's side panel saves a picture
   without its prompt, seed, LoRAs, workflow, EXIF or XMP, the pixels and
   colour profile untouched, and **Select** downloads several as one ZIP the

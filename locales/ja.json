@@ -356,7 +356,8 @@
       "pixels-desc": "ピクセル数が多い順",
       "pixels-asc": "ピクセル数が少ない順",
       "indexing": "並べ替えのためにフォルダーを読み込み中：{done} / {total} 枚",
-      "tooLarge": "このフォルダーには {total} 枚あり、この順には並べ替えられません。別の並び順を選んでください。"
+      "tooLarge": "このフォルダーには {total} 枚あり、この順には並べ替えられません。別の並び順を選んでください。",
+      "stars-desc": "星が多い順"
     },
     "filter": {
       "button": "絞り込み",
@@ -405,7 +406,10 @@
       "group-prompt": "同じプロンプト",
       "group-seed": "同じシード",
       "group-grid": "同じ X/Y グリッド",
-      "inStack": "1 つのまとまり"
+      "inStack": "1 つのまとまり",
+      "stars": "星",
+      "anyStars": "指定なし",
+      "starsAtLeast": "{count} 以上"
     },
     "compare": {
       "button": "比較",
@@ -496,6 +500,12 @@
     "bulkDismiss": "閉じる",
     "bulkFailed": "タグ付けを開始できませんでした",
     "bulkCancelled": "タグ付けを停止しました",
+    "rating": {
+      "label": "評価",
+      "stars": "星 {count} / 5",
+      "clearHint": "評価を外す",
+      "failed": "評価を保存できませんでした。"
+    },
     "download": {
       "clean": "設定なしで保存",
       "cleanHint": "プロンプト、シード、LoRA、ワークフロー、EXIF を除いて保存します。画像そのものは変わりません。",
@@ -743,6 +753,7 @@
     "installed": "PyTorch {torch} と diffusers {diffusers} が {device} で動いています。",
     "pinned": "Python パッケージは {date} 時点のものに固定され、ハッシュで確かめてあります。",
     "pinnedStale": "固定したパッケージは {date} のもので、6 か月以上前です。既知の脆弱性があるかもしれません。Latentry の更新を確認するか、LATENTRY_ENGINE_PACKAGES=latest を設定して「修復 / 更新」を実行し、最新のものにしてください。",
+    "pinnedOutdated": "Python パッケージは {date} 時点のものに固定されています。この Latentry は {current} 時点の新しいものを固定しています。入れ替えるには「修復 / 更新」を実行してください。",
     "unpinned": {
       "latest": "Python パッケージは固定せず最新のものです（LATENTRY_ENGINE_PACKAGES=latest）。ハッシュでは確かめていません。",
       "no-lock": "このコンピューター向けの固定パッケージがないため、Python パッケージは固定されず、ハッシュでも確かめていません。",

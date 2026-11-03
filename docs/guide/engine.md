@@ -25,7 +25,9 @@ picture.
   uv is a fixed release, checked against its published SHA-256 before it is
   run.
 - **Repair / update**: run it after updating Latentry, or when the engine
-  will not start.
+  will not start. When an update pins newer Python packages than the engine
+  was installed with, Setup says so under the install line, in amber, until
+  you run it.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
   runs per NVIDIA GPU, each with its port, state, loaded model, version and
   **Log**. An engine still running a version other than the one in

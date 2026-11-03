@@ -67,6 +67,7 @@ test('the order menu offers what the guide lists', async ({ page }) => {
     'Name A–Z',
     'Name Z–A',
     'Largest file first',
+    'Most stars first',
     'Made, newest first',
     'Made, oldest first',
     'Most pixels first',

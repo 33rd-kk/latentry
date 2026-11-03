@@ -191,6 +191,15 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
               onChange={(group) => onChange({ group, stack: undefined })}
             />
           </Field>
+          <Field label={t("gallery.filter.stars")}>
+            <OptionSelect
+              label={t("gallery.filter.stars")}
+              value={query.minStars ? String(query.minStars) : undefined}
+              all={t("gallery.filter.anyStars")}
+              options={["1", "2", "3", "4", "5"].map((stars) => ({ value: stars, label: t("gallery.filter.starsAtLeast", { count: stars }) }))}
+              onChange={(stars) => onChange({ minStars: stars ? Number(stars) : undefined })}
+            />
+          </Field>
           <label className="flex items-center gap-2 self-end text-sm">
             <Switch checked={query.untagged ?? false} onCheckedChange={(checked) => onChange({ untagged: checked || undefined })} />
             {t("gallery.filter.untagged")}
@@ -236,6 +245,9 @@ export function FilterChips({
   }
   if (query.grid) add("grid", `${t("gallery.filter.grid")}: ${t(`gallery.filter.grid-${query.grid}`)}`, { grid: undefined })
   if (query.untagged) add("untagged", t("gallery.filter.untaggedChip"), { untagged: undefined })
+  if (query.minStars) {
+    add("stars", `${t("gallery.filter.stars")}: ${t("gallery.filter.starsAtLeast", { count: query.minStars })}`, { minStars: undefined })
+  }
   if (query.group) add("group", t(`gallery.filter.group-${query.group}`), { group: undefined, stack: undefined })
   if (query.group && query.stack) add("stack", t("gallery.filter.inStack"), { stack: undefined })
 

@@ -7,6 +7,7 @@ import { normalizeTag } from "@/lib/gallery/query"
 import { tagForPrompt } from "@/lib/tag-groups"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
+import { StarBadge } from "./star-rating"
 
 /** Tags shown before the footer offers "+N". */
 const COLLAPSED_TAGS = 8
@@ -114,6 +115,8 @@ export const GalleryCard = memo(function GalleryCard({
             {picture.stack.count}
           </span>
         )}
+        {/* Where the checkbox goes while selecting; hidden in secret mode, like what else describes it. */}
+        {!selecting && !secret && <StarBadge stars={picture.stars} />}
         {selecting && (
           <span
             aria-hidden
