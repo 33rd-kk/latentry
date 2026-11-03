@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Save without settings**: the gallery's side panel saves a picture
+  without its prompt, seed, LoRAs, workflow, EXIF or XMP, the pixels and
+  colour profile untouched, and **Select** downloads several as one ZIP the
+  same way. **Save with settings** still saves the file as it is. A picture
+  that cannot be cleaned is never sent with its settings. The viewer's own
+  save button is gone from the gallery. See
+  [Saving and sharing](https://33rd-kk.github.io/latentry/guide/gallery/#saving-and-sharing).
+
 ## 0.14.0 (2026-11-03)
 
 **Upgrading from 0.13.0**: after the usual update, open **Setup** and run

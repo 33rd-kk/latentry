@@ -495,7 +495,21 @@
     "bulkProgress": "{done} / {total} · タグ付け {tagged} · スキップ {skipped} · 失敗 {failed}",
     "bulkDismiss": "閉じる",
     "bulkFailed": "タグ付けを開始できませんでした",
-    "bulkCancelled": "タグ付けを停止しました"
+    "bulkCancelled": "タグ付けを停止しました",
+    "download": {
+      "clean": "設定なしで保存",
+      "cleanHint": "プロンプト、シード、LoRA、ワークフロー、EXIF を除いて保存します。画像そのものは変わりません。",
+      "original": "設定ごと保存",
+      "originalHint": "作り方の情報も含めて、ファイルをそのまま保存します。",
+      "bulkClean": "{count} 枚を設定なしでダウンロード",
+      "bulkOriginal": "設定ごと",
+      "failed": "保存できませんでした: {error}",
+      "leftOut": "{count} 枚は設定を消せなかったため、含めていません。",
+      "notCleaned": "この画像は設定を消せるほど正しく読めなかったため、保存しませんでした。",
+      "tooLarge": "一度にダウンロードするには大きすぎます。枚数を減らしてください。",
+      "noneSaved": "どの画像も保存できませんでした。",
+      "tooMany": "一度にダウンロードできるのは 1〜{count} 枚です。"
+    }
   },
   "lightbox": {
     "copiedWhat": "{what} をコピーしました",

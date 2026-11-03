@@ -55,7 +55,8 @@ export function readChunks(png: Buffer): PngChunk[] {
   return chunks
 }
 
-function encodeChunk(type: string, data: Buffer): Buffer {
+/** One chunk as it is written: length, type, data and CRC-32. */
+export function encodeChunk(type: string, data: Buffer): Buffer {
   const head = Buffer.alloc(8)
   head.writeUInt32BE(data.length, 0)
   head.write(type, 4, 'latin1')

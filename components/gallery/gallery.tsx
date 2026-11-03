@@ -69,7 +69,9 @@ export function Gallery() {
   }, [searchText])
 
   const items = useMemo<LightboxItem[]>(
-    () => page.pictures.map((picture) => ({ src: pictureUrl(picture), name: picture.name, downloadName: picture.name })),
+    // No save button of the viewer's own: it would save the file with its
+    // settings. The side panel offers saving without them first.
+    () => page.pictures.map((picture) => ({ src: pictureUrl(picture), name: picture.name })),
     [page.pictures]
   )
 

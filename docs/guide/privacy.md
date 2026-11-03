@@ -29,6 +29,14 @@ The browser only talks to Latentry itself. Latentry listens on 127.0.0.1
 unless you set `LATENTRY_HOST`; see
 [Other devices and security](network.md) before opening it to a network.
 
+## Sharing a picture
+
+Every finished picture holds its prompt, seed, model, LoRAs and settings
+(see below). The gallery's **Save without settings** and **Download N
+without settings** leave all of that out of the copy you share, without
+encoding the picture again. See
+[Saving and sharing](gallery.md#saving-and-sharing).
+
 ## What is kept, and where
 
 | Where | What | When it goes |

@@ -2,9 +2,9 @@
 
 import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { ExternalLink, Eye, FolderOpen, ImageUp, Loader2, Maximize2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { Download, ExternalLink, Eye, FolderOpen, ImageUp, Loader2, Maximize2, PersonStanding, Tags, Wand2 } from "lucide-react"
 import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
-import { pictureUrl, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, saveDownload, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
 import { splitTags, toSpacedTags } from "@/lib/tags"
 import { tagForPrompt } from "@/lib/tag-groups"
@@ -102,6 +102,13 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     } finally {
       setTagging(false)
     }
+  }
+
+  // Without its settings unless asked: what was typed and used stays here.
+  const save = async (kind: "clean" | "original") => {
+    setNote(null)
+    const result = await saveDownload(`${pictureUrl(picture)}?download=${kind}`, undefined, picture.name)
+    if (!result.ok) setNote(t("gallery.download.failed", { error: t.server(result.error) }))
   }
 
   const sendSettings = () => {
@@ -202,6 +209,14 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         <button type="button" className={action} onClick={() => sendSource("upscale")} title={t("gallery.upscaleHint")}>
           <Maximize2 className="h-3 w-3" />
           {t("gallery.upscale")}
+        </button>
+        <button type="button" className={action} onClick={() => void save("clean")} title={t("gallery.download.cleanHint")}>
+          <Download className="h-3 w-3" />
+          {t("gallery.download.clean")}
+        </button>
+        <button type="button" className={action} onClick={() => void save("original")} title={t("gallery.download.originalHint")}>
+          <Download className="h-3 w-3" />
+          {t("gallery.download.original")}
         </button>
         {canTag && (
           <button

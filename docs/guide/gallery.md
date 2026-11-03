@@ -117,6 +117,31 @@ differ, highlighted, and the prompt tags only one of them has. In secret
 mode the pictures are blurred and the rest hidden until **Show for this
 comparison**.
 
+## Saving and sharing
+
+A picture made with Latentry, A1111 / Forge or ComfyUI carries how it was
+made inside the file: the prompt and negative prompt, the seed, the model
+and LoRAs, and with ComfyUI the whole workflow. Anyone you send the file to
+can read all of it. So the gallery saves pictures **without** that unless
+you ask:
+
+- **Save without settings** (side panel): the picture with its text
+  chunks, EXIF and XMP left out (the prompt, seed, LoRAs, workflow, and the
+  camera, place, software and dates other tools write). The pixels are not
+  encoded again, so nothing is lost, and the colour profile stays. A JPEG
+  keeps its rotation, alone, so it still shows the right way up. Content
+  Credentials (C2PA), which say where a picture came from, stay as they are.
+- **Save with settings**: the file as it is.
+- With **Select**, **Download N without settings** saves the chosen pictures
+  as one ZIP (up to 200 at a time and 256 MB in all); **With settings**
+  saves them as they are. The ZIP holds the file names only, no folder, and
+  no dates.
+
+A picture that cannot be read well enough to take its settings out is not
+saved at all rather than saved with them; in a ZIP it is left out, and the
+gallery says how many were. The viewer has no save button of its own in
+the gallery, since it would save the file with its settings.
+
 ## Tags
 
 - **Tags** shows each picture's tags under its card: its prompt, or the WD14
@@ -136,7 +161,7 @@ Tagging needs a tagger; see [Settings](settings.md).
 ![The viewer: the picture, and its side panel with the actions and settings](../assets/manual-viewer.webp)
 
 Click a picture to open it. Arrows or the keyboard move between pictures; the
-magnifier zooms; the download button saves it. The side panel shows the
+magnifier zooms. [Saving](#saving-and-sharing) is in the side panel. It shows the
 backend, model, mode, seed, size, steps, CFG, sampler, strength and hires fix
 it was made with, its prompt and negative prompt as tags, and its WD14 tags. In
 [secret mode](secret-mode.md) thumbnails are blurred and the panel hides all
