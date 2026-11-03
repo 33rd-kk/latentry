@@ -70,10 +70,7 @@ come from what the page already has: nothing more is asked of Latentry, and
 nothing is kept after you leave. In [secret mode](secret-mode.md) no tags or
 names are suggested, only how to write a search.
 
-While you use the search box, the same tips show under it. **Hide tips**
-turns them off (this browser remembers that), and the **?** next to the box
-(**Show search tips**) brings them back. **Refresh** picks up pictures that
-arrived from elsewhere.
+**Refresh** picks up pictures that arrived from elsewhere.
 
 ## Order and filters
 

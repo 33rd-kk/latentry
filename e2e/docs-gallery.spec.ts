@@ -46,15 +46,12 @@ test('the search grammar works as the guide says', async ({ page }) => {
   expect(await count(page, 'docsgrammar, w:64, h:96')).toBe(2)
 
   await page.goto('/gallery')
-  // The tips show under the box while it is in use, until hidden; then the
-  // button next to the box brings them back.
-  const tips = page.getByText(/^Commas separate terms/)
-  await search(page).fill('docsgrammar')
-  await expect(tips).toBeVisible()
-  await page.getByRole('button', { name: 'Hide tips' }).click()
-  await expect(tips).toBeHidden()
-  await page.getByRole('button', { name: 'Show search tips' }).click()
-  await expect(tips).toBeVisible()
+  // "Suggestions": in an empty box, how to write a search.
+  await search(page).click()
+  const list = page.getByRole('listbox', { name: 'Suggestions' })
+  await expect(list.getByRole('option', { name: /"…"/ })).toBeVisible()
+  await expect(list.getByRole('option', { name: /^-…/ })).toBeVisible()
+  await expect(list.getByRole('option', { name: /steps:/ })).toBeVisible()
 })
 
 // "Order": the menu's entries.

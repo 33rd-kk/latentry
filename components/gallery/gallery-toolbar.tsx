@@ -4,7 +4,6 @@ import { CheckSquare, FolderOpen, Lock, RefreshCw, Tags } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FilterToggle, SortSelect } from "./gallery-filters"
-import { SearchHintToggle } from "./search-hint"
 import { SearchBox } from "./search-suggestions"
 import type { SuggestSource } from "@/lib/gallery/suggest"
 import type { GalleryFolder, GalleryPage } from "@/hooks/use-gallery"
@@ -21,7 +20,6 @@ export function GalleryToolbar({
   onDir,
   searchText,
   onSearchText,
-  onSearchFocus,
   secret,
   suggestSource,
   suggestFrom,
@@ -39,7 +37,6 @@ export function GalleryToolbar({
   onDir: (dir: number) => void
   searchText: string
   onSearchText: (text: string) => void
-  onSearchFocus: (focused: boolean) => void
   secret: boolean
   /** What the search box suggests from: the pictures shown so far. */
   suggestSource: SuggestSource
@@ -73,12 +70,10 @@ export function GalleryToolbar({
       <SearchBox
         value={searchText}
         onChange={onSearchText}
-        onFocusChange={onSearchFocus}
         secret={secret}
         source={suggestSource}
         pictureCount={suggestFrom}
       />
-      <SearchHintToggle />
       <SortSelect value={query.sort ?? DEFAULT_SORT} onChange={(sort) => onChange({ sort })} />
       <FilterToggle open={filtersOpen} query={query} onToggle={onToggleFilters} />
       <Button variant="ghost" size="icon" onClick={page.reload} aria-label={t("gallery.refresh")} title={t("gallery.refresh")}>

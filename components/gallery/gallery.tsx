@@ -11,7 +11,6 @@ import { GalleryToolbar } from "./gallery-toolbar"
 import { SelectionBar } from "./selection-bar"
 import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
-import { SearchHint } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
 import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
@@ -36,7 +35,6 @@ export function Gallery() {
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [searchText, setSearchText] = useState("")
-  const [searchFocused, setSearchFocused] = useState(false)
   const [q, setQ] = useState("")
   // The order and filters live only as long as the page: nothing about what
   // was looked for is kept in the browser or the address bar.
@@ -70,6 +68,16 @@ export function Gallery() {
   const [showTags, setShowTags] = useLocalFlag("latentry:gallery-show-tags", false)
   const selection = useGallerySelection(activeDir, `${activeDir}|${toParams(query)}`, page)
 
+  // The search tips that came before the suggestions remembered being hidden
+  // here; nothing reads that any more, so it is not left behind.
+  useEffect(() => {
+    try {
+      localStorage.removeItem("latentry:search-hint-hidden")
+    } catch {
+      // Storage blocked: there is nothing there either.
+    }
+  }, [])
+
   // The search applies after typing pauses, not on every keystroke.
   useEffect(() => {
     const timer = setTimeout(() => setQ(searchText.trim()), 300)
@@ -95,7 +103,6 @@ export function Gallery() {
         onDir={setDir}
         searchText={searchText}
         onSearchText={setSearchText}
-        onSearchFocus={setSearchFocused}
         secret={secret}
         suggestSource={suggestSource}
         suggestFrom={seenTags.pictureCount}
@@ -108,7 +115,6 @@ export function Gallery() {
         onShowTags={setShowTags}
         selection={selection}
       />
-      <SearchHint visible={searchFocused || searchText.trim().length > 0} />
       <FilterPanel
         open={filtersOpen}
         query={query}

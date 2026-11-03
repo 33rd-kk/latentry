@@ -18,14 +18,12 @@ import { useT, type MessageKey } from "@/lib/i18n"
 export function SearchBox({
   value,
   onChange,
-  onFocusChange,
   secret,
   source,
   pictureCount,
 }: {
   value: string
   onChange: (text: string) => void
-  onFocusChange: (focused: boolean) => void
   secret: boolean
   source: SuggestSource
   /** How many pictures the tags come from, for the note under the list. */
@@ -110,12 +108,10 @@ export function SearchBox({
         onFocus={() => {
           setFocused(true)
           readCaret()
-          onFocusChange(true)
         }}
         onBlur={() => {
           setFocused(false)
           setActive(-1)
-          onFocusChange(false)
         }}
         placeholder={t("gallery.search")}
         className="pl-8"

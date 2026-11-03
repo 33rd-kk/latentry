@@ -8,7 +8,9 @@
   Enter or Tab, Esc. A note under the list says tags come only from the
   pictures shown; the search itself still covers the whole folder. Nothing
   is asked of the server for them or kept, and secret mode suggests only how
-  to search. See [Suggestions](https://33rd-kk.github.io/latentry/guide/gallery/#suggestions).
+  to search. They take the place of the tips shown under the box before
+  (and of **Hide tips** / **Show search tips**). See
+  [Suggestions](https://33rd-kk.github.io/latentry/guide/gallery/#suggestions).
 
 ## 0.14.0 (2026-11-03)
 
