@@ -52,6 +52,9 @@ page, carries a `version` number. It is `1` today.
 `latentry.models.json`, the [model info](../guide/generate.md#model-info)
 kept next to the settings file, carries its own `version`, `1` today, and
 follows the same rules. An entry that cannot be read is skipped.
+`latentry.ratings.json`, the [stars](../guide/gallery.md#stars) given to
+gallery pictures, does the same: `version` `1`, the same rules, and a
+rating that cannot be read is skipped.
 
 The tests of every release read a picture and a settings file saved by each
 release since 0.5.0, so a change that breaks an old one fails before it

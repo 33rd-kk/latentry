@@ -15,6 +15,7 @@ export const SORT_KEYS = [
   'name-asc',
   'name-desc',
   'size-desc',
+  'stars-desc',
   'created-desc',
   'created-asc',
   'pixels-desc',
@@ -43,6 +44,16 @@ export interface SortableEntry {
   created?: number
   /** Width × height, 0 when unknown. Meta orders only. */
   pixels?: number
+  /** Stars given (lib/gallery/ratings.ts), 0 or missing for none. The stars order only. */
+  stars?: number
+}
+
+// The stars order is by stars, then newest first, as one number for the
+// cursor: file times in ms stay far below this.
+const STARS_STEP = 1e13
+
+function starsValue(entry: SortableEntry): number {
+  return (entry.stars ?? 0) * STARS_STEP + entry.mtime
 }
 
 // Numeric, so "img2" comes before "img10".
@@ -72,6 +83,8 @@ export function compareEntries(sort: SortKey): (a: SortableEntry, b: SortableEnt
       return (a, b) => (b.pixels ?? 0) - (a.pixels ?? 0) || compareNames(a.name, b.name)
     case 'pixels-asc':
       return (a, b) => unknownLast(a.pixels) - unknownLast(b.pixels) || compareNames(a.name, b.name)
+    case 'stars-desc':
+      return (a, b) => starsValue(b) - starsValue(a) || compareNames(a.name, b.name)
     case 'newest':
     default:
       return (a, b) => b.mtime - a.mtime || compareNames(a.name, b.name)
@@ -96,6 +109,8 @@ function sortValue(entry: SortableEntry, sort: SortKey): number | null {
     case 'pixels-desc':
     case 'pixels-asc':
       return entry.pixels ?? 0
+    case 'stars-desc':
+      return starsValue(entry)
     default:
       return null
   }

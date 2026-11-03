@@ -356,7 +356,8 @@
       "pixels-desc": "ピクセル数が多い順",
       "pixels-asc": "ピクセル数が少ない順",
       "indexing": "並べ替えのためにフォルダーを読み込み中：{done} / {total} 枚",
-      "tooLarge": "このフォルダーには {total} 枚あり、この順には並べ替えられません。別の並び順を選んでください。"
+      "tooLarge": "このフォルダーには {total} 枚あり、この順には並べ替えられません。別の並び順を選んでください。",
+      "stars-desc": "星が多い順"
     },
     "filter": {
       "button": "絞り込み",
@@ -405,7 +406,10 @@
       "group-prompt": "同じプロンプト",
       "group-seed": "同じシード",
       "group-grid": "同じ X/Y グリッド",
-      "inStack": "1 つのまとまり"
+      "inStack": "1 つのまとまり",
+      "stars": "星",
+      "anyStars": "指定なし",
+      "starsAtLeast": "{count} 以上"
     },
     "compare": {
       "button": "比較",
@@ -495,7 +499,13 @@
     "bulkProgress": "{done} / {total} · タグ付け {tagged} · スキップ {skipped} · 失敗 {failed}",
     "bulkDismiss": "閉じる",
     "bulkFailed": "タグ付けを開始できませんでした",
-    "bulkCancelled": "タグ付けを停止しました"
+    "bulkCancelled": "タグ付けを停止しました",
+    "rating": {
+      "label": "評価",
+      "stars": "星 {count} / 5",
+      "clearHint": "評価を外す",
+      "failed": "評価を保存できませんでした。"
+    }
   },
   "lightbox": {
     "copiedWhat": "{what} をコピーしました",

@@ -356,7 +356,8 @@
       "pixels-desc": "Most pixels first",
       "pixels-asc": "Fewest pixels first",
       "indexing": "Reading the folder to sort it: {done} / {total} pictures",
-      "tooLarge": "This folder has {total} pictures, too many to sort this way. Choose another order."
+      "tooLarge": "This folder has {total} pictures, too many to sort this way. Choose another order.",
+      "stars-desc": "Most stars first"
     },
     "filter": {
       "button": "Filters",
@@ -405,7 +406,10 @@
       "group-prompt": "Same prompt",
       "group-seed": "Same seed",
       "group-grid": "Same X/Y grid",
-      "inStack": "One stack"
+      "inStack": "One stack",
+      "stars": "Stars",
+      "anyStars": "Rated or not",
+      "starsAtLeast": "{count} or more"
     },
     "compare": {
       "button": "Compare",
@@ -495,7 +499,13 @@
     "bulkProgress": "{done} / {total} · tagged {tagged} · skipped {skipped} · failed {failed}",
     "bulkDismiss": "Dismiss",
     "bulkFailed": "Tagging could not start",
-    "bulkCancelled": "Tagging stopped"
+    "bulkCancelled": "Tagging stopped",
+    "rating": {
+      "label": "Rating",
+      "stars": "{count} of 5 stars",
+      "clearHint": "Take the rating away",
+      "failed": "Could not save the rating."
+    }
   },
   "lightbox": {
     "copiedWhat": "Copied {what}",

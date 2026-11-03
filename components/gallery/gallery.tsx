@@ -13,7 +13,7 @@ import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
 import { SearchHint } from "./search-hint"
 import { useBackends } from "@/hooks/use-backends"
-import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, saveRating, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import { useSeenFacets } from "@/hooks/use-seen-facets"
@@ -72,6 +72,40 @@ export function Gallery() {
     () => page.pictures.map((picture) => ({ src: pictureUrl(picture), name: picture.name, downloadName: picture.name })),
     [page.pictures]
   )
+
+  // Stars show at once and go back if saving fails; the failed picture is
+  // remembered by its key, so the note stays with that picture.
+  const [rateError, setRateError] = useState<string | null>(null)
+  const { patchStars } = page
+  const rate = useCallback(
+    async (picture: GalleryPicture, stars: number) => {
+      if (secret) return
+      const before = picture.stars ?? 0
+      setRateError(null)
+      patchStars(picture, stars)
+      if (!(await saveRating(picture, stars))) {
+        patchStars(picture, before)
+        setRateError(`${picture.dir}/${picture.name}`)
+      }
+    },
+    [patchStars, secret]
+  )
+
+  // In the viewer, 1–5 give that many stars; the same number again takes them
+  // away. (0 is the viewer's own: it resets the zoom.)
+  const shown = viewing !== null ? (page.pictures[viewing] ?? null) : null
+  useEffect(() => {
+    if (!shown || secret) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || !/^[1-5]$/.test(event.key)) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return
+      const stars = Number(event.key)
+      void rate(shown, shown.stars === stars ? 0 : stars)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [shown, secret, rate])
 
   if (folders && folders.length === 0) return <GalleryNotConfigured />
 
@@ -166,6 +200,8 @@ export function Gallery() {
                 setSearchText(exactTagQuery(tag))
               }}
               onMetaChange={page.patch}
+              onRate={(stars) => void rate(viewed, stars)}
+              rateError={rateError === viewedKey}
             />
           ) : null
         }

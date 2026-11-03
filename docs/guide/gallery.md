@@ -58,6 +58,9 @@ compare numbers as numbers, so `img2` comes before `img10`. "Newest" means
 the file's last change, so a picture copied in or tagged later counts as
 new.
 
+**Most stars first** puts the pictures you [rated](#stars) first, five stars
+at the top and newest first among equals, then the unrated ones.
+
 Four more orders need every picture in the folder looked at first:
 
 - **Made, newest first** / **Made, oldest first**: when the picture was
@@ -89,6 +92,8 @@ all):
   the models (and hidden the same way in secret mode).
 - **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
 - **Backend** and **profile**.
+- **Stars**: only pictures given at least 1 to 5 [stars](#stars); **1 or
+  more** shows every rated picture.
 - **Only pictures without WD14 tags**.
 
 Filters, order and search work together. The order and filters last until
@@ -141,6 +146,21 @@ backend, model, mode, seed, size, steps, CFG, sampler, strength and hires fix
 it was made with, its prompt and negative prompt as tags, and its WD14 tags. In
 [secret mode](secret-mode.md) thumbnails are blurred and the panel hides all
 of that until you choose **Show for this picture**.
+
+### Stars
+
+The stars at the top of the side panel rate the picture from 1 to 5. Choose
+the star it already has to take the rating away. With the viewer open,
+**1**–**5** on the keyboard do the same (**0** resets the zoom). A rated
+picture shows its stars on its card.
+
+The stars are kept in `latentry.ratings.json`, next to the settings file,
+not in the picture. A picture you share does not carry them, and pictures
+in read-only folders can be rated too. Phones and other paired devices can
+rate, as they can browse. A rating belongs to the file's name: a picture
+renamed outside Latentry loses its stars, and those of pictures no longer
+in their folder are dropped the next time the gallery lists it. In
+[secret mode](secret-mode.md) stars are neither shown nor given.
 
 **Size** is the picture's own. When it was drawn smaller and then enlarged
 (hires fix or Upscale), **Drawn at** gives the size it was drawn at, the one

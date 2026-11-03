@@ -56,6 +56,9 @@ latentry.folder-names-key
 # each model's link and recommended settings (lib/models/info.ts)
 latentry.models.json
 latentry.models.json.*.tmp
+# stars given to gallery pictures (lib/gallery/ratings.ts)
+latentry.ratings.json
+latentry.ratings.json.*.tmp
 /.next-*/
 
 # engine runtime (uv, Python, venv, logs) and downloaded models
