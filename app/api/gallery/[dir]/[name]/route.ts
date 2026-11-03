@@ -6,6 +6,9 @@ import { jsonError } from '@/lib/api'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { openInDir } from '@/lib/gallery/fs'
 import { thumbnail } from '@/lib/gallery/thumbs'
+import { attachment } from '@/lib/gallery/zip'
+import { serverMessage } from '@/lib/i18n/core'
+import { stripMetadata } from '@/lib/image-meta'
 
 export const runtime = 'nodejs'
 
@@ -18,6 +21,9 @@ const CONTENT_TYPES: Record<string, string> = {
 
 /**
  * One picture from a gallery folder, or its thumbnail with `?thumb=1`.
+ * `?download=clean` saves it without its settings (lib/image-meta/strip.ts),
+ * `?download=original` as it is; a picture that cannot be cleaned is refused
+ * rather than saved with them.
  * The folder is an index and the name a bare file name; anything else, or a
  * symlink leading out of the folder (even one swapped in while this runs: see
  * openInDir), is a 404.
@@ -52,8 +58,15 @@ async function respond(request: NextRequest, handle: FileHandle, file: string, i
       return new Response(new Uint8Array(webp), { headers: { ...headers, 'Content-Type': 'image/webp' } })
     }
     const bytes = await handle.readFile()
+    const type = CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream'
+    const download = request.nextUrl.searchParams.get('download')
+    if (download === 'clean') {
+      const clean = stripMetadata(bytes)
+      if (!clean) return jsonError(serverMessage('gallery.download.notCleaned'), 422)
+      return new Response(new Uint8Array(clean), { headers: { ...headers, 'Content-Type': type, 'Content-Disposition': attachment(path.basename(file)) } })
+    }
     return new Response(new Uint8Array(bytes), {
-      headers: { ...headers, 'Content-Type': CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream' },
+      headers: { ...headers, 'Content-Type': type, ...(download === 'original' ? { 'Content-Disposition': attachment(path.basename(file)) } : {}) },
     })
   } catch (error) {
     console.error('Gallery read failed:', error)

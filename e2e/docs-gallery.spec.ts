@@ -64,6 +64,7 @@ test('the order menu offers what the guide lists', async ({ page }) => {
     'Name A–Z',
     'Name Z–A',
     'Largest file first',
+    'Most stars first',
     'Made, newest first',
     'Made, oldest first',
     'Most pixels first',
@@ -174,7 +175,7 @@ test("the viewer's panel has the actions the guide lists", async ({ page }) => {
   await thumbs(page).first().click()
   const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
   if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
-  for (const name of ['Generate with these settings', 'Use as source', 'Use as pose reference', 'Upscale', 'Show in folder', 'Open in default app']) {
+  for (const name of ['Generate with these settings', 'Use as source', 'Use as pose reference', 'Upscale', 'Save without settings', 'Save with settings', 'Show in folder', 'Open in default app']) {
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
   }
   for (const name of ['Copy all', 'All to positive', 'All to negative']) await expect(page.getByRole('button', { name }).first()).toBeVisible()

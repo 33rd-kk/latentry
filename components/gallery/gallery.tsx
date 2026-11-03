@@ -6,13 +6,14 @@ import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { GalleryPanel } from "./gallery-panel"
 import { GalleryGrid } from "./gallery-grid"
+import { GridSheetView } from "./grid-sheet-view"
 import { GalleryNotConfigured } from "./not-configured"
 import { GalleryToolbar } from "./gallery-toolbar"
 import { SelectionBar } from "./selection-bar"
 import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
 import { useBackends } from "@/hooks/use-backends"
-import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, saveRating, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import { useSeenFacets } from "@/hooks/use-seen-facets"
@@ -85,9 +86,45 @@ export function Gallery() {
   }, [searchText])
 
   const items = useMemo<LightboxItem[]>(
-    () => page.pictures.map((picture) => ({ src: pictureUrl(picture), name: picture.name, downloadName: picture.name })),
+    // No save button of the viewer's own: it would save the file with its
+    // settings. The side panel offers saving without them first.
+    () => page.pictures.map((picture) => ({ src: pictureUrl(picture), name: picture.name })),
     [page.pictures]
   )
+
+  // Stars show at once and go back if saving fails; the failed picture is
+  // remembered by its key, so the note stays with that picture.
+  const [rateError, setRateError] = useState<string | null>(null)
+  const { patchStars } = page
+  const rate = useCallback(
+    async (picture: GalleryPicture, stars: number) => {
+      if (secret) return
+      const before = picture.stars ?? 0
+      setRateError(null)
+      patchStars(picture, stars)
+      if (!(await saveRating(picture, stars))) {
+        patchStars(picture, before)
+        setRateError(`${picture.dir}/${picture.name}`)
+      }
+    },
+    [patchStars, secret]
+  )
+
+  // In the viewer, 1–5 give that many stars; the same number again takes them
+  // away. (0 is the viewer's own: it resets the zoom.)
+  const shown = viewing !== null ? (page.pictures[viewing] ?? null) : null
+  useEffect(() => {
+    if (!shown || secret) return
+    const onKey = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey || event.altKey || !/^[1-5]$/.test(event.key)) return
+      const target = event.target as HTMLElement | null
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return
+      const stars = Number(event.key)
+      void rate(shown, shown.stars === stars ? 0 : stars)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [shown, secret, rate])
 
   if (folders && folders.length === 0) return <GalleryNotConfigured />
 
@@ -139,15 +176,20 @@ export function Gallery() {
       <SelectionBar selection={selection} pictures={page.pictures} folder={folder} canTag={tagger !== null} onCompare={setComparing} />
       {folder && !folder.writable && <p className="text-xs text-muted-foreground">{t("gallery.readOnlyHint")}</p>}
 
-      <GalleryGrid
-        page={page}
-        secret={secret}
-        showTags={showTags}
-        selection={selection}
-        onOpen={setViewing}
-        onChange={changeFilters}
-        onSearchText={setSearchText}
-      />
+      {/* An opened X/Y grid stack is shown as the grid; anything else as cards. */}
+      {query.group === "grid" && query.stack ? (
+        <GridSheetView page={page} secret={secret} onOpen={setViewing} />
+      ) : (
+        <GalleryGrid
+          page={page}
+          secret={secret}
+          showTags={showTags}
+          selection={selection}
+          onOpen={setViewing}
+          onChange={changeFilters}
+          onSearchText={setSearchText}
+        />
+      )}
 
       <CompareDialog pair={comparing} onClose={() => setComparing(null)} secret={secret} />
       <ImageLightbox
@@ -183,6 +225,8 @@ export function Gallery() {
                 setSearchText(exactTagQuery(tag))
               }}
               onMetaChange={page.patch}
+              onRate={(stars) => void rate(viewed, stars)}
+              rateError={rateError === viewedKey}
             />
           ) : null
         }

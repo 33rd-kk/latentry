@@ -32,7 +32,8 @@ import {
   splitValues,
   type GridError,
 } from '../lib/generate/grid'
-import { LATENTRY_KEY, parseLatentryRecord, readPngText } from '../lib/image-meta'
+import { LATENTRY_KEY, parseLatentryRecord, readPngText, type GridUse } from '../lib/image-meta'
+import { layoutGrid } from '../lib/gallery/grid-layout'
 import { saveToGallery } from '../lib/gallery/save'
 import { GRID_MAX_CELLS, GRID_MAX_IMAGES, GRID_MAX_VALUES } from '../lib/limits'
 import type { GenerateRequest } from '../lib/backends/types'
@@ -127,6 +128,39 @@ function pureChecks(): void {
     eq([cellRequest({ ...base, prompt: 'a red_hair cat' }, spec, second).prompt, gridPlace('g', spec, second).x.value], ['a blue_hair cat', 'blue hair'], 'the cell runs the respelled value and records it as typed')
   }
   eq(errorOf(axis('cfg', '31')), { code: 'value', axis: 'x', value: '31' }, 'a value outside the setting\'s range is refused')
+
+  // ── The grid laid out in the gallery (lib/gallery/grid-layout.ts) ──
+  {
+    type Item = { name: string; grid?: GridUse; sheet?: boolean; created: number }
+    const lay = (items: Item[]) =>
+      layoutGrid(items, (item) => ({ grid: item.grid, sheet: item.sheet ?? false, created: item.created }))
+    const names = (layout: ReturnType<typeof lay>) => layout?.cells.map((row) => row.map((cell) => cell.map((item) => item.name).join('+')))
+    const placed = (name: string, x: [string, number], y: [string, number], created: number): Item => ({
+      name,
+      created,
+      grid: { id: 'g', x: { axis: 'sampler', value: x[0], index: x[1], count: 3 }, y: { axis: 'cfg', value: y[0], index: y[1], count: 2 } },
+    })
+    const typed = lay([
+      placed('b', ['Euler a', 1], ['7', 0], 2),
+      placed('a', ['DDIM', 0], ['7', 0], 1),
+      placed('d', ['DDIM', 0], ['4', 1], 4),
+      placed('a2', ['DDIM', 0], ['7', 0], 5),
+      { name: 'sheet', sheet: true, created: 9, grid: { id: 'g', x: { axis: 'sampler', value: 'DDIM, Euler a, UniPC' }, y: { axis: 'cfg', value: '7, 4' } } },
+      { name: 'other', created: 0 },
+    ])
+    eq([typed?.x.labels, typed?.y?.labels], [['DDIM', 'Euler a', 'UniPC'], ['7', '4']], 'axes in the order typed, a heading no cell names taken from the sheet')
+    eq(names(typed), [['a+a2', 'b', ''], ['d', '', '']], 'each cell its pictures, oldest first, and gaps where none is left')
+    eq(typed?.sheets.map((item) => item.name), ['sheet'], 'the sheet apart')
+    const old = (name: string, x: string, y: string, created: number): Item => ({ name, created, grid: { id: 'o', x: { axis: 'steps', value: x }, y: { axis: 'prompt_sr', value: y } } })
+    const older = lay([old('a', '30', 'red', 1), old('b', '8', 'red', 2), old('c', '30', 'blue', 3), old('d', '15', 'blue', 4)])
+    eq([older?.x.labels, older?.y?.labels], [['8', '15', '30'], ['red', 'blue']], 'cells from before 0.15: numbers in numeric order, words in the order made')
+    eq(names(older), [['b', '', 'a'], ['', 'd', 'c']], 'and placed by value')
+    const one = lay([{ name: 'x1', created: 1, grid: { id: 'h', x: { axis: 'seed', value: '2', index: 1, count: 2 } } }])
+    eq([one?.x.labels, one?.y, names(one)], [['', '2'], null, [['', 'x1']]], 'one axis: one row, an unknown heading left empty')
+    check(lay([{ name: 's', sheet: true, created: 1, grid: { id: 'g', x: { axis: 'cfg', value: '7' } } }]) === null, 'a sheet alone is no grid to lay out')
+    const record = parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'p', grid: { id: 'g', x: { axis: 'cfg', value: '7', index: 4, count: 3 }, y: { axis: 'seed', value: '1', index: 0, count: 2 } } }))
+    eq(record?.grid, { id: 'g', x: { axis: 'cfg', value: '7' }, y: { axis: 'seed', value: '1', index: 0, count: 2 } }, 'a record\'s place is read only when it makes sense')
+  }
   eq(errorOf(axis('steps', '1.5')), { code: 'value', axis: 'x', value: '1.5' }, 'steps are whole numbers')
   eq(errorOf(axis('steps', '20-30:0.5')), { code: 'value', axis: 'x', value: '20-30:0.5' }, 'and so is a range\'s step for them')
   eq(errorOf(axis('cfg', 'lots')), { code: 'value', axis: 'x', value: 'lots' }, 'words are not numbers')
@@ -246,7 +280,11 @@ async function main(): Promise<void> {
     eq(cellRecords.length, 6, 'each of the six cells\' pictures records the grid')
     check(cellRecords.every((record) => record.grid!.id === grid.queued!.id), 'by the grid\'s id')
     const blueEight = cellRecords.find((record) => record.prompt === 'a blue cat' && record.cfg === 8)
-    eq(blueEight?.grid, { id: grid.queued!.id, x: { axis: 'cfg', value: '8' }, y: { axis: 'prompt_sr', value: 'blue' } }, 'and its place in it')
+    eq(
+      blueEight?.grid,
+      { id: grid.queued!.id, x: { axis: 'cfg', value: '8', index: 2, count: 3 }, y: { axis: 'prompt_sr', value: 'blue', index: 1, count: 2 } },
+      'and its place in it, by value and by position'
+    )
 
     // ── The sheet ──
     const nameOf = (cfg: number, prompt: string) => files[records.findIndex((record) => record.grid && record.cfg === cfg && record.prompt === prompt)]

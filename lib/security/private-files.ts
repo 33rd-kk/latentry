@@ -6,6 +6,7 @@
 
 import { existsSync } from 'node:fs'
 import { folderNamesKeyPath } from '@/lib/gallery/folder-names'
+import { ratingsPath } from '@/lib/gallery/ratings'
 import { modelInfoPath } from '@/lib/models/info'
 import { restrictExistingToOwner } from '@/lib/security/owner-only'
 import { devicesPath, keyPath } from '@/lib/security/pairing'
@@ -13,9 +14,9 @@ import { settingsPath } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
 
-/** The settings file, the pairing key, the paired-device list, the folder-name key and the model info. */
+/** The settings file, the pairing key, the paired-device list, the folder-name key, the model info and the ratings. */
 export function privateFiles(env: Env = process.env): string[] {
-  return [settingsPath(env), keyPath(env), devicesPath(env), folderNamesKeyPath(env), modelInfoPath(env)]
+  return [settingsPath(env), keyPath(env), devicesPath(env), folderNamesKeyPath(env), modelInfoPath(env), ratingsPath(env)]
 }
 
 /** Restricts those of them that exist; answers which. */
