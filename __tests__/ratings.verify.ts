@@ -5,7 +5,7 @@
  *
  * Run with: npm test -- ratings
  */
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs'
+import { closeSync, fstatSync, mkdirSync, mkdtempSync, openSync, readdirSync, readFileSync, rmSync, utimesSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
@@ -107,7 +107,12 @@ async function main() {
     await setRating(folder, 'x.png', 3)
     eq(JSON.parse(readFileSync(file, 'utf8')), { version: 1, folders: { [folderKey(folder)]: { 'x.png': 3 } } }, 'kept by folder and name')
     eq(readdirSync(scratch).sort(), ['comfy', 'latentry.ratings.json', 'out'], 'with no temp file left behind')
-    if (process.platform !== 'win32') eq(statSync(file).mode & 0o777, 0o600, 'readable by its owner only')
+    if (process.platform !== 'win32') {
+      // Through the open file, not its path: nothing is checked by name and then used.
+      const fd = openSync(file, 'r')
+      eq(fstatSync(fd).mode & 0o777, 0o600, 'readable by its owner only')
+      closeSync(fd)
+    }
     eq([...folderRatings(folder)], [['x.png', 3]], 'and read back')
     await Promise.all([setRating(folder, 'y.png', 1), setRating(folder, 'z.png', 2), setRating(other, 'w.png', 5)])
     eq(folderRatings(folder).size + folderRatings(other).size, 4, 'ratings given at once all stay')
@@ -124,10 +129,10 @@ async function main() {
     // ── Missing files ──
     await dropMissingRatings(folder, new Set(['x.png']))
     eq([...folderRatings(folder)], [['x.png', 3]], 'ratings of files that are gone are dropped')
-    const before = statSync(file).mtimeMs
+    const before = readFileSync(file, 'utf8')
     await dropMissingRatings(folder, new Set(['x.png']))
     await dropMissingRatings(path.join(scratch, 'none'), new Set())
-    eq(statSync(file).mtimeMs, before, 'nothing is written when nothing goes')
+    eq(readFileSync(file, 'utf8'), before, 'nothing is written when nothing goes')
 
     // ── The route ──
     const ORIGIN = 'http://localhost:3000'
@@ -191,8 +196,9 @@ async function main() {
       (error) => error
     )
     check(newer instanceof NewerRatingsError, 'but never written over')
-    writeFileSync(path.join(folder, 'a.png'), 'a')
-    eq((await put('0', 'a.png', { stars: 1 })).status, 409, 'the route says so')
+    // A picture nothing has listed yet.
+    writeFileSync(path.join(folder, 'new.png'), 'n')
+    eq((await put('0', 'new.png', { stars: 1 })).status, 409, 'the route says so')
     eq(JSON.parse(readFileSync(file, 'utf8')).version, 2, 'and the file is as it was')
   } finally {
     for (const [name, value] of [
