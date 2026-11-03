@@ -729,6 +729,7 @@
     "installed": "PyTorch {torch} and diffusers {diffusers}, running on {device}.",
     "pinned": "Python packages pinned as of {date} and checked against their hashes.",
     "pinnedStale": "These pinned packages are from {date}, over six months ago, and may have known vulnerabilities. Check for a Latentry update, or set LATENTRY_ENGINE_PACKAGES=latest and run Repair / update to take the newest.",
+    "pinnedOutdated": "Python packages pinned as of {date}. This Latentry pins newer ones, as of {current}: run Repair / update to install them.",
     "unpinned": {
       "latest": "Python packages are the newest ones, not pinned (LATENTRY_ENGINE_PACKAGES=latest). They are not checked against hashes.",
       "no-lock": "Latentry has no pinned package set for this computer, so the Python packages are not pinned or checked against hashes.",

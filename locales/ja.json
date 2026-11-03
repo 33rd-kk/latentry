@@ -729,6 +729,7 @@
     "installed": "PyTorch {torch} と diffusers {diffusers} が {device} で動いています。",
     "pinned": "Python パッケージは {date} 時点のものに固定され、ハッシュで確かめてあります。",
     "pinnedStale": "固定したパッケージは {date} のもので、6 か月以上前です。既知の脆弱性があるかもしれません。Latentry の更新を確認するか、LATENTRY_ENGINE_PACKAGES=latest を設定して「修復 / 更新」を実行し、最新のものにしてください。",
+    "pinnedOutdated": "Python パッケージは {date} 時点のものに固定されています。この Latentry は {current} 時点の新しいものを固定しています。入れ替えるには「修復 / 更新」を実行してください。",
     "unpinned": {
       "latest": "Python パッケージは固定せず最新のものです（LATENTRY_ENGINE_PACKAGES=latest）。ハッシュでは確かめていません。",
       "no-lock": "このコンピューター向けの固定パッケージがないため、Python パッケージは固定されず、ハッシュでも確かめていません。",

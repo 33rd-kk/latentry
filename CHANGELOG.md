@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **Setup says when the engine's packages are behind**: after an update
+  that pins newer Python packages, Setup asks you to run **Repair / update**,
+  so you no longer need the release notes to know.
+
 ## 0.14.0 (2026-11-03)
 
 **Upgrading from 0.13.0**: after the usual update, open **Setup** and run
