@@ -680,6 +680,7 @@
     "artistTemplateHint": "{artist} stands for the name, e.g. \"by {artist}\". \"-\" hides the artist field.",
     "none": "(none)",
     "unsaved": "Unsaved changes",
+    "leaveConfirm": "Your changes are not saved. Leave this page and lose them?",
     "discard": "Discard",
     "save": "Save",
     "saved": "Settings saved",

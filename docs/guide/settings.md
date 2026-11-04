@@ -94,7 +94,8 @@ and a form reset.
   comma-separated. `*` matches anything, so `score_*` (the built-in value)
   covers `score_9` and `score_8_up`. `-` keeps nothing.
 
-**Save** keeps the changes; **Discard** drops them.
+**Save** keeps the changes; **Discard** drops them. With changes not yet
+saved, Latentry asks before you go to another page, reload or close the tab.
 
 ## Model info
 

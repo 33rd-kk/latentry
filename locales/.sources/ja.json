@@ -550,6 +550,7 @@
   "settings.artistTemplateHint": "{artist} stands for the name, e.g. \"by {artist}\". \"-\" hides the artist field.",
   "settings.none": "(none)",
   "settings.unsaved": "Unsaved changes",
+  "settings.leaveConfirm": "Your changes are not saved. Leave this page and lose them?",
   "settings.discard": "Discard",
   "settings.save": "Save",
   "settings.saved": "Settings saved",

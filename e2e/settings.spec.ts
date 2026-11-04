@@ -48,6 +48,56 @@ test('a section with unsaved changes is marked in the list, and the change survi
   await expect(tab(page, 'Profiles').getByRole('img')).toHaveCount(0)
 })
 
+test('going to another page with unsaved changes asks first, and staying keeps them', async ({ page }) => {
+  await open(page, 'profiles')
+  const steps = card(page, 'Model profile defaults').locator('input[inputmode="decimal"]').nth(2)
+  const gallery = page.getByRole('banner').getByRole('link', { name: 'Gallery' })
+
+  const questions: string[] = []
+  let answer = false
+  page.on('dialog', (dialog) => {
+    questions.push(dialog.message())
+    void (answer ? dialog.accept() : dialog.dismiss())
+  })
+
+  // Saying no stays, with the change.
+  await steps.fill('31')
+  await gallery.click()
+  expect(questions).toEqual(['Your changes are not saved. Leave this page and lose them?'])
+  await expect(page).toHaveURL(/\/settings#profiles$/)
+  await expect(steps).toHaveValue('31')
+
+  // Another section is not leaving.
+  await tab(page, 'Backends').click()
+  await tab(page, 'Profiles').click()
+  expect(questions).toHaveLength(1)
+
+  // Saying yes leaves, and the change is gone.
+  answer = true
+  await gallery.click()
+  await expect(page).toHaveURL(/\/gallery/)
+  expect(questions).toHaveLength(2)
+  await open(page, 'profiles')
+  await expect(steps).not.toHaveValue('31')
+
+  // Discarded, nothing is asked.
+  await steps.fill('31')
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await gallery.click()
+  await expect(page).toHaveURL(/\/gallery/)
+  expect(questions).toHaveLength(2)
+})
+
+test('closing the tab with unsaved changes gets the browser to ask', async ({ page }) => {
+  await open(page, 'profiles')
+  await card(page, 'Model profile defaults').locator('input[inputmode="decimal"]').nth(2).fill('31')
+  const dialog = page.waitForEvent('dialog')
+  await page.close({ runBeforeUnload: true })
+  const asked = await dialog
+  expect(asked.type()).toBe('beforeunload')
+  await asked.accept()
+})
+
 async function save(page: Page) {
   await saveButton(page).click()
   await expect(page.getByText('Settings saved')).toBeVisible()
