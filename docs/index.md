@@ -35,9 +35,11 @@ it again by what it shows or how it was made.
 - **Gallery**: every finished image is saved with its settings embedded
   (readable by A1111's PNG Info too); other tools' folders are browsed
   read-only, with settings read from PNG, JPEG and WebP. Search by prompt,
-  tag or setting (`model:`, `steps:>=30`), order and filter, stack pictures
-  that share a prompt, compare two, and send settings, tags or the picture
-  back to the form.
+  tag or setting (`model:`, `steps:>=30`) with suggestions as you type,
+  rate with stars, order and filter, stack pictures that share a prompt,
+  open an X/Y grid as a grid, compare two, send settings, tags or the
+  picture back to the form, and save pictures without their settings to
+  share them.
 - **Private by design**: nothing is sent anywhere you did not set up, no
   telemetry, settings only from this computer, and a secret mode. See
   [Privacy](guide/privacy.md).

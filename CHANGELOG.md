@@ -2,15 +2,16 @@
 
 ## Unreleased
 
-- **Anima lists only the sampler it can use**: with an Anima model loaded,
-  the engine offers *Default* (the model's own flow-match Euler) for the
-  sampler and scheduler, instead of SDXL samplers that do not fit its
-  flow-match scheduler, and refuses the others with a clear message. SDXL models keep the full list.
-  See [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+## 0.15.0 (2026-11-04)
 
-- **Setup says when the engine's packages are behind**: after an update
-  that pins newer Python packages, Setup asks you to run **Repair / update**,
-  so you no longer need the release notes to know.
+**Upgrading from 0.14.0**: after the usual update, stop and start the
+engine on **Setup** once (Setup says so while the old one runs), for
+engine 0.8.1; no **Repair / update** is needed. With Docker, `git pull`
+then `docker compose up -d` (with `-f compose.yaml -f compose.gpu.yaml`
+for a GPU) downloads this release's image.
+
+**Gallery**
+
 - **Stars in the gallery**: rate a picture from 1 to 5 in the viewer (or
   with **1**–**5** on the keyboard), see its stars on its card, show only
   pictures with at least some stars, and order by **Most stars first**.
@@ -40,6 +41,21 @@
   to search. They take the place of the tips shown under the box before
   (and of **Hide tips** / **Show search tips**). See
   [Suggestions](https://33rd-kk.github.io/latentry/guide/gallery/#suggestions).
+
+**Engine**
+
+- **Anima lists only the sampler it can use** (engine 0.8.1): with an Anima
+  model loaded, the engine offers *Default* (the model's own flow-match
+  Euler) for the sampler and scheduler, instead of SDXL samplers that do
+  not fit its flow-match scheduler, and refuses the others with a clear
+  message. SDXL models keep the full list. See
+  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+
+**Setup**
+
+- **Setup says when the engine's packages are behind**: after an update
+  that pins newer Python packages, Setup asks you to run **Repair / update**,
+  so you no longer need the release notes to know.
 
 ## 0.14.0 (2026-11-03)
 
