@@ -58,6 +58,14 @@ function stringList(value: unknown): string[] | null {
   return Array.isArray(value) && value.every((item) => typeof item === 'string') && value.length ? value : null
 }
 
+/**
+ * A list the server sends as it is, even an empty one (which hides the field);
+ * only a server that sends none, or something else, gets `fallback`.
+ */
+export function listedOr(value: unknown, fallback: string[]): string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === 'string') ? value : fallback
+}
+
 function finite(value: unknown): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
@@ -122,8 +130,9 @@ export class DiffusersAdapter implements BackendAdapter {
         upscale,
       },
       hints: diffusersHints(health as Record<string, unknown> | null),
-      samplers: stringList(health?.samplers) ?? DEFAULT_SAMPLERS,
-      schedulers: stringList(health?.schedulers) ?? DEFAULT_SCHEDULERS,
+      // The engine lists only what the loaded model can use (Anima: Default).
+      samplers: listedOr(health?.samplers, DEFAULT_SAMPLERS),
+      schedulers: listedOr(health?.schedulers, DEFAULT_SCHEDULERS),
       upscalers: hires || upscale ? (stringList(health?.upscalers) ?? [LANCZOS]) : [],
       ...(problem ? { problem } : {}),
     }

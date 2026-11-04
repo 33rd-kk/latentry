@@ -38,13 +38,18 @@ made, then sends those settings back to the form to make it again.
   Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
   and their settings are read from PNG, JPEG and WebP alike.
   - Search prompts and tags, or one setting: `model:`, `seed:`,
-    `steps:>=30`, `w:1024`; leave pictures out with `-tag`.
+    `steps:>=30`, `w:1024`; leave pictures out with `-tag`. The search box
+    suggests tags, settings and how to write a search.
+  - Rate pictures with 1–5 stars, kept beside the settings file and never
+    in the picture, then filter or order by them.
   - Order by date, name, size, date made or pixel count; filter by shape,
     file type, age, resolution, model and more.
   - Stack pictures that share a prompt or seed, and compare two side by side
-    or with a slider, with what differs between them.
+    or with a slider, with what differs between them. An X/Y grid opens as
+    the grid it was asked for.
   - Send a picture's settings, tags or the picture itself back to the form,
-    or show it in your file manager.
+    or show it in your file manager. Save a picture, or a selection as one
+    ZIP, without its settings when you share it.
 - **Tags.** Extract WD14 tags from a source image and carry a character's
   look into the prompt by group (hair, eyes, outfit…). Show tags under every
   gallery card, tag one picture or a whole selection at once, and keep the
