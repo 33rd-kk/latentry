@@ -23,6 +23,7 @@ control, rather than only hiding it.
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² |
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph |
+| Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's |
 | LoRAs | Yes | Yes | If it says so¹ | Yes | Yes | With a checkpoint loader³ |
 | Tagging by the backend⁴ | No | No | Unless it says no¹ | With its WD14 tagger extension | No | No |
 | **Cancel** | Stops that run | Stops that run | Stops that run | At the web UI's next step; the unfinished picture is saved | Stops that picture, skips the rest | Stops that picture, skips the rest |
