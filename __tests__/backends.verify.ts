@@ -15,7 +15,7 @@ import { A1111Adapter } from '../lib/backends/a1111'
 import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
 import type { A1111Transport } from '../lib/backends/a1111-transport'
-import { DiffusersAdapter, toEvent } from '../lib/backends/diffusers'
+import { DiffusersAdapter, listedOr, toEvent } from '../lib/backends/diffusers'
 import { openBackendWarning } from '../lib/backends/exposure'
 import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
@@ -85,6 +85,12 @@ function scriptedWebUi(options: {
 }
 
 async function main() {
+  // ── diffusers-compatible sampler lists ──
+  eq(listedOr(['Default'], ['Default', 'Euler']), ['Default'], "a short list is kept (Anima: its own scheduler only)")
+  eq(listedOr([], ['Default', 'Euler']), [], 'an empty list is kept, and hides the field')
+  eq(listedOr(undefined, ['Default', 'Euler']), ['Default', 'Euler'], 'a server that sends none gets the defaults')
+  eq(listedOr(['Default', 3], ['Default']), ['Default'], 'and so does one that sends something else')
+
   // ── diffusers-compatible events ──
   eq(toEvent('start', { index: 0, total: 2, steps: 30, run_id: 'r1' }), { type: 'start', index: 0, total: 2, steps: 30, runId: 'r1' }, 'start')
   eq(toEvent('image', { index: 1, seed: 9, image_base64: '' }), null, 'an image without bytes is dropped')
