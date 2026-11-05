@@ -91,4 +91,22 @@ the lines filled in, and the viewer shows the prompt as typed under
 **Wildcards**. On paired devices wildcards work only if **Use on paired
 devices** is on (Settings > Wildcards).
 
+A wildcards folder may also hold YAML files, laid out as Dynamic Prompts
+reads them: each key names a list of choices, and a nested key is a group,
+`__group/name__`. The file's own name is not part of the wildcard's: in
+`colors.yaml`, `warm: [red, orange]` is `__warm__`, and in a subfolder
+`styles/` it would be `__styles/warm__`. A `.txt` file of the same name
+wins. A YAML file with aliases (`&` and `*`) or over 1 MB is not read.
+
+### Variants
+
+`{a|b|c}` in the prompt takes one of the choices, drawn like a wildcard's
+line (the same again for a fixed seed), and needs no wildcards folder:
+`{red|blue|green} hair`. A count takes several different ones, joined with
+`, `: `{2$$a|b|c}` takes two, `{1-3$$a|b|c}` one to three, `{-2$$a|b|c}` up
+to two (perhaps none) and `{2-$$a|b|c}` two or more.
+`{2$$ and $$a|b|c}` joins them with ` and ` instead. A choice may hold a
+wildcard or another variant, and spaces around a choice are dropped. Braces
+with no `|` and no count, such as `{masterpiece}`, are left as written.
+
 ![The positive prompt with three wildcards, __hair__, __outfit__ and __places/outdoors__, and the Add a wildcard button above it](../assets/manual-wildcards.webp){ width="560" }

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Variants and YAML wildcards**: `{red|blue|green}` in a prompt takes one
+  choice for the run, drawn from the seed like a wildcard's line, with
+  counts such as `{2$$a|b|c}` as in Dynamic Prompts; it needs no wildcards
+  folder. The wildcards folder also reads YAML files, whose keys name the
+  lists (`__group/name__` for nested keys). The picture keeps the prompt as
+  typed. Braces with no `|`, such as `{masterpiece}`, are left as written.
+  See [Variants](https://33rd-kk.github.io/latentry/guide/many/#variants).
 - **Settings from custom ComfyUI samplers**: the gallery reads the prompt,
   seed, steps, CFG and sampler of ComfyUI pictures made with a custom sampler
   node (one named like `KSampler`, or any node taking a latent and the

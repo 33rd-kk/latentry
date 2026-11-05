@@ -42,6 +42,8 @@ writeFileSync(
 mkdirSync(path.join(root, 'wildcards', 'places'), { recursive: true })
 writeFileSync(path.join(root, 'wildcards', 'weather.txt'), '# one choice per line\nlight rain\n')
 writeFileSync(path.join(root, 'wildcards', 'places', 'coast.txt'), 'rocky coast\n')
+// A YAML file's keys are wildcards too, without the file's name: __sky__.
+writeFileSync(path.join(root, 'wildcards', 'more.yaml'), 'sky:\n  - clear sky\n')
 writeFileSync(
   path.join(root, 'settings.json'),
   JSON.stringify({

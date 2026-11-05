@@ -6,6 +6,7 @@
  *
  * Run with: npm test -- wildcards
  */
+import { createHash } from 'node:crypto'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -18,7 +19,7 @@ import { wildcardsAccess } from '../lib/wildcards/access'
 import { expandWildcards as expandOnPage } from '../lib/wildcards/client'
 import { expandWildcards, WildcardError, type WildcardReader } from '../lib/wildcards/expand'
 import { listWildcards, MAX_WILDCARD_BYTES, readWildcard } from '../lib/wildcards/folder'
-import { hasWildcards, wildcardLines, wildcardPath } from '../lib/wildcards/syntax'
+import { findVariants, hasDynamicPrompt, hasVariants, hasWildcards, wildcardLines, wildcardPath } from '../lib/wildcards/syntax'
 
 const ORIGIN = 'http://localhost:3000'
 
@@ -90,6 +91,58 @@ async function main(): Promise<void> {
   eq(await problem(expandWildcards(['__a/b/c/d__'], 1, read)), 'unknown __a/b/c/d__', 'a name too deep is no wildcard of the folder')
   const long: WildcardReader = async () => ['x'.repeat(6000)]
   eq(await problem(expandWildcards(['__a__ __b__ __c__ __d__'], 1, long)), 'tooLong __d__', 'a prompt that would grow past 20,000 characters is refused')
+  // The line a seed picks is pinned: pictures made before keep drawing the same.
+  const pinned = (seed: number, wildcard: string, occurrence: number, count: number) =>
+    createHash('sha256').update(`${seed}\u0000${wildcard}\u0000${occurrence}`).digest().readUIntBE(0, 6) % count
+  const hairTwice = `${files.hair[pinned(1234, 'hair', 0, 4)]} ${files.hair[pinned(1234, 'hair', 1, 4)]}`
+  eq((await expandWildcards(['__hair__ __hair__'], 1234, read)).texts[0], hairTwice, 'a seed picks the line it always picked')
+
+  // ── Variants ──
+  const variants = (text: string) => findVariants(text).map(({ min, max, separator, choices }) => ({ min, max, separator, choices }))
+  eq(variants('a {red|blue} b'), [{ min: 1, max: 1, separator: ', ', choices: ['red', 'blue'] }], '{a|b} is a variant of one choice')
+  eq(
+    ['{2$$a|b|c}', '{1-3$$a|b}', '{-2$$a|b}', '{2-$$a|b}', '{2$$ and $$a|b}'].map((text) => {
+      const [{ min, max, separator }] = variants(text)
+      return [min, max, separator]
+    }),
+    [[2, 2, ', '], [1, 3, ', '], [0, 2, ', '], [2, null, ', '], [2, 2, ' and ']],
+    'with a count, a range, and a separator of its own'
+  )
+  eq(
+    ['{masterpiece}', '{{best quality}}', '{a|b', 'a|b', '{{a|b}}'].map(hasVariants),
+    [false, false, false, false, true],
+    'braces with no | are emphasis, an unclosed one is a character, and a variant may sit inside emphasis'
+  )
+  eq(variants('{a|{b|c}} {d|e}').map(({ choices }) => choices), [['a', '{b|c}'], ['d', 'e']], 'outermost first: a choice may hold a variant')
+  eq(['{a|b}', '__hair__', '{tag}, plain'].map(hasDynamicPrompt), [true, true, false], 'something to fill in is a wildcard or a variant')
+
+  const drawn = await expandWildcards(['1girl, {red|blue} hair, {2$$a|b|c}'], 5, read)
+  check(/^1girl, (red|blue) hair, (a|b|c), (a|b|c)$/.test(drawn.texts[0]), `a variant takes a choice, a count that many (${drawn.texts[0]})`)
+  check(new Set(drawn.texts[0].split(' hair, ')[1].split(', ')).size === 2, 'never the same one twice')
+  eq((await expandWildcards(['1girl, {red|blue} hair, {2$$a|b|c}'], 5, read)).texts, drawn.texts, 'the same seed draws the same')
+  const colours = new Set<string>()
+  for (let seed = 0; seed < 30; seed++) colours.add((await expandWildcards(['{red|blue|green}'], seed, read)).texts[0])
+  eq([...colours].sort(), ['blue', 'green', 'red'], 'other seeds draw other choices')
+  check(files.hair.includes((await expandWildcards(['{__hair__|__hair__}'], 3, read)).texts[0]), 'a choice may be a wildcard')
+  check(['x', 'y', 'z'].includes((await expandWildcards(['{x|{y|z}}'], 9, read)).texts[0]), 'or a variant')
+  eq((await expandWildcards(['{5$$a|b}'], 1, read)).texts[0].split(', ').sort(), ['a', 'b'], 'a count past the choices takes them all')
+  const maybe = new Set<string>()
+  for (let seed = 0; seed < 30; seed++) maybe.add((await expandWildcards(['x, {-1$$ y | z }'], seed, read)).texts[0])
+  eq([...maybe].sort(), ['x, ', 'x, y', 'x, z'], '{-1$$…} may take none, and choices are trimmed')
+  eq((await expandWildcards(['{masterpiece}, {a|a}'], 1, read)).texts[0], '{masterpiece}, a', 'emphasis braces are left as written')
+  const moods: WildcardReader = async (name) => (name === 'mood' ? ['{happy|sad}'] : null)
+  check(['happy', 'sad'].includes((await expandWildcards(['__mood__'], 2, moods)).texts[0]), "a wildcard's line may hold a variant")
+  check(
+    (await expandWildcards(['__hair__ {a|b} __hair__'], 1234, read)).texts[0].startsWith(files.hair[pinned(1234, 'hair', 0, 4)] + ' '),
+    'a variant leaves the wildcards around it drawing as before'
+  )
+  const huge = 'x'.repeat(20_001)
+  check(/^tooLong __\{x+…__$/.test((await problem(expandWildcards([`{${huge}|${huge}}`], 1, read))) ?? ''), 'a variant that grows too long is refused, named by its start')
+
+  // ── Respelling leaves variants for after they are drawn ──
+  eq(formatTags('long_hair, {red_hair, ahoge|blue_hair}, smile', 'space'), 'long hair, {red_hair, ahoge|blue_hair}, smile', 'a variant is one piece, commas and all')
+  eq(formatTags('long hair, {red hair|blue hair}', 'underscore'), 'long_hair, {red hair|blue hair}', 'in underscores style too')
+  eq(formatTags('{long hair}, blue eyes', 'underscore'), '{long_hair}, blue_eyes', 'emphasis braces are respelled as before')
 
   // ── Tag respelling leaves them alone ──
   eq(formatTags('long_hair, __hair_color__, __dir/eye colour__', 'space'), 'long hair, __hair_color__, __dir/eye colour__', 'spaces style keeps a wildcard as its file is named')
@@ -119,6 +172,33 @@ async function main(): Promise<void> {
       eq(await readWildcard(folder, name), null, `"${name}" reads nothing`)
     }
     eq(await readWildcard(path.join(scratch, 'nope'), 'hair'), null, 'a folder that is not there reads nothing')
+
+    // ── YAML files ──
+    const yamlFolder = path.join(scratch, 'yaml')
+    mkdirSync(path.join(yamlFolder, 'people'), { recursive: true })
+    writeFileSync(path.join(yamlFolder, 'colors.yaml'), '﻿warm:\n  - red\n  - orange # bright\n  - "# not a comment in YAML"\nshades:\n  cool: [blue, teal]\nhair: [green hair]\ncount: [1, 2]\n')
+    writeFileSync(path.join(yamlFolder, 'hair.txt'), 'black hair\n')
+    writeFileSync(path.join(yamlFolder, 'people', 'more.yml'), 'pose:\n  - sitting\n')
+    writeFileSync(path.join(yamlFolder, 'people', 'pose.txt'), 'standing\n')
+    writeFileSync(path.join(yamlFolder, 'people', 'looks.yaml'), 'look: [smile, wink]\n')
+    writeFileSync(path.join(yamlFolder, 'aliases.yaml'), 'base: &b [a, b]\nuse: *b\n')
+    writeFileSync(path.join(yamlFolder, 'broken.yaml'), 'x: [unclosed\n')
+    writeFileSync(path.join(yamlFolder, 'large.yaml'), `big: [${'"x", '.repeat(MAX_WILDCARD_BYTES / 4)}"x"]\n`)
+    writeFileSync(path.join(scratch, 'outside.yaml'), 'outside: [no]\n')
+
+    eq(
+      await listWildcards(yamlFolder),
+      ['count', 'hair', 'people/look', 'people/pose', 'shades/cool', 'warm'],
+      "YAML keys are names, nested keys a group, a file's own name no part of them; files with aliases, errors or over 1 MB give none"
+    )
+    eq(await readWildcard(yamlFolder, 'warm'), ['red', 'orange'], 'a YAML list is read as lines are: a choice starting with # is a comment there too')
+    eq(await readWildcard(yamlFolder, 'shades/cool'), ['blue', 'teal'], 'a nested key by group/name')
+    eq(await readWildcard(yamlFolder, 'people/look'), ['smile', 'wink'], 'a YAML file in a subfolder has the folder in its names')
+    eq(await readWildcard(yamlFolder, 'count'), ['1', '2'], 'numbers are choices too')
+    eq([await readWildcard(yamlFolder, 'hair'), await readWildcard(yamlFolder, 'people/pose')], [['black hair'], ['standing']], 'a .txt file of the same name wins')
+    for (const name of ['shades', 'use', 'big', 'outside', '../outside', 'colors', 'colors/warm', 'warm/red']) {
+      eq(await readWildcard(yamlFolder, name), null, `"${name}" reads nothing from YAML`)
+    }
 
     // ── Settings, and who may use it ──
     const stored = (input: unknown) => {
@@ -153,6 +233,8 @@ async function main(): Promise<void> {
 
     eq(await list('?probe=1'), { available: false, shared: false }, 'with no folder set, there is no picker')
     eq((await expand({ prompt: '__hair__' })).status, 409, 'and nothing to fill in from')
+    const [variantStatus, variantAnswer] = await answer(await expand({ prompt: '{red|red} hair', negative_prompt: '{2$$a|a}', seed: 1 }))
+    eq([variantStatus, variantAnswer], [200, { prompt: 'red hair', negative_prompt: 'a, a' }], 'variants need no folder')
     write({ dir: folder })
     // getSettings re-reads only when the file's time changes; make sure it does.
     await new Promise((resolve) => setTimeout(resolve, 30))
@@ -172,6 +254,8 @@ async function main(): Promise<void> {
 
     eq(await list('?probe=1', phone), { available: false, shared: false }, 'a paired device gets no picker while sharing is off')
     eq((await expand({ prompt: '__hair__' }, phone)).status, 403, 'and cannot have wildcards filled in')
+    eq((await expand({ prompt: '{__hair__|x}' }, phone)).status, 403, 'not even inside a variant')
+    eq((await expand({ prompt: '{x|x}', seed: 1 }, phone)).status, 200, 'but variants alone are filled in')
     await new Promise((resolve) => setTimeout(resolve, 30))
     write({ dir: folder, share: true })
     eq(await list('?probe=1', phone), { available: true, shared: true }, 'with sharing on it gets one')
@@ -199,6 +283,11 @@ async function main(): Promise<void> {
     eq(sent, [], 'and the server is not called')
     eq(await expandOnPage('1girl, __hair__', '', 7), { ok: true, prompt: 'filled', negativePrompt: 'neg' }, 'with one, the server fills it in')
     eq(sent, [{ prompt: '1girl, __hair__', negative_prompt: '', seed: 7 }], 'sent with the seed, so the same seed picks the same line')
+    sent.length = 0
+    await expandOnPage('{masterpiece}, 1girl', '', 7)
+    eq(sent, [], 'emphasis braces ask nothing')
+    await expandOnPage('1girl, {red|blue} hair', '', 7)
+    eq(sent.length, 1, 'a variant does')
     answer = async () => Response.json({ error: 'There is no wildcard __x__' }, { status: 400 })
     eq(await expandOnPage('__x__', '', 1), { ok: false, error: 'There is no wildcard __x__' }, "the server's reason comes back")
     answer = async () => new Response('not json', { status: 500 })
