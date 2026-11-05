@@ -73,8 +73,17 @@ export interface GalleryPage {
   reload: () => void
   /** Replaces one picture's metadata in place, after its tags were written. */
   patch: (picture: GalleryPicture, meta: ImageMeta) => void
-  /** Gives one picture its new stars in place (0 for none). */
-  patchStars: (picture: GalleryPicture, stars: number) => void
+  /**
+   * Gives one picture its stars (0 for none): shown at once, saved, and put
+   * back if saving fails. Whether it was saved.
+   */
+  rate: (picture: GalleryPicture, stars: number) => Promise<boolean>
+}
+
+/** Stars given in this page, and when the server had them (null while saving). */
+interface StarEdit {
+  stars: number
+  saved: number | null
 }
 
 /**
@@ -94,6 +103,10 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
   const [poll, setPoll] = useState(0)
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlight = useRef(false)
+  // Laid over every page asked for before the server had them, so a page
+  // already on its way (a new filter, the folder still being read) cannot
+  // take back the stars just given.
+  const starEdits = useRef(new Map<string, StarEdit>())
   // The query as it is sent; equal queries give equal strings.
   const queryString = toParams(query).toString()
   // Which folder + query the current list belongs to, so a slow page for the
@@ -111,6 +124,7 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
         params.set("dir", String(dir))
         params.set("limit", String(PAGE_SIZE))
         if (from) params.set("cursor", from)
+        const asked = performance.now()
         const response = await fetch(`/api/gallery?${params}`, { cache: "no-store" })
         const data = await response.json().catch(() => null)
         if (keyRef.current !== forKey) return
@@ -118,7 +132,10 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
         const progress = isIndexProgress(data?.indexing) ? data.indexing : null
         setIndexing(progress)
         if (progress && !("tooLarge" in progress)) pollTimer.current = setTimeout(() => setPoll((value) => value + 1), INDEX_POLL_MS)
-        const items: GalleryPicture[] = Array.isArray(data?.items) ? data.items : []
+        const items = (Array.isArray(data?.items) ? (data.items as GalleryPicture[]) : []).map((item) => {
+          const edit = starEdits.current.get(pictureKey(item))
+          return edit && (edit.saved === null || edit.saved > asked) ? { ...item, stars: edit.stars || undefined } : item
+        })
         setPictures((previous) => (from ? [...previous, ...items] : items))
         setCursor(typeof data?.nextCursor === "string" ? data.nextCursor : null)
         setHasMore(typeof data?.nextCursor === "string")
@@ -161,14 +178,27 @@ export function useGalleryPage(dir: number | null, query: GalleryQuery): Gallery
     )
   }, [])
 
-  const patchStars = useCallback((picture: GalleryPicture, stars: number) => {
-    setPictures((previous) =>
-      previous.map((item) => (item.dir === picture.dir && item.name === picture.name ? { ...item, stars: stars || undefined } : item))
-    )
+  const rate = useCallback(async (picture: GalleryPicture, stars: number) => {
+    const key = pictureKey(picture)
+    const show = (shown: number) =>
+      setPictures((previous) => previous.map((item) => (pictureKey(item) === key ? { ...item, stars: shown || undefined } : item)))
+    const before = picture.stars ?? 0
+    const edit: StarEdit = { stars, saved: null }
+    starEdits.current.set(key, edit)
+    show(stars)
+    const ok = await saveRating(picture, stars)
+    // A later choice for the same picture has its own edit: it wins.
+    if (starEdits.current.get(key) === edit) {
+      starEdits.current.set(key, { stars: ok ? stars : before, saved: performance.now() })
+      if (!ok) show(before)
+    }
+    return ok
   }, [])
 
-  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch, patchStars }
+  return { pictures, loading, error, hasMore, indexing, loadMore, reload, patch, rate }
 }
+
+const pictureKey = (picture: { dir: number; name: string }) => `${picture.dir}/${picture.name}`
 
 /** Saves a picture's stars (0 takes them away); whether it worked. */
 export async function saveRating(picture: { dir: number; name: string }, stars: number): Promise<boolean> {

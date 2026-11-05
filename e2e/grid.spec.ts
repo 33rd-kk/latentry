@@ -6,6 +6,7 @@
 // prompt goes on until it is cancelled.
 
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 import { UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
 
 async function openOnPose(page: Page) {
@@ -86,7 +87,7 @@ test('a grid fills in cell by cell, and its sheet is saved and stacked with it',
   await expect(table.locator('img[alt^="Cell "]')).toHaveCount(6)
   await expect(page.getByText('Grid sheet', { exact: true })).toBeVisible()
   await table.locator('img[alt="Cell 6, 20"]').click()
-  if (!(await page.getByRole('dialog').getByText('X/Y grid', { exact: true }).isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(page.getByRole('dialog')).toContainText('CFG: 6 · Steps: 20')
   await page.keyboard.press('Escape')
 

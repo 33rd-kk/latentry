@@ -5,6 +5,7 @@
 
 import { readFileSync } from 'node:fs'
 import { expect, test, type Download, type Page } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 async function generateOnce(page: Page, prompt: string) {
   await page.goto('/')
@@ -33,7 +34,7 @@ test('a picture is saved without its settings unless asked', async ({ page }) =>
 
   await thumbs.first().click()
   const clean = page.getByRole('button', { name: 'Save without settings' })
-  if (!(await clean.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   // No save button of the viewer's own: it would save the settings too.
   await expect(page.getByRole('link', { name: 'Save', exact: true })).toBeHidden()
 
