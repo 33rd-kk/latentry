@@ -269,7 +269,8 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
           {facts.map(([label, value]) => (
             <div key={label} className="contents">
               <dt className="text-white/50">{label}</dt>
-              <dd className="truncate text-white/85">{value}</dd>
+              {/* Wrapped, not cut: a prompt as typed or a model's file name can be long. */}
+              <dd className="min-w-0 whitespace-pre-wrap wrap-anywhere text-white/85">{value}</dd>
             </div>
           ))}
         </dl>
