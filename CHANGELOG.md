@@ -7,7 +7,8 @@
   node (one named like `KSampler`, or any node taking a latent and the
   prompts), and your own workflows built on one are filled in the same way.
   A provider node that only hands a sampler on is no longer mistaken for the
-  sampler. See
+  sampler, and Impact Pack graphs that carry the prompts in a pipe or sample
+  only through providers are read too. See
   [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
 - **Stars stay put**: stars given in the viewer no longer vanish when the
   gallery list was being refreshed at that moment (a new search, or a folder

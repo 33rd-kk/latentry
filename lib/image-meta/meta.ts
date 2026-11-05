@@ -420,24 +420,40 @@ export function comfyGraphRoles(graph: Record<string, ComfyNode & { _meta?: { ti
     const own = inputsOf(id)
     return isComfyLink(own.latent_image) && ((isComfyLink(own.positive) && isComfyLink(own.negative)) || isComfyLink(own.guider))
   }
+  // With neither, a provider holds the settings (Impact Pack's
+  // TwoSamplersForMask samples with the providers it is given): the one given
+  // as the base sampler, with the latent of the node it is given to.
   const named = ids.filter((id) => isSamplerClass(classOf(id)))
-  const samplers = named.length ? named : ids.filter(shaped)
-  const sampler = samplers.find((id) => EMPTY_LATENT_CLASS.test(classOf(idOf(inputsOf(id).latent_image)))) ?? samplers[0]
+  const byShape = named.length ? named : ids.filter(shaped)
+  const samplers = byShape.length ? byShape : ids.filter((id) => SAMPLER_CLASS.test(classOf(id)))
+  const sampler =
+    samplers.find((id) => EMPTY_LATENT_CLASS.test(classOf(idOf(inputsOf(id).latent_image)))) ??
+    samplers.find((id) => ids.some((other) => idOf(inputsOf(other).base_sampler) === id)) ??
+    samplers[0]
   const inputs = inputsOf(sampler)
+  const taker = sampler ? ids.find((other) => Object.values(inputsOf(other)).some((value) => idOf(value) === sampler)) : undefined
   // SamplerCustom(Advanced) spreads its settings over the nodes it links to.
   const guider = idOf(inputs.guider)
   const sigmas = idOf(inputs.sigmas)
   const chosen = idOf(inputs.sampler)
   const noise = idOf(inputs.noise)
-  const latent = idOf(inputs.latent_image)
+  const latent = idOf(inputs.latent_image ?? inputsOf(taker).latent_image)
+  // Impact Pack's pipes carry the prompts: a sampler given a basic_pipe finds
+  // them on the node that built it, or on an edit of it that sets them.
+  const fromPipe = (id: string | undefined, input: string, depth = 0): unknown => {
+    const pipe = idOf(inputsOf(id).basic_pipe)
+    if (!pipe || depth >= MAX_LINK_DEPTH) return undefined
+    const value = inputsOf(pipe)[input]
+    return isComfyLink(value) ? value : fromPipe(pipe, input, depth + 1)
+  }
 
   const loaders = ids.filter((id) => /Loader/i.test(classOf(id)) && ['ckpt_name', 'unet_name'].some((key) => typeof inputsOf(id)[key] === 'string'))
   const loader = loaders.find((id) => /^CheckpointLoader/.test(classOf(id))) ?? loaders[0]
 
   const roles: ComfyRoles = {
     sampler,
-    positive: textSlot(inputs.positive ?? inputsOf(guider).positive ?? inputsOf(guider).conditioning),
-    negative: textSlot(inputs.negative ?? inputsOf(guider).negative),
+    positive: textSlot(inputs.positive ?? inputsOf(guider).positive ?? inputsOf(guider).conditioning ?? fromPipe(sampler, 'positive')),
+    negative: textSlot(inputs.negative ?? inputsOf(guider).negative ?? fromPipe(sampler, 'negative')),
     seed: numberSlot(sampler, 'seed') ?? numberSlot(sampler, 'noise_seed') ?? numberSlot(noise, 'noise_seed'),
     steps: numberSlot(sampler, 'steps') ?? numberSlot(sigmas, 'steps'),
     cfg: numberSlot(sampler, 'cfg') ?? numberSlot(guider, 'cfg'),
