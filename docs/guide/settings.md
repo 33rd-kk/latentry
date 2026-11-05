@@ -67,6 +67,14 @@ tagger. The built-in model needs a folder with `model.onnx` and
 - **Display name**, next to each folder: what the gallery's tabs and other
   devices call it (up to 40 characters). Left empty, the folder gets a
   made-up name such as "Amber Fox" that stays the same.
+- **Show on paired devices**, under each folder (off by default): whether
+  paired phones and computers see the folder in their gallery. Off, the
+  folder is this computer's (and owner devices') only. Paired devices also
+  see only the runs they started.
+- **Save folder for paired devices**: runs started from a paired device are
+  saved here instead of the save folder; created if missing. Empty: they go
+  to the save folder. Turn on **Show on paired devices** for it to let them
+  find their pictures in the gallery.
 - **Tag every saved image with WD14 as it arrives.**
 - **Write LoRA hashes into saved images** (off by default). A picture made
   with LoRAs on Latentry's engine then carries A1111's "Lora hashes", which

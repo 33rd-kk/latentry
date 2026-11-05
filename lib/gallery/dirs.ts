@@ -7,7 +7,12 @@
 // replaces the variable, what it leaves alone falls back to it.
 //
 // The browser only ever names a folder by its index in this list, never by a
-// path. The save folder, when set, is always index 0.
+// path. The save folder, when set, is always index 0; the save folder for
+// paired devices (Settings), when set, comes after the read-only ones, so
+// setting it moves no other folder.
+//
+// Paired devices see only the folders shared with them (`shared`); which
+// requests count as paired is ./access.ts's.
 
 import path from 'node:path'
 import type { Settings } from '@/lib/settings/schema'
@@ -28,6 +33,10 @@ export interface GalleryDir {
   /** Whether `label` is made up rather than set. */
   autoLabel: boolean
   writable: boolean
+  /** What it is for: this machine's save folder, paired devices' save folder, or a folder to browse. */
+  role: 'save' | 'pairedSave' | 'read'
+  /** Whether paired devices may see it. */
+  shared: boolean
 }
 
 /** A folder path as compared: resolved, and case-folded where the file system is. */
@@ -54,8 +63,9 @@ export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }, 
   const seen = new Set<string>()
   const gallery = settings.gallery ?? {}
   const labels = new Map(Object.entries(gallery.labels ?? {}).map(([folder, label]) => [folderKey(folder), label]))
+  const shared = new Set((gallery.shared ?? []).map((folder) => folderKey(folder)))
   const used = new Set<string>()
-  const add = (raw: string, writable: boolean) => {
+  const add = (raw: string, role: GalleryDir['role']) => {
     // Windows paths are case-insensitive; compare them that way.
     const key = folderKey(raw)
     if (seen.has(key)) return
@@ -65,11 +75,12 @@ export function parseGalleryDirs(env: Env, settings: Settings = { version: 1 }, 
     // Two folders never share a name in the tabs.
     for (let n = 2; used.has(label.toLowerCase()); n += 1) label = `${set ?? label.replace(/ \d+$/, '')} ${n}`
     used.add(label.toLowerCase())
-    dirs.push({ index: dirs.length, path: path.resolve(raw), label, autoLabel: set === undefined, writable })
+    dirs.push({ index: dirs.length, path: path.resolve(raw), label, autoLabel: set === undefined, writable: role !== 'read', role, shared: shared.has(key) })
   }
   const save = gallery.saveDir !== undefined ? gallery.saveDir : env.GALLERY_SAVE_DIR?.trim()
-  if (save) add(save, true)
-  for (const dir of gallery.dirs ?? splitPaths(env.GALLERY_DIRS)) add(dir, false)
+  if (save) add(save, 'save')
+  for (const dir of gallery.dirs ?? splitPaths(env.GALLERY_DIRS)) add(dir, 'read')
+  if (gallery.pairedSaveDir) add(gallery.pairedSaveDir, 'pairedSave')
   return dirs
 }
 
@@ -86,8 +97,13 @@ function folderNameKey(env: Env): Buffer | undefined {
   }
 }
 
-export function getSaveDir(env: Env = process.env): GalleryDir | null {
-  return getGalleryDirs(env).find((dir) => dir.writable) ?? null
+/**
+ * Where a run is saved: this machine's save folder, or for a run a paired
+ * device started, the paired devices' one when set (else the same).
+ */
+export function getSaveDir(env: Env = process.env, forPaired = false): GalleryDir | null {
+  const dirs = getGalleryDirs(env)
+  return (forPaired ? dirs.find((dir) => dir.role === 'pairedSave') : undefined) ?? dirs.find((dir) => dir.role === 'save') ?? null
 }
 
 /** GALLERY_AUTO_TAG, or what the settings page set. */

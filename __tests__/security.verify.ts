@@ -327,7 +327,8 @@ async function cancelling(): Promise<void> {
       cancelRoute(
         new Request('http://localhost:3000/api/gen/runner/cancel', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          // From this machine's own browser: only it, or the device that started a run, may stop it.
+          headers: { host: 'localhost:3000', 'content-type': 'application/json', [peer]: '127.0.0.1' },
           body: JSON.stringify(body),
         }),
         { params: Promise.resolve({ backend: 'runner' }) } as never
@@ -403,7 +404,7 @@ async function heavyRequests(): Promise<void> {
       poseRoute(
         new Request('http://localhost:3000/api/gen/poser/pose', {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { host: 'localhost:3000', 'content-type': 'application/json' },
           body: JSON.stringify({ image_base64: 'iVBORw0KGgo=' }),
         }),
         { params: Promise.resolve({ backend: 'poser' }) } as never

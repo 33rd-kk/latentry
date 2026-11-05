@@ -1,6 +1,6 @@
 import { jsonError, readJson } from '@/lib/api'
 import { getTagger } from '@/lib/tagger'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { isSafeName, readInDir } from '@/lib/gallery/fs'
 import { metaFromText, readPngText } from '@/lib/image-meta'
 import { writeTags } from '@/lib/gallery/save'
@@ -30,7 +30,7 @@ const MAX_NAMES = 1000
  */
 export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[dir]/autotag'>) {
   const { dir: dirParam } = await ctx.params
-  const dir = /^\d+$/.test(dirParam) ? getGalleryDirs()[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Not found', 404)
   if (!dir.writable) return jsonError('This folder is read-only', 403)
 

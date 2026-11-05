@@ -682,7 +682,7 @@ async function main() {
   eq(stale.deleted, [], 'past the grace there is nothing left to mark')
 
   // ── The job store's side of a mark ──
-  const marked = startJob({ backend: 'mark-test', total: 1, steps: 1, context: { request: {} as never, profile: 'generic', kind: 'comfyui', model: null, mode: 'txt2img' } })
+  const marked = startJob({ backend: 'mark-test', total: 1, steps: 1, context: { request: {} as never, profile: 'generic', kind: 'comfyui', model: null, mode: 'txt2img', startedBy: { all: true, device: null } } })
   check(isResumable(marked), 'an ordinary run can be picked up after a reload')
   markSecret(marked)
   check(!isResumable(marked) && marked.secret, 'marked secret, it no longer can')

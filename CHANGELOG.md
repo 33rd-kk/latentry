@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+**Upgrading**: paired phones and computers see no gallery folder until you
+turn **Show on paired devices** on for a folder in Settings > Gallery
+folders. This computer and owner devices are not affected.
+
+- **Choose which folders paired devices see**: each gallery folder has
+  **Show on paired devices** (off by default), and a folder that is off
+  answers a paired device as if it did not exist, on every route. Runs
+  started from a paired device can go to their own **Save folder for paired
+  devices**, and a paired device now sees and stops only the runs it started
+  itself. See
+  [Gallery folders](https://33rd-kk.github.io/latentry/guide/settings/#gallery-folders).
+
 - **Settings asks before unsaved changes are lost**: with changes not yet
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See

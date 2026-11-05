@@ -1,5 +1,5 @@
 import { jsonError, json, readJson } from '@/lib/api'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { isOpenAction, openPicture } from '@/lib/gallery/reveal'
 import { isFromThisMachine } from '@/lib/settings/access'
 
@@ -15,7 +15,7 @@ export const runtime = 'nodejs'
 export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[dir]/[name]/open'>) {
   if (!isFromThisMachine(request.headers)) return jsonError('Only from this computer', 403)
   const { dir: dirParam, name } = await ctx.params
-  const dir = /^\d+$/.test(dirParam) ? getGalleryDirs()[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Not found', 404)
 
   const body = await readJson(request)

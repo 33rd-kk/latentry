@@ -361,7 +361,7 @@ async function main() {
     backend: 'b1',
     total: 2,
     steps: 20,
-    context: { request: REQUEST, profile: 'sdxl', kind: 'a1111', model: null, mode: 'txt2img' },
+    context: { request: REQUEST, profile: 'sdxl', kind: 'a1111', model: null, mode: 'txt2img', startedBy: { all: true, device: null } },
   })
   applyEvent(job, { type: 'start', index: 0, total: 2, steps: 18, runId: 'r' })
   applyEvent(job, { type: 'step', index: 0, step: 7 })

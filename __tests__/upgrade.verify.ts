@@ -60,7 +60,7 @@ async function main() {
   const root = await mkdtemp(path.join(tmpdir(), 'latentry-upgrade-'))
   try {
     for (const version of versions) await copyFile(path.join(FIXTURES, version, 'picture.png'), path.join(root, `${version}.png`))
-    const dir: GalleryDir = { index: 0, path: root, label: 'old', autoLabel: true, writable: false }
+    const dir: GalleryDir = { index: 0, path: root, label: 'old', autoLabel: true, writable: false, role: 'read', shared: false }
     const names = async (filter: Parameters<typeof listPage>[1]['filter']) =>
       (await listPage(dir, { limit: 100, filter })).items.map((item) => item.name.replace('.png', '')).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
     eq(await names({ source: 'latentry' }), versions, "every release's picture counts as Latentry's")

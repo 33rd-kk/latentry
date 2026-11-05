@@ -140,7 +140,7 @@ async function main() {
       PUT(
         new Request(`${ORIGIN}/api/gallery/${dir}/${encodeURIComponent(name)}/rating`, {
           method: 'PUT',
-          headers: { 'content-type': 'application/json' },
+          headers: { host: 'localhost:3000', 'content-type': 'application/json' },
           body: JSON.stringify(body),
         }),
         { params: Promise.resolve({ dir, name }) } as never
@@ -165,7 +165,7 @@ async function main() {
     )
 
     // ── In the listing ──
-    const dir: GalleryDir = { index: 0, path: folder, label: 'out', autoLabel: true, writable: true }
+    const dir: GalleryDir = { index: 0, path: folder, label: 'out', autoLabel: true, writable: true, role: 'save', shared: false }
     invalidateListing(dir)
     const names = async (filter: Parameters<typeof listPage>[1]['filter']) => (await listPage(dir, { limit: 10, filter })).items.map((item) => [item.name, item.stars])
     eq(await names({}), [['b.png', undefined], ['a.png', 5], ['x.png', 3]], 'items carry their stars')

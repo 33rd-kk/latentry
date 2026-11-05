@@ -41,6 +41,10 @@ export async function PUT(request: Request) {
     const result = await checkDir(gallery.saveDir, { writable: true, create: true })
     if (result !== 'ok' && result !== 'created') errors['gallery.saveDir'] = `settings.dir.${result}`
   }
+  if (gallery?.pairedSaveDir) {
+    const result = await checkDir(gallery.pairedSaveDir, { writable: true, create: true })
+    if (result !== 'ok' && result !== 'created') errors['gallery.pairedSaveDir'] = `settings.dir.${result}`
+  }
   for (const [index, dir] of (gallery?.dirs ?? []).entries()) {
     const result = await checkDir(dir)
     if (result !== 'ok') errors[`gallery.dirs.${index}`] = `settings.dir.${result}`
