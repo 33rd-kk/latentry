@@ -2,6 +2,7 @@
 // the upscaler the backend lists, and written into the saved picture.
 
 import { expect, test } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 const PROMPT = 'a castle on a hill, hires run'
 
@@ -48,7 +49,7 @@ test('hires fix is sent with the chosen upscaler and kept in the picture', async
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
   const drawn = page.getByText('Drawn at', { exact: true })
-  if (!(await page.getByRole('button', { name: 'Upscale', exact: true }).isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(page.getByText('64×96', { exact: true })).toBeVisible()
   await expect(drawn).toBeVisible()
   await expect(page.getByText(`${meta.width}×${meta.height}`, { exact: true })).toBeVisible()

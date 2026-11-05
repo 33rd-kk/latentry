@@ -8,6 +8,7 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from '../viewer'
 import sharp from 'sharp'
 import { LATENTRY_KEY, writePngText } from '../../lib/image-meta/png'
 import { generic, onEngine, openGenerate as openOn, out, root, shot, shotBetween, take, WIDTH } from './shared'
@@ -135,7 +136,7 @@ take('manual-viewer')('viewer', async ({ page }) => {
   await openGallery(page)
   await page.getByRole('button', { name: /^1girl, solo, grey hair/ }).click()
   const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(useSettings).toBeVisible()
   await shot(page, 'manual-viewer')
 })

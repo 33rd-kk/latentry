@@ -9,7 +9,9 @@
   A provider node that only hands a sampler on is no longer mistaken for the
   sampler. See
   [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
-
+- **Stars stay put**: stars given in the viewer no longer vanish when the
+  gallery list was being refreshed at that moment (a new search, or a folder
+  still being read).
 - **Settings asks before unsaved changes are lost**: with changes not yet
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See

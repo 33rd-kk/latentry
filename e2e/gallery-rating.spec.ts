@@ -4,6 +4,7 @@
 // same folder, so this one finds its own by searching for their prompts.
 
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 async function generateOnce(page: Page, prompt: string) {
   await page.goto('/')
@@ -19,7 +20,7 @@ async function generateOnce(page: Page, prompt: string) {
 /** The viewer's side panel, where the stars are: opened when it is not (it remembers being closed). */
 async function stars(page: Page) {
   const group = page.getByRole('radiogroup', { name: 'Rating' })
-  if (!(await group.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(group).toBeVisible()
   return group
 }
