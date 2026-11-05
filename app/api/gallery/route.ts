@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server'
 import { jsonError, json } from '@/lib/api'
+import { dirFor, visibleDirs } from '@/lib/gallery/access'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { viewerOf } from '@/lib/security/viewer'
 import { listFacets, listPage } from '@/lib/gallery/fs'
 import { fromParams } from '@/lib/gallery/filter'
 import { isFromThisMachine } from '@/lib/settings/access'
@@ -10,7 +12,8 @@ export const runtime = 'nodejs'
 const MAX_LIMIT = 200
 
 /**
- * Without `dir`: the folders (by index and name, never their paths), and
+ * Without `dir`: the folders this client may see (by index and name, never
+ * their paths; a paired device sees only those shared with it), and
  * whether pictures can be shown in this machine's file manager from here.
  * With `dir`: one page of that folder, in the order and with the filters
  * asked for (see lib/gallery/filter.ts), newest first by default.
@@ -25,14 +28,14 @@ const MAX_LIMIT = 200
  * the filters (`facets: { models, loras }`), or the same `indexing` progress.
  */
 export async function GET(request: NextRequest) {
-  const dirs = getGalleryDirs()
   const params = request.nextUrl.searchParams
   const dirParam = params.get('dir')
   if (dirParam === null) {
+    const dirs = visibleDirs(viewerOf(request.headers), getGalleryDirs())
     return json({ dirs: dirs.map(({ index, label, writable }) => ({ index, label, writable })), canOpen: isFromThisMachine(request.headers) })
   }
 
-  const dir = /^\d+$/.test(dirParam) ? dirs[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Unknown folder', 404)
 
   const limit = Math.min(MAX_LIMIT, Math.max(1, Number(params.get('limit')) || 60))

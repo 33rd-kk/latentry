@@ -117,31 +117,40 @@ test('the backends from settings.json are shown, and one can be tested', async (
   await expect(backends.getByText(/^Connected: /)).toBeVisible()
 })
 
-test('a read folder with a display name is saved, comes back after a reload, and is removed again', async ({ page }) => {
+test('a read folder with a display name and shown on paired devices is saved, comes back after a reload, and is removed again', async ({ page }) => {
   // A read folder has to exist.
   const folder = path.join(process.env.E2E_ROOT!, 'extra')
   mkdirSync(folder, { recursive: true })
   await open(page, 'gallery')
   const gallery = card(page, 'Gallery folders')
   const names = gallery.getByRole('textbox', { name: 'Display name' })
-  // The save folder's display name comes first; read folders follow.
-  await expect(names).toHaveCount(1)
+  const shown = gallery.getByRole('switch', { name: 'Show on paired devices' })
+  // The save folder's display name comes first, read folders follow, and the
+  // paired devices' save folder's comes last.
+  await expect(names).toHaveCount(2)
+  // No folder is shown on paired devices until one is turned on.
+  await expect(shown).toHaveCount(1)
+  await expect(shown.first()).not.toBeChecked()
 
   await gallery.getByRole('button', { name: 'Add folder' }).click()
   await expect(page.getByText('Unsaved changes')).toBeVisible()
   await names.nth(1).fill('Extra pictures')
   const dir = names.nth(1).locator('xpath=preceding-sibling::input')
   await dir.fill(folder)
+  await shown.nth(1).click()
   await save(page)
 
   await page.reload()
   await expect(names.nth(1)).toHaveValue('Extra pictures')
   await expect(dir).toHaveValue(folder)
+  await expect(shown.nth(1)).toBeChecked()
+  await expect(shown.first()).not.toBeChecked()
 
   await gallery.getByRole('button', { name: 'Remove' }).click()
   await save(page)
   await page.reload()
-  await expect(names).toHaveCount(1)
+  await expect(names).toHaveCount(2)
+  await expect(shown).toHaveCount(1)
 })
 
 test('an unsaved profile change shows a reset, and Discard drops it', async ({ page }) => {

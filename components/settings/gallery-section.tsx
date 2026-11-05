@@ -11,6 +11,17 @@ import type { SettingsView } from "@/lib/settings/view"
 import { useT } from "@/lib/i18n"
 import { Field, FieldError, Section } from "./section"
 
+/** Whether paired devices may see a folder: off unless turned on. */
+function SharedSwitch({ checked, onChange }: { checked: boolean; onChange: (shared: boolean) => void }) {
+  const t = useT()
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <Switch checked={checked} onCheckedChange={onChange} />
+      {t("settings.folderShared")}
+    </label>
+  )
+}
+
 export function GallerySection({
   view,
   draft,
@@ -33,6 +44,7 @@ export function GallerySection({
       onUseEnv={onUseEnv}
     >
       <div className="space-y-4">
+        <p className="text-xs text-muted-foreground">{t("settings.gallerySharedHint")}</p>
         <Field label={t("settings.saveDir")} hint={t("settings.saveDirHint")}>
           <div className="flex gap-2">
             <Input
@@ -51,6 +63,7 @@ export function GallerySection({
             />
           </div>
           <FieldError errors={errors} at="gallery.saveDir" />
+          <SharedSwitch checked={draft.saveShared} onChange={(saveShared) => change("gallery", (current) => ({ ...current, saveShared }))} />
         </Field>
         <div className="space-y-2">
           <Label>{t("settings.readDirs")}</Label>
@@ -88,6 +101,7 @@ export function GallerySection({
                       ...current,
                       dirs: current.dirs.filter((_, i) => i !== index),
                       dirLabels: current.dirLabels.filter((_, i) => i !== index),
+                      dirShared: current.dirShared.filter((_, i) => i !== index),
                     }))
                   }
                 >
@@ -95,18 +109,52 @@ export function GallerySection({
                 </Button>
               </div>
               <FieldError errors={errors} at={`gallery.dirs.${index}`} />
+              <SharedSwitch
+                checked={draft.dirShared[index] === true}
+                onChange={(shared) =>
+                  change("gallery", (current) => ({
+                    ...current,
+                    dirShared: current.dirs.map((_, i) => (i === index ? shared : current.dirShared[i] === true)),
+                  }))
+                }
+              />
             </div>
           ))}
           <Button
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => change("gallery", (current) => ({ ...current, dirs: [...current.dirs, ""], dirLabels: [...current.dirLabels, ""] }))}
+            onClick={() =>
+              change("gallery", (current) => ({ ...current, dirs: [...current.dirs, ""], dirLabels: [...current.dirLabels, ""], dirShared: [...current.dirShared, false] }))
+            }
           >
             <Plus className="mr-1 h-4 w-4" />
             {t("settings.addDir")}
           </Button>
         </div>
+        <Field label={t("settings.pairedSaveDir")} hint={t("settings.pairedSaveDirHint")}>
+          <div className="flex gap-2">
+            <Input
+              value={draft.pairedSaveDir}
+              onChange={(event) => change("gallery", (current) => ({ ...current, pairedSaveDir: event.target.value }))}
+              placeholder={t("settings.pairedSaveDirOff")}
+              aria-label={t("settings.pairedSaveDir")}
+              className="font-mono text-xs"
+            />
+            <Input
+              value={draft.pairedSaveLabel}
+              onChange={(event) => change("gallery", (current) => ({ ...current, pairedSaveLabel: event.target.value }))}
+              placeholder={autoLabel(view, draft.pairedSaveDir) ?? t("settings.folderLabelAuto")}
+              aria-label={t("settings.folderLabel")}
+              maxLength={MAX_FOLDER_LABEL}
+              className="w-32 shrink-0 text-xs sm:w-40"
+            />
+          </div>
+          <FieldError errors={errors} at="gallery.pairedSaveDir" />
+          {draft.pairedSaveDir.trim() && (
+            <SharedSwitch checked={draft.pairedSaveShared} onChange={(pairedSaveShared) => change("gallery", (current) => ({ ...current, pairedSaveShared }))} />
+          )}
+        </Field>
         <label className="flex items-center gap-2 text-sm">
           <Switch checked={draft.autoTag} onCheckedChange={(autoTag) => change("gallery", (current) => ({ ...current, autoTag }))} />
           {t("settings.autoTag")}

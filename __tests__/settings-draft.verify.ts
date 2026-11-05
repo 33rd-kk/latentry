@@ -35,6 +35,8 @@ const view: SettingsView = {
   gallery: {
     saveDir: '/pictures/out',
     dirs: ['/pictures/comfy', '/pictures/webui'],
+    pairedSaveDir: null,
+    shared: ['/pictures/comfy'],
     autoTag: true,
     loraHashes: false,
     labels: {
@@ -110,8 +112,34 @@ eq(toInput({ ...draft, wd14Dir: ' ', wd14General: '0.4' }, new Set<Part>(['wd14'
 const gallery = (d: Draft) => toInput(d, new Set<Part>(['gallery'])).gallery
 eq(
   gallery({ ...draft, saveLabel: ' Mine ', dirs: [' /pictures/comfy ', '', '/pictures/webui'], dirLabels: ['ComfyUI', 'orphan', ''] }),
-  { saveDir: '/pictures/out', dirs: ['/pictures/comfy', '/pictures/webui'], autoTag: true, loraHashes: false, labels: { '/pictures/out': 'Mine', '/pictures/comfy': 'ComfyUI' } },
-  'folders trimmed, empty ones dropped; names only for folders that have one typed'
+  {
+    saveDir: '/pictures/out',
+    dirs: ['/pictures/comfy', '/pictures/webui'],
+    pairedSaveDir: null,
+    shared: ['/pictures/comfy'],
+    autoTag: true,
+    loraHashes: false,
+    labels: { '/pictures/out': 'Mine', '/pictures/comfy': 'ComfyUI' },
+  },
+  'folders trimmed, empty ones dropped; names only for folders that have one typed; the shared ones as they were'
+)
+eq(
+  [draft.saveShared, draft.dirShared, draft.pairedSaveDir, draft.pairedSaveShared],
+  [false, [true, false], '', false],
+  'the draft says which folders paired devices see, none unless shared'
+)
+eq(
+  gallery({ ...draft, saveShared: true, dirShared: [false, true], pairedSaveDir: ' /pictures/phones ', pairedSaveLabel: 'Phones', pairedSaveShared: true }),
+  {
+    saveDir: '/pictures/out',
+    dirs: ['/pictures/comfy', '/pictures/webui'],
+    pairedSaveDir: '/pictures/phones',
+    shared: ['/pictures/out', '/pictures/webui', '/pictures/phones'],
+    autoTag: true,
+    loraHashes: false,
+    labels: { '/pictures/comfy': 'ComfyUI', '/pictures/phones': 'Phones' },
+  },
+  "paired devices' own save folder, with a name, and the folders shared with them"
 )
 eq((gallery({ ...draft, saveDir: '  ' }) as { saveDir: unknown }).saveDir, null, 'an empty save folder turns saving off')
 

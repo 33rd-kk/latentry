@@ -1,5 +1,6 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { getSaveDir } from '@/lib/gallery/dirs'
+import { viewerOf } from '@/lib/security/viewer'
 import { saveSheet } from '@/lib/gallery/save'
 import { buildSheet, readSheetLayout } from '@/lib/gallery/sheet'
 import { serverMessage } from '@/lib/i18n/core'
@@ -8,7 +9,8 @@ import { tryAcquire } from '@/lib/security/concurrency'
 export const runtime = 'nodejs'
 
 /**
- * Saves an X/Y grid's sheet: its cells in one picture, in the save folder.
+ * Saves an X/Y grid's sheet: its cells in one picture, in the save folder
+ * (for a paired device, the one its runs are saved to, when it may see it).
  *
  *   POST { grid: string, rows: (string | null)[][], secret?: boolean }
  *
@@ -22,7 +24,9 @@ export async function POST(request: Request) {
   if (body?.secret === true) return jsonError(serverMessage('generate.grid.error.sheetSecret'), 403)
   const layout = readSheetLayout(body)
   if (!layout) return jsonError(serverMessage('generate.grid.error.sheetInvalid'), 400)
-  const dir = getSaveDir()
+  const viewer = viewerOf(request.headers)
+  const saved = getSaveDir(process.env, !viewer.all)
+  const dir = saved && (viewer.all || saved.shared) ? saved : null
   if (!dir) return jsonError(serverMessage('generate.grid.error.sheetNoFolder'), 409)
 
   // One at a time: each holds up to 64 full-size pictures in memory while it is built.

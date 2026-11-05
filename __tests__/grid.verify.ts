@@ -50,7 +50,7 @@ async function until(condition: () => boolean, label: string, ms = 10_000): Prom
 }
 
 const post = (route: string, body: unknown) =>
-  new Request(`${ORIGIN}/api/gen/mock/${route}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  new Request(`${ORIGIN}/api/gen/mock/${route}`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
 interface Queued {
   id: string
@@ -64,13 +64,13 @@ async function generate(body: Record<string, unknown>): Promise<{ status: number
   return { status: response.status, job: json.job?.id, queued: json.queued, error: json.error }
 }
 
-const jobNow = async () => (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { job: { id: string } | null; queued: number }
+const jobNow = async () => (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`, { headers: { host: 'localhost:3000' } }), params({ backend: 'mock' }))).json()) as { job: { id: string } | null; queued: number }
 
 function watch(id: string) {
   const events: { event: string; data: Record<string, unknown> }[] = []
   const controller = new AbortController()
   const finished = (async () => {
-    const response = await streamRoute(new NextRequest(`${ORIGIN}/api/gen/mock/job/stream?id=${id}`, { signal: controller.signal }), params({ backend: 'mock' }))
+    const response = await streamRoute(new NextRequest(`${ORIGIN}/api/gen/mock/job/stream?id=${id}`, { headers: { host: 'localhost:3000' }, signal: controller.signal }), params({ backend: 'mock' }))
     try {
       for await (const frame of readSseFrames(response.body!)) {
         events.push({ event: frame.event, data: JSON.parse(frame.data) })
@@ -84,7 +84,7 @@ function watch(id: string) {
 }
 
 const sheet = async (body: unknown) => {
-  const response = await sheetRoute(new Request(`${ORIGIN}/api/gallery/sheet`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }))
+  const response = await sheetRoute(new Request(`${ORIGIN}/api/gallery/sheet`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify(body) }))
   return { status: response.status, json: (await response.json()) as { name?: string; error?: string } }
 }
 

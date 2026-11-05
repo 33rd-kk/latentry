@@ -93,6 +93,7 @@ const context: JobContext = {
   kind: 'diffusers',
   model: null,
   mode: 'txt2img',
+  startedBy: { all: true, device: null },
 }
 type Event = Parameters<typeof applyEvent>[1]
 const image: Event = { type: 'image', index: 0, total: 1, seed: 1, imageBase64: 'iVBORw0K' } as Event

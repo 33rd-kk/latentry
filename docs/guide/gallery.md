@@ -9,7 +9,8 @@ folders on [Settings](settings.md); with several, tabs switch between them.
 A tab shows the folder's **display name**, set next to the folder on
 Settings, or else a made-up name such as "Amber Fox" that stays the same for
 that folder. The folder's own name and path are never shown, here or on a
-paired phone.
+paired phone. A paired phone sees only the folders with **Show on paired
+devices** on ([Settings](settings.md#gallery-folders)).
 
 The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
 infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and

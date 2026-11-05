@@ -1,6 +1,7 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { getCurrentJob } from '@/lib/diffusion/job-store'
 import { cancelGrid, cancelQueued, getGrid, getQueued } from '@/lib/diffusion/run-queue'
+import { maySeeRun, viewerOf } from '@/lib/security/viewer'
 
 export const runtime = 'nodejs'
 
@@ -16,24 +17,28 @@ export const runtime = 'nodejs'
  * Only the run with that id is stopped: a client that cannot name the run
  * (another device that was never told it, or a secret run's id, which is
  * never handed out) cannot stop it, and a click that arrives just after a run
- * ended cannot stop the one that replaced it.
+ * ended cannot stop the one that replaced it. A paired device stops only a
+ * run it started.
  */
 export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backend]/cancel'>) {
   const adapter = adapterOr404((await ctx.params).backend)
   if (adapter instanceof Response) return adapter
   const body = await readJson(request)
-  const grid = typeof body?.job === 'string' ? getGrid(adapter.config.id, body.job) : null
+  const viewer = viewerOf(request.headers)
+  const found = typeof body?.job === 'string' ? getGrid(adapter.config.id, body.job) : null
+  const grid = found && maySeeRun(viewer, found.startedBy) ? found : null
   if (grid) {
     await cancelGrid(grid)
     return json({ status: 'cancelled' })
   }
-  const queued = typeof body?.job === 'string' ? getQueued(adapter.config.id, body.job) : null
+  const waiting = !found && typeof body?.job === 'string' ? getQueued(adapter.config.id, body.job) : null
+  const queued = waiting && maySeeRun(viewer, waiting.startedBy) ? waiting : null
   if (queued) {
     cancelQueued(queued)
     return json({ status: 'cancelled' })
   }
   const current = getCurrentJob(adapter.config.id)
-  if (typeof body?.job !== 'string' || !current || current.id !== body.job || current.status !== 'running') {
+  if (found || waiting || typeof body?.job !== 'string' || !current || current.id !== body.job || current.status !== 'running' || !maySeeRun(viewer, current.context.startedBy)) {
     return jsonError('That run is not running', 409)
   }
   const result = await adapter.cancel(current.runId)

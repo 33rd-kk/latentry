@@ -85,7 +85,7 @@ async function main(): Promise<void> {
       generateRoute(
         new Request(`${ORIGIN}/api/gen/mock/generate`, {
           method: 'POST',
-          headers: { 'content-type': 'application/json' },
+          headers: { host: 'localhost:3000', 'content-type': 'application/json' },
           body: JSON.stringify(body),
         }),
         params({ backend: 'mock' })
@@ -108,21 +108,21 @@ async function main(): Promise<void> {
     eq(queued?.position, 1, 'and is told it starts next')
     check(!!queued?.id && queued.id !== jobId, 'under an id of its own')
 
-    const current = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { job?: { id?: string; status?: string }; queued?: number }
+    const current = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`, { headers: { host: 'localhost:3000' } }), params({ backend: 'mock' }))).json()) as { job?: { id?: string; status?: string }; queued?: number }
     eq([current.job?.id, current.job?.status], [jobId, 'running'], '/job reports the running run')
     eq(current.queued, 1, 'and how many wait behind it')
     check(!JSON.stringify(current).includes(queued?.id ?? '-') && !JSON.stringify(current).includes('another'), 'but not which run waits, nor its prompt')
 
     const cancelled = await cancelRoute(
-      new Request(`${ORIGIN}/api/gen/mock/cancel`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job: queued?.id }) }),
+      new Request(`${ORIGIN}/api/gen/mock/cancel`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify({ job: queued?.id }) }),
       params({ backend: 'mock' })
     )
     eq(cancelled.status, 200, 'a waiting run is cancelled by its id')
-    const after = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`), params({ backend: 'mock' }))).json()) as { queued?: number }
+    const after = (await (await jobRoute(new Request(`${ORIGIN}/api/gen/mock/job`, { headers: { host: 'localhost:3000' } }), params({ backend: 'mock' }))).json()) as { queued?: number }
     eq(after.queued, 0, 'and leaves the queue')
 
     // ── Watch it on the event stream until it ends ──
-    const stream = await streamRoute(new NextRequest(`${ORIGIN}/api/gen/mock/job/stream?id=${jobId}`), params({ backend: 'mock' }))
+    const stream = await streamRoute(new NextRequest(`${ORIGIN}/api/gen/mock/job/stream?id=${jobId}`, { headers: { host: 'localhost:3000' } }), params({ backend: 'mock' }))
     eq(stream.status, 200, 'the event stream opens')
     eq(stream.headers.get('content-type'), 'text/event-stream', 'as an event stream')
     mock.release()
@@ -149,28 +149,28 @@ async function main(): Promise<void> {
     check(text[PARAMETERS_KEY]?.includes(`Seed: ${MOCK_SEED}`) ?? false, 'and name the seed')
 
     // ── Listed in the gallery ──
-    const gallery = (await (await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery`))).json()) as { dirs: { index: number; writable: boolean }[] }
+    const gallery = (await (await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery`, { headers: { host: 'localhost:3000' } }))).json()) as { dirs: { index: number; writable: boolean }[] }
     eq(gallery.dirs.map(({ index, writable }) => ({ index, writable })), [{ index: 0, writable: true }], 'the gallery has the save folder only')
     check(!JSON.stringify(gallery).includes(scratch), 'and does not say where it is')
-    const page = (await (await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery?dir=0`))).json()) as { items: { name: string; width: number | null; height: number | null }[] }
+    const page = (await (await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery?dir=0`, { headers: { host: 'localhost:3000' } }))).json()) as { items: { name: string; width: number | null; height: number | null }[] }
     eq(page.items.map(({ name, width, height }) => ({ name, width, height })), [{ name: saved, width: 64, height: 96 }], 'its page lists the new picture, with its size')
-    eq((await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery?dir=1`))).status, 404, 'a folder that is not there is a 404')
+    eq((await galleryRoute(new NextRequest(`${ORIGIN}/api/gallery?dir=1`, { headers: { host: 'localhost:3000' } }))).status, 404, 'a folder that is not there is a 404')
 
     // ── Served ──
-    const picture = await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${saved}`), params({ dir: '0', name: saved }))
+    const picture = await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${saved}`, { headers: { host: 'localhost:3000' } }), params({ dir: '0', name: saved }))
     eq([picture.status, picture.headers.get('content-type'), picture.headers.get('cache-control')], [200, 'image/png', 'no-store'], 'the picture is served as a PNG the browser does not keep')
     check(Buffer.from(await picture.arrayBuffer()).equals(readFileSync(path.join(saveDir, saved))), 'byte for byte')
-    const thumb = await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${saved}?thumb=1`), params({ dir: '0', name: saved }))
+    const thumb = await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${saved}?thumb=1`, { headers: { host: 'localhost:3000' } }), params({ dir: '0', name: saved }))
     eq([thumb.status, thumb.headers.get('content-type')], [200, 'image/webp'], 'and its thumbnail as WebP')
     for (const name of ['../settings.json', '..', 'settings.json', 'missing.png']) {
-      eq((await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/x`), params({ dir: '0', name }))).status, 404, `"${name}" is a 404`)
+      eq((await pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/x`, { headers: { host: 'localhost:3000' } }), params({ dir: '0', name }))).status, 404, `"${name}" is a 404`)
     }
 
     // ── Several pictures in one run ──
     const run = await generateRoute(
       new Request(`${ORIGIN}/api/gen/many/generate`, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { host: 'localhost:3000', 'content-type': 'application/json' },
         body: JSON.stringify({ prompt: PROMPT, image_count: 2 }),
       }),
       params({ backend: 'many' })

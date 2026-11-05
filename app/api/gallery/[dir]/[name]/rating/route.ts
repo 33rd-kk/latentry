@@ -1,5 +1,5 @@
 import { jsonError, json, readJson } from '@/lib/api'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { resolveInDir } from '@/lib/gallery/fs'
 import { NewerRatingsError, setRating, TooManyRatingsError, validStars } from '@/lib/gallery/ratings'
 
@@ -12,7 +12,7 @@ export const runtime = 'nodejs'
  */
 export async function PUT(request: Request, ctx: RouteContext<'/api/gallery/[dir]/[name]/rating'>) {
   const { dir: dirParam, name } = await ctx.params
-  const dir = /^\d+$/.test(dirParam) ? getGalleryDirs()[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Not found', 404)
 
   const body = await readJson(request)

@@ -118,12 +118,13 @@ async function uniqueName(dir: GalleryDir, name: string): Promise<{ name: string
 }
 
 /**
- * The image sink for the job store: saves each finished image to
- * GALLERY_SAVE_DIR, or does nothing when it is unset. Throws (with a message
+ * The image sink for the job store: saves each finished image to the save
+ * folder (a paired device's run to the paired devices' one, when set), or
+ * does nothing when there is none. Throws (with a message
  * the page can translate) when the folder cannot be written.
  */
 export const saveToGallery: ImageSink = async (job, image, index) => {
-  const dir = getSaveDir()
+  const dir = getSaveDir(process.env, job.context.startedBy?.all === false)
   if (!dir || !image.image_base64) return null
 
   const created = new Date()

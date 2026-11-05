@@ -149,10 +149,11 @@ See [Privacy](privacy.md).
 ## What Latentry does not protect against
 
 - **Someone already on this computer as you**, or software running as you.
-- **A paired device.** It can do what you can, except change settings.
-  Paired devices share ordinary runs, so one can watch or stop a run
-  started on another; a secret run stays with the page that started it.
-  Remove a device you no longer trust.
+- **A paired device.** It can do what you can, except change settings, see
+  the gallery folders not shared with paired devices, and watch or stop runs
+  it did not start. Paired devices share the folders you share with them,
+  and each other's pictures saved there. Remove a device you no longer
+  trust.
 - **An owner device.** It can do everything this computer can through
   Latentry, settings included, except open its file manager. Remove it
   when you no longer trust it.

@@ -3,7 +3,7 @@ import type { BigIntStats } from 'node:fs'
 import type { FileHandle } from 'node:fs/promises'
 import type { NextRequest } from 'next/server'
 import { jsonError } from '@/lib/api'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { openInDir } from '@/lib/gallery/fs'
 import { thumbnail } from '@/lib/gallery/thumbs'
 import { attachment } from '@/lib/gallery/zip'
@@ -30,7 +30,7 @@ const CONTENT_TYPES: Record<string, string> = {
  */
 export async function GET(request: NextRequest, ctx: RouteContext<'/api/gallery/[dir]/[name]'>) {
   const { dir: dirParam, name } = await ctx.params
-  const dir = /^\d+$/.test(dirParam) ? getGalleryDirs()[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Not found', 404)
   const opened = await openInDir(dir, name)
   if (!opened) return jsonError('Not found', 404)

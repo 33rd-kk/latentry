@@ -152,7 +152,7 @@ async function main() {
       const ORIGIN = 'http://localhost:3000'
       const { NextRequest } = await import('next/server')
       const get = (name: string, query: string) =>
-        pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${encodeURIComponent(name)}${query}`), { params: Promise.resolve({ dir: '0', name }) } as never)
+        pictureRoute(new NextRequest(`${ORIGIN}/api/gallery/0/${encodeURIComponent(name)}${query}`, { headers: { host: 'localhost:3000' } }), { params: Promise.resolve({ dir: '0', name }) } as never)
       const clean = await get('a.png', '?download=clean')
       eq(clean.status, 200, 'one picture without its settings')
       check(Buffer.from(await clean.arrayBuffer()).equals(cleanPng), 'cleaned')
@@ -163,7 +163,7 @@ async function main() {
       eq((await get('broken.png', '?download=clean')).status, 422, 'a picture that cannot be cleaned is refused, not sent with its settings')
 
       const post = (body: unknown) =>
-        downloadRoute(new Request(`${ORIGIN}/api/gallery/download`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) }))
+        downloadRoute(new Request(`${ORIGIN}/api/gallery/download`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify(body) }))
       const many = await post({ dir: 0, names: ['a.png', 'b.jpg', 'broken.png', 'gone.png'] })
       eq(many.status, 200, 'several pictures at once')
       eq([many.headers.get('content-type'), many.headers.get('x-latentry-left-out')], ['application/zip', '2'], 'a ZIP, saying how many were left out')
