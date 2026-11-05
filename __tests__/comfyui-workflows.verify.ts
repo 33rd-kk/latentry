@@ -68,6 +68,9 @@ async function main() {
   eq(describe('t', TXT2IMG), { name: 't', missing: [] }, 'a full workflow lacks nothing')
   const bare: ComfyGraph = { '1': { class_type: 'CLIPTextEncode', inputs: { text: 'x' } }, '2': { class_type: 'SaveImage', inputs: {} } }
   eq(describe('b', bare).problem?.startsWith('No prompt'), true, 'a workflow without a sampler-linked prompt cannot run')
+  // A custom sampler node (any name) with the stock inputs is filled like KSampler.
+  const custom: ComfyGraph = { ...TXT2IMG, '3': { ...TXT2IMG['3'], class_type: 'MySampler_Custom' } }
+  eq(describe('c', custom), { name: 'c', missing: [] }, 'a workflow with a custom sampler node lacks nothing either')
 
   // ── Filling ──
   const loras = [{ file: 'styles/ink.safetensors', use: { name: 'ink', weight: 0.7 } }]

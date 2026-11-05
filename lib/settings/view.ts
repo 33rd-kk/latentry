@@ -26,6 +26,10 @@ export interface SettingsView {
   gallery: {
     saveDir: string | null
     dirs: string[]
+    /** Where paired devices' runs are saved, apart from this machine's; null for the same. */
+    pairedSaveDir: string | null
+    /** The folders paired devices may see, by path as in saveDir / dirs / pairedSaveDir. */
+    shared: string[]
     autoTag: boolean
     loraHashes: boolean
     /** Each folder's name as shown, set or made up, by its path as in saveDir / dirs. */
@@ -75,8 +79,10 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
       return { modelDir: config.modelDir, ...config.thresholds, found: hasModel(config.modelDir), defaults: DEFAULT_THRESHOLDS }
     })(),
     gallery: {
-      saveDir: dirs.find((dir) => dir.writable)?.path ?? null,
-      dirs: dirs.filter((dir) => !dir.writable).map((dir) => dir.path),
+      saveDir: dirs.find((dir) => dir.role === 'save')?.path ?? null,
+      dirs: dirs.filter((dir) => dir.role === 'read').map((dir) => dir.path),
+      pairedSaveDir: dirs.find((dir) => dir.role === 'pairedSave')?.path ?? null,
+      shared: dirs.filter((dir) => dir.shared).map((dir) => dir.path),
       autoTag: autoTagEnabled(process.env, settings),
       loraHashes: loraHashesEnabled(settings),
       labels: Object.fromEntries(dirs.map((dir) => [dir.path, { label: dir.label, auto: dir.autoLabel }])),

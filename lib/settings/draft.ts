@@ -42,6 +42,13 @@ export interface Draft {
   saveLabel: string
   dirs: string[]
   dirLabels: string[]
+  /** Paired devices' own save folder ("" for none) and its display name. */
+  pairedSaveDir: string
+  pairedSaveLabel: string
+  /** Whether paired devices may see each folder; dirShared runs alongside dirs. */
+  saveShared: boolean
+  dirShared: boolean[]
+  pairedSaveShared: boolean
   autoTag: boolean
   loraHashes: boolean
   profiles: Partial<Record<ProfileId, ProfileDraft>>
@@ -117,6 +124,11 @@ export function toDraft(view: SettingsView): Draft {
     saveLabel: setLabel(view, view.gallery.saveDir),
     dirs: view.gallery.dirs,
     dirLabels: view.gallery.dirs.map((dir) => setLabel(view, dir)),
+    pairedSaveDir: view.gallery.pairedSaveDir ?? '',
+    pairedSaveLabel: setLabel(view, view.gallery.pairedSaveDir),
+    saveShared: view.gallery.saveDir !== null && view.gallery.shared.includes(view.gallery.saveDir),
+    dirShared: view.gallery.dirs.map((dir) => view.gallery.shared.includes(dir)),
+    pairedSaveShared: view.gallery.pairedSaveDir !== null && view.gallery.shared.includes(view.gallery.pairedSaveDir),
     autoTag: view.gallery.autoTag,
     loraHashes: view.gallery.loraHashes,
     profiles,
@@ -155,9 +167,19 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
     draft.dirs.forEach((dir, index) => {
       if (dir.trim() && draft.dirLabels[index]?.trim()) labels[dir.trim()] = draft.dirLabels[index].trim()
     })
+    if (draft.pairedSaveDir.trim() && draft.pairedSaveLabel.trim()) labels[draft.pairedSaveDir.trim()] = draft.pairedSaveLabel.trim()
+    const shared = [
+      ...(draft.saveShared ? [draft.saveDir] : []),
+      ...draft.dirs.filter((_, index) => draft.dirShared[index] === true),
+      ...(draft.pairedSaveShared ? [draft.pairedSaveDir] : []),
+    ]
+      .map((dir) => dir.trim())
+      .filter(Boolean)
     body.gallery = {
       saveDir: draft.saveDir.trim() || null,
       dirs: draft.dirs.map((dir) => dir.trim()).filter(Boolean),
+      pairedSaveDir: draft.pairedSaveDir.trim() || null,
+      shared,
       autoTag: draft.autoTag,
       loraHashes: draft.loraHashes,
       labels,

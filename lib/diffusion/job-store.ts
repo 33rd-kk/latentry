@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import type { BackendEvent, GenerateRequest } from '@/lib/backends/types'
 import type { GridPlace } from '@/lib/generate/grid'
 import type { LoraUse } from '@/lib/image-meta'
+import type { Viewer } from '@/lib/security/viewer'
 
 /**
  * Server-side record of the run each backend is doing, so the page can be
@@ -73,6 +74,8 @@ export interface JobContext {
   promptTemplate?: string
   /** The X/Y grid cell this run draws, if it is one. */
   grid?: GridPlace
+  /** Who started it (lib/security/viewer.ts): who may see it, and where it is saved. */
+  startedBy: Viewer
 }
 
 export interface Job extends Omit<JobSnapshot, 'imageCount' | 'images'> {

@@ -47,7 +47,7 @@ the protection, that is said too.
 | WEB-2 | 1 | Met | `/api` answers only for `localhost`, IP addresses on your network, and hosts in `ALLOWED_HOSTS`. |
 | WEB-3 | 1 | Met | `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, a `Permissions-Policy`, and `no-store` on pages and `/api`. |
 | WEB-4 | 2 | Met | A body limit (48 MB with a picture, 1 MB without), request budgets per device, and limits on pose previews and tagging. |
-| WEB-5 | 2 | Met | Run ids are random UUIDs. Paired devices share ordinary runs, as the profile allows; a secret run's id stays with the page that started it. |
+| WEB-5 | 2 | Met | Run ids are random UUIDs. A paired device is offered, and may watch or stop, only the runs it started; a secret run's id stays with the page that started it. |
 
 ### Devices
 

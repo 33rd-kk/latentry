@@ -5,6 +5,7 @@ import { hiresSteps } from '@/lib/diffusion/hires'
 import type { GridPlace } from '@/lib/generate/grid'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { saveToGallery } from '@/lib/gallery/save'
+import type { Viewer } from '@/lib/security/viewer'
 
 /**
  * A run as the generate route accepted it: checked, and with Extend's padding
@@ -22,6 +23,11 @@ export interface RunInput {
   secret: boolean
   /** Set on each cell of an X/Y grid: where it sits, for its pictures' record. */
   grid?: GridPlace
+  /**
+   * Who started it: a paired device sees only its own runs, and they are
+   * saved to the paired devices' save folder when one is set.
+   */
+  startedBy: Viewer
 }
 
 /** Roughly how much memory the run's pictures hold while it waits. */
@@ -66,6 +72,7 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
       mode: input.mode,
       ...(input.promptTemplate ? { promptTemplate: input.promptTemplate } : {}),
       ...(input.grid ? { grid: input.grid } : {}),
+      startedBy: input.startedBy,
     },
   })
 

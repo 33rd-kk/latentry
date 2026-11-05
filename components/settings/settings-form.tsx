@@ -5,6 +5,7 @@ import { Loader2, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useConfirmLeave } from "@/hooks/use-confirm-leave"
 import { useLocalText } from "@/hooks/use-local-text"
 import { useSettingsForm } from "@/hooks/use-settings-form"
 import type { Part } from "@/lib/settings/draft"
@@ -61,6 +62,8 @@ export function SettingsForm() {
   const t = useT()
   const { view, draft, dirty, errors, saving, backendIds, load, change, save } = useSettingsForm()
   const [section, chooseSection] = useSection()
+  // Leaving the page would drop the draft.
+  useConfirmLeave(dirty.size > 0, t("settings.leaveConfirm"))
 
   if (view === null) {
     return (

@@ -1,5 +1,5 @@
 import { jsonError, readJson } from '@/lib/api'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { readInDir } from '@/lib/gallery/fs'
 import { attachment, zipStore, type ZipEntry } from '@/lib/gallery/zip'
 import { serverMessage } from '@/lib/i18n/core'
@@ -20,7 +20,7 @@ const MAX_DOWNLOAD_BYTES = 256 * 1024 * 1024
  */
 export async function POST(request: Request) {
   const body = await readJson(request)
-  const dir = typeof body?.dir === 'number' && Number.isInteger(body.dir) ? getGalleryDirs()[body.dir] : undefined
+  const dir = dirFor(request.headers, typeof body?.dir === 'number' ? body.dir : undefined)
   if (!dir) return jsonError('Not found', 404)
   const names: unknown[] = Array.isArray(body?.names) ? body.names : []
   if (!names.length || names.length > MAX_DOWNLOAD_PICTURES || !names.every((name) => typeof name === 'string')) {

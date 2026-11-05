@@ -12,7 +12,8 @@ import { imageSize } from '@/lib/backends/images'
 import { workflowAccess } from '@/lib/backends/workflow-access'
 import { OUTPAINT_MAX_EDGE, outpaintSides } from '@/lib/generate/outpaint'
 import { prepareOutpaint } from '@/lib/generate/outpaint-image'
-import { hasWildcards } from '@/lib/wildcards/syntax'
+import { hasDynamicPrompt } from '@/lib/wildcards/syntax'
+import { viewerOf } from '@/lib/security/viewer'
 
 export const runtime = 'nodejs'
 
@@ -61,10 +62,11 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     generate,
     profile: typeof body.profile === 'string' ? body.profile : adapter.config.profile,
     mode: sides ? 'outpaint' : modeOf(generate),
-    promptTemplate: typeof template === 'string' && template.length <= 10_000 && hasWildcards(template) ? template : undefined,
+    promptTemplate: typeof template === 'string' && template.length <= 10_000 && hasDynamicPrompt(template) ? template : undefined,
     // The record names an upscale's size before it, as hires fix's: the source's.
     sourceSize: generate.upscale && generate.init_image_base64 ? await imageSize(generate.init_image_base64) : null,
     secret: body.secret === true,
+    startedBy: viewerOf(request.headers),
   }
 
   // An X/Y grid always goes through the queue, as one run however many cells

@@ -3,6 +3,7 @@
 // hires fields, and the saved picture says it was an upscale.
 
 import { expect, test } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 const PROMPT = 'a windmill by a river, upscale run'
 
@@ -24,7 +25,7 @@ test('a gallery picture is upscaled with its own prompt', async ({ page }) => {
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
   const upscale = page.getByRole('button', { name: 'Upscale', exact: true })
-  if (!(await upscale.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await upscale.click()
 
   await expect(page).toHaveURL(/\/$/)

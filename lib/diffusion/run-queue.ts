@@ -7,6 +7,7 @@ import { cellRequest, gridPlace, type GridCell, type GridSpec } from '@/lib/gene
 import { serverMessage } from '@/lib/i18n/core'
 import { QUEUE_MAX_BYTES, QUEUE_MAX_RUNS } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
+import type { Viewer } from '@/lib/security/viewer'
 
 /**
  * Runs asked for while the backend is busy wait here, one queue per backend,
@@ -42,6 +43,8 @@ export interface QueuedRun {
   waitingSince: number | null
   /** The request, held only while the run waits; dropped once it leaves the queue. */
   input: RunInput | null
+  /** Who queued it, kept after `input` is dropped: who may watch or cancel it. */
+  startedBy: Viewer
   /** Cancelled while it was being handed to the backend: stop it once it has started. */
   cancelOnStart: boolean
   enqueuedAt: number
@@ -164,6 +167,7 @@ export function enqueue(backend: string, input: RunInput, grid?: { spec: GridSpe
     error: null,
     waitingSince: null,
     input,
+    startedBy: input.startedBy,
     cancelOnStart: false,
     enqueuedAt: Date.now(),
     listeners: new Set(),

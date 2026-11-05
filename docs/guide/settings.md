@@ -67,6 +67,14 @@ tagger. The built-in model needs a folder with `model.onnx` and
 - **Display name**, next to each folder: what the gallery's tabs and other
   devices call it (up to 40 characters). Left empty, the folder gets a
   made-up name such as "Amber Fox" that stays the same.
+- **Show on paired devices**, under each folder (off by default): whether
+  paired phones and computers see the folder in their gallery. Off, the
+  folder is this computer's (and owner devices') only. Paired devices also
+  see only the runs they started.
+- **Save folder for paired devices**: runs started from a paired device are
+  saved here instead of the save folder; created if missing. Empty: they go
+  to the save folder. Turn on **Show on paired devices** for it to let them
+  find their pictures in the gallery.
 - **Tag every saved image with WD14 as it arrives.**
 - **Write LoRA hashes into saved images** (off by default). A picture made
   with LoRAs on Latentry's engine then carries A1111's "Lora hashes", which
@@ -94,7 +102,8 @@ and a form reset.
   comma-separated. `*` matches anything, so `score_*` (the built-in value)
   covers `score_9` and `score_8_up`. `-` keeps nothing.
 
-**Save** keeps the changes; **Discard** drops them.
+**Save** keeps the changes; **Discard** drops them. With changes not yet
+saved, Latentry asks before you go to another page, reload or close the tab.
 
 ## Model info
 
@@ -113,9 +122,10 @@ is not needed for it.
 ## Wildcards
 
 **Wildcards folder** is an existing folder of `.txt` files, one choice per
-line, for `__name__` in a prompt (see [Wildcards](many.md#wildcards)).
-Subfolders work as `__folder/name__`, up to 3 deep. Lines starting with `#`
-and blank lines are skipped, and a file over 1 MB is not read. Latentry only
+line, and YAML files whose keys name lists of choices, for `__name__` in a
+prompt (see [Wildcards](many.md#wildcards)). Subfolders work as
+`__folder/name__`, up to 3 deep. Lines starting with `#` and blank lines are
+skipped, and a file over 1 MB is not read. `{a|b}` variants need no folder. Latentry only
 reads the folder. Leave it empty for no wildcards.
 
 **Use on paired devices** is off by default. While it is off, the picker and

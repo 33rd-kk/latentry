@@ -186,9 +186,13 @@ Good to know:
   others with `ALLOWED_HOSTS`), and refuses requests from other websites.
 - Requests are rate-limited per device, counted by the address the
   connection really comes from.
-- Stopping a run takes that run's id. Devices that are not paired never get
-  one; paired devices share ordinary runs (a reload on any of them picks the
-  run up again), and a secret run can be stopped only from its own page.
+- A paired device sees, and can stop, only the runs it started itself (a
+  reload on it picks its run up again); this computer and owner devices see
+  every run. A secret run can be stopped only from its own page.
+- A paired device sees only the gallery folders with **Show on paired
+  devices** on (Settings > Gallery folders), none until you turn one on. Any
+  other folder answers it as a folder that does not exist would. Its runs
+  are saved to **Save folder for paired devices** when one is set.
 - Paired devices do not see this computer's paths or folder names. Gallery
   folders are shown by their display name (Settings > Gallery folders) or a
   made-up one such as "Amber Fox", models by their file name only, and

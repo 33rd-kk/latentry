@@ -55,6 +55,17 @@ export interface GallerySettings {
    * here and on paired devices, which otherwise see only "Folder 2".
    */
   labels?: Record<string, string>
+  /**
+   * Where runs started from a paired device are saved, apart from this
+   * machine's; unset (or null), they go to saveDir like any other.
+   */
+  pairedSaveDir?: string | null
+  /**
+   * The folders paired devices may see, as written (saveDir, pairedSaveDir,
+   * a dirs entry, or a GALLERY_* folder). Absent or empty, they see none:
+   * folders are this machine's until shared.
+   */
+  shared?: string[]
 }
 
 export const MAX_FOLDER_LABEL = 40
@@ -199,7 +210,7 @@ export interface SettingsInput {
   backends?: BackendInput[] | null
   tagger?: unknown
   wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
-  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown; labels?: unknown } | null
+  gallery?: { saveDir?: unknown; dirs?: unknown; autoTag?: unknown; loraHashes?: unknown; labels?: unknown; pairedSaveDir?: unknown; shared?: unknown } | null
   profiles?: Record<string, Record<string, unknown>> | null
   engine?: { autoStart?: unknown; modelsDir?: unknown; basePort?: unknown; gpus?: unknown; model?: unknown; shareLoras?: unknown } | null
   wildcards?: { dir?: unknown; share?: unknown } | null
@@ -333,7 +344,7 @@ export function validateSettings(
     if (current.gallery) next.gallery = current.gallery
   } else if (input.gallery !== null) {
     const gallery: GallerySettings = {}
-    const { saveDir, dirs, autoTag, loraHashes, labels } = input.gallery
+    const { saveDir, dirs, autoTag, loraHashes, labels, pairedSaveDir, shared } = input.gallery
     if (saveDir === null || saveDir === '') gallery.saveDir = null
     else if (typeof saveDir === 'string') {
       const error = folderError(saveDir.trim(), env)
@@ -349,6 +360,19 @@ export function validateSettings(
           if (error) errors[`gallery.dirs.${index}`] = error
         })
         gallery.dirs = cleaned
+      }
+    }
+    if (pairedSaveDir === null || pairedSaveDir === '') gallery.pairedSaveDir = null
+    else if (typeof pairedSaveDir === 'string') {
+      const error = folderError(pairedSaveDir.trim(), env)
+      if (error) errors['gallery.pairedSaveDir'] = error
+      else gallery.pairedSaveDir = pairedSaveDir.trim()
+    } else if (pairedSaveDir !== undefined) errors['gallery.pairedSaveDir'] = 'settings.errorAbsolute'
+    if (shared !== undefined && shared !== null) {
+      if (!Array.isArray(shared)) errors['gallery.shared'] = 'settings.errorList'
+      else {
+        const folders = [...new Set(shared.map((folder) => (typeof folder === 'string' ? folder.trim() : '')).filter(Boolean))]
+        if (folders.length) gallery.shared = folders
       }
     }
     if (autoTag !== undefined) gallery.autoTag = autoTag === true

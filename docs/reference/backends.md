@@ -178,7 +178,14 @@ Latentry fills a workflow in on this computer before it is queued:
   own is used. A workflow that loads a diffusion model with a UNET loader
   (Flux, Anima and the like) always keeps its own.
 - **Where**: found from the first-pass sampler, the same way the gallery
-  reads ComfyUI pictures: its prompts through the text encoders (and string
+  reads ComfyUI pictures. The sampler is a `KSampler` or `SamplerCustom`
+  node, a custom node named like one (such as `KSampler (Efficient)`), or
+  else any node that takes a latent and the prompts by link; its settings are
+  read by the stock input names (`seed`, `steps`, `cfg`, `sampler_name`,
+  `scheduler`, `denoise`). Impact Pack's nodes are read as well: prompts
+  carried in a `basic_pipe` are found on the node that built the pipe, and a
+  graph that samples only through providers (`KSamplerProvider` handed to
+  `TwoSamplersForMask`, say) is read from the base sampler's provider. Its prompts through the text encoders (and string
   or primitive nodes), the seed on the sampler or a seed node, the size on
   the empty latent. A node whose title contains a marker takes that role:
   `latentry:prompt`, `latentry:negative`, `latentry:seed`, `latentry:size`,

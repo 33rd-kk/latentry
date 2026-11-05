@@ -48,6 +48,56 @@ test('a section with unsaved changes is marked in the list, and the change survi
   await expect(tab(page, 'Profiles').getByRole('img')).toHaveCount(0)
 })
 
+test('going to another page with unsaved changes asks first, and staying keeps them', async ({ page }) => {
+  await open(page, 'profiles')
+  const steps = card(page, 'Model profile defaults').locator('input[inputmode="decimal"]').nth(2)
+  const gallery = page.getByRole('banner').getByRole('link', { name: 'Gallery' })
+
+  const questions: string[] = []
+  let answer = false
+  page.on('dialog', (dialog) => {
+    questions.push(dialog.message())
+    void (answer ? dialog.accept() : dialog.dismiss())
+  })
+
+  // Saying no stays, with the change.
+  await steps.fill('31')
+  await gallery.click()
+  expect(questions).toEqual(['Your changes are not saved. Leave this page and lose them?'])
+  await expect(page).toHaveURL(/\/settings#profiles$/)
+  await expect(steps).toHaveValue('31')
+
+  // Another section is not leaving.
+  await tab(page, 'Backends').click()
+  await tab(page, 'Profiles').click()
+  expect(questions).toHaveLength(1)
+
+  // Saying yes leaves, and the change is gone.
+  answer = true
+  await gallery.click()
+  await expect(page).toHaveURL(/\/gallery/)
+  expect(questions).toHaveLength(2)
+  await open(page, 'profiles')
+  await expect(steps).not.toHaveValue('31')
+
+  // Discarded, nothing is asked.
+  await steps.fill('31')
+  await page.getByRole('button', { name: 'Discard' }).click()
+  await gallery.click()
+  await expect(page).toHaveURL(/\/gallery/)
+  expect(questions).toHaveLength(2)
+})
+
+test('closing the tab with unsaved changes gets the browser to ask', async ({ page }) => {
+  await open(page, 'profiles')
+  await card(page, 'Model profile defaults').locator('input[inputmode="decimal"]').nth(2).fill('31')
+  const dialog = page.waitForEvent('dialog')
+  await page.close({ runBeforeUnload: true })
+  const asked = await dialog
+  expect(asked.type()).toBe('beforeunload')
+  await asked.accept()
+})
+
 async function save(page: Page) {
   await saveButton(page).click()
   await expect(page.getByText('Settings saved')).toBeVisible()
@@ -67,31 +117,40 @@ test('the backends from settings.json are shown, and one can be tested', async (
   await expect(backends.getByText(/^Connected: /)).toBeVisible()
 })
 
-test('a read folder with a display name is saved, comes back after a reload, and is removed again', async ({ page }) => {
+test('a read folder with a display name and shown on paired devices is saved, comes back after a reload, and is removed again', async ({ page }) => {
   // A read folder has to exist.
   const folder = path.join(process.env.E2E_ROOT!, 'extra')
   mkdirSync(folder, { recursive: true })
   await open(page, 'gallery')
   const gallery = card(page, 'Gallery folders')
   const names = gallery.getByRole('textbox', { name: 'Display name' })
-  // The save folder's display name comes first; read folders follow.
-  await expect(names).toHaveCount(1)
+  const shown = gallery.getByRole('switch', { name: 'Show on paired devices' })
+  // The save folder's display name comes first, read folders follow, and the
+  // paired devices' save folder's comes last.
+  await expect(names).toHaveCount(2)
+  // No folder is shown on paired devices until one is turned on.
+  await expect(shown).toHaveCount(1)
+  await expect(shown.first()).not.toBeChecked()
 
   await gallery.getByRole('button', { name: 'Add folder' }).click()
   await expect(page.getByText('Unsaved changes')).toBeVisible()
   await names.nth(1).fill('Extra pictures')
   const dir = names.nth(1).locator('xpath=preceding-sibling::input')
   await dir.fill(folder)
+  await shown.nth(1).click()
   await save(page)
 
   await page.reload()
   await expect(names.nth(1)).toHaveValue('Extra pictures')
   await expect(dir).toHaveValue(folder)
+  await expect(shown.nth(1)).toBeChecked()
+  await expect(shown.first()).not.toBeChecked()
 
   await gallery.getByRole('button', { name: 'Remove' }).click()
   await save(page)
   await page.reload()
-  await expect(names).toHaveCount(1)
+  await expect(names).toHaveCount(2)
+  await expect(shown).toHaveCount(1)
 })
 
 test('an unsaved profile change shows a reset, and Discard drops it', async ({ page }) => {

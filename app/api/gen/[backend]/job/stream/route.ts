@@ -5,6 +5,7 @@ import { getJob, isWatchable, subscribe, toSnapshot, type Job } from '@/lib/diff
 import { getGrid, getQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
 import { serverMessage } from '@/lib/i18n/core'
 import { sseSlot } from '@/lib/security/request-budget'
+import { maySeeRun, viewerOf } from '@/lib/security/viewer'
 
 export const runtime = 'nodejs'
 
@@ -57,6 +58,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
   }
   const releaseSlot = slot
   const encoder = new TextEncoder()
+  // A paired device watches only runs it started: any other id is "gone" to
+  // it, as an id it was never told would be.
+  const viewer = viewerOf(request.headers)
+  const visible = (startedBy: Parameters<typeof maySeeRun>[1]) => maySeeRun(viewer, startedBy)
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -131,7 +136,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
       const watchJob = () => {
         const job = getJob(backend, id)
         // Past its window a run is over for every viewer, not only for /job.
-        if (!job || !isWatchable(job)) {
+        if (!job || !isWatchable(job) || !visible(job.context.startedBy)) {
           send('end', { status: 'gone', error: null })
           close()
           return
@@ -258,8 +263,10 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
         update()
       }
 
-      const grid = getGrid(backend, id)
-      const queued = grid ? null : getQueued(backend, id)
+      const found = getGrid(backend, id)
+      const grid = found && visible(found.startedBy) ? found : null
+      const waiting = grid || found ? null : getQueued(backend, id)
+      const queued = waiting && visible(waiting.startedBy) ? waiting : null
       if (grid) watchGrid(grid)
       else if (queued) waitInQueue(queued)
       else watchJob()

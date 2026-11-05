@@ -2,6 +2,39 @@
 
 ## Unreleased
 
+**Upgrading**: paired phones and computers see no gallery folder until you
+turn **Show on paired devices** on for a folder in Settings > Gallery
+folders. This computer and owner devices are not affected.
+
+- **Choose which folders paired devices see**: each gallery folder has
+  **Show on paired devices** (off by default), and a folder that is off
+  answers a paired device as if it did not exist, on every route. Runs
+  started from a paired device can go to their own **Save folder for paired
+  devices**, and a paired device now sees and stops only the runs it started
+  itself. See
+  [Gallery folders](https://33rd-kk.github.io/latentry/guide/settings/#gallery-folders).
+- **Variants and YAML wildcards**: `{red|blue|green}` in a prompt takes one
+  choice for the run, drawn from the seed like a wildcard's line, with
+  counts such as `{2$$a|b|c}` as in Dynamic Prompts; it needs no wildcards
+  folder. The wildcards folder also reads YAML files, whose keys name the
+  lists (`__group/name__` for nested keys). The picture keeps the prompt as
+  typed. Braces with no `|`, such as `{masterpiece}`, are left as written.
+  See [Variants](https://33rd-kk.github.io/latentry/guide/many/#variants).
+- **Settings from custom ComfyUI samplers**: the gallery reads the prompt,
+  seed, steps, CFG and sampler of ComfyUI pictures made with a custom sampler
+  node (one named like `KSampler`, or any node taking a latent and the
+  prompts), and your own workflows built on one are filled in the same way.
+  A provider node that only hands a sampler on is no longer mistaken for the
+  sampler, and Impact Pack graphs that carry the prompts in a pipe or sample
+  only through providers are read too. See
+  [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
+- **Stars stay put**: stars given in the viewer no longer vanish when the
+  gallery list was being refreshed at that moment (a new search, or a folder
+  still being read).
+- **Settings asks before unsaved changes are lost**: with changes not yet
+  saved, going to another page from the header, reloading or closing the tab
+  first asks whether to leave. Switching sections still keeps the changes. See
+  [Settings](https://33rd-kk.github.io/latentry/guide/settings/).
 - **Save without settings on the Generate page**: each result, and the
   viewer's panel, has **Save without settings**, made in the page from the
   picture on screen (nothing is sent for it), and **Save with settings**,

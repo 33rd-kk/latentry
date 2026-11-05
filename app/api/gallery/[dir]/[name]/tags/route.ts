@@ -1,5 +1,5 @@
 import { jsonError, json, readJson } from '@/lib/api'
-import { getGalleryDirs } from '@/lib/gallery/dirs'
+import { dirFor } from '@/lib/gallery/access'
 import { writeTags } from '@/lib/gallery/save'
 import type { ImageTag } from '@/lib/image-meta'
 
@@ -13,7 +13,7 @@ const MAX_TAGS = 500
  */
 export async function POST(request: Request, ctx: RouteContext<'/api/gallery/[dir]/[name]/tags'>) {
   const { dir: dirParam, name } = await ctx.params
-  const dir = /^\d+$/.test(dirParam) ? getGalleryDirs()[Number(dirParam)] : undefined
+  const dir = dirFor(request.headers, dirParam)
   if (!dir) return jsonError('Not found', 404)
   if (!dir.writable) return jsonError('This folder is read-only', 403)
 

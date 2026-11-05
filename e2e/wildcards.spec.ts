@@ -1,9 +1,11 @@
 // docs/guide/many.md: wildcards. The test run's settings point at a
-// wildcards folder (scripts/e2e.mjs) with weather.txt ("light rain") and
-// places/coast.txt ("rocky coast"): the picker puts one in, the run is drawn
-// with its line, and the picture keeps the prompt as typed.
+// wildcards folder (scripts/e2e.mjs) with weather.txt ("light rain"),
+// places/coast.txt ("rocky coast") and more.yaml (`sky: [clear sky]`): the
+// picker puts one in, the run is drawn with its line, and the picture keeps
+// the prompt as typed.
 
 import { expect, test } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 test('a wildcard is picked, filled in for the run, and kept with the picture', async ({ page }) => {
   await page.goto('/')
@@ -13,7 +15,7 @@ test('a wildcard is picked, filled in for the run, and kept with the picture', a
   await prompt.fill('wildcardrun lighthouse, __places/coast__')
 
   await page.getByRole('combobox', { name: 'Add a wildcard' }).click()
-  await expect(page.getByRole('option')).toHaveText(['places/coast', 'weather'])
+  await expect(page.getByRole('option')).toHaveText(['places/coast', 'sky', 'weather'])
   await page.getByRole('option', { name: 'weather' }).click()
   await expect(prompt).toHaveValue('wildcardrun lighthouse, __places/coast__, __weather__')
 
@@ -28,11 +30,26 @@ test('a wildcard is picked, filled in for the run, and kept with the picture', a
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
-  const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(page.getByText('rocky coast', { exact: true })).toBeVisible()
   await expect(page.getByText('light rain', { exact: true })).toBeVisible()
   await expect(page.getByText('wildcardrun lighthouse, __places/coast__, __weather__')).toBeVisible()
+})
+
+test('a variant and a YAML wildcard are drawn for the run, and the picture keeps them as typed', async ({ page }) => {
+  await page.goto('/')
+  const generate = page.getByRole('button', { name: 'Generate', exact: true })
+  await expect(generate).toBeEnabled()
+  // One choice twice, so the test knows what is drawn.
+  await page.locator('#prompt').fill('variantrun {harbour|harbour}, __sky__')
+  const sent = page.waitForRequest((request) => request.method() === 'POST' && request.url().endsWith('/generate'))
+  await generate.click()
+  expect((await sent).postDataJSON().prompt).toContain('variantrun harbour, clear sky')
+  await expect(page.getByRole('link', { name: 'In gallery' })).toBeVisible()
+
+  const listed = await page.request.get('/api/gallery?dir=0&q=variantrun')
+  const [picture] = (await listed.json()).items as { meta: { prompt: string; promptTemplate?: string } }[]
+  expect([picture.meta.prompt, picture.meta.promptTemplate]).toEqual([expect.stringContaining('variantrun harbour, clear sky'), expect.stringContaining('variantrun {harbour|harbour}, __sky__')])
 })
 
 // The picker has no value of its own, so its list must open under the button

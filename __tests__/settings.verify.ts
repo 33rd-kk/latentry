@@ -103,6 +103,16 @@ async function main() {
   eq(labelled.ok ? labelled.settings.gallery?.labels : 'error', { [ABS]: 'Mine' }, 'display names are trimmed; blank and non-text ones dropped')
   const tooLong = validateSettings({ gallery: { labels: { [ABS]: 'x'.repeat(41) } } }, EMPTY_SETTINGS, {})
   check(!tooLong.ok && tooLong.errors[`gallery.labels.${ABS}`] === 'settings.errorFolderLabel', 'a display name over 40 characters is refused')
+  const sharing = validateSettings({ gallery: { saveDir: ABS, pairedSaveDir: ` ${ABS}2 `, shared: [` ${ABS} `, ABS, '', 5, `${ABS}2`] } }, EMPTY_SETTINGS, {})
+  eq(
+    sharing.ok ? [sharing.settings.gallery?.pairedSaveDir, sharing.settings.gallery?.shared] : 'error',
+    [`${ABS}2`, [ABS, `${ABS}2`]],
+    "paired devices' save folder is stored trimmed, and the shared folders trimmed, once each"
+  )
+  const notShared = validateSettings({ gallery: { saveDir: ABS, pairedSaveDir: '', shared: [] } }, EMPTY_SETTINGS, {})
+  eq(notShared.ok ? [notShared.settings.gallery?.pairedSaveDir, notShared.settings.gallery?.shared] : 'error', [null, undefined], 'an empty one is none, and so is an empty list')
+  const relative = validateSettings({ gallery: { pairedSaveDir: 'phones', shared: 'all' } }, EMPTY_SETTINGS, {})
+  check(!relative.ok && relative.errors['gallery.pairedSaveDir'] === 'settings.errorAbsolute' && relative.errors['gallery.shared'] === 'settings.errorList', 'a relative folder and a shared list that is not one are refused')
 
   // Network folders only with LATENTRY_ALLOW_UNC=1: checking one signs in to that server.
   const shares = ['\\\\nas\\pictures', '//nas/pictures', '\\\\?\\UNC\\nas\\pictures', '\\\\?\\C:\\pictures']
