@@ -3,7 +3,7 @@
 // `long_hair` or `long hair` -- depends on what the model was trained on, so
 // that is the profile's call (lib/profiles), and formatTags does the work.
 
-import { hasWildcards } from '@/lib/wildcards/syntax'
+import { hasVariants, hasWildcards, splitAtCommas } from '@/lib/wildcards/syntax'
 
 /** How a profile writes the word breaks inside a tag; `asis` leaves them. */
 export const TAG_STYLES = ['underscore', 'space', 'asis'] as const
@@ -72,7 +72,8 @@ function keepTest(keep: string): (tag: string) => boolean {
 
 function formatToken(token: string, style: Exclude<TagStyle, 'asis'>, kept: (tag: string) => boolean): string {
   const core = token.trim()
-  if (!core) return token
+  // A variant is respelled once a choice is drawn, with the rest of the prompt.
+  if (!core || hasVariants(core)) return token
   const [, open, body, close] = core.match(WEIGHTED) ?? ['', '', core, '']
   // LoRA and embedding calls, BREAK, face tags, wildcards (the file name is
   // spelled as it is on disk) and the profile's own list are spelled exactly
@@ -101,9 +102,8 @@ function formatToken(token: string, style: Exclude<TagStyle, 'asis'>, kept: (tag
 export function formatTags(text: string, style: TagStyle, keep = ''): string {
   if (!text || style === 'asis') return text
   const kept = keepTest(keep)
-  return text
-    .replace(/\t/g, ' ')
-    .split(',')
+  // A variant's commas are its own: it is one piece, left as written.
+  return splitAtCommas(text.replace(/\t/g, ' '))
     .map((token) => formatToken(token, style, kept))
     .join(',')
 }

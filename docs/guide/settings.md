@@ -122,9 +122,10 @@ is not needed for it.
 ## Wildcards
 
 **Wildcards folder** is an existing folder of `.txt` files, one choice per
-line, for `__name__` in a prompt (see [Wildcards](many.md#wildcards)).
-Subfolders work as `__folder/name__`, up to 3 deep. Lines starting with `#`
-and blank lines are skipped, and a file over 1 MB is not read. Latentry only
+line, and YAML files whose keys name lists of choices, for `__name__` in a
+prompt (see [Wildcards](many.md#wildcards)). Subfolders work as
+`__folder/name__`, up to 3 deep. Lines starting with `#` and blank lines are
+skipped, and a file over 1 MB is not read. `{a|b}` variants need no folder. Latentry only
 reads the folder. Leave it empty for no wildcards.
 
 **Use on paired devices** is off by default. While it is off, the picker and

@@ -1,13 +1,13 @@
 // The page's side of wildcards: asks the server to replace them (the files
-// are on the server) only when the prompt has any.
+// are on the server) only when the prompt has any, or a `{a|b}` variant.
 
-import { hasWildcards } from './syntax'
+import { hasDynamicPrompt } from './syntax'
 
 export type Expanded = { ok: true; prompt: string; negativePrompt: string } | { ok: false; error: string | null }
 
 /** The prompt and negative prompt with their wildcards replaced; as they are when they have none. */
 export async function expandWildcards(prompt: string, negativePrompt: string, seed: number): Promise<Expanded> {
-  if (!hasWildcards(prompt) && !hasWildcards(negativePrompt)) return { ok: true, prompt, negativePrompt }
+  if (!hasDynamicPrompt(prompt) && !hasDynamicPrompt(negativePrompt)) return { ok: true, prompt, negativePrompt }
   try {
     const response = await fetch('/api/wildcards/expand', {
       method: 'POST',

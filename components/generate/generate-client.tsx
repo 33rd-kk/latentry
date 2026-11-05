@@ -48,7 +48,7 @@ import type { CharacterPreset } from "@/lib/storage"
 import { CHARACTER_GROUPS, POSE_GROUPS } from "@/lib/tag-groups"
 import { prependTags } from "@/lib/tags"
 import { expandWildcards } from "@/lib/wildcards/client"
-import { hasWildcards } from "@/lib/wildcards/syntax"
+import { hasDynamicPrompt } from "@/lib/wildcards/syntax"
 import { useT } from "@/lib/i18n"
 
 /**
@@ -337,7 +337,7 @@ export function GenerateClient() {
       prompt: compose(expanded.prompt),
       negative_prompt: formatForProfile(expanded.negativePrompt, profile),
       // Kept with the picture, so the gallery can show what was typed.
-      ...(hasWildcards(form.prompt) ? { prompt_template: compose(form.prompt) } : {}),
+      ...(hasDynamicPrompt(form.prompt) ? { prompt_template: compose(form.prompt) } : {}),
       width: form.width,
       height: form.height,
       seed: form.seed,
