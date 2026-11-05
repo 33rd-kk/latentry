@@ -13,7 +13,9 @@ folders. This computer and owner devices are not affected.
   devices**, and a paired device now sees and stops only the runs it started
   itself. See
   [Gallery folders](https://33rd-kk.github.io/latentry/guide/settings/#gallery-folders).
-
+- **Stars stay put**: stars given in the viewer no longer vanish when the
+  gallery list was being refreshed at that moment (a new search, or a folder
+  still being read).
 - **Settings asks before unsaved changes are lost**: with changes not yet
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See

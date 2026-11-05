@@ -4,6 +4,7 @@
 // word in their prompts.
 
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 const thumbs = (page: Page) => page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
 const search = (page: Page) => page.getByPlaceholder('Search prompts, tags, models, file names')
@@ -173,8 +174,7 @@ test("the viewer's panel has the actions the guide lists", async ({ page }) => {
   await search(page).fill('docsviewer')
   await expect(thumbs(page)).toHaveCount(1)
   await thumbs(page).first().click()
-  const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   for (const name of ['Generate with these settings', 'Use as source', 'Use as pose reference', 'Upscale', 'Save without settings', 'Save with settings', 'Show in folder', 'Open in default app']) {
     await expect(page.getByRole('button', { name, exact: true })).toBeVisible()
   }

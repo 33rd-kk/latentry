@@ -13,7 +13,7 @@ import { SelectionBar } from "./selection-bar"
 import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
 import { useBackends } from "@/hooks/use-backends"
-import { pictureUrl, saveRating, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
+import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
 import { useLocalFlag } from "@/hooks/use-local-flag"
 import { useSeenFacets } from "@/hooks/use-seen-facets"
@@ -95,19 +95,14 @@ export function Gallery() {
   // Stars show at once and go back if saving fails; the failed picture is
   // remembered by its key, so the note stays with that picture.
   const [rateError, setRateError] = useState<string | null>(null)
-  const { patchStars } = page
+  const { rate: rateOnPage } = page
   const rate = useCallback(
     async (picture: GalleryPicture, stars: number) => {
       if (secret) return
-      const before = picture.stars ?? 0
       setRateError(null)
-      patchStars(picture, stars)
-      if (!(await saveRating(picture, stars))) {
-        patchStars(picture, before)
-        setRateError(`${picture.dir}/${picture.name}`)
-      }
+      if (!(await rateOnPage(picture, stars))) setRateError(`${picture.dir}/${picture.name}`)
     },
-    [patchStars, secret]
+    [rateOnPage, secret]
   )
 
   // In the viewer, 1–5 give that many stars; the same number again takes them
