@@ -313,6 +313,107 @@ async function comfyGraphs(): Promise<void> {
   }
   eq(parseComfyWorkflow(JSON.stringify(sdxl))?.prompt, 'a castle, sdxl', "the SDXL encoder's text_g, after its six size widgets")
 
+  // Custom sampler nodes. With the stock input names, a node of any class is
+  // read like KSampler.
+  const { '3': stockSampler, ...withoutSampler } = txt2img
+  const efficient = { ...withoutSampler, '3': { ...stockSampler, class_type: 'KSampler (Efficient)', inputs: { ...stockSampler.inputs, preview_method: 'auto' } } }
+  eq(settings(parseComfyPrompt(JSON.stringify(efficient))), expected, 'ComfyUI: a custom node named like KSampler is read as one')
+  // From a picture (no empty latent to tell the base pass by), with a provider
+  // node met first.
+  const provider = {
+    '1': { class_type: 'KSamplerProvider', inputs: { seed: 5, steps: 8, cfg: 1, sampler_name: 'lcm', scheduler: 'simple', denoise: 1, basic_pipe: ['99', 0] } },
+    ...efficient,
+    '5': { class_type: 'VAEEncode', inputs: { pixels: ['98', 0], vae: ['4', 2] } },
+  }
+  eq(
+    settings(parseComfyPrompt(JSON.stringify(provider))),
+    { ...expected, width: undefined, height: undefined },
+    'a provider node, which only hands a sampler on, is not taken for the sampler'
+  )
+  const unnamed = { ...withoutSampler, '3': { ...stockSampler, class_type: 'ClownSampler_Custom' } }
+  eq(settings(parseComfyPrompt(JSON.stringify(unnamed))), expected, 'a sampler of another name is found by its latent and prompt links')
+  const notSampler = {
+    ...withoutSampler,
+    '3': { class_type: 'ControlNetApplyAdvanced', inputs: { positive: ['6', 0], negative: ['7', 0], strength: 1, control_net: ['8', 0], image: ['9', 0] } },
+  }
+  eq(parseComfyPrompt(JSON.stringify(notSampler))?.seed, undefined, 'a node with prompts but no latent is not a sampler')
+
+  // Impact Pack graphs, as ComfyUI saved them in real pictures: prompts carried
+  // in a basic_pipe, and providers handed to TwoSamplersForMask.
+  const impactBase = {
+    '1': { class_type: 'CheckpointLoaderSimple', inputs: { ckpt_name: 'model.safetensors' } },
+    '2': { class_type: 'CLIPTextEncode', inputs: { text: 'a red scarf', clip: ['1', 1] } },
+    '3': { class_type: 'CLIPTextEncode', inputs: { text: 'lowres', clip: ['1', 1] } },
+    '4': { class_type: 'ToBasicPipe', inputs: { model: ['1', 0], clip: ['1', 1], vae: ['1', 2], positive: ['2', 0], negative: ['3', 0] } },
+  }
+  const provide = (seed: number, steps: number, cfg: number, sampler_name: string, scheduler: string, denoise: number) => ({
+    class_type: 'KSamplerProvider',
+    inputs: { seed, steps, cfg, sampler_name, scheduler, denoise, basic_pipe: ['4', 0] },
+  })
+  const impactSettings = (meta: ImageMeta | null) =>
+    meta && [meta.prompt, meta.negativePrompt, meta.seed, meta.steps, meta.cfg, meta.sampler, meta.scheduler, meta.width, meta.height, meta.model]
+  const piped = {
+    ...impactBase,
+    '8': { class_type: 'EmptyLatentImage', inputs: { width: 768, height: 1024, batch_size: 1 } },
+    '9': {
+      class_type: 'ImpactKSamplerBasicPipe',
+      inputs: { basic_pipe: ['4', 0], seed: 9009, steps: 10, cfg: 5.5, sampler_name: 'euler', scheduler: 'karras', latent_image: ['8', 0], denoise: 1 },
+    },
+  }
+  eq(
+    impactSettings(parseComfyPrompt(JSON.stringify(piped))),
+    ['a red scarf', 'lowres', 9009, 10, 5.5, 'euler', 'karras', 768, 1024, 'model.safetensors'],
+    "a sampler given a basic_pipe: the prompts from the pipe's maker"
+  )
+  const editedPipe = {
+    ...piped,
+    '5': { class_type: 'EditBasicPipe', inputs: { basic_pipe: ['4', 0] } },
+    '9': { ...piped['9'], inputs: { ...piped['9'].inputs, basic_pipe: ['5', 0] } },
+  }
+  eq(parseComfyPrompt(JSON.stringify(editedPipe))?.prompt, 'a red scarf', 'and through an edit of the pipe that leaves the prompts as they were')
+  const masked = {
+    ...impactBase,
+    '5': provide(5105, 10, 5, 'euler', 'normal', 1),
+    '6': provide(6106, 10, 6, 'dpmpp_2m', 'karras', 1),
+    '7': { class_type: 'SolidMask', inputs: { value: 1, width: 768, height: 1024 } },
+    '8': { class_type: 'EmptyLatentImage', inputs: { width: 768, height: 1024, batch_size: 1 } },
+    '9': { class_type: 'TwoSamplersForMask', inputs: { latent_image: ['8', 0], base_sampler: ['5', 0], mask_sampler: ['6', 0], mask: ['7', 0] } },
+  }
+  eq(
+    impactSettings(parseComfyPrompt(JSON.stringify(masked))),
+    ['a red scarf', 'lowres', 5105, 10, 5, 'euler', 'normal', 768, 1024, 'model.safetensors'],
+    'with providers only: the base sampler, and the size of the latent it is given with'
+  )
+  const swapped = { ...masked, '9': { ...masked['9'], inputs: { ...masked['9'].inputs, base_sampler: ['6', 0], mask_sampler: ['5', 0] } } }
+  eq(parseComfyPrompt(JSON.stringify(swapped))?.seed, 6106, 'the base sampler, whichever is listed first')
+  const refined = {
+    ...masked,
+    '10': { class_type: 'LoadImage', inputs: { image: 'source.png' } },
+    '11': { class_type: 'VAEEncode', inputs: { pixels: ['10', 0], vae: ['1', 2] } },
+    '30': {
+      class_type: 'KSampler',
+      inputs: { model: ['1', 0], positive: ['2', 0], negative: ['3', 0], latent_image: ['11', 0], seed: 3003, steps: 12, cfg: 5, sampler_name: 'euler_ancestral', scheduler: 'normal', denoise: 0.65 },
+    },
+    '9': { ...masked['9'], inputs: { ...masked['9'].inputs, latent_image: ['30', 0] } },
+  }
+  delete (refined as Record<string, unknown>)['8']
+  eq(
+    impactSettings(parseComfyPrompt(JSON.stringify(refined))),
+    ['a red scarf', 'lowres', 3003, 12, 5, 'euler_ancestral', 'normal', undefined, undefined, 'model.safetensors'],
+    'img2img with providers listed first: the KSampler, not a provider'
+  )
+
+  // The editor's graph with a custom sampler: its widgets could be in any
+  // order, so only the prompts, size and model are read.
+  const customWorkflow = {
+    ...workflow,
+    nodes: workflow.nodes.map((node) => (node.type === 'KSampler' ? { ...node, type: 'KSampler (Efficient)', widgets_values: [7, 'randomize', 25, 6, 'euler', 'normal', 1, 'auto', 'true'] } : node)),
+  }
+  const promptsOnly = { ...fromWorkflow, seed: undefined, steps: undefined, cfg: undefined, sampler: undefined, scheduler: undefined }
+  eq(settings(parseComfyWorkflow(JSON.stringify(customWorkflow))), promptsOnly, "ComfyUI's editor graph with a custom sampler: prompts, size and model, no guessed numbers")
+  const shapedWorkflow = { ...workflow, nodes: workflow.nodes.map((node) => (node.type === 'KSampler' ? { ...node, type: 'SamplerOfSomeName' } : node)) }
+  eq(settings(parseComfyWorkflow(JSON.stringify(shapedWorkflow))), promptsOnly, 'and one of another name, found by its inputs')
+
   // Through a real PNG: ComfyUI writes its graph as a tEXt chunk named "prompt".
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer(), { prompt: JSON.stringify(txt2img) })
   eq(settings(metaFromText(readPngText(png))), expected, 'a PNG with a ComfyUI prompt chunk reads back the same')

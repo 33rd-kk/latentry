@@ -16,7 +16,10 @@ The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
 infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and
 Latentry's own record, including the LoRAs a picture used. From ComfyUI it
 reads the graph that ran, or else the editor's workflow, and takes the base
-pass when there is a second (hires) one. Models are shown by their file name,
+pass when there is a second (hires) one. Custom sampler nodes are read too
+when they use the stock input names, Impact Pack's pipes and providers
+included; from the editor's workflow alone, such
+a node gives only the prompts, size and model. Models are shown by their file name,
 without the folders they sit in. It reads only the file's headers, never the
 whole picture. From EXIF it reads only the fields that hold settings, never
 location or camera data.
