@@ -266,8 +266,15 @@ export function modelFileName(raw: string): string {
 /** How far a link is followed: past this, a graph is more likely a loop than a chain. */
 const MAX_LINK_DEPTH = 4
 
-/** The samplers in a graph: KSampler and its variants, SamplerCustom(Advanced); not KSamplerSelect. */
+/**
+ * The samplers in a graph by name: KSampler and its variants (custom nodes'
+ * too, such as "KSampler (Efficient)"), SamplerCustom(Advanced); not
+ * KSamplerSelect, which only names a sampler, nor the provider nodes that hand
+ * a sampler to another node.
+ */
 const SAMPLER_CLASS = /KSampler(?!Select)|SamplerCustom/
+const NOT_A_SAMPLER_CLASS = /Provider/
+const isSamplerClass = (type: string) => SAMPLER_CLASS.test(type) && !NOT_A_SAMPLER_CLASS.test(type)
 /** Where a first pass starts: EmptyLatentImage, EmptySD3LatentImage and the like. */
 const EMPTY_LATENT_CLASS = /^Empty.*Latent/i
 
@@ -407,23 +414,46 @@ export function comfyGraphRoles(graph: Record<string, ComfyNode & { _meta?: { ti
     return next ? textSlot(next, depth + 1) : undefined
   }
 
-  const samplers = ids.filter((id) => SAMPLER_CLASS.test(classOf(id)))
-  const sampler = samplers.find((id) => EMPTY_LATENT_CLASS.test(classOf(idOf(inputsOf(id).latent_image)))) ?? samplers[0]
+  // By name, else by shape: a custom sampler node of any name takes a latent
+  // and the prompts (or a guider) by link, as the stock ones do.
+  const shaped = (id: string) => {
+    const own = inputsOf(id)
+    return isComfyLink(own.latent_image) && ((isComfyLink(own.positive) && isComfyLink(own.negative)) || isComfyLink(own.guider))
+  }
+  // With neither, a provider holds the settings (Impact Pack's
+  // TwoSamplersForMask samples with the providers it is given): the one given
+  // as the base sampler, with the latent of the node it is given to.
+  const named = ids.filter((id) => isSamplerClass(classOf(id)))
+  const byShape = named.length ? named : ids.filter(shaped)
+  const samplers = byShape.length ? byShape : ids.filter((id) => SAMPLER_CLASS.test(classOf(id)))
+  const sampler =
+    samplers.find((id) => EMPTY_LATENT_CLASS.test(classOf(idOf(inputsOf(id).latent_image)))) ??
+    samplers.find((id) => ids.some((other) => idOf(inputsOf(other).base_sampler) === id)) ??
+    samplers[0]
   const inputs = inputsOf(sampler)
+  const taker = sampler ? ids.find((other) => Object.values(inputsOf(other)).some((value) => idOf(value) === sampler)) : undefined
   // SamplerCustom(Advanced) spreads its settings over the nodes it links to.
   const guider = idOf(inputs.guider)
   const sigmas = idOf(inputs.sigmas)
   const chosen = idOf(inputs.sampler)
   const noise = idOf(inputs.noise)
-  const latent = idOf(inputs.latent_image)
+  const latent = idOf(inputs.latent_image ?? inputsOf(taker).latent_image)
+  // Impact Pack's pipes carry the prompts: a sampler given a basic_pipe finds
+  // them on the node that built it, or on an edit of it that sets them.
+  const fromPipe = (id: string | undefined, input: string, depth = 0): unknown => {
+    const pipe = idOf(inputsOf(id).basic_pipe)
+    if (!pipe || depth >= MAX_LINK_DEPTH) return undefined
+    const value = inputsOf(pipe)[input]
+    return isComfyLink(value) ? value : fromPipe(pipe, input, depth + 1)
+  }
 
   const loaders = ids.filter((id) => /Loader/i.test(classOf(id)) && ['ckpt_name', 'unet_name'].some((key) => typeof inputsOf(id)[key] === 'string'))
   const loader = loaders.find((id) => /^CheckpointLoader/.test(classOf(id))) ?? loaders[0]
 
   const roles: ComfyRoles = {
     sampler,
-    positive: textSlot(inputs.positive ?? inputsOf(guider).positive ?? inputsOf(guider).conditioning),
-    negative: textSlot(inputs.negative ?? inputsOf(guider).negative),
+    positive: textSlot(inputs.positive ?? inputsOf(guider).positive ?? inputsOf(guider).conditioning ?? fromPipe(sampler, 'positive')),
+    negative: textSlot(inputs.negative ?? inputsOf(guider).negative ?? fromPipe(sampler, 'negative')),
     seed: numberSlot(sampler, 'seed') ?? numberSlot(sampler, 'noise_seed') ?? numberSlot(noise, 'noise_seed'),
     steps: numberSlot(sampler, 'steps') ?? numberSlot(sigmas, 'steps'),
     cfg: numberSlot(sampler, 'cfg') ?? numberSlot(guider, 'cfg'),
@@ -477,6 +507,9 @@ type WorkflowNode = {
   widgets_values?: unknown
 }
 
+/** The stock samplers, whose widget order is known. */
+const STOCK_SAMPLERS = new Set(['KSampler', 'KSamplerAdvanced'])
+
 /** ComfyUI's frontend values for a sampler's seed widget's "control after generate". */
 const SEED_CONTROLS = new Set(['fixed', 'increment', 'decrement', 'randomize'])
 
@@ -484,9 +517,11 @@ const SEED_CONTROLS = new Set(['fixed', 'increment', 'decrement', 'randomize'])
  * ComfyUI's `workflow` chunk, for pictures that carry only that: the editor's
  * graph, with nodes in an array, settings as each node's `widgets_values` in
  * widget order, and links as [id, from node, from slot, to node, to slot, type].
- * Only the stock nodes are read (KSampler, KSamplerAdvanced, CLIPTextEncode,
- * the checkpoint and LoRA loaders, EmptyLatentImage), whose widget order is
- * known; muted and bypassed nodes are left out.
+ * Settings are read from the stock nodes, whose widget order is known
+ * (KSampler, KSamplerAdvanced, CLIPTextEncode, the checkpoint and LoRA
+ * loaders, EmptyLatentImage). Another sampler (a custom node, found by name or
+ * by its latent and prompt inputs) gives only the prompts, size and model:
+ * its widgets could be in any order. Muted and bypassed nodes are left out.
  */
 export function parseComfyWorkflow(text: string): ImageMeta | null {
   let workflow: { nodes?: unknown; links?: unknown }
@@ -530,14 +565,19 @@ export function parseComfyWorkflow(text: string): ImageMeta | null {
     return first ? textOf(feeding(node, String(first.name)), depth + 1) : ''
   }
 
-  const samplers = nodes.filter((node) => typeOf(node) === 'KSampler' || typeOf(node) === 'KSamplerAdvanced')
+  const linked = (node: WorkflowNode, name: string) => feeding(node, name) !== undefined
+  const shaped = (node: WorkflowNode) => linked(node, 'latent_image') && linked(node, 'positive') && linked(node, 'negative')
+  const stock = nodes.filter((node) => STOCK_SAMPLERS.has(typeOf(node)))
+  const named = stock.length ? stock : nodes.filter((node) => isSamplerClass(typeOf(node)) && shaped(node))
+  const samplers = named.length ? named : nodes.filter(shaped)
   const sampler = samplers.find((node) => EMPTY_LATENT_CLASS.test(typeOf(feeding(node, 'latent_image')))) ?? samplers[0]
   if (!sampler) return null
+  const known = STOCK_SAMPLERS.has(typeOf(sampler))
 
   // KSampler: seed, control, steps, cfg, sampler, scheduler, denoise.
   // KSamplerAdvanced: add_noise, seed, control, steps, cfg, sampler, scheduler, start, end, leftover.
   // The control widget is missing from some older files; it is told apart by its values.
-  let values = widgets(sampler)
+  let values = known ? widgets(sampler) : []
   if (typeOf(sampler) === 'KSamplerAdvanced') values = values.slice(1)
   const [seed, ...rest] = values
   const [steps, cfg, samplerName, scheduler, denoise] = SEED_CONTROLS.has(rest[0] as string) ? rest.slice(1) : rest
