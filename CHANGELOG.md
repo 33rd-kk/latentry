@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Settings asks before unsaved changes are lost**: with changes not yet
+  saved, going to another page from the header, reloading or closing the tab
+  first asks whether to leave. Switching sections still keeps the changes. See
+  [Settings](https://33rd-kk.github.io/latentry/guide/settings/).
+
 ## 0.15.0 (2026-11-04)
 
 **Upgrading from 0.14.0**: after the usual update, stop and start the
