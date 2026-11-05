@@ -5,6 +5,7 @@
 // the prompt as typed.
 
 import { expect, test } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 
 test('a wildcard is picked, filled in for the run, and kept with the picture', async ({ page }) => {
   await page.goto('/')
@@ -29,8 +30,7 @@ test('a wildcard is picked, filled in for the run, and kept with the picture', a
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
-  const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(page.getByText('rocky coast', { exact: true })).toBeVisible()
   await expect(page.getByText('light rain', { exact: true })).toBeVisible()
   await expect(page.getByText('wildcardrun lighthouse, __places/coast__, __weather__')).toBeVisible()

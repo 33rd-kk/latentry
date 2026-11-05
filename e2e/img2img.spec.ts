@@ -4,6 +4,7 @@
 // one follows a run through to the gallery.
 
 import { expect, test, type Page, type Request } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 
 const generateButton = (page: Page) => page.getByRole('button', { name: 'Generate', exact: true })
@@ -38,7 +39,7 @@ async function openSaved(page: Page, prompt: string) {
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
   const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(useSettings).toBeVisible()
   return (label: string) => page.locator('dt', { hasText: new RegExp(`^${label}$`) }).locator('xpath=following-sibling::dd[1]')
 }
