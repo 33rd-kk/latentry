@@ -8,6 +8,7 @@
 import { cpSync, existsSync, readdirSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from '../viewer'
 import { generic, onEngine, openGenerate, root, shot, shotBetween, take } from './shared'
 
 test.skip(!onEngine)
@@ -91,7 +92,7 @@ take('screenshot-viewer')('viewer, with WD14 tags', async ({ page }) => {
   await card(page, /1girl, solo, white_hair/).click()
   // "Analyze again" on pictures reused from a run that tagged them.
   const analyze = page.getByRole('button', { name: /^Analyze (with WD14|again)$/ })
-  if (!(await analyze.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await analyze.click()
   await expect(page.getByText('WD14 tags', { exact: true })).toBeVisible({ timeout: 120_000 })
   await shot(page, 'screenshot-viewer')
@@ -118,7 +119,7 @@ async function turnPose(page: Page) {
   await openGallery(page)
   await card(page, /1girl, solo, full_body, standing, waving/).click()
   const usePose = page.getByRole('button', { name: 'Use as pose reference' })
-  if (!(await usePose.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await usePose.click()
   await expect(page).toHaveURL(/\/$/)
   // The form opens on the backend chosen last; the skeleton needs the engine.

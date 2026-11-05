@@ -3,6 +3,7 @@
 // picture is saved with mode "outpaint".
 
 import { expect, test } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 
 test('a source is extended on one side and drawn as one picture', async ({ page }) => {
@@ -42,7 +43,6 @@ test('a source is extended on one side and drawn as one picture', async ({ page 
   const thumbs = page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')
   await expect(thumbs).toHaveCount(1)
   await thumbs.first().click()
-  const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-  if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+  await openViewerPanel(page)
   await expect(page.getByText('outpaint', { exact: true })).toBeVisible()
 })

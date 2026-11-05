@@ -6,6 +6,7 @@
 
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
+import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 
 const PAGES = [
@@ -87,7 +88,7 @@ test.describe('opened views', () => {
 
     await thumbs.first().click()
     const useSettings = page.getByRole('button', { name: 'Generate with these settings' })
-    if (!(await useSettings.isVisible())) await page.getByRole('button', { name: 'Details' }).click()
+    await openViewerPanel(page)
     await expect(useSettings).toBeVisible()
     await scan(page, 'viewer with its panel')
     await page.getByRole('button', { name: 'Close', exact: true }).click()
