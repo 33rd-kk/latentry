@@ -313,6 +313,42 @@ async function comfyGraphs(): Promise<void> {
   }
   eq(parseComfyWorkflow(JSON.stringify(sdxl))?.prompt, 'a castle, sdxl', "the SDXL encoder's text_g, after its six size widgets")
 
+  // Custom sampler nodes. With the stock input names, a node of any class is
+  // read like KSampler.
+  const { '3': stockSampler, ...withoutSampler } = txt2img
+  const efficient = { ...withoutSampler, '3': { ...stockSampler, class_type: 'KSampler (Efficient)', inputs: { ...stockSampler.inputs, preview_method: 'auto' } } }
+  eq(settings(parseComfyPrompt(JSON.stringify(efficient))), expected, 'ComfyUI: a custom node named like KSampler is read as one')
+  // From a picture (no empty latent to tell the base pass by), with a provider
+  // node met first.
+  const provider = {
+    '1': { class_type: 'KSamplerProvider', inputs: { seed: 5, steps: 8, cfg: 1, sampler_name: 'lcm', scheduler: 'simple', denoise: 1, basic_pipe: ['99', 0] } },
+    ...efficient,
+    '5': { class_type: 'VAEEncode', inputs: { pixels: ['98', 0], vae: ['4', 2] } },
+  }
+  eq(
+    settings(parseComfyPrompt(JSON.stringify(provider))),
+    { ...expected, width: undefined, height: undefined },
+    'a provider node, which only hands a sampler on, is not taken for the sampler'
+  )
+  const unnamed = { ...withoutSampler, '3': { ...stockSampler, class_type: 'ClownSampler_Custom' } }
+  eq(settings(parseComfyPrompt(JSON.stringify(unnamed))), expected, 'a sampler of another name is found by its latent and prompt links')
+  const notSampler = {
+    ...withoutSampler,
+    '3': { class_type: 'ControlNetApplyAdvanced', inputs: { positive: ['6', 0], negative: ['7', 0], strength: 1, control_net: ['8', 0], image: ['9', 0] } },
+  }
+  eq(parseComfyPrompt(JSON.stringify(notSampler))?.seed, undefined, 'a node with prompts but no latent is not a sampler')
+
+  // The editor's graph with a custom sampler: its widgets could be in any
+  // order, so only the prompts, size and model are read.
+  const customWorkflow = {
+    ...workflow,
+    nodes: workflow.nodes.map((node) => (node.type === 'KSampler' ? { ...node, type: 'KSampler (Efficient)', widgets_values: [7, 'randomize', 25, 6, 'euler', 'normal', 1, 'auto', 'true'] } : node)),
+  }
+  const promptsOnly = { ...fromWorkflow, seed: undefined, steps: undefined, cfg: undefined, sampler: undefined, scheduler: undefined }
+  eq(settings(parseComfyWorkflow(JSON.stringify(customWorkflow))), promptsOnly, "ComfyUI's editor graph with a custom sampler: prompts, size and model, no guessed numbers")
+  const shapedWorkflow = { ...workflow, nodes: workflow.nodes.map((node) => (node.type === 'KSampler' ? { ...node, type: 'SamplerOfSomeName' } : node)) }
+  eq(settings(parseComfyWorkflow(JSON.stringify(shapedWorkflow))), promptsOnly, 'and one of another name, found by its inputs')
+
   // Through a real PNG: ComfyUI writes its graph as a tEXt chunk named "prompt".
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer(), { prompt: JSON.stringify(txt2img) })
   eq(settings(metaFromText(readPngText(png))), expected, 'a PNG with a ComfyUI prompt chunk reads back the same')

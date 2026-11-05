@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Settings from custom ComfyUI samplers**: the gallery reads the prompt,
+  seed, steps, CFG and sampler of ComfyUI pictures made with a custom sampler
+  node (one named like `KSampler`, or any node taking a latent and the
+  prompts), and your own workflows built on one are filled in the same way.
+  A provider node that only hands a sampler on is no longer mistaken for the
+  sampler. See
+  [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
+
 - **Settings asks before unsaved changes are lost**: with changes not yet
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See
