@@ -113,6 +113,7 @@ says how. Check your own setup, backends included, with
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose, hires fix, Upscale (each if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint, hires fix and Upscale with the web UI's upscalers. No pose control. |
 | `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Hires fix and Upscale with Lanczos or an upscale model. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |
+| `sdcpp` | A [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) `sd-server`: no Python; Vulkan, Metal, CUDA or CPU; GGUF models | txt2img, img2img, inpaint, hires fix and Upscale as far as its loaded model can, with LoRAs. No pose control. Precise cancel. |
 
 Use the built-in engine, the servers you already run, or both.
 
@@ -234,11 +235,11 @@ back to `.env.local`.
   must be paired with a code first. To expose it further, put an
   authenticating reverse proxy in front of it, on this computer, one that
   overwrites `X-Forwarded-For`.
-- **Pairing protects Latentry, not your backends.** A ComfyUI or A1111 /
-  Forge server on another computer listens on the network, and anyone who
-  reaches it can use it (ComfyUI has no login). Keep backends on this
-  computer where you can; otherwise use `--api-auth` for A1111 / Forge and an
-  authenticating proxy for ComfyUI. Settings warns about one reached over the
+- **Pairing protects Latentry, not your backends.** A ComfyUI, A1111 /
+  Forge or sd.cpp server on another computer listens on the network, and
+  anyone who reaches it can use it (ComfyUI and sd-server have no login).
+  Keep backends on this computer where you can; otherwise use `--api-auth`
+  for A1111 / Forge and an authenticating proxy for ComfyUI and sd-server. Settings warns about one reached over the
   network without a token.
 
 ## Translations
@@ -286,9 +287,10 @@ macOS runs after each merge to main and once a week.
 
 The browser tests run against mock backends: they generate a picture on a
 mock A1111 web UI and find it in the gallery, draw with a workflow on a mock
-ComfyUI, and pick whose pose to follow on mock diffusers-compatible servers.
+ComfyUI, pick whose pose to follow on mock diffusers-compatible servers, and
+draw and cancel on a mock stable-diffusion.cpp sd-server.
 They build Latentry into `.next-e2e/` and serve it on port 3137 (the mocks on
-3138–3141), with settings and a save folder in a temp
+3138–3142), with settings and a save folder in a temp
 folder that is deleted afterwards, so your own settings, backends and
 pictures are never used. The page may not reach any other host. Install a
 browser once with `npx playwright install chromium`, or use one you have:
@@ -313,7 +315,7 @@ Stop your own engine first.
 
 Layout:
 
-- `lib/backends/`: adapters (`diffusers.ts`, `a1111.ts`, `comfyui.ts`) behind one interface
+- `lib/backends/`: adapters (`diffusers.ts`, `a1111.ts`, `comfyui.ts`, `sdcpp.ts`) behind one interface
 - `lib/profiles/`: model profiles and prompt composition
 - `lib/diffusion/job-store.ts`: one live run per backend
 - `lib/gallery/`: PNG metadata, saving, folder access

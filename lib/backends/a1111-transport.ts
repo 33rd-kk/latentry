@@ -30,10 +30,14 @@ export interface A1111Transport {
 export function httpTransport(config: BackendConfig): A1111Transport {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (config.token) headers.Authorization = `Basic ${Buffer.from(config.token).toString('base64')}`
+  return jsonTransport(config.url, headers)
+}
 
+/** JSON over HTTP to `base` with these headers; redirects are refused. Shared with the sd.cpp adapter. */
+export function jsonTransport(base: string, headers: Record<string, string>): A1111Transport {
   const call = async (path: string, init: { method: string; body?: string; timeoutMs: number | null }) => {
     // Redirects are refused, not followed: see refuseRedirect.
-    const response = await undiciFetch(new URL(path, config.url), {
+    const response = await undiciFetch(new URL(path, base), {
       method: init.method,
       headers,
       body: init.body,

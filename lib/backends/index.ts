@@ -2,6 +2,7 @@ import { A1111Adapter } from './a1111'
 import { ComfyUIAdapter } from './comfyui'
 import { getBackendConfig } from './config'
 import { DiffusersAdapter } from './diffusers'
+import { SdcppAdapter } from './sdcpp'
 import type { BackendAdapter, BackendConfig } from './types'
 
 export function adapterFor(config: BackendConfig): BackendAdapter {
@@ -12,6 +13,8 @@ export function adapterFor(config: BackendConfig): BackendAdapter {
       return new ComfyUIAdapter(config)
     case 'diffusers':
       return new DiffusersAdapter(config)
+    case 'sdcpp':
+      return new SdcppAdapter(config)
     default:
       // Kinds are checked where they are read; one that slipped through is a bug, not a diffusers server.
       throw new Error(`Unknown backend kind: ${String((config as { kind?: unknown }).kind)}`)

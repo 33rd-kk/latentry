@@ -32,6 +32,7 @@ const mockPort = process.env.E2E_MOCK_PORT || '3138'
 const comfyPort = process.env.E2E_COMFY_PORT || '3139'
 const posePort = process.env.E2E_POSE_PORT || '3140'
 const poseSinglePort = process.env.E2E_POSE_SINGLE_PORT || '3141'
+const sdcppPort = process.env.E2E_SDCPP_PORT || '3142'
 const engineModels = process.env.DOCS_ENGINE_MODELS ? path.resolve(process.env.DOCS_ENGINE_MODELS) : null
 if (engineModels && (!process.env.DOCS_ENGINE_MODEL || !process.env.DOCS_ENGINE_RUNTIME)) {
   console.error('DOCS_ENGINE_MODELS needs DOCS_ENGINE_MODEL and DOCS_ENGINE_RUNTIME too.')
@@ -83,6 +84,7 @@ try {
       E2E_COMFY_PORT: comfyPort,
       E2E_POSE_PORT: posePort,
       E2E_POSE_SINGLE_PORT: poseSinglePort,
+      E2E_SDCPP_PORT: sdcppPort,
     },
   })
   status = result.status ?? 1

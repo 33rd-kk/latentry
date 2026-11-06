@@ -9,7 +9,7 @@
 import type { LoraUse } from '@/lib/image-meta'
 import type { ProfileId } from '@/lib/profiles'
 
-export const BACKEND_KINDS = ['diffusers', 'a1111', 'comfyui'] as const
+export const BACKEND_KINDS = ['diffusers', 'a1111', 'comfyui', 'sdcpp'] as const
 
 /** A ComfyUI workflow's name: its file name without `.json`; nothing that could leave its folder. */
 export const WORKFLOW_NAME = /^(?!\.{1,2}$)[^\\/:*?"<>|\u0000-\u001f]{1,128}$/
@@ -21,7 +21,7 @@ export interface BackendConfig {
   kind: BackendKind
   url: string
   profile: ProfileId
-  /** diffusers and comfyui: a Bearer token. a1111: `user:pass` for --api-auth. */
+  /** diffusers and comfyui: a Bearer token. a1111: `user:pass` for --api-auth. sdcpp: a Bearer token for a proxy in front of it (sd-server has no login). */
   token?: string
   /** comfyui: the checkpoint to draw with, as ComfyUI lists it; else its first. */
   model?: string

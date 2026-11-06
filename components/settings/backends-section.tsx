@@ -203,7 +203,9 @@ function BackendRow({
                           ? "settings.tokenNoneA1111"
                           : backend.kind === "comfyui"
                             ? "settings.tokenNoneComfyui"
-                            : "settings.tokenNone"
+                            : backend.kind === "sdcpp"
+                              ? "settings.tokenNoneSdcpp"
+                              : "settings.tokenNone"
                       )
             }
           />
@@ -232,7 +234,13 @@ function BackendRow({
       {openWarning && (
         <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-500">
           <ShieldAlert className="mt-px h-3.5 w-3.5 shrink-0" />
-          {t(openWarning === "comfyui" ? "settings.openBackendComfyui" : "settings.openBackendA1111")}
+          {t(
+            openWarning === "comfyui"
+              ? "settings.openBackendComfyui"
+              : openWarning === "sdcpp"
+                ? "settings.openBackendSdcpp"
+                : "settings.openBackendA1111"
+          )}
         </p>
       )}
       {test && test.state !== "testing" && (

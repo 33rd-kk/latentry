@@ -37,6 +37,12 @@ const broken = parseBackends({
 eq(broken.backends.map((backend) => backend.id), ['ok'], 'only the valid entry survives')
 eq(broken.problems.length, 6, 'each bad entry is reported')
 eq(parseBackends({ GEN_BACKENDS: 'p|a1111|http://e:5' }).backends[0].profile, 'generic', 'profile defaults to generic')
+const cpp = parseBackends({ GEN_BACKENDS: 'cpp|sdcpp|http://127.0.0.1:1234|sdxl', GEN_MODEL_CPP: 'ignored.gguf', GEN_TOKEN_CPP: 'proxy' })
+eq(
+  cpp.backends.map((backend) => [backend.id, backend.kind, backend.profile, backend.model, backend.token]),
+  [['cpp', 'sdcpp', 'sdxl', undefined, 'proxy']],
+  'an sdcpp backend: its model is the one sd-server loaded, and a token is for a proxy in front of it'
+)
 const models = parseBackends({
   GEN_BACKENDS: 'comfy-1|comfyui|http://c:1;web|a1111|http://w:2;bare|comfyui|http://c:3;odd|comfyui|http://c:4',
   GEN_MODEL_COMFY_1: ' sdxl\\base.safetensors ',
