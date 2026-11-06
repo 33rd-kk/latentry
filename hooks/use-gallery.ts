@@ -272,6 +272,19 @@ function dispositionName(header: string | null, fallback: string): string {
   return header?.match(/filename="([^"]+)"/i)?.[1] ?? fallback
 }
 
+/** Hands a file this page holds to the browser's downloads, and lets go of it. */
+export function saveBlob(blob: Blob, name: string): void {
+  const href = URL.createObjectURL(blob)
+  const link = document.createElement("a")
+  link.href = href
+  link.download = name
+  document.body.append(link)
+  link.click()
+  link.remove()
+  // After the click has handed the file over.
+  setTimeout(() => URL.revokeObjectURL(href), 1000)
+}
+
 /**
  * Fetches a download and saves it through the browser, so a refusal can be
  * shown where the button is instead of as a page of JSON. The file is held in
@@ -288,16 +301,7 @@ export async function saveDownload(
       const data = await response.json().catch(() => null)
       return { ok: false, error: typeof data?.error === "string" ? data.error : `HTTP ${response.status}` }
     }
-    const blob = await response.blob()
-    const href = URL.createObjectURL(blob)
-    const link = document.createElement("a")
-    link.href = href
-    link.download = dispositionName(response.headers.get("content-disposition"), fallbackName)
-    document.body.append(link)
-    link.click()
-    link.remove()
-    // After the click has handed the file over.
-    setTimeout(() => URL.revokeObjectURL(href), 1000)
+    saveBlob(await response.blob(), dispositionName(response.headers.get("content-disposition"), fallbackName))
     return { ok: true, leftOut: Number(response.headers.get("x-latentry-left-out")) || 0 }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }

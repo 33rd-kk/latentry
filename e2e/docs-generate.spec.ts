@@ -132,14 +132,16 @@ test('what the A1111 web UI cannot do is listed, with why', async ({ page }) => 
   await expect(page.getByText(/Latentry cannot drive pose control on an A1111 web UI/)).toBeVisible()
 })
 
-// "Results: In gallery, Use as source, Download. Click it to view it full screen."
-test('a result has In gallery, Use as source and Download, and opens full screen', async ({ page }) => {
+// "Results: In gallery, Use as source, Save without settings, Save with
+// settings. Click it to view it full screen."
+test('a result has In gallery, Use as source and both saves, and opens full screen', async ({ page }) => {
   await open(page)
   await page.locator('#prompt').fill('docs generate result')
   await generateButton(page).click()
   await expect(page.getByRole('link', { name: 'In gallery' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Use as source' })).toBeVisible()
-  await expect(page.getByRole('link', { name: 'Download' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save without settings' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save with settings' })).toBeVisible()
   await page.getByRole('button', { name: /^Generated image, seed/ }).first().click()
   await expect(page.locator('.pswp')).toBeVisible()
 })

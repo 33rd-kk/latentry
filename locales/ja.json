@@ -209,7 +209,7 @@
     "blurPicture": "画像をぼかす",
     "fullScreen": "全画面で表示",
     "imageAlt": "生成した画像、シード {seed}",
-    "save": "ダウンロード",
+    "saveOriginalHint": "ギャラリーにある写しを、プロンプトやシードなど Latentry が記録した設定ごと保存します。",
     "saved": "ギャラリーに保存済み",
     "saveFailed": "生成しましたが、ギャラリーのフォルダーへの保存に失敗しました（{reason}）。GALLERY_SAVE_DIR を確認してください。",
     "useAsSource": "元画像にする",

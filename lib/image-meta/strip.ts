@@ -22,20 +22,13 @@
 //
 // Part of lib/image-meta: no imports outside node's built-ins (see README.md).
 
-import { encodeChunk, isPng, PNG_SIGNATURE, readChunks } from './png'
-
-const PNG_DROP = new Set(['tEXt', 'zTXt', 'iTXt', 'eXIf', 'tIME'])
+import { isPng } from './png'
+import { stripPngBytes } from './png-strip'
 
 /** The PNG without its text, EXIF and time chunks; null when it is not a well-formed PNG. */
 export function stripPng(png: Buffer): Buffer | null {
-  let chunks
-  try {
-    chunks = readChunks(png)
-  } catch {
-    return null
-  }
-  if (chunks[0]?.type !== 'IHDR' || chunks.at(-1)?.type !== 'IEND') return null
-  return Buffer.concat([PNG_SIGNATURE, ...chunks.filter((chunk) => !PNG_DROP.has(chunk.type)).map((chunk) => encodeChunk(chunk.type, chunk.data))])
+  const clean = stripPngBytes(png)
+  return clean && Buffer.from(clean.buffer, clean.byteOffset, clean.byteLength)
 }
 
 const ORIENTATION_TAG = 0x0112

@@ -132,8 +132,9 @@ These are by design:
   reach.
 - The page you are on shows what you are doing: the form, your mask
   strokes, and any picture you choose to show.
-- **Download** in the viewer saves the picture as any download does: it is
-  in the downloads folder and the browser's download list.
+- **Save without settings** and **Save with settings** save the picture as
+  any download does: it is in the downloads folder and the browser's
+  download list.
 - Turning secret mode off does not throw away what is on the form: from the
   next change, the form is remembered again, words typed in secret mode
   included. Clear the prompt first if they should not be kept.

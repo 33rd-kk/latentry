@@ -6,6 +6,7 @@
 
 export { readImageInfo, readImageInfoFrom, type ImageFormat, type ImageInfo } from './read'
 export { exifOrientation, stripJpeg, stripMetadata, stripPng, stripWebp } from './strip'
+export { stripPngBytes } from './png-strip'
 export { decodeUserComment, readExifText, tiffOf, type ExifText } from './exif'
 export {
   decodeTextChunk,

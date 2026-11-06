@@ -32,10 +32,11 @@ unless you set `LATENTRY_HOST`; see
 ## Sharing a picture
 
 Every finished picture holds its prompt, seed, model, LoRAs and settings
-(see below). The gallery's **Save without settings** and **Download N
-without settings** leave all of that out of the copy you share, without
-encoding the picture again. See
-[Saving and sharing](gallery.md#saving-and-sharing).
+(see below). **Save without settings**, on the Generate page and in the
+gallery, and the gallery's **Download N without settings** leave all of
+that out of the copy you share, without encoding the picture again. See
+[Saving and sharing](gallery.md#saving-and-sharing) and
+[Results](generate.md#results).
 
 ## What is kept, and where
 

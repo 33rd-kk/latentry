@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react"
 import Link from "next/link"
-import { ChevronRight, Download, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
+import { ChevronRight, Eye, EyeOff, FolderCheck, ImageUp, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -15,6 +15,7 @@ import type { JobWatch } from "@/hooks/use-job-watch"
 import type { RunQueue } from "@/hooks/use-run-queue"
 import type { GridRuns } from "@/hooks/use-grid-runs"
 import { GridList } from "@/components/generate/grid-view"
+import { SavePicture, useSaveFolder } from "@/components/generate/save-picture"
 import { useT } from "@/lib/i18n"
 
 // Never show the current-image bar as fully done from the step count alone —
@@ -58,10 +59,11 @@ export function ResultsPanel({ job, queue, grids, labels, onUseAsSource }: Resul
       previewImages.map((image) => ({
         src: `data:image/png;base64,${image.image_base64}`,
         name: `seed: ${image.seed}`,
-        downloadName: image.saved_name ?? `latentry_${image.seed}.png`,
+        // No downloadName: the viewer's own save would keep the settings in.
       })),
     [previewImages]
   )
+  const saveFolder = useSaveFolder()
   const previewVeiled = previewRun === null ? veiled : secret && shownRun !== previewRun
 
   const currentImagePercent =
@@ -131,7 +133,7 @@ export function ResultsPanel({ job, queue, grids, labels, onUseAsSource }: Resul
           </section>
         )}
 
-        <GridList grids={grids} />
+        <GridList grids={grids} saveFolder={saveFolder} />
 
         {/* Survives a reload along with the images, so a run that failed
             while the page was closed still says why. */}
@@ -202,14 +204,7 @@ export function ResultsPanel({ job, queue, grids, labels, onUseAsSource }: Resul
                         {t("generate.useAsSource")}
                       </button>
                     )}
-                    <a
-                      href={`data:image/png;base64,${image.image_base64}`}
-                      download={image.saved_name ?? `latentry_${image.seed}.png`}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                    >
-                      <Download className="h-3 w-3" />
-                      {t("generate.save")}
-                    </a>
+                    <SavePicture image={image} saveFolder={saveFolder} />
                   </div>
                 </div>
               ) : null
@@ -277,6 +272,15 @@ export function ResultsPanel({ job, queue, grids, labels, onUseAsSource }: Resul
           onIndexChange={setPreviewIndex}
           onClose={() => setPreviewIndex(null)}
           veiled={previewVeiled}
+          renderPanel={(index) => {
+            const image = previewImages[index]
+            return image ? (
+              <div className="flex flex-col items-start gap-2 p-4 text-xs text-muted-foreground">
+                <span>seed: {image.seed}</span>
+                <SavePicture image={image} saveFolder={saveFolder} />
+              </div>
+            ) : null
+          }}
         />
       </CardContent>
     </Card>

@@ -6,6 +6,7 @@ import { Eye, EyeOff, Loader2, Save, X } from "lucide-react"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { Button } from "@/components/ui/button"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
+import { SavePicture } from "@/components/generate/save-picture"
 import { Progress } from "@/components/ui/progress"
 import { PromptLabel } from "@/components/generate/results-panel"
 import type { GridRunView, GridRuns } from "@/hooks/use-grid-runs"
@@ -15,18 +16,18 @@ import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
 
 /** The grids this page queued, each as a table of its cells. */
-export function GridList({ grids }: { grids: Pick<GridRuns, "grids" | "cancel" | "remove"> }) {
+export function GridList({ grids, saveFolder }: { grids: Pick<GridRuns, "grids" | "cancel" | "remove">; saveFolder: number | null }) {
   if (grids.grids.length === 0) return null
   return (
     <div className="mb-4 space-y-4">
       {grids.grids.map((grid) => (
-        <GridView key={grid.id} grid={grid} onCancel={() => void grids.cancel(grid.id)} onRemove={() => grids.remove(grid.id)} />
+        <GridView key={grid.id} grid={grid} saveFolder={saveFolder} onCancel={() => void grids.cancel(grid.id)} onRemove={() => grids.remove(grid.id)} />
       ))}
     </div>
   )
 }
 
-function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: () => void; onRemove: () => void }) {
+function GridView({ grid, saveFolder, onCancel, onRemove }: { grid: GridRunView; saveFolder: number | null; onCancel: () => void; onRemove: () => void }) {
   const t = useT()
   const secret = useSecretMode()
   const [shownRun, setShownRun] = useShownInSecret<string>()
@@ -64,7 +65,7 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
         name: [`${axisName(grid.x.kind)}: ${xLabels[cell.x]}`, grid.y && `${axisName(grid.y.kind)}: ${yLabels[cell.y]}`, `seed: ${image.seed}`]
           .filter(Boolean)
           .join(" · "),
-        downloadName: image.saved_name ?? `latentry_${image.seed}.png`,
+        // No downloadName: the viewer's own save would keep the settings in.
       })),
     // axisName reads t, which is stable for a locale.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -243,7 +244,22 @@ function GridView({ grid, onCancel, onRemove }: { grid: GridRunView; onCancel: (
           ))}
         </div>
       </div>
-      <ImageLightbox items={items} index={preview} onIndexChange={setPreview} onClose={() => setPreview(null)} veiled={veiled} />
+      <ImageLightbox
+        items={items}
+        index={preview}
+        onIndexChange={setPreview}
+        onClose={() => setPreview(null)}
+        veiled={veiled}
+        renderPanel={(index) => {
+          const image = pictures[index]?.image
+          return image ? (
+            <div className="flex flex-col items-start gap-2 p-4 text-xs text-muted-foreground">
+              <span>seed: {image.seed}</span>
+              <SavePicture image={image} saveFolder={saveFolder} />
+            </div>
+          ) : null
+        }}
+      />
     </section>
   )
 }

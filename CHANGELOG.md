@@ -35,6 +35,12 @@ folders. This computer and owner devices are not affected.
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See
   [Settings](https://33rd-kk.github.io/latentry/guide/settings/).
+- **Save without settings on the Generate page**: each result, and the
+  viewer's panel, has **Save without settings**, made in the page from the
+  picture on screen (nothing is sent for it), and **Save with settings**,
+  the gallery's copy, once the picture is in the gallery. The plain
+  **Download** link and the viewer's own save button are gone. See
+  [Results](https://33rd-kk.github.io/latentry/guide/generate/#results).
 
 ## 0.15.0 (2026-11-04)
 
