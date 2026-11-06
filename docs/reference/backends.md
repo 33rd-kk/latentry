@@ -277,8 +277,8 @@ sd-server has no login. Keep it on this computer (it listens on
 elsewhere, put a reverse proxy that asks for a login in front of it, and
 give the backend that proxy's Bearer token.
 
-Checked with the mock in Latentry's tests, against the API of
-stable-diffusion.cpp's `master` as of November 2026.
+Checked with a CPU release of `sd-server` from November 2026 and SD-Turbo:
+txt2img, img2img, inpaint, hires fix, Upscale and **Cancel**.
 
 ## Your own server
 
