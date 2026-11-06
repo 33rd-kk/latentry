@@ -1,14 +1,14 @@
 // `npm run test:e2e`: the browser tests in e2e/, against a production build of
-// Latentry, a mock A1111 web UI, a mock ComfyUI and two mock diffusers servers
-// with pose (see playwright.config.ts). This makes a
+// Latentry, a mock A1111 web UI, a mock ComfyUI, two mock diffusers servers
+// with pose and a mock stable-diffusion.cpp sd-server (see playwright.config.ts). This makes a
 // temp folder for the run's settings, saved pictures and traces, runs
 // Playwright, and deletes the folder again, so a run leaves nothing behind.
 // Arguments go on to `playwright test`.
 //
 //   E2E_CHANNEL=msedge   use an installed browser instead of Playwright's Chromium
 //   E2E_KEEP=1           keep the temp folder (traces of failed tests) afterwards
-//   E2E_PORT, E2E_MOCK_PORT, E2E_COMFY_PORT, E2E_POSE_PORT, E2E_POSE_SINGLE_PORT
-//                        the ports (3137–3141)
+//   E2E_PORT, E2E_MOCK_PORT, E2E_COMFY_PORT, E2E_POSE_PORT, E2E_POSE_SINGLE_PORT, E2E_SDCPP_PORT
+//                        the ports (3137–3142)
 import { spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -19,6 +19,7 @@ const mockPort = process.env.E2E_MOCK_PORT || '3138'
 const comfyPort = process.env.E2E_COMFY_PORT || '3139'
 const posePort = process.env.E2E_POSE_PORT || '3140'
 const poseSinglePort = process.env.E2E_POSE_SINGLE_PORT || '3141'
+const sdcppPort = process.env.E2E_SDCPP_PORT || '3142'
 const root = mkdtempSync(path.join(tmpdir(), 'latentry-e2e-'))
 mkdirSync(path.join(root, 'out'))
 // One workflow, as ComfyUI's Export (API) writes it, for the ComfyUI backend's folder.
@@ -54,6 +55,7 @@ writeFileSync(
       { id: 'comfy', kind: 'comfyui', url: `http://127.0.0.1:${comfyPort}/`, profile: 'sdxl', workflowsDir: path.join(root, 'workflows') },
       { id: 'pose', kind: 'diffusers', url: `http://127.0.0.1:${posePort}/`, profile: 'sdxl' },
       { id: 'pose-single', kind: 'diffusers', url: `http://127.0.0.1:${poseSinglePort}/`, profile: 'sdxl' },
+      { id: 'cpp', kind: 'sdcpp', url: `http://127.0.0.1:${sdcppPort}/`, profile: 'generic' },
     ],
     gallery: { saveDir: path.join(root, 'out'), dirs: [], autoTag: false },
     engine: { autoStart: false },
@@ -65,7 +67,7 @@ let status = 1
 try {
   const result = spawnSync(process.execPath, ['node_modules/@playwright/test/cli.js', 'test', ...process.argv.slice(2)], {
     stdio: 'inherit',
-    env: { ...process.env, E2E_ROOT: root, E2E_PORT: port, E2E_MOCK_PORT: mockPort, E2E_COMFY_PORT: comfyPort, E2E_POSE_PORT: posePort, E2E_POSE_SINGLE_PORT: poseSinglePort },
+    env: { ...process.env, E2E_ROOT: root, E2E_PORT: port, E2E_MOCK_PORT: mockPort, E2E_COMFY_PORT: comfyPort, E2E_POSE_PORT: posePort, E2E_POSE_SINGLE_PORT: poseSinglePort, E2E_SDCPP_PORT: sdcppPort },
   })
   status = result.status ?? 1
 } finally {

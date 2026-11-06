@@ -104,10 +104,10 @@ export function GenerateClient() {
 
   // ── What the user keeps about the model: its link and recommended settings ──
   // By the checkpoint's file name. A diffusers server's model label is not one,
-  // so only the engine, ComfyUI and A1111 have it.
+  // so only the engine, ComfyUI, A1111 and sd.cpp have it.
   const infoModel = isEngine
     ? engineModels.loading ? null : engineModels.current
-    : status && (status.kind === "comfyui" || status.kind === "a1111") ? status.model : null
+    : status && (status.kind === "comfyui" || status.kind === "a1111" || status.kind === "sdcpp") ? status.model : null
   const modelInfo = useModelInfo(infoModel)
   const applyModelInfoToForm = useCallback(
     (info: ModelInfo) => {
@@ -268,9 +268,9 @@ export function GenerateClient() {
   const upscaling = Boolean(sourceImage && canUpscale && shownMode === "upscale")
   // Extend sends the source and the four amounts; the server pads and masks it.
   const extending = Boolean(sourceImage && capabilities?.img2img && capabilities.inpaint && shownMode === "extend")
-  // A1111's extras enlarge pixels: its latent modes are for hires fix only.
+  // A1111's extras and sd.cpp's upscale enlarge pixels: their latent modes are for hires fix only.
   const upscalers = useMemo(
-    () => (upscaling && status?.kind === "a1111" ? (status.upscalers ?? []).filter((name) => !/^Latent\b/.test(name)) : (status?.upscalers ?? [])),
+    () => (upscaling && (status?.kind === "a1111" || status?.kind === "sdcpp") ?(status.upscalers ?? []).filter((name) => !/^Latent\b/.test(name)) : (status?.upscalers ?? [])),
     [upscaling, status]
   )
   const upscaler = form ? accepted(form.hrUpscaler, upscalers) : LANCZOS

@@ -312,6 +312,9 @@
           "img2img": "この種類のバックエンドには、Latentry から元画像を送れません。",
           "inpaint": "この種類のバックエンドには、Latentry からインペイントのマスクを送れません。",
           "pose": "Latentry は A1111 web UI のポーズ制御を操作できません。ポーズには diffusers 互換サーバーか Latentry のエンジンを使ってください。"
+        },
+        "sdcpp": {
+          "pose": "Latentry は stable-diffusion.cpp のポーズ制御を操作できません。ポーズには Latentry のエンジン、ComfyUI、diffusers 互換サーバーのどれかを使ってください。"
         }
       },
       "setup": {
@@ -623,10 +626,12 @@
     "tokenNone": "なし（サーバーが必要とするなら Bearer トークン）",
     "tokenNoneA1111": "なし（--api-auth 付きで起動したなら user:password）",
     "tokenNoneComfyui": "なし（ComfyUI にはログインがありません。前に置いたプロキシ用の Bearer トークン）",
+    "tokenNoneSdcpp": "なし（sd-server にはログインがありません。前に置いたプロキシ用の Bearer トークン）",
     "tokenWillClear": "保存時に削除されます",
     "tokenClear": "保存したトークンを削除",
     "openBackendComfyui": "この ComfyUI にはネットワーク越しにつないでいますが、ComfyUI にはログインがありません。届く人は誰でも、そのコンピューターでコードを実行できます。このコンピューターで動かすか、ログインを求めるリバースプロキシの後ろに置き、そのトークンをここに入力してください。",
     "openBackendA1111": "この web UI にはトークンなしでネットワーク越しにつないでいます。届く人は誰でも使えます。--api-auth user:password を付けて起動してそれをここに入力するか、このコンピューターで動かしてください。",
+    "openBackendSdcpp": "この sd-server にはネットワーク越しにつないでいますが、sd-server にはログインがありません。届く人は誰でも使え、サーバーが持っている絵も取り出せます。このコンピューターの 127.0.0.1 で起動するか、ログインを求めるリバースプロキシを前に置いて、そのトークンをここに入力してください。",
     "test": "テスト",
     "testOk": "接続しました：{model}",
     "testFail": "そのアドレスでは応答がありません。",

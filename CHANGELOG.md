@@ -6,6 +6,15 @@
 turn **Show on paired devices** on for a folder in Settings > Gallery
 folders. This computer and owner devices are not affected.
 
+- **stable-diffusion.cpp as a backend**: the new kind `sdcpp` draws on a
+  stable-diffusion.cpp `sd-server`, a single program with no Python that
+  runs on Vulkan, Metal, CUDA or the CPU and reads quantized GGUF models.
+  txt2img, img2img, inpaint, hires fix and Upscale are offered as far as
+  the model it has loaded can do them, with LoRAs from the prompt. Each
+  picture is a job of its own, so **Cancel** stops only this run's job.
+  sd-server has no login, so Settings warns about one reached over the
+  network without a token. See
+  [stable-diffusion.cpp](https://33rd-kk.github.io/latentry/reference/backends/#stable-diffusioncpp).
 - **Choose which folders paired devices see**: each gallery folder has
   **Show on paired devices** (off by default), and a folder that is off
   answers a paired device as if it did not exist, on every route. Runs

@@ -129,7 +129,9 @@ These are by design:
   other server does with prompts and pictures is up to that server. Only
   a ComfyUI backend's history and uploads are taken back (above); its own
   logs, and a ComfyUI shared with other people, are out of Latentry's
-  reach.
+  reach. A stable-diffusion.cpp `sd-server` keeps each finished job, the
+  picture included, in its memory until the job expires there; it has no
+  way to delete one sooner, and restarting it clears them.
 - The page you are on shows what you are doing: the form, your mask
   strokes, and any picture you choose to show.
 - **Save without settings** and **Save with settings** save the picture as

@@ -312,6 +312,9 @@
           "img2img": "Latentry cannot send a source image to this kind of backend.",
           "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
           "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose."
+        },
+        "sdcpp": {
+          "pose": "Latentry cannot drive pose control on stable-diffusion.cpp. Use Latentry's engine, ComfyUI or a diffusers-compatible server for pose."
         }
       },
       "setup": {
@@ -623,10 +626,12 @@
     "tokenNone": "None (Bearer token, if the server needs one)",
     "tokenNoneA1111": "None (user:password, if started with --api-auth)",
     "tokenNoneComfyui": "None (ComfyUI has no login; a Bearer token for a proxy in front of it)",
+    "tokenNoneSdcpp": "None (sd-server has no login; a Bearer token for a proxy in front of it)",
     "tokenWillClear": "Will be removed on save",
     "tokenClear": "Remove saved token",
     "openBackendComfyui": "This ComfyUI is reached over the network, and ComfyUI has no login: anyone who can reach it can run code on that computer. Run it on this computer, or put it behind a reverse proxy that asks for a login and enter its token here.",
     "openBackendA1111": "This web UI is reached over the network without a token: anyone who can reach it can use it. Start it with --api-auth user:password and enter that here, or run it on this computer.",
+    "openBackendSdcpp": "This sd-server is reached over the network, and sd-server has no login: anyone who can reach it can use it and fetch the pictures it keeps. Start it on 127.0.0.1 on this computer, or put it behind a reverse proxy that asks for a login and enter its token here.",
     "test": "Test",
     "testOk": "Connected: {model}",
     "testFail": "No answer at that address.",

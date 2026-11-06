@@ -71,6 +71,23 @@ export function a1111Hints(alive: boolean): Hints {
 }
 
 /**
+ * A stable-diffusion.cpp sd-server: pose is not something Latentry drives
+ * there, and a feature its loaded model lacks (its features_by_mode.img_gen
+ * says so) is the server declining it.
+ */
+export function sdcppHints(alive: boolean, has: { img2img: boolean; inpaint: boolean; hires: boolean }): Hints {
+  if (!alive) return {}
+  const hints: Hints = { pose: { reason: 'kind' } }
+  if (!has.img2img) {
+    hints.img2img = { reason: 'declined' }
+    hints.upscale = { reason: 'declined' }
+  }
+  if (!has.inpaint) hints.inpaint = { reason: 'declined' }
+  if (!has.hires) hints.hires = { reason: 'declined' }
+  return hints
+}
+
+/**
  * A ComfyUI server: pose needs a running engine to draw the skeleton, and for
  * the built-in graph its core ControlNet nodes and a ControlNet chosen for the
  * backend. The first one missing is named, the engine first: a workflow with

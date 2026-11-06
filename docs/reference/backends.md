@@ -6,6 +6,7 @@
 | `diffusers` | Any server speaking the [backend API](../backend-api.md) |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` |
 | `comfyui` | A ComfyUI server, with a graph Latentry builds or [your own workflows](#your-own-workflows) |
+| `sdcpp` | A [stable-diffusion.cpp](#stable-diffusioncpp) `sd-server`: no Python, and runs on Vulkan, Metal, CUDA or the CPU |
 
 Use the built-in engine, servers you already run, or both: different
 backends run in parallel, one run each.
@@ -15,19 +16,19 @@ backends run in parallel, one run each.
 When a backend cannot do something, the Generate page says why next to the
 control, rather than only hiding it.
 
-| | Engine, SDXL family | Engine, Anima | `diffusers` server | `a1111` | `comfyui`, built-in graph | `comfyui`, your workflow |
-|---|---|---|---|---|---|---|
-| Text to picture | Yes | Yes | Yes | Yes | Yes | Yes |
-| From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No |
-| Inpaint and **Extend** | Yes | No | Unless it says no¹ | Yes | Yes | No |
-| Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² |
-| Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes |
-| Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph |
-| Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's |
-| LoRAs | Yes | Yes | If it says so¹ | Yes | Yes | With a checkpoint loader³ |
-| Tagging by the backend⁴ | No | No | Unless it says no¹ | With its WD14 tagger extension | No | No |
-| **Cancel** | Stops that run | Stops that run | Stops that run | At the web UI's next step; the unfinished picture is saved | Stops that picture, skips the rest | Stops that picture, skips the rest |
-| Choosing the model | [Setup](../guide/engine.md) | [Setup](../guide/engine.md) | On the server | In the web UI | **Model** on Settings | The workflow's own, or **Model** on Settings³ |
+| | Engine, SDXL family | Engine, Anima | `diffusers` server | `a1111` | `comfyui`, built-in graph | `comfyui`, your workflow | `sdcpp` |
+|---|---|---|---|---|---|---|---|
+| Text to picture | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
+| From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
+| Inpaint and **Extend** | Yes | No | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
+| Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
+| Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes | If its model can⁵ |
+| Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph | With Lanczos, Nearest or its ESRGAN model |
+| Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's | sd-server's |
+| LoRAs | Yes | Yes | If it says so¹ | Yes | Yes | With a checkpoint loader³ | Yes |
+| Tagging by the backend⁴ | No | No | Unless it says no¹ | With its WD14 tagger extension | No | No | No |
+| **Cancel** | Stops that run | Stops that run | Stops that run | At the web UI's next step; the unfinished picture is saved | Stops that picture, skips the rest | Stops that picture, skips the rest | Stops that picture, skips the rest |
+| Choosing the model | [Setup](../guide/engine.md) | [Setup](../guide/engine.md) | On the server | In the web UI | **Model** on Settings | The workflow's own, or **Model** on Settings³ | In sd-server (its own page, or its start command) |
 
 1. A `diffusers` server announces these in
    [`GET /api/health`](../backend-api.md#get-apihealth). img2img, inpainting
@@ -40,6 +41,8 @@ control, rather than only hiding it.
    like) always keeps its own model, and refuses LoRA calls.
 4. Latentry's own WD14 tagger works whatever the backend; see
    [Tags](../guide/gallery.md#tags).
+5. sd-server says what the model it has loaded can do; Latentry offers
+   only that.
 
 Latentry does these itself, so they work with every backend:
 [the queue](../guide/many.md#the-queue), the
@@ -226,6 +229,56 @@ the workflow again with **Export (API)**:
   (`input/latentry/<id>-pose.png`) and puts that name in the marked node. A
   secret run blanks it afterwards. Without a pose, the node keeps the
   picture saved in the workflow.
+
+## stable-diffusion.cpp
+
+[stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) is
+a single program, with no Python, built for Vulkan, Metal, CUDA, SYCL or
+the CPU. It reads quantized GGUF models, so newer model families fit on a
+smaller GPU, and it runs on AMD and Intel GPUs too. Latentry talks to its
+`sd-server` through its own API (`/sdcpp/v1`).
+
+Start `sd-server` with a model, or with `--model-dir` and pick the model
+on its own page. It listens on `http://127.0.0.1:1234` by default; add it
+with the kind `sdcpp` and that address:
+
+```bash
+sd-server --model-dir ./models
+```
+
+```bash
+GEN_BACKENDS=cpp|sdcpp|http://127.0.0.1:1234|generic
+```
+
+- **The model is the one sd-server has loaded.** Change it there.
+  Latentry shows its file name, without its folder. While no model is
+  loaded, the backend shows as not ready and says why.
+- **What it can do comes from sd-server.** img2img, inpaint and hires fix
+  are offered when the loaded model has them; samplers, schedulers and
+  hires upscalers are the ones it lists. Pose and tagging are not
+  available.
+- **LoRAs** work as everywhere else, with `<lora:name:weight>` in the
+  prompt: Latentry finds the file in sd-server's LoRA list by its name
+  and takes the call out of the prompt. A name it does not list stops the
+  run before anything is drawn.
+- **Upscale** enlarges the picture on this computer with Lanczos or
+  Nearest, or on sd-server with an ESRGAN model from its
+  `--hires-upscalers-dir`, then redraws it.
+- **One job per picture.** **Cancel** stops the job being drawn, by its
+  id, and skips the rest. It never stops another client's job.
+- **Latentry saves the picture with its own settings**, and asks sd-server
+  for pictures without its metadata, which can name the LoRA files' folders.
+  sd-server keeps each finished job, picture included, in its memory until
+  the job expires there.
+
+sd-server has no login. Keep it on this computer (it listens on
+127.0.0.1 unless started with `--listen-ip`). Settings warns about an
+`sdcpp` backend at another address without a token. If it has to be
+elsewhere, put a reverse proxy that asks for a login in front of it, and
+give the backend that proxy's Bearer token.
+
+Checked with the mock in Latentry's tests, against the API of
+stable-diffusion.cpp's `master` as of November 2026.
 
 ## Your own server
 

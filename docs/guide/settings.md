@@ -23,8 +23,10 @@ The servers that generate images. Each has:
 
 - **Id**: what the UI calls it (a–z, 0–9, `-`, `_`).
 - **Kind**: `diffusers` (a server speaking the [backend API](../backend-api.md)),
-  `a1111` (AUTOMATIC1111 / Forge with `--api`) or `comfyui` (a ComfyUI
-  server; see [Backends](../reference/backends.md#comfyui)).
+  `a1111` (AUTOMATIC1111 / Forge with `--api`), `comfyui` (a ComfyUI
+  server; see [Backends](../reference/backends.md#comfyui)) or `sdcpp`
+  (a stable-diffusion.cpp `sd-server`; see
+  [Backends](../reference/backends.md#stable-diffusioncpp)).
 - **URL**: where it listens.
 - **Profile**: the model profile its form starts from.
 - **Model** (`comfyui` only): the checkpoint ComfyUI draws with. **Test**
@@ -39,8 +41,9 @@ The servers that generate images. Each has:
   [Backends](../reference/backends.md#your-own-workflows)). **Show workflow
   names on paired devices** lets paired phones see and use them; it is off
   by default.
-- **Token**: a Bearer token for `diffusers` and `comfyui` (for a proxy in
-  front of it), `user:password` for `a1111` started with `--api-auth`. Saved tokens are never shown again; type to
+- **Token**: a Bearer token for `diffusers`, and for `comfyui` and `sdcpp`
+  (for a proxy in front of them: neither has a login), `user:password` for
+  `a1111` started with `--api-auth`. Saved tokens are never shown again; type to
   replace one. A token is only sent to the server it was saved for: changing
   the URL to another host, port or scheme asks for the token again. A
   `GEN_TOKEN_<ID>` from `.env.local` likewise applies only while

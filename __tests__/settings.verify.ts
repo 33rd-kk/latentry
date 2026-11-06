@@ -26,6 +26,7 @@ async function main() {
       backends: [
         { id: ' Anima ', kind: 'diffusers', url: 'http://localhost:7865', profile: 'anima', token: 'secret' },
         { id: 'sdxl', kind: 'a1111', url: 'http://192.168.1.5:7860', profile: 'illustrious' },
+        { id: 'cpp', kind: 'sdcpp', url: 'http://127.0.0.1:1234', profile: 'generic' },
       ],
       tagger: 'anima',
       gallery: { saveDir: ABS, dirs: [ABS + '2', '  '], autoTag: true, loraHashes: 'yes' },
@@ -35,7 +36,7 @@ async function main() {
   )
   check(ok.ok, 'a sound edit passes')
   if (ok.ok) {
-    eq(ok.settings.backends?.map((backend) => [backend.id, backend.token ?? null]), [['anima', 'secret'], ['sdxl', null]], 'ids are lowercased; tokens kept when given')
+    eq(ok.settings.backends?.map((backend) => [backend.id, backend.token ?? null]), [['anima', 'secret'], ['sdxl', null], ['cpp', null]], 'ids are lowercased; tokens kept when given; sdcpp is a kind')
     eq(ok.settings.gallery, { saveDir: ABS, dirs: [ABS + '2'], autoTag: true, loraHashes: false }, 'empty folder rows are dropped; only true turns LoRA hashes on')
     eq(ok.settings.profiles, { sdxl: { width: 1152, height: 896, steps: 30, cfg: 6, qualityTags: 'best', keepTags: '', artistTemplate: null, tagStyle: 'space' } }, 'unknown profiles are ignored; "" hides the artist field; tag spelling kept')
   }
