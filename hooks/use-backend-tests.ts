@@ -13,6 +13,8 @@ export interface BackendTest {
   /** comfyui: the ControlNets it has, offered for the Pose ControlNet field. */
   controlnets?: string[]
   problem?: BackendStatus["problem"]
+  /** comfyui: it has SwarmUI's nodes, so a SwarmUI shares it under its own address. */
+  swarmui?: boolean
 }
 
 /** The settings page's "Test" button: each backend row's last answer, by its key. */
@@ -41,7 +43,7 @@ export function useBackendTests() {
       const controlnets = names(data?.controlnets)
       setTests((current) => ({
         ...current,
-        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, controlnets, problem: data?.problem },
+        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, controlnets, problem: data?.problem, swarmui: data?.swarmui === true },
       }))
     } catch {
       setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))

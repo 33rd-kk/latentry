@@ -105,6 +105,12 @@ on another computer:
 Either way, allow only the computer running Latentry through that
 computer's firewall if you can. See [Backends](../reference/backends.md).
 
+A ComfyUI that SwarmUI starts stays on 127.0.0.1, yet SwarmUI shares it
+under its own address. Opened to the network without its login, SwarmUI
+lets anyone use that ComfyUI too. Latentry cannot see where SwarmUI
+listens; **Test** on Settings says when a ComfyUI is SwarmUI's. See
+[SwarmUI](../reference/backends.md#swarmui).
+
 ## Tip: keep the pairing key in your keychain
 
 Paired devices are recognised by a key in `latentry.pairing-key`, next to
