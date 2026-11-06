@@ -9,7 +9,16 @@ import type { A1111Transport } from '../lib/backends/a1111-transport'
 import { openBackendWarning } from '../lib/backends/exposure'
 import { sdcppHints } from '../lib/backends/hints'
 import { SdcppAdapter } from '../lib/backends/sdcpp'
-import { parseCapabilities, previewMode, seedOf, toSdcppPlan, upscalerList, type SdcppPlan } from '../lib/backends/sdcpp-payload'
+import {
+  parseCapabilities,
+  previewMode,
+  sdcppImg2imgSteps,
+  sdcppSchedule,
+  seedOf,
+  toSdcppPlan,
+  upscalerList,
+  type SdcppPlan,
+} from '../lib/backends/sdcpp-payload'
 import type { BackendConfig, BackendEvent, GenerateRequest } from '../lib/backends/types'
 
 const REQUEST: GenerateRequest = {
@@ -177,6 +186,12 @@ async function main() {
   const upscale = (await toSdcppPlan({ ...REQUEST, prompt: '1girl', init_image_base64: source, upscale: true, hr_scale: 2, hr_steps: 6, hr_denoise: 0.3, hr_upscaler: '4x-AnimeSharp' }, info, 64)) as SdcppPlan
   eq(upscale.enlarge && { ...upscale.enlarge, source: '…' }, { source: '…', width: 128, height: 192, model: '4x-AnimeSharp', kernel: 'lanczos3' }, 'an upscale enlarges by the ESRGAN model to the exact size')
   eq([upscale.body.width, upscale.body.height, upscale.body.strength, upscale.steps], [128, 192, 0.3, 6], 'then redraws at the hires denoise for the hires steps')
+  const asked = (upscale.body.sample_params as { sample_steps: number }).sample_steps
+  eq(sdcppImg2imgSteps(asked, 0.3), 6, 'asking for a schedule that runs exactly the hires steps on sd-server')
+
+  // sd-server rounds an img2img's steps up, as seen on a real one: 4 at 0.6 run 3, 7 at 0.3 run 3.
+  eq([sdcppImg2imgSteps(4, 0.6), sdcppImg2imgSteps(7, 0.3), sdcppImg2imgSteps(20, 1), sdcppImg2imgSteps(10, 0.01)], [3, 3, 20, 1], 'img2img steps round up, at least one')
+  eq([sdcppSchedule(2, 0.3), sdcppSchedule(20, 1)], [4, 20], 'the shortest schedule that runs the asked steps')
   eq(
     await toSdcppPlan({ ...REQUEST, prompt: '1girl', init_image_base64: source, upscale: true, hr_scale: 2, hr_upscaler: 'Latent' }, info, 64),
     'This upscaler cannot enlarge a picture on its own: Latent',

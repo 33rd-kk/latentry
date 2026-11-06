@@ -5,8 +5,7 @@
 // Reference: examples/server/api.md in leejet/stable-diffusion.cpp.
 
 import sharp from 'sharp'
-import { hiresSchedule, hiresSize, LANCZOS } from '@/lib/diffusion/hires'
-import { img2imgSteps } from '@/lib/diffusion/img2img'
+import { hiresSize, LANCZOS } from '@/lib/diffusion/hires'
 import { loraCallsInPrompt, loraName, type LoraUse } from '@/lib/image-meta'
 import { DEFAULT } from './a1111-payload'
 import { resolveLoras, withoutLoraCalls } from './comfyui'
@@ -193,7 +192,7 @@ export async function toSdcppPlan(request: GenerateRequest, info: SdcppInfo, siz
     body.width = target.width
     body.height = target.height
     body.strength = denoise
-    sampleParams.sample_steps = hiresSchedule(steps, denoise)
+    sampleParams.sample_steps = sdcppSchedule(steps, denoise)
     return {
       body,
       enlarge: { source: request.init_image_base64, ...target, model: model ? model.name : null, kernel: upscaler === 'Nearest' ? 'nearest' : 'lanczos3' },
@@ -213,8 +212,24 @@ export async function toSdcppPlan(request: GenerateRequest, info: SdcppInfo, siz
   body.strength = strength
   // Its mask is one channel (white = redraw).
   if (prepared.mask) body.mask_image = (await sharp(prepared.mask).toColourspace('b-w').png().toBuffer()).toString('base64')
-  const steps = img2imgSteps(request.num_inference_steps, strength)
+  const steps = sdcppImg2imgSteps(request.num_inference_steps, strength)
   return { body, steps, firstPass: steps, loras }
+}
+
+/**
+ * The steps sd-server's img2img runs: the tail of its schedule, rounded up
+ * (4 at 0.6 run 3, where the Python pipelines and A1111 truncate to 2).
+ * Checked against a real sd-server.
+ */
+export function sdcppImg2imgSteps(steps: number, strength: number): number {
+  return Math.max(1, Math.min(steps, Math.ceil(steps * strength - 1e-6)))
+}
+
+/** The step count to ask sd-server's img2img for so that it runs exactly `steps` at `denoise`. */
+export function sdcppSchedule(steps: number, denoise: number): number {
+  let asked = steps
+  while (asked < 1000 && sdcppImg2imgSteps(asked, denoise) < steps) asked += 1
+  return asked
 }
 
 /** A picture's seed from its generation_info (a decimal string there), when it is a safe integer. */
