@@ -223,6 +223,14 @@ const UPLOAD_FOLDER = 'latentry'
 const MAX_LORAS = 20
 /** The node ComfyUI applies a ControlNet with, to positive and negative at once. */
 const CONTROLNET_APPLY = 'ControlNetApplyAdvanced'
+/**
+ * A node SwarmUI installs into every ComfyUI it uses (SwarmComfyCommon). Seen
+ * here, this ComfyUI sits behind a SwarmUI, which hands it out again under
+ * its own address at /ComfyBackendDirect: a SwarmUI on the network without
+ * its login opens this ComfyUI too, even though Latentry reaches it on this
+ * machine. Only this one node is asked about; nothing else is probed.
+ */
+const SWARMUI_NODE = 'SwarmKSampler'
 
 interface StaticInfo {
   at: number
@@ -529,6 +537,12 @@ export class ComfyUIAdapter implements BackendAdapter {
   async controlnets(): Promise<string[] | null> {
     const body = await this.getOrNull('/object_info/ControlNetLoader')
     return body === null ? null : (comboOptions(body, 'ControlNetLoader', 'control_net_name') ?? [])
+  }
+
+  /** Whether this ComfyUI has SwarmUI's nodes, so a SwarmUI shares it; null when it does not answer. */
+  async sharedBySwarmui(): Promise<boolean | null> {
+    const body = await this.getOrNull(`/object_info/${SWARMUI_NODE}`)
+    return body === null ? null : !!body && typeof body === 'object' && SWARMUI_NODE in body
   }
 
   /** What pose on the built-in graph still lacks here, all true when it can run. */

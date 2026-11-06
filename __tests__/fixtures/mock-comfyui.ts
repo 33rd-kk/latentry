@@ -27,7 +27,7 @@ export interface MockComfyUI {
 const MODEL_PATH = 'private-folder/sdxl/base.safetensors'
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockComfyUI(options: { port?: number } = {}): Promise<MockComfyUI> {
+export async function startMockComfyUI(options: { port?: number; swarmui?: boolean } = {}): Promise<MockComfyUI> {
   // Without this sharp keeps what it read open on Windows, and a test cannot delete its folder.
   sharp.cache(false)
   const pixels = await sharp({ create: { width: 64, height: 96, channels: 3, background: '#7a6b93' } }).png().toBuffer()
@@ -57,6 +57,8 @@ export async function startMockComfyUI(options: { port?: number } = {}): Promise
       }
       if (route === 'GET /object_info/LoraLoader') return reply(200, combo('LoraLoader', 'lora_name', ['styles/ink.safetensors']))
       if (route === 'GET /object_info/ControlNetLoader') return reply(200, combo('ControlNetLoader', 'control_net_name', ['private-folder/openpose.safetensors']))
+      // SwarmUI's own node, in a ComfyUI that SwarmUI starts; {} for a node it lacks, as ComfyUI answers.
+      if (route === 'GET /object_info/SwarmKSampler') return reply(200, options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {})
       if (route === 'GET /object_info/ControlNetApplyAdvanced') return reply(200, { ControlNetApplyAdvanced: { input: { required: {} } } })
       if (route === 'POST /prompt') {
         let body: { prompt?: MockComfyUI['graphs'][number] }

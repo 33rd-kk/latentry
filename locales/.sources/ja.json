@@ -504,6 +504,7 @@
   "settings.openBackendComfyui": "This ComfyUI is reached over the network, and ComfyUI has no login: anyone who can reach it can run code on that computer. Run it on this computer, or put it behind a reverse proxy that asks for a login and enter its token here.",
   "settings.openBackendA1111": "This web UI is reached over the network without a token: anyone who can reach it can use it. Start it with --api-auth user:password and enter that here, or run it on this computer.",
   "settings.openBackendSdcpp": "This sd-server is reached over the network, and sd-server has no login: anyone who can reach it can use it and fetch the pictures it keeps. Start it on 127.0.0.1 on this computer, or put it behind a reverse proxy that asks for a login and enter its token here.",
+  "settings.swarmuiShared": "This ComfyUI has SwarmUI's nodes, so a SwarmUI shares it under its own address (/ComfyBackendDirect). SwarmUI has no login until you turn one on: if it listens on the network, anyone who can reach it can use this ComfyUI too, and run code on the computer it runs on. Keep SwarmUI's Host on localhost, or turn on its login (AuthorizationRequired) before opening it to the network.",
   "settings.test": "Test",
   "settings.testOk": "Connected: {model}",
   "settings.testFail": "No answer at that address.",

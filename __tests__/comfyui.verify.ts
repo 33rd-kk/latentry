@@ -71,6 +71,8 @@ async function scriptedComfy(
     upscalers?: string[]
     /** The progress messages each prompt sends (its prompt_id is added), in place of two steps. */
     progress?: Record<string, unknown>[]
+    /** It has SwarmUI's nodes, as a ComfyUI SwarmUI starts does. */
+    swarmui?: boolean
   } = {}
 ) {
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123' } }).png().toBuffer(), {
@@ -122,6 +124,7 @@ async function scriptedComfy(
         return { status: 200, body: options.controlnet ? combo('ControlNetLoader', 'control_net_name', [['sdxl/openpose.safetensors']]) : {} }
       }
       if (path === '/object_info/ControlNetApplyAdvanced') return { status: 200, body: options.controlnet ? { ControlNetApplyAdvanced: { input: { required: {} } } } : {} }
+      if (path === '/object_info/SwarmKSampler') return { status: 200, body: options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {} }
       if (path === '/object_info/UpscaleModelLoader') return { status: 200, body: options.upscalers ? combo('UpscaleModelLoader', 'model_name', [options.upscalers]) : {} }
       const match = /^\/history\/(.+)$/.exec(path)
       if (match) {
@@ -730,6 +733,17 @@ async function main() {
   redirecting.server.close()
   check(REDIRECT_REFUSED.length > 0, 'the redirect message exists')
 
+  // ── Behind a SwarmUI ──
+  const plainComfy = await scriptedComfy()
+  const plainAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'plain' }, plainComfy.transport)
+  await plainAdapter.status()
+  check(!plainComfy.calls.some((call) => call.includes('Swarm')), "status alone never asks about SwarmUI's nodes")
+  eq(await plainAdapter.sharedBySwarmui(), false, 'a plain ComfyUI is not shared by a SwarmUI')
+  eq(plainComfy.calls.filter((call) => call.includes('Swarm')), ['GET /object_info/SwarmKSampler'], 'asking about it asks for that one node only')
+  const swarmComfy = await scriptedComfy({ swarmui: true })
+  eq(await new ComfyUIAdapter({ ...CONFIG, id: 'swarm' }, swarmComfy.transport).sharedBySwarmui(), true, "a ComfyUI with SwarmUI's nodes is shared by a SwarmUI")
+  eq(await new ComfyUIAdapter({ ...CONFIG, id: 'gone', url: 'http://127.0.0.1:9' }).sharedBySwarmui(), null, 'one that does not answer: not known')
+
   await throughRoutes()
 
   done('comfyui')
@@ -769,7 +783,22 @@ async function throughRoutes(): Promise<void> {
     const tried = (await (await tryBackend('127.0.0.1:3000')).json()) as { controlnets?: string[]; capabilities?: { pose?: boolean }; hints?: unknown }
     eq(tried.controlnets, ['private-folder/openpose.safetensors'], 'Settings Test lists ComfyUI\'s ControlNets, folders included, on this machine')
     eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' } }], 'and says pose waits for a running engine')
+    eq((tried as { swarmui?: unknown }).swarmui, undefined, 'a plain ComfyUI: no SwarmUI notice')
     eq((await tryBackend('192.168.1.20:3000')).status, 403, 'a paired device cannot ask for that list')
+    const swarmMock = await startMockComfyUI({ swarmui: true })
+    try {
+      const swarmTried = await testRoute(
+        new Request('http://127.0.0.1:3000/api/settings/test', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', host: '127.0.0.1:3000' },
+          body: JSON.stringify({ kind: 'comfyui', url: swarmMock.url }),
+        })
+      )
+      const swarmBody = (await swarmTried.json()) as { alive?: boolean; swarmui?: unknown }
+      eq([swarmBody.alive, swarmBody.swarmui], [true, true], "Settings Test says when a SwarmUI shares the ComfyUI")
+    } finally {
+      await swarmMock.close()
+    }
 
     const started = await generateRoute(
       new Request('http://127.0.0.1:3000/api/gen/comfy/generate', {

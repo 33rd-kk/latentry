@@ -5,7 +5,7 @@
 | Latentry's engine | Installed and run by Latentry from [Setup](../guide/engine.md), one per NVIDIA GPU |
 | `diffusers` | Any server speaking the [backend API](../backend-api.md) |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` |
-| `comfyui` | A ComfyUI server, with a graph Latentry builds or [your own workflows](#your-own-workflows) |
+| `comfyui` | A ComfyUI server, with a graph Latentry builds or [your own workflows](#your-own-workflows); also the one [SwarmUI](#swarmui) starts |
 | `sdcpp` | A [stable-diffusion.cpp](#stable-diffusioncpp) `sd-server`: no Python, and runs on Vulkan, Metal, CUDA or the CPU |
 
 Use the built-in engine, servers you already run, or both: different
@@ -164,6 +164,31 @@ token ([Backends on other computers](../guide/network.md#backends-on-other-compu
 A login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
 something Latentry can get past: **Test** and the Generate page then say that
 it asks for a login, with ComfyUI's own message.
+
+### SwarmUI
+
+SwarmUI draws with a ComfyUI it starts itself, and Latentry can use that
+ComfyUI as an ordinary `comfyui` backend. SwarmUI picks its port, from 7821
+up: look in SwarmUI's **Server > Logs** for `Self-Start ComfyUI-0 on port
+…`, and add `http://127.0.0.1:` with that port. The port can change when
+SwarmUI restarts; if **Test** stops answering, look again. SwarmUI's own
+address (7801) does not work: Latentry talks to ComfyUI directly, not
+through SwarmUI's `/ComfyBackendDirect`.
+
+Checked with SwarmUI 0.9.8.4 and the ComfyUI it starts: txt2img, a random
+seed read back, LoRAs and **Cancel**. Models and LoRAs are the ones
+SwarmUI's **Models** folders hold.
+
+That ComfyUI listens on 127.0.0.1 only, but SwarmUI hands it out again under
+its own address, at `/ComfyBackendDirect`, and SwarmUI has no login until
+you turn one on. With SwarmUI's **Host** opened to the network (`*` or
+`0.0.0.0`) and no login, anyone who can reach SwarmUI gets its own account,
+with every permission, and the whole ComfyUI API through it, custom nodes
+included. Latentry reaches the ComfyUI on this computer, so it cannot tell
+where SwarmUI listens; instead **Test** notices SwarmUI's nodes in that
+ComfyUI and says so under the backend. Keep SwarmUI's **Host** on
+`localhost` (its default), or turn on its login (`AuthorizationRequired` in
+**Server > Server Configuration**) before opening it to the network.
 
 ### Your own workflows
 

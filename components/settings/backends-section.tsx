@@ -253,6 +253,12 @@ function BackendRow({
               : t("settings.testFail")}
         </p>
       )}
+      {test?.state === "ok" && test.swarmui && (
+        <p className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-500">
+          <ShieldAlert className="mt-px h-3.5 w-3.5 shrink-0" />
+          {t("settings.swarmuiShared")}
+        </p>
+      )}
       {test?.state === "ok" && test.hints && <UnavailableFeatures hints={test.hints} kind={backend.kind} />}
     </div>
   )

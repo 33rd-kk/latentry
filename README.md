@@ -240,7 +240,8 @@ back to `.env.local`.
   anyone who reaches it can use it (ComfyUI and sd-server have no login).
   Keep backends on this computer where you can; otherwise use `--api-auth`
   for A1111 / Forge and an authenticating proxy for ComfyUI and sd-server. Settings warns about one reached over the
-  network without a token.
+  network without a token, and about a ComfyUI that SwarmUI shares (keep
+  SwarmUI on localhost or turn on its login).
 
 ## Translations
 

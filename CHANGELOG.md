@@ -15,6 +15,13 @@ folders. This computer and owner devices are not affected.
   sd-server has no login, so Settings warns about one reached over the
   network without a token. See
   [stable-diffusion.cpp](https://33rd-kk.github.io/latentry/reference/backends/#stable-diffusioncpp).
+- **SwarmUI's ComfyUI as a backend, with a warning**: the ComfyUI that
+  SwarmUI starts works as an ordinary `comfyui` backend at its own port
+  (checked with SwarmUI 0.9.8.4). SwarmUI shares that ComfyUI under its own
+  address and has no login until one is turned on, so **Test** on Settings
+  now says when a ComfyUI has SwarmUI's nodes: keep SwarmUI's Host on
+  localhost, or turn on its login before opening it to the network. See
+  [SwarmUI](https://33rd-kk.github.io/latentry/reference/backends/#swarmui).
 - **Choose which folders paired devices see**: each gallery folder has
   **Show on paired devices** (off by default), and a folder that is off
   answers a paired device as if it did not exist, on every route. Runs

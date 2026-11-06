@@ -43,7 +43,9 @@ export async function POST(request: Request) {
   // ComfyUI's checkpoints and ControlNets, folders included, to choose from:
   // only this settings page sees them (the route is for clients that may edit settings).
   const comfy = adapter instanceof ComfyUIAdapter && status.alive ? adapter : null
-  const [checkpoints, controlnets] = comfy ? await Promise.all([comfy.checkpoints(), comfy.controlnets()]) : [null, null]
+  const [checkpoints, controlnets, swarmui] = comfy
+    ? await Promise.all([comfy.checkpoints(), comfy.controlnets(), comfy.sharedBySwarmui()])
+    : [null, null, null]
   return json({
     alive: status.alive,
     model: status.model,
@@ -52,5 +54,7 @@ export async function POST(request: Request) {
     ...(status.problem ? { problem: status.problem } : {}),
     ...(checkpoints ? { checkpoints } : {}),
     ...(controlnets ? { controlnets } : {}),
+    // A SwarmUI shares this ComfyUI under its own address: Settings says what that opens.
+    ...(swarmui ? { swarmui: true } : {}),
   })
 }
