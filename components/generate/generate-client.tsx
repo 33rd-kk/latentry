@@ -41,6 +41,8 @@ import { img2imgSteps } from "@/lib/diffusion/img2img"
 import { accepted, applyModelInfo, DEFAULT, modelInfoFromForm } from "@/lib/generate/form"
 import type { ModelInfo } from "@/lib/models/info"
 import { NO_SIDES, outpaintCanvas, outpaintFits, OUTPAINT_STRENGTH, type OutpaintSides } from "@/lib/generate/outpaint"
+import { FACE_FIX_DEFAULTS, type FaceFixOptions } from "@/lib/generate/facefix"
+import { FaceFixControls } from "@/components/generate/facefix-controls"
 import { isSecretMode } from "@/lib/secret-mode"
 import { MAX_REQUEST_BODY_BYTES } from "@/lib/limits"
 import { composePrompt, fitToImage, formatForProfile } from "@/lib/profiles"
@@ -131,6 +133,7 @@ export function GenerateClient() {
   const [sourceMode, setSourceMode] = useState<SourceMode>("variation")
   // Extend: how far the canvas grows on each side.
   const [extendSides, setExtendSides] = useState<OutpaintSides>(NO_SIDES)
+  const [faceFix, setFaceFix] = useState<FaceFixOptions>(FACE_FIX_DEFAULTS)
   const modeStrength = (mode: SourceMode) =>
     mode === "pose" ? profile.defaultPoseStrength : mode === "extend" ? OUTPAINT_STRENGTH : profile.defaultStrength
   // Each mode has its own sensible strength, so switching puts the slider at
@@ -264,10 +267,12 @@ export function GenerateClient() {
   // Upscale redraws the source itself, larger: the source slot's third mode.
   const canUpscale = Boolean(capabilities?.upscale && capabilities.img2img)
   const shownMode: SourceMode =
-    (sourceMode === "upscale" && !canUpscale) || (sourceMode === "extend" && !capabilities?.inpaint) ? "variation" : sourceMode
+    (sourceMode === "upscale" && !canUpscale) || ((sourceMode === "extend" || sourceMode === "facefix") && !capabilities?.inpaint) ? "variation" : sourceMode
   const upscaling = Boolean(sourceImage && canUpscale && shownMode === "upscale")
   // Extend sends the source and the four amounts; the server pads and masks it.
   const extending = Boolean(sourceImage && capabilities?.img2img && capabilities.inpaint && shownMode === "extend")
+  // Face fix sends the source and its options; the server finds the faces and redraws each.
+  const fixingFaces = Boolean(sourceImage && capabilities?.img2img && capabilities.inpaint && shownMode === "facefix")
   // A1111's extras and sd.cpp's upscale enlarge pixels: their latent modes are for hires fix only.
   const upscalers = useMemo(
     () => (upscaling && (status?.kind === "a1111" || status?.kind === "sdcpp") ?(status.upscalers ?? []).filter((name) => !/^Latent\b/.test(name)) : (status?.upscalers ?? [])),
@@ -355,6 +360,8 @@ export function GenerateClient() {
         ? { init_image_base64: sourceImage.dataUrl, upscale: true, ...hrFields }
         : extending && sourceImage
           ? { init_image_base64: sourceImage.dataUrl, strength, outpaint: extendSides }
+        : fixingFaces && sourceImage
+          ? { init_image_base64: sourceImage.dataUrl, facefix: faceFix }
         : {
             ...(useSource && sourceImage ? { init_image_base64: sourceImage.dataUrl, strength } : {}),
             ...(useSource && mask && capabilities?.inpaint ? { mask_base64: mask } : {}),
@@ -382,9 +389,11 @@ export function GenerateClient() {
     // Optimistic, so the bars appear on click; the first snapshot replaces it.
     if (!queueing) begin({
       completed: 0,
-      total: form.imageCount,
+      total: fixingFaces ? 1 : form.imageCount,
       currentStep: 0,
-      stepsPerImage: upscaling
+      stepsPerImage: fixingFaces
+        ? img2imgSteps(form.steps, faceFix.denoise, profile.id)
+        : upscaling
         ? form.hrSteps || form.steps
         : useSource
           ? img2imgSteps(form.steps, strength, profile.id)
@@ -427,7 +436,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -467,6 +476,8 @@ export function GenerateClient() {
     ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple)
     : extending && sourceImage
       ? outpaintCanvas(sourceImage, extendSides)
+    : fixingFaces && sourceImage
+      ? { width: sourceImage.width, height: sourceImage.height }
     : sourceImage && capabilities?.img2img
       ? fitToImage(sourceImage, form.width, form.height, profile.sizeMultiple)
       : { width: form.width, height: form.height }
@@ -578,6 +589,7 @@ export function GenerateClient() {
                 extendControls={(veiled) =>
                   sourceImage && <ExtendControls source={sourceImage} sides={extendSides} onChange={setExtendSides} veiled={veiled} />
                 }
+                faceFixControls={<FaceFixControls value={faceFix} onChange={setFaceFix} />}
               />
             )}
             {sourceImage && capabilities?.img2img && tagger && (

@@ -9,6 +9,10 @@ import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { tryAcquire } from '@/lib/security/concurrency'
 import { imageSize } from '@/lib/backends/images'
+import { stripDataUrl } from '@/lib/backends/http'
+import { DetectorMissingError, detectFaces } from '@/lib/facefix/detect'
+import { squareSide, type FaceFixPlan } from '@/lib/facefix/run'
+import { faceFixOptions } from '@/lib/generate/facefix'
 import { workflowAccess } from '@/lib/backends/workflow-access'
 import { OUTPAINT_MAX_EDGE, outpaintSides } from '@/lib/generate/outpaint'
 import { prepareOutpaint } from '@/lib/generate/outpaint-image'
@@ -56,17 +60,41 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     delete generate.pose_is_skeleton
     delete generate.pose_strength
   }
+  // Face fix: the faces are found here, before the run waits, so a picture
+  // with none (or no detector downloaded yet) is answered now. The run then
+  // redraws each face's crop as an ordinary inpaint (lib/facefix/run.ts).
+  const fix = generate.init_image_base64 && !generate.upscale && !sides ? faceFixOptions(body.facefix) : null
+  let facefix: FaceFixPlan | undefined
+  if (fix) {
+    if (body.grid !== undefined) return jsonError(serverMessage('generate.facefix.noGrid'), 400)
+    const source = stripDataUrl(generate.init_image_base64!)
+    const size = await imageSize(source)
+    if (!size) return jsonError(serverMessage('generate.facefix.badPicture'), 400)
+    let faces
+    try {
+      faces = await detectFaces(source, fix.detector, { confidence: fix.confidence, max: fix.maxFaces })
+    } catch (error) {
+      if (error instanceof DetectorMissingError) return jsonError(serverMessage('generate.facefix.noDetector'), 409)
+      return jsonError(serverMessage('generate.facefix.badPicture'), 400)
+    }
+    if (faces.length === 0) return jsonError(serverMessage('generate.facefix.noFaces'), 400)
+    facefix = { faces, options: fix, side: squareSide(generate.width, generate.height) }
+    // The record names the picture as it comes back: the source's size, one picture, the denoise as strength.
+    Object.assign(generate, { init_image_base64: source, strength: fix.denoise, image_count: 1, width: size.width, height: size.height })
+    for (const key of ['mask_base64', 'mask_blur', 'pose_image_base64', 'pose_is_skeleton', 'pose_strength', 'workflow'] as const) delete generate[key]
+  }
   // Only for the record: the backend is sent the prompt with its wildcards replaced.
   const template = body.prompt_template
   const input: RunInput = {
     generate,
     profile: typeof body.profile === 'string' ? body.profile : adapter.config.profile,
-    mode: sides ? 'outpaint' : modeOf(generate),
+    mode: sides ? 'outpaint' : facefix ? 'facefix' : modeOf(generate),
     promptTemplate: typeof template === 'string' && template.length <= 10_000 && hasDynamicPrompt(template) ? template : undefined,
     // The record names an upscale's size before it, as hires fix's: the source's.
     sourceSize: generate.upscale && generate.init_image_base64 ? await imageSize(generate.init_image_base64) : null,
     secret: body.secret === true,
     startedBy: viewerOf(request.headers),
+    ...(facefix ? { facefix } : {}),
   }
 
   // An X/Y grid always goes through the queue, as one run however many cells

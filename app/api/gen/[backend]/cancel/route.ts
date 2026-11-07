@@ -1,6 +1,7 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { getCurrentJob } from '@/lib/diffusion/job-store'
 import { cancelGrid, cancelQueued, getGrid, getQueued } from '@/lib/diffusion/run-queue'
+import { cancelFaceFix } from '@/lib/facefix/run'
 import { maySeeRun, viewerOf } from '@/lib/security/viewer'
 
 export const runtime = 'nodejs'
@@ -41,6 +42,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   if (found || waiting || typeof body?.job !== 'string' || !current || current.id !== body.job || current.status !== 'running' || !maySeeRun(viewer, current.context.startedBy)) {
     return jsonError('That run is not running', 409)
   }
-  const result = await adapter.cancel(current.runId)
+  // A face fix stops the face being drawn and skips the rest.
+  const result = (await cancelFaceFix(adapter.config.id)) ?? (await adapter.cancel(current.runId))
   return result.ok ? json(result.value) : jsonError(result.error, result.status)
 }

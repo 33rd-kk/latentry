@@ -69,7 +69,7 @@ export interface JobContext {
   profile: string
   kind: string
   model: string | null
-  mode: 'txt2img' | 'img2img' | 'inpaint' | 'outpaint' | 'pose' | 'upscale'
+  mode: 'txt2img' | 'img2img' | 'inpaint' | 'outpaint' | 'pose' | 'upscale' | 'facefix'
   /** The prompt as typed, with its wildcards, when the page replaced any. */
   promptTemplate?: string
   /** The X/Y grid cell this run draws, if it is one. */
