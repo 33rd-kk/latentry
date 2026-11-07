@@ -307,6 +307,20 @@ export function upscalerNames(files: string[]): string[] {
   return [...names]
 }
 
+/** The checkpoints by file name, each once: what the page may choose from (the folders stay here). */
+export function checkpointNames(files: string[]): string[] {
+  return [...new Set(files.map(modelFileName).filter(Boolean))]
+}
+
+/**
+ * The checkpoint file a listed name stands for: undefined when there is none
+ * by that name, null when two folders hold one (which is meant cannot be told).
+ */
+export function resolveCheckpoint(name: string, files: string[]): string | null | undefined {
+  const matches = files.filter((file) => modelFileName(file) === name)
+  return matches.length > 1 ? null : matches[0]
+}
+
 /** The upscale model file a listed name stands for: null for Lanczos, undefined when there is none by that name. */
 export function resolveUpscaler(name: string, files: string[]): string | null | undefined {
   if (name === LANCZOS) return null
@@ -575,6 +589,8 @@ export class ComfyUIAdapter implements BackendAdapter {
       busy: running.length + pending.length > 0 || inflightRuns.has(this.config.id),
       // The file's name only: the folders under ComfyUI's models folder stay here.
       model: checkpoint ? modelFileName(checkpoint) : null,
+      // For the X/Y grid's model axis, by file name only.
+      checkpoints: alive ? checkpointNames(info.checkpoints) : [],
       capabilities: {
         img2img: true,
         inpaint: true,
@@ -616,6 +632,16 @@ export class ComfyUIAdapter implements BackendAdapter {
     if (this.config.model && info.checkpoints.length && !info.checkpoints.includes(this.config.model)) {
       return { ok: false, status: 400, error: `The model set for this backend is not in ComfyUI's list: ${modelFileName(this.config.model)}` }
     }
+    // A model named for this run (an X/Y grid's model axis), by file name.
+    let chosen: string | undefined
+    if (request.model) {
+      const resolved = resolveCheckpoint(request.model, info.checkpoints)
+      if (resolved === undefined) return { ok: false, status: 400, error: `This model is not in ComfyUI's list: ${modelFileName(request.model)}` }
+      if (resolved === null) {
+        return { ok: false, status: 400, error: `Two folders in ComfyUI hold a checkpoint named ${modelFileName(request.model)}; rename one to tell them apart` }
+      }
+      chosen = resolved
+    }
     const calls = loraCallsInPrompt(request.prompt)
     if (calls.length > MAX_LORAS) return { ok: false, status: 400, error: `At most ${MAX_LORAS} LoRAs in one prompt` }
     const { found, missing } = resolveLoras(calls, info.loras ?? [])
@@ -650,7 +676,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       if ('error' in trial) return { ok: false, status: 400, error: trial.error }
       workflow = read.graph
     }
-    const checkpoint = workflow ? (this.config.model ?? '') : this.checkpointFrom(info)
+    const checkpoint = chosen ?? (workflow ? (this.config.model ?? '') : this.checkpointFrom(info))
     if (!workflow && !checkpoint) return { ok: false, status: 400, error: 'ComfyUI lists no checkpoint to draw with' }
     // Named as the page lists it; the file, folders and all, is looked up here.
     const upscaleModel = request.hr_scale !== undefined ? resolveUpscaler(request.hr_upscaler ?? LANCZOS, info.upscaleModels) : null
@@ -829,7 +855,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             seed,
             prompt: withoutLoraCalls(request.prompt),
             sizeMultiple,
-            ...(this.config.model ? { checkpoint: this.config.model } : {}),
+            ...(checkpoint ? { checkpoint } : {}),
             loras,
             ...(uploaded.pose ? { pose: uploaded.pose } : {}),
           })

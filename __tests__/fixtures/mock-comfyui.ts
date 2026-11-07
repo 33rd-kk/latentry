@@ -27,7 +27,7 @@ export interface MockComfyUI {
 const MODEL_PATH = 'private-folder/sdxl/base.safetensors'
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockComfyUI(options: { port?: number; swarmui?: boolean } = {}): Promise<MockComfyUI> {
+export async function startMockComfyUI(options: { port?: number; swarmui?: boolean; checkpoints?: string[] } = {}): Promise<MockComfyUI> {
   // Without this sharp keeps what it read open on Windows, and a test cannot delete its folder.
   sharp.cache(false)
   const pixels = await sharp({ create: { width: 64, height: 96, channels: 3, background: '#7a6b93' } }).png().toBuffer()
@@ -51,7 +51,7 @@ export async function startMockComfyUI(options: { port?: number; swarmui?: boole
       const combo = (node: string, input: string, names: string[]) => ({ [node]: { input: { required: { [input]: [names] } } } })
       if (route === 'GET /system_stats') return reply(200, { system: { comfyui_version: 'mock' }, devices: [] })
       if (route === 'GET /queue') return reply(200, { queue_running: [], queue_pending: [] })
-      if (route === 'GET /object_info/CheckpointLoaderSimple') return reply(200, combo('CheckpointLoaderSimple', 'ckpt_name', [MODEL_PATH]))
+      if (route === 'GET /object_info/CheckpointLoaderSimple') return reply(200, combo('CheckpointLoaderSimple', 'ckpt_name', options.checkpoints ?? [MODEL_PATH]))
       if (route === 'GET /object_info/KSampler') {
         return reply(200, { KSampler: { input: { required: { sampler_name: [['euler', 'dpmpp_2m']], scheduler: [['normal', 'karras']] } } } })
       }

@@ -35,7 +35,16 @@ values. The button becomes **Queue grid** with the number of cells.
 |---|---|
 | CFG, Steps, Seed, Hires denoise | Numbers with commas between them, or a range: `20-40:5` is 20, 25, 30, 35 and 40, and `1-4` steps by 1. Hires denoise needs Hires fix on. |
 | Sampler, Scheduler | Click the names the backend lists. |
+| Model | ComfyUI only, with Latentry's built-in graph: click the checkpoints ComfyUI lists, by file name. Each cell draws with its own checkpoint. |
 | Prompt S/R | Text. The first value is looked for in the prompt (or the negative prompt), and each value takes its place in turn: `red hair, blue hair, ""` draws the prompt as typed, then with blue hair, then with neither. Put a value with a comma in it in double quotes. |
+
+**Model** compares checkpoints. ComfyUI loads the checkpoint each prompt
+names, so changing it per cell changes nothing else. On a web UI
+(AUTOMATIC1111 / Forge) it would mean switching the web UI's own model,
+which Latentry never does; sd-server and Latentry's engine draw with the one
+model they have loaded. The form keeps its profile for every cell, so compare
+models of one family (SDXL with SDXL), and if two of ComfyUI's folders hold a
+checkpoint with the same file name, rename one: that cell is not drawn.
 
 To compare a LoRA's weights, use Prompt S/R: with `<lora:style:0.4>` in the
 prompt, `<lora:style:0.4>, <lora:style:0.8>, ""` draws it at two weights and

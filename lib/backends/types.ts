@@ -88,6 +88,11 @@ export interface BackendStatus {
   schedulers: string[]
   /** The values hr_upscaler accepts, as the backend lists them; empty while it has no hires fix. */
   upscalers: string[]
+  /**
+   * comfyui: the checkpoints it has, by file name only (no folders), for the
+   * X/Y grid's model axis. Absent or empty elsewhere, which hides that axis.
+   */
+  checkpoints?: string[]
   /** While it is down: why, when that is known. */
   problem?: BackendProblem
 }
@@ -112,6 +117,12 @@ export interface GenerateRequest {
   height: number
   /** -1 for random. */
   seed: number
+  /**
+   * comfyui: the checkpoint to draw with, by file name as status lists it, in
+   * place of the backend's own. Set only by an X/Y grid's model axis on this
+   * server, never taken from the browser (lib/api.ts reads known fields only).
+   */
+  model?: string
   image_count: number
   sampler: string
   scheduler: string

@@ -10,6 +10,7 @@ import path from 'node:path'
 import { NextRequest } from 'next/server'
 import { check, done, eq } from './assert'
 import { startMockA1111 } from './fixtures/mock-a1111'
+import { startMockComfyUI } from './fixtures/mock-comfyui'
 import en from '../locales/en.json'
 import { POST as generateRoute } from '../app/api/gen/[backend]/generate/route'
 import { POST as cancelRoute } from '../app/api/gen/[backend]/cancel/route'
@@ -22,6 +23,7 @@ import { getGrid, queueLength } from '../lib/diffusion/run-queue'
 import { readSseFrames } from '../lib/diffusion/sse'
 import {
   cellRequest,
+  checkModelAxis,
   gridCells,
   gridErrorParts,
   gridPlace,
@@ -181,7 +183,7 @@ function pureChecks(): void {
   check(grid('hr_denoise=0.3,0.5', undefined, { hr_scale: 1.5 }).ok, 'and works with it')
   eq(errorOf(grid('seed=1-9', 'steps=1-8')), { code: 'tooManyCells', max: GRID_MAX_CELLS }, `at most ${GRID_MAX_CELLS} cells`)
   eq(errorOf(grid('seed=1-9', undefined, { image_count: 16 })), { code: 'tooManyImages', max: GRID_MAX_IMAGES }, `and ${GRID_MAX_IMAGES} pictures in all`)
-  eq(readGridInput({ x: { kind: 'model', text: 'a' } }), null, 'an axis Latentry does not know is not read')
+  eq(readGridInput({ x: { kind: 'clip_skip', text: 'a' } }), null, 'an axis Latentry does not know is not read')
   eq(readGridInput({ x: { kind: 'cfg', text: 4 } }), null, 'nor one whose values are not text')
   eq(readGridInput('cfg'), null, 'nor something that is not a grid')
 
@@ -193,6 +195,8 @@ function pureChecks(): void {
     { code: 'sameAxis' },
     { code: 'notInPrompt', axis: 'x', value: 'v' },
     { code: 'noHires' },
+    { code: 'noModels' },
+    { code: 'modelWorkflow' },
     { code: 'tooManyCells', max: 1 },
     { code: 'tooManyImages', max: 1 },
   ]
@@ -208,6 +212,21 @@ function pureChecks(): void {
   const last = cellRequest(base, spec.value, cells[3])
   eq([last.guidance_scale, last.prompt], [6, 'a blue cat, blue hat'], 'a cell sets its X value and replaces every place of the first Y value')
   eq([base.guidance_scale, base.prompt], [6, 'a red cat, red hat'], 'without changing the run it starts from')
+
+  // ── The model axis ──
+  const models = grid('model="a, b.safetensors", c.safetensors', 'cfg=4,6')
+  if (!models.ok) throw new Error('the model grid should read')
+  eq(models.value.x.values, ['a, b.safetensors', 'c.safetensors'], 'a model name with a comma is quoted')
+  eq(cellRequest(base, models.value, gridCells(models.value)[1]).model, 'c.safetensors', 'a cell names its model')
+  eq(base.model, undefined, 'and the run it starts from names none')
+  const listed = ['a, b.safetensors', 'c.safetensors']
+  eq(checkModelAxis(models.value, listed, false), null, 'models the backend lists may run')
+  eq(checkModelAxis(models.value, [], false), { code: 'noModels' }, 'a backend that lists none cannot change the model per cell')
+  eq(checkModelAxis(models.value, listed, true), { code: 'modelWorkflow' }, 'nor can a workflow, which may load its own')
+  eq(checkModelAxis(models.value, ['c.safetensors'], false), { code: 'value', axis: 'x', value: 'a, b.safetensors' }, 'a name it does not list is named')
+  const plain = grid('cfg=4,6')
+  check(plain.ok && checkModelAxis(plain.value, [], true) === null, 'a grid without a model axis is not checked for one')
+  eq(errorOf(axis('model', 'x'.repeat(261))), { code: 'value', axis: 'x', value: 'x'.repeat(40) }, "a model name is held to a file name's length")
 }
 
 async function main(): Promise<void> {
@@ -218,11 +237,16 @@ async function main(): Promise<void> {
   // Saved pictures only: a save writes a hidden .tmp file first and renames it.
   const pictures = () => readdirSync(out).filter((name) => name.endsWith('.png') && !name.startsWith('.')).sort()
   const mock = await startMockA1111()
+  // ComfyUI lists checkpoints in folders; two folders hold one of the same name.
+  const comfy = await startMockComfyUI({ checkpoints: ['sd15/base.safetensors', 'xl/other.safetensors', 'a/dup.safetensors', 'b/dup.safetensors'] })
   writeFileSync(
     path.join(scratch, 'settings.json'),
     JSON.stringify({
       version: 1,
-      backends: [{ id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' }],
+      backends: [
+        { id: 'mock', kind: 'a1111', url: mock.url, profile: 'generic' },
+        { id: 'comfy', kind: 'comfyui', url: comfy.url, profile: 'generic' },
+      ],
       gallery: { saveDir: out, dirs: [] },
       engine: { autoStart: false },
     })
@@ -344,12 +368,48 @@ async function main(): Promise<void> {
     check(cellJobs.every((id) => id !== null && getJob('mock', id)?.secret === true), 'its cells ran as secret runs')
     check(blocker.job !== undefined, 'the run ahead ran as usual')
 
+    // ── A model axis: refused where the backend cannot change models ──
+    const noModels = await generate({ prompt: 'a cat', grid: { x: { kind: 'model', text: 'one.safetensors, two.safetensors' } } })
+    eq(noModels.status, 400, 'a model axis on A1111 is refused before it waits')
+    check(noModels.error?.includes('generate.grid.error.noModels') ?? false, 'saying the backend cannot change models')
+
+    // ── A model axis on ComfyUI: each cell draws with its own checkpoint ──
+    const onComfy = async (body: Record<string, unknown>) => {
+      const response = await generateRoute(
+        new Request(`${ORIGIN}/api/gen/comfy/generate`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify(body) }),
+        params({ backend: 'comfy' })
+      )
+      return { status: response.status, json: (await response.json()) as { queued?: Queued; error?: string } }
+    }
+    const unknownModel = await onComfy({ prompt: 'a fox', grid: { x: { kind: 'model', text: 'base.safetensors, missing.safetensors' } } })
+    eq(unknownModel.status, 400, 'a model ComfyUI does not list is refused before it waits')
+    const before = pictures().length
+    const byModel = await onComfy({ prompt: 'a fox', seed: 9, grid: { x: { kind: 'model', text: 'base.safetensors, other.safetensors, dup.safetensors' } } })
+    eq(byModel.status, 202, 'a model axis on ComfyUI is queued')
+    const modelGrid = byModel.json.queued!.id
+    await until(() => getGrid('comfy', modelGrid)?.state === 'started' && getGrid('comfy', modelGrid)!.grid!.jobs.every((id) => id === null || getJob('comfy', id)?.status !== 'running'), 'the model grid to finish', 15_000)
+    await until(() => getGrid('comfy', modelGrid)!.grid!.jobs.every((id) => id === null || getJob('comfy', id)!.images.every((image) => image.saved_name !== null)), 'its pictures to be saved')
+    eq(comfy.graphs.map((graph) => graph['1']?.inputs.ckpt_name), ['sd15/base.safetensors', 'xl/other.safetensors'], 'each cell sent ComfyUI its own checkpoint, folder and all')
+    const modelErrors = getGrid('comfy', modelGrid)!.grid!.errors
+    check(String(modelErrors[2] ?? '').includes('Two folders'), 'a name two folders share stops that cell only, saying why')
+    const modelRecords = pictures()
+
+      .map((name) => parseLatentryRecord(readPngText(readFileSync(path.join(out, name)))[LATENTRY_KEY] ?? ''))
+      .filter((record) => record?.grid?.id === modelGrid)
+    eq(pictures().length - before, 2, 'the two cells that ran saved a picture each')
+    eq(
+      modelRecords.map((record) => [record?.model, record?.grid?.x.value]).sort(),
+      [['base.safetensors', 'base.safetensors'], ['other.safetensors', 'other.safetensors']],
+      'and each picture records the model it was drawn with, by file name'
+    )
+
     // ── A grid nobody was told about ──
     const unknown = watch('00000000-0000-4000-8000-000000000000')
     await unknown.finished
     eq(unknown.events.at(-1)?.data.status, 'gone', 'an unknown id is gone')
   } finally {
     await mock.close()
+    await comfy.close()
     // A save of the last run can still be finishing in out/: retry rather than fail on ENOTEMPTY.
     rmSync(scratch, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 })
   }

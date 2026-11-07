@@ -15,6 +15,12 @@ folders. This computer and owner devices are not affected.
   sd-server has no login, so Settings warns about one reached over the
   network without a token. See
   [stable-diffusion.cpp](https://33rd-kk.github.io/latentry/reference/backends/#stable-diffusioncpp).
+- **Compare models in the X/Y grid**: on ComfyUI, **Model** is an axis of
+  its own. Click the checkpoints ComfyUI lists, and each cell draws with
+  its own, recorded in its picture. Checkpoints are listed by file name
+  only. Other backends do not offer it: a web UI would have to switch its
+  own model. See
+  [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
 - **SwarmUI's ComfyUI as a backend, with a warning**: the ComfyUI that
   SwarmUI starts works as an ordinary `comfyui` backend at its own port
   (checked with SwarmUI 0.9.8.4). SwarmUI shares that ComfyUI under its own
