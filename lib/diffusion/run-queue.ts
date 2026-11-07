@@ -3,6 +3,7 @@ import { getAdapter } from '@/lib/backends'
 import type { Outcome } from '@/lib/backends/types'
 import { getCurrentJob, getJob, keptForRun, markSecret, onBackendIdle } from '@/lib/diffusion/job-store'
 import { inputBytes, isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
+import { cancelFaceFix } from '@/lib/facefix/run'
 import { cellRequest, gridPlace, type GridCell, type GridSpec } from '@/lib/generate/grid'
 import { serverMessage } from '@/lib/i18n/core'
 import { QUEUE_MAX_BYTES, QUEUE_MAX_RUNS } from '@/lib/limits'
@@ -353,7 +354,11 @@ async function next(backend: string): Promise<void> {
       return
     }
     leave(head, 'started')
-    if (head.cancelOnStart) await adapter.cancel(result.value.runId).catch(() => null)
+    // A face fix stops through its own run, which knows the face being drawn.
+    if (head.cancelOnStart) {
+      const fixed = await cancelFaceFix(backend).catch(() => null)
+      if (!fixed) await adapter.cancel(result.value.runId).catch(() => null)
+    }
   } finally {
     launching.delete(head)
     release()

@@ -3,6 +3,7 @@ import type { BackendAdapter, GenerateRequest, Outcome } from '@/lib/backends/ty
 import { consumeEvents, startJob, type Job, type JobContext } from '@/lib/diffusion/job-store'
 import { hiresSteps } from '@/lib/diffusion/hires'
 import type { GridPlace } from '@/lib/generate/grid'
+import { faceFixAdapter, type FaceFixPlan } from '@/lib/facefix/run'
 import { img2imgSteps } from '@/lib/diffusion/img2img'
 import { saveToGallery } from '@/lib/gallery/save'
 import type { Viewer } from '@/lib/security/viewer'
@@ -23,6 +24,8 @@ export interface RunInput {
   secret: boolean
   /** Set on each cell of an X/Y grid: where it sits, for its pictures' record. */
   grid?: GridPlace
+  /** Face fix: the faces the route found in the source, each redrawn in turn (lib/facefix/run.ts). */
+  facefix?: FaceFixPlan
   /**
    * Who started it: a paired device sees only its own runs, and they are
    * saved to the paired devices' save folder when one is set.
@@ -45,11 +48,13 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
   const { generate } = input
   if (input.secret) generate.secret = true
   const status = await backendStatus(adapter, 30 * 1000).catch(() => null)
-  const started = await adapter.start(generate)
+  const started = await (input.facefix ? faceFixAdapter(adapter, input.facefix) : adapter).start(generate)
   if (!started.ok) return started
 
   // An upscale runs only its redraw; hires fix both passes.
-  const steps = generate.upscale
+  const steps = input.facefix
+    ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.4, input.profile) * input.facefix.faces.length
+    : generate.upscale
     ? hiresSteps(generate)
     : generate.init_image_base64
       ? img2imgSteps(generate.num_inference_steps, generate.strength ?? 0.6, input.profile)
