@@ -2,6 +2,7 @@
 //
 // What a picture's text means: the settings it was made with, read from
 // whichever tool wrote them (Latentry's own record, A1111 / Forge infotext,
+// stable-diffusion.cpp's own record,
 // ComfyUI's executed graph), and the WD14 tags written back.
 //
 // Part of lib/image-meta: no imports outside node's built-ins (see README.md).
@@ -16,7 +17,7 @@ export interface ImageTag {
 
 /** The settings a picture was made with, whichever tool wrote them. */
 export interface ImageMeta {
-  source: 'latentry' | 'a1111' | 'comfyui' | 'unknown'
+  source: 'latentry' | 'a1111' | 'comfyui' | 'sdcpp' | 'unknown'
   prompt: string
   negativePrompt: string
   seed?: number
@@ -154,6 +155,83 @@ function uniqueLoras(names: string[]): string[] | undefined {
   return out.length ? out : undefined
 }
 
+const SDCPP_MARK = ', SDCPP: '
+const SDCPP_SCHEMA = 'sdcpp.generation/v1'
+const MAX_SDCPP_TRIES = 8
+
+/** Whether a `parameters` text was written by stable-diffusion.cpp (since its native JSON was added). */
+export function isSdcppParameters(text: string): boolean {
+  return text.includes(`${SDCPP_MARK}{`) || /(^|, )Version: stable-diffusion\.cpp\s*$/.test(text) || text.trimStart().startsWith(`{"schema":"${SDCPP_SCHEMA}"`)
+}
+
+/** stable-diffusion.cpp's native record: the JSON after the last `, SDCPP: ` that parses, or a bare one. */
+function sdcppRecord(text: string): { infotext: string; record: Record<string, unknown> | null } {
+  const parse = (json: string): Record<string, unknown> | null => {
+    try {
+      const value: unknown = JSON.parse(json)
+      return value && typeof value === 'object' && !Array.isArray(value) && (value as { schema?: unknown }).schema === SDCPP_SCHEMA
+        ? (value as Record<string, unknown>)
+        : null
+    } catch {
+      return null
+    }
+  }
+  if (text.trimStart().startsWith('{')) return { infotext: '', record: parse(text.trim()) }
+  // The prompt may hold the mark too: the first place where the rest parses is the record.
+  let at = text.indexOf(SDCPP_MARK)
+  for (let tries = 0; at !== -1 && tries < MAX_SDCPP_TRIES; tries += 1) {
+    const record = parse(text.slice(at + SDCPP_MARK.length))
+    if (record) return { infotext: text.slice(0, at), record }
+    at = text.indexOf(SDCPP_MARK, at + 1)
+  }
+  return { infotext: text, record: null }
+}
+
+/**
+ * stable-diffusion.cpp's `parameters`: an A1111-style infotext followed by
+ * `, SDCPP: {json}` (its own record, read first), or the JSON alone (an
+ * upscale). Model and LoRA paths are cut down to file names here.
+ */
+export function parseSdcppParameters(text: string): ImageMeta {
+  const { infotext, record } = sdcppRecord(text)
+  const fromText = infotext ? parseA1111Parameters(infotext) : null
+  if (!record) return { ...(fromText ?? { prompt: '', negativePrompt: '' }), source: 'sdcpp' }
+
+  const object = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {})
+  const number = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+  const string = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined)
+  const fileName = (value: unknown): string | undefined => {
+    const name = string(value)?.split(/[\\/]/).pop()
+    return name ? name.replace(/\.(safetensors|gguf|ckpt|pt|pth|bin|sft)$/i, '') : undefined
+  }
+  const sample = object(record.sample_params)
+  const guidance = object(sample.guidance)
+  const hires = object(record.hires)
+  const models = object(record.models)
+  const seed = typeof record.seed === 'string' ? Number(record.seed) : number(record.seed)
+  const loras = Array.isArray(record.loras)
+    ? record.loras.filter((lora) => !object(lora).is_high_noise).map((lora) => loraName(string(object(lora).path) ?? ''))
+    : []
+  const hiresUse: HiresUse | undefined =
+    hires.enabled === true && number(hires.scale) !== undefined
+      ? { scale: number(hires.scale)!, steps: number(hires.steps) ?? 0, denoise: number(hires.denoising_strength) ?? 0.4, upscaler: string(hires.upscaler) ?? 'Latent' }
+      : undefined
+  return {
+    source: 'sdcpp',
+    prompt: typeof record.prompt === 'string' ? record.prompt : (fromText?.prompt ?? ''),
+    negativePrompt: typeof record.negative_prompt === 'string' ? record.negative_prompt : (fromText?.negativePrompt ?? ''),
+    ...(seed !== undefined && Number.isSafeInteger(seed) && seed >= 0 ? { seed } : {}),
+    ...(number(record.width) && number(record.height) ? { width: number(record.width), height: number(record.height) } : {}),
+    steps: number(sample.sample_steps) ?? fromText?.steps,
+    cfg: number(guidance.txt_cfg) ?? fromText?.cfg,
+    sampler: string(sample.sample_method) ?? fromText?.sampler,
+    scheduler: string(sample.scheduler) ?? fromText?.scheduler,
+    ...(hiresUse ? { hires: hiresUse } : number(record.strength) !== undefined ? { strength: number(record.strength) } : {}),
+    model: fileName(models.diffusion_model) ?? fileName(models.model) ?? fromText?.model,
+    loras: uniqueLoras(loras),
+  }
+}
+
 /**
  * A1111's infotext: the prompt, an optional "Negative prompt:" line, and a
  * last line of "Key: value, Key: value" settings (values may be quoted).
@@ -191,7 +269,10 @@ export function parseA1111Parameters(text: string): ImageMeta {
   }
   const size = /^(\d+)x(\d+)$/.exec(settings.Size ?? '')
   // With hires fix the denoising strength is the second pass's, not an img2img source's.
-  const hiresScale = num('Hires upscale')
+  // A hires pass to a set size says "Hires resize: WxH" instead of a scale.
+  const resize = /^(\d+)x(\d+)$/.exec(settings['Hires resize'] ?? '')
+  const hiresScale =
+    num('Hires upscale') ?? (resize && size && Number(size[1]) > 0 ? Math.round((Number(resize[1]) / Number(size[1])) * 100) / 100 : undefined)
   const hires: HiresUse | undefined =
     hiresScale !== undefined
       ? { scale: hiresScale, steps: num('Hires steps') ?? 0, denoise: num('Denoising strength') ?? 0.4, upscaler: settings['Hires upscaler'] || 'Latent' }
@@ -739,7 +820,11 @@ export function metaFromText(text: Record<string, string>): ImageMeta | null {
   const tags = parseTags(text[TAGS_KEY])
   const meta =
     (text[LATENTRY_KEY] ? parseLatentryRecord(text[LATENTRY_KEY]) : null) ??
-    (text[PARAMETERS_KEY] ? parseA1111Parameters(text[PARAMETERS_KEY]) : null) ??
+    (text[PARAMETERS_KEY]
+      ? isSdcppParameters(text[PARAMETERS_KEY])
+        ? parseSdcppParameters(text[PARAMETERS_KEY])
+        : parseA1111Parameters(text[PARAMETERS_KEY])
+      : null) ??
     (text.prompt ? parseComfyPrompt(text.prompt) : null) ??
     (text.workflow ? parseComfyWorkflow(text.workflow) : null)
   if (!meta && !tags) return null

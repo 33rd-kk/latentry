@@ -7,7 +7,9 @@
 // The text comes back keyed the way PNG keys it, so metaFromText reads all
 // three formats alike: EXIF UserComment (where A1111 / Forge save their
 // infotext in JPEG and WebP) becomes `parameters`, and ComfyUI's WebP
-// "Prompt: {graph}" becomes `prompt`.
+// "Prompt: {graph}" becomes `prompt`. stable-diffusion.cpp keeps its
+// `parameters` text in a JPEG comment (`parameters`, NUL, the text) and in a
+// WebP's XMP (`<sdcpp:parameters>`); both become `parameters` too.
 //
 // Part of lib/image-meta: no imports outside node's built-ins (see README.md).
 
@@ -94,6 +96,7 @@ async function readJpeg(read: Reader, size: number): Promise<ImageInfo> {
   let width = 0
   let height = 0
   let exif: ExifText | null = null
+  let comment: string | null = null
   while (position + 4 <= size) {
     const head = await read(4, position)
     if (head.length < 4 || head[0] !== 0xff) break
@@ -121,10 +124,12 @@ async function readJpeg(read: Reader, size: number): Promise<ImageInfo> {
     } else if (marker === 0xe1 && !exif) {
       const data = await read(length - 2, dataAt)
       if (data.toString('latin1', 0, 6) === 'Exif\0\0') exif = readExifText(data)
+    } else if (marker === 0xfe && comment === null) {
+      comment = parametersComment(await read(length - 2, dataAt))
     }
     position += 2 + length
   }
-  return { format: 'jpeg', width, height, text: textFromExif(exif) }
+  return { format: 'jpeg', width, height, text: withParameters(textFromExif(exif), comment) }
 }
 
 /**
@@ -136,6 +141,7 @@ async function readWebp(read: Reader, size: number): Promise<ImageInfo> {
   let width = 0
   let height = 0
   let exif: ExifText | null = null
+  let xmp: string | null = null
   while (position + 8 <= size) {
     const head = await read(8, position)
     if (head.length < 8) break
@@ -163,11 +169,47 @@ async function readWebp(read: Reader, size: number): Promise<ImageInfo> {
       }
     } else if (fourcc === 'EXIF' && length <= MAX_BLOCK && !exif) {
       exif = readExifText(await read(length, dataAt))
+    } else if (fourcc === 'XMP ' && length <= MAX_BLOCK && xmp === null) {
+      xmp = sdcppXmpParameters((await read(length, dataAt)).toString('utf8'))
     }
     // Chunks are padded to an even length.
     position = dataAt + length + (length % 2)
   }
-  return { format: 'webp', width, height, text: textFromExif(exif) }
+  return { format: 'webp', width, height, text: withParameters(textFromExif(exif), xmp) }
+}
+
+/** The text with `parameters` from another block, when EXIF gave none. */
+function withParameters(text: Record<string, string>, parameters: string | null): Record<string, string> {
+  if (parameters && !text.parameters) text.parameters = parameters
+  return text
+}
+
+const COMMENT_LABEL = 'parameters\0'
+
+/** stable-diffusion.cpp's JPEG comment (`parameters`, NUL, the text, NUL) as text; null for any other comment. */
+export function parametersComment(data: Buffer): string | null {
+  if (data.toString('latin1', 0, COMMENT_LABEL.length) !== COMMENT_LABEL) return null
+  let end = data.length
+  while (end > COMMENT_LABEL.length && data[end - 1] === 0) end -= 1
+  return data.toString('utf8', COMMENT_LABEL.length, end) || null
+}
+
+const XML_ENTITIES: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" }
+
+/**
+ * The `<sdcpp:parameters>` element of stable-diffusion.cpp's XMP, unescaped;
+ * null when there is none. Only that element is read: no other XMP field is
+ * taken, and no XML parser runs on the file.
+ */
+export function sdcppXmpParameters(xmp: string): string | null {
+  const match = /<sdcpp:parameters>([\s\S]*?)<\/sdcpp:parameters>/.exec(xmp)
+  if (!match) return null
+  const text = match[1].replace(/&(?:(amp|lt|gt|quot|apos)|#(\d{1,7})|#x([0-9a-fA-F]{1,6}));/g, (whole, name?: string, dec?: string, hex?: string) => {
+    if (name) return XML_ENTITIES[name]
+    const code = dec ? Number(dec) : Number.parseInt(hex ?? '', 16)
+    return code > 0 && code <= 0x10ffff ? String.fromCodePoint(code) : whole
+  })
+  return text || null
 }
 
 /** EXIF fields under the keywords a PNG would use for the same thing. */

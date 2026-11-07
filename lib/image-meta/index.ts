@@ -4,7 +4,7 @@
 // and WebP without loading the image, and written into PNG text chunks.
 // Kept free of the app (see README.md) so it can become its own package.
 
-export { readImageInfo, readImageInfoFrom, type ImageFormat, type ImageInfo } from './read'
+export { parametersComment, readImageInfo, readImageInfoFrom, sdcppXmpParameters, type ImageFormat, type ImageInfo } from './read'
 export { exifOrientation, stripJpeg, stripMetadata, stripPng, stripWebp } from './strip'
 export { stripPngBytes } from './png-strip'
 export { decodeUserComment, readExifText, tiffOf, type ExifText } from './exif'
@@ -28,6 +28,7 @@ export {
   comfyGraphRoles,
   COMFY_MARKERS,
   formatA1111Parameters,
+  isSdcppParameters,
   loraCallsInPrompt,
   loraName,
   lorasInPrompt,
@@ -37,6 +38,7 @@ export {
   parseComfyPrompt,
   parseComfyWorkflow,
   parseLatentryRecord,
+  parseSdcppParameters,
   parseTags,
   type ComfyRoles,
   type ComfySlot,
