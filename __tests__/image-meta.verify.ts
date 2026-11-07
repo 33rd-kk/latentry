@@ -524,6 +524,15 @@ function sdcppText() {
   const huge = parseSdcppParameters(SDCPP_TEXT.replace('"seed":"4294967295"', '"seed":"18446744073709551615"'))
   eq(huge.seed, undefined, 'sd.cpp: a seed past what a number holds exactly is left out, not rounded')
 
+  // As sd-server wrote them: its floats are float32 widened to a double.
+  const float32 = parseSdcppParameters(
+    JSON.stringify({ schema: 'sdcpp.generation/v1', kind: 'image', prompt: 'a cottage', width: 512, height: 512, seed: '424242', strength: 0.3499999940395355,
+      sample_params: { sample_steps: 2, guidance: { txt_cfg: 6.5 } } }).replace('6.5', '6.499999523162842')
+  )
+  eq([float32.strength, float32.cfg, float32.seed], [0.35, 6.5, 424242], 'sd.cpp: float32 values are read back as written, not with float noise')
+  const hiresFloat = parseSdcppParameters(SDCPP_TEXT.replace(/"denoising_strength":[0-9.]+/, '"denoising_strength":0.3499999940395355'))
+  eq(hiresFloat.hires?.denoise, 0.35, 'sd.cpp: the hires denoise too')
+
   const old = metaFromText({ parameters: 'a cat\nSteps: 20, CFG scale: 7, Seed: 42, Size: 512x512, Model: v1-5.safetensors, RNG: cuda, Sampler: euler_a karras' })
   eq([old?.source, old?.seed], ['a1111', 42], 'an older sd.cpp line (no record, no Version) is read as before')
 

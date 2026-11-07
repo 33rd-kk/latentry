@@ -199,6 +199,11 @@ export function parseSdcppParameters(text: string): ImageMeta {
 
   const object = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {})
   const number = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+  // sd.cpp writes its floats as float32 (0.35 comes out as 0.3499999940395355).
+  const float = (value: unknown): number | undefined => {
+    const found = number(value)
+    return found === undefined ? undefined : Number(found.toPrecision(6))
+  }
   const string = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined)
   const fileName = (value: unknown): string | undefined => {
     const name = string(value)?.split(/[\\/]/).pop()
@@ -213,8 +218,8 @@ export function parseSdcppParameters(text: string): ImageMeta {
     ? record.loras.filter((lora) => !object(lora).is_high_noise).map((lora) => loraName(string(object(lora).path) ?? ''))
     : []
   const hiresUse: HiresUse | undefined =
-    hires.enabled === true && number(hires.scale) !== undefined
-      ? { scale: number(hires.scale)!, steps: number(hires.steps) ?? 0, denoise: number(hires.denoising_strength) ?? 0.4, upscaler: string(hires.upscaler) ?? 'Latent' }
+    hires.enabled === true && float(hires.scale) !== undefined
+      ? { scale: float(hires.scale)!, steps: number(hires.steps) ?? 0, denoise: float(hires.denoising_strength) ?? 0.4, upscaler: string(hires.upscaler) ?? 'Latent' }
       : undefined
   return {
     source: 'sdcpp',
@@ -223,10 +228,10 @@ export function parseSdcppParameters(text: string): ImageMeta {
     ...(seed !== undefined && Number.isSafeInteger(seed) && seed >= 0 ? { seed } : {}),
     ...(number(record.width) && number(record.height) ? { width: number(record.width), height: number(record.height) } : {}),
     steps: number(sample.sample_steps) ?? fromText?.steps,
-    cfg: number(guidance.txt_cfg) ?? fromText?.cfg,
+    cfg: float(guidance.txt_cfg) ?? fromText?.cfg,
     sampler: string(sample.sample_method) ?? fromText?.sampler,
     scheduler: string(sample.scheduler) ?? fromText?.scheduler,
-    ...(hiresUse ? { hires: hiresUse } : number(record.strength) !== undefined ? { strength: number(record.strength) } : {}),
+    ...(hiresUse ? { hires: hiresUse } : float(record.strength) !== undefined ? { strength: float(record.strength) } : {}),
     model: fileName(models.diffusion_model) ?? fileName(models.model) ?? fromText?.model,
     loras: uniqueLoras(loras),
   }
