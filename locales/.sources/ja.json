@@ -341,6 +341,7 @@
   "gallery.filter.latentry": "Latentry",
   "gallery.filter.a1111": "A1111 / Forge",
   "gallery.filter.comfyui": "ComfyUI",
+  "gallery.filter.sdcpp": "stable-diffusion.cpp",
   "gallery.filter.none": "No settings",
   "gallery.filter.untagged": "Only pictures without WD14 tags",
   "gallery.filter.untaggedChip": "No WD14 tags",

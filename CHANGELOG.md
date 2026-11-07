@@ -15,6 +15,13 @@ folders. This computer and owner devices are not affected.
   sd-server has no login, so Settings warns about one reached over the
   network without a token. See
   [stable-diffusion.cpp](https://33rd-kk.github.io/latentry/reference/backends/#stable-diffusioncpp).
+- **The gallery reads stable-diffusion.cpp's pictures**: pictures that
+  `sd-server` or `sd-cli` saved themselves show their settings, from PNG,
+  JPEG (its comment) and WebP (its XMP), and **Settings from** has
+  stable-diffusion.cpp. Its own record is read first, so hires fix, the
+  sampler and LoRAs come out right; model and LoRA folders are dropped.
+  A1111's `Hires resize` is read too, and PNG text written as UTF-8 by
+  other tools no longer comes out garbled.
 - **Compare models in the X/Y grid**: on ComfyUI, **Model** is an axis of
   its own. Click the checkpoints ComfyUI lists, and each cell draws with
   its own, recorded in its picture. Checkpoints are listed by file name

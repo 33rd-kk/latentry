@@ -65,6 +65,22 @@ export function encodeChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([head, data, crc])
 }
 
+const strictUtf8 = new TextDecoder('utf-8', { fatal: true })
+
+/**
+ * A tEXt chunk's text. The format says Latin-1, but some tools (stable-
+ * diffusion.cpp among them) write UTF-8 bytes there: bytes above 0x7f that
+ * are valid UTF-8 are read as UTF-8, since Latin-1 text almost never is.
+ */
+function tEXtText(bytes: Buffer): string {
+  if (bytes.every((byte) => byte < 0x80)) return bytes.toString('latin1')
+  try {
+    return strictUtf8.decode(bytes)
+  } catch {
+    return bytes.toString('latin1')
+  }
+}
+
 /** The keyword and text of a tEXt, zTXt or iTXt chunk; null for any other chunk or a broken one. */
 export function decodeTextChunk(chunk: PngChunk): { keyword: string; text: string } | null {
   const { type, data } = chunk
@@ -73,7 +89,7 @@ export function decodeTextChunk(chunk: PngChunk): { keyword: string; text: strin
   if (nul <= 0) return null
   const keyword = data.toString('latin1', 0, nul)
   try {
-    if (type === 'tEXt') return { keyword, text: data.toString('latin1', nul + 1) }
+    if (type === 'tEXt') return { keyword, text: tEXtText(data.subarray(nul + 1)) }
     if (type === 'zTXt') return { keyword, text: inflateSync(data.subarray(nul + 2)).toString('latin1') }
     // iTXt: compression flag, method, language tag \0, translated keyword \0, text.
     const compressed = data[nul + 1] === 1

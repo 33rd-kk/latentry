@@ -13,8 +13,9 @@ paired phone. A paired phone sees only the folders with **Show on paired
 devices** on ([Settings](settings.md#gallery-folders)).
 
 The gallery reads settings from PNG, JPEG and WebP: A1111 / Forge's
-infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph, and
-Latentry's own record, including the LoRAs a picture used. From ComfyUI it
+infotext (in PNG text, or EXIF in JPEG and WebP), ComfyUI's graph,
+stable-diffusion.cpp's own record (in PNG text, a JPEG comment or WebP's
+XMP), and Latentry's own record, including the LoRAs a picture used. From ComfyUI it
 reads the graph that ran, or else the editor's workflow, and takes the base
 pass when there is a second (hires) one. Custom sampler nodes are read too
 when they use the stock input names, Impact Pack's pipes and providers
@@ -116,7 +117,7 @@ all):
   shown, and the folder is not read for them.
 - **LoRA**: every LoRA named in the folder's pictures, read the same way as
   the models (and hidden the same way in secret mode).
-- **Settings from**: Latentry, A1111 / Forge, ComfyUI, or no settings at all.
+- **Settings from**: Latentry, A1111 / Forge, ComfyUI, stable-diffusion.cpp, or no settings at all.
 - **Backend** and **profile**.
 - **Stars**: only pictures given at least 1 to 5 [stars](#stars); **1 or
   more** shows every rated picture.

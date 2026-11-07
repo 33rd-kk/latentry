@@ -1,16 +1,20 @@
 # image-meta
 
 Reads the settings an AI picture was made with: prompt, negative prompt,
-seed, steps, CFG, sampler, model, LoRAs, hires fix (A1111's `Hires upscale`,
-`Hires steps`, `Hires upscaler`, whose `Denoising strength` is then the
-hires pass's). It also writes them into PNG text
+seed, steps, CFG, sampler, model, LoRAs, hires fix (A1111's `Hires upscale`
+or `Hires resize`, `Hires steps`, `Hires upscaler`, whose `Denoising
+strength` is then the hires pass's). It also writes them into PNG text
 chunks. It is part of Latentry for now, kept separate so it can become its
 own package.
 
-- **Formats**: PNG text chunks (`tEXt`, `zTXt`, `iTXt`), and EXIF in JPEG
-  (APP1) and WebP (`EXIF` chunk).
+- **Formats**: PNG text chunks (`tEXt`, `zTXt`, `iTXt`; a `tEXt` holding
+  valid UTF-8 is read as UTF-8), EXIF in JPEG (APP1) and WebP (`EXIF`
+  chunk), and stable-diffusion.cpp's `parameters` in a JPEG comment (COM)
+  and in WebP's XMP (`<sdcpp:parameters>` only; no XML parser runs).
 - **Tools**: AUTOMATIC1111 / Forge infotext (`parameters`, or EXIF
-  UserComment), ComfyUI's graphs (`prompt`, or else `workflow`), Latentry's
+  UserComment), stable-diffusion.cpp (`parameters` ending in
+  `, SDCPP: {json}`, its own record, read first; model and LoRA paths cut
+  to file names), ComfyUI's graphs (`prompt`, or else `workflow`), Latentry's
   own record (`latentry`) and WD14 tags (`latentry:tags`).
 - **ComfyUI**: from the executed graph (`prompt`), the sampler that starts
   from an empty latent (so a hires or refiner pass is not taken for the
