@@ -16,9 +16,11 @@ import { check, done, eq } from './assert'
 import { startMockComfyUI } from './fixtures/mock-comfyui'
 import {
   buildComfyGraph,
+  checkpointNames,
   comboOptions,
   ComfyUIAdapter,
   OUTPUT_NODE,
+  resolveCheckpoint,
   resolveLoras,
   resolveUpscaler,
   upscalerNames,
@@ -244,6 +246,22 @@ async function main() {
     'the first thing missing, the engine first (a workflow needs only that): then the nodes, a ControlNet chosen; nothing once all are there'
   )
   eq((await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-2', model: 'other.safetensors' }, quiet.transport).status()).model, 'other.safetensors', 'the model set for the backend is the one shown')
+  eq(status.checkpoints, ['base.safetensors', 'other.safetensors'], 'its checkpoints for the model axis, by file name: the folders stay here')
+  eq(checkpointNames(['a/x.safetensors', 'b/x.safetensors', 'y.ckpt']), ['x.safetensors', 'y.ckpt'], 'a name two folders share is listed once')
+  eq(
+    [resolveCheckpoint('x.safetensors', ['a/x.safetensors', 'b/x.safetensors']), resolveCheckpoint('y.ckpt', ['y.ckpt']), resolveCheckpoint('z', ['y.ckpt'])],
+    [null, 'y.ckpt', undefined],
+    'a name stands for its file, for neither of two, or for none'
+  )
+
+  // ── A model named for one run (a grid cell) ──
+  const named = await scriptedComfy({ socket: true })
+  const namedAdapter = new ComfyUIAdapter({ ...CONFIG, id: 'named' }, named.transport)
+  const namedRun = await namedAdapter.start({ ...REQUEST, model: 'base.safetensors' })
+  if (namedRun.ok) await collect(namedRun.value)
+  eq(named.graphs[0]?.['1']?.inputs.ckpt_name, 'sdxl/base.safetensors', 'a run that names a model by file name draws with that file, folder and all')
+  const missingModel = await namedAdapter.start({ ...REQUEST, model: 'gone.safetensors' })
+  check(!missingModel.ok && missingModel.status === 400 && missingModel.error.includes('gone.safetensors'), 'a model ComfyUI does not list is refused')
 
   // ── Why it is down ──
   eq(status.problem, undefined, 'no problem while it answers')

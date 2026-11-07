@@ -635,6 +635,8 @@ export function GenerateClient() {
                 imageCount={form.imageCount}
                 samplers={status.samplers}
                 schedulers={status.schedulers}
+                // A workflow may load its own model, so the model axis is for the built-in graph.
+                models={workflow ? [] : (status.checkpoints ?? [])}
                 hires={hires || upscaling}
               />
             )}

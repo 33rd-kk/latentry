@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { GRID_AXES, gridErrorParts, gridSize, splitValues, type GridAxisKind, type GridSpec, type GridError } from "@/lib/generate/grid"
+import { GRID_AXES, gridErrorParts, gridSize, joinValues, splitValues, type GridAxisKind, type GridSpec, type GridError } from "@/lib/generate/grid"
 import { useT } from "@/lib/i18n"
 
 /** The grid as the form holds it: on or off, and each axis as typed. */
@@ -38,6 +38,8 @@ interface GridSectionProps {
   /** The backend's lists, for the sampler and scheduler axes; an empty one leaves that axis out. */
   samplers: string[]
   schedulers: string[]
+  /** The checkpoints the model axis offers (ComfyUI's, by file name); empty leaves that axis out. */
+  models: string[]
   /** Hires denoise is an axis only while hires fix is on. */
   hires: boolean
 }
@@ -47,23 +49,28 @@ interface GridSectionProps {
  * setting and its values; the run is drawn once per value (per pair of
  * values, with both), all on the same seed.
  */
-export function GridSection({ value, onChange, parsed, imageCount, samplers, schedulers, hires }: GridSectionProps) {
+export function GridSection({ value, onChange, parsed, imageCount, samplers, schedulers, models, hires }: GridSectionProps) {
   const t = useT()
   const id = useId()
   const offered = GRID_AXES.filter(
-    (kind) => (kind !== "sampler" || samplers.length > 0) && (kind !== "scheduler" || schedulers.length > 0) && (kind !== "hr_denoise" || hires)
+    (kind) =>
+      (kind !== "sampler" || samplers.length > 0) &&
+      (kind !== "scheduler" || schedulers.length > 0) &&
+      (kind !== "model" || models.length > 0) &&
+      (kind !== "hr_denoise" || hires)
   )
   const size = parsed?.ok ? gridSize(parsed.value, imageCount) : null
 
   const axis = (which: "x" | "y") => {
     const current = value[which]
     const kind = current.kind
-    const names = kind === "sampler" ? samplers : kind === "scheduler" ? schedulers : null
+    const names = kind === "sampler" ? samplers : kind === "scheduler" ? schedulers : kind === "model" ? models : null
     const chosen = new Set(splitValues(current.text))
     const set = (patch: Partial<GridForm["y"]>) => onChange({ ...value, [which]: { ...current, ...patch } })
     const toggle = (name: string) => {
       const list = splitValues(current.text)
-      set({ text: (chosen.has(name) ? list.filter((item) => item !== name) : [...list, name]).join(", ") })
+      // Quoted where a name needs it (a model file with a comma in its name).
+      set({ text: joinValues(chosen.has(name) ? list.filter((item) => item !== name) : [...list, name]) })
     }
     return (
       <div className="space-y-1.5">
@@ -90,7 +97,7 @@ export function GridSection({ value, onChange, parsed, imageCount, samplers, sch
               id={`${id}-${which}`}
               value={current.text}
               onChange={(event) => set({ text: event.target.value })}
-              placeholder={kind === "prompt_sr" ? "red hair, blue hair" : kind === "sampler" || kind === "scheduler" ? "" : "20-40:5"}
+              placeholder={kind === "prompt_sr" ? "red hair, blue hair" : names ? "" : "20-40:5"}
               aria-label={t("generate.grid.values")}
             />
           )}
