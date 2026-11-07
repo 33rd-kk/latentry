@@ -15,7 +15,7 @@ export const SINCE = ['day', 'week', 'month'] as const
 export const FORMATS = ['png', 'webp', 'jpg'] as const
 export const ORIENTATIONS = ['portrait', 'landscape', 'square'] as const
 export const RESOLUTIONS = ['small', 'standard', 'large'] as const
-export const SOURCES = ['latentry', 'a1111', 'comfyui', 'none'] as const
+export const SOURCES = ['latentry', 'a1111', 'comfyui', 'sdcpp', 'none'] as const
 export const GROUPS = ['prompt', 'seed', 'grid'] as const
 /** A cell of an X/Y grid, a grid's sheet, or a picture that is neither. */
 export const GRID_KINDS = ['cells', 'sheets', 'none'] as const

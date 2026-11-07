@@ -293,6 +293,9 @@ GEN_BACKENDS=cpp|sdcpp|http://127.0.0.1:1234|generic
   id, and skips the rest. It never stops another client's job.
 - **Latentry saves the picture with its own settings**, and asks sd-server
   for pictures without its metadata, which can name the LoRA files' folders.
+  Pictures that sd-server or `sd-cli` saved themselves are read by the
+  gallery too, PNG, JPEG and WebP, with their LoRAs and models by file
+  name.
   sd-server keeps each finished job, picture included, in its memory until
   the job expires there.
 

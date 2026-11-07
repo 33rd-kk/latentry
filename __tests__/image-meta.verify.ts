@@ -11,6 +11,11 @@ import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import {
   decodeUserComment,
+  encodeChunk,
+  isSdcppParameters,
+  parametersComment,
+  parseSdcppParameters,
+  sdcppXmpParameters,
   loraCallsInPrompt,
   loraName,
   lorasInPrompt,
@@ -31,6 +36,46 @@ import {
 
 const INFOTEXT =
   'masterpiece, 1girl, <lora:detail_tweaker:0.6>, smile\nNegative prompt: lowres\nSteps: 28, Sampler: Euler a, CFG scale: 5, Seed: 77, Size: 64x96, Model: noobai, Lora hashes: "detail_tweaker: 1a2b, sub/style.safetensors: 3c4d"'
+
+// stable-diffusion.cpp's `parameters`, as its generation_info_to_image_metadata writes it:
+// the WebUI infotext, then ", SDCPP: " and its own record on one line.
+const SDCPP_RECORD = {
+  schema: 'sdcpp.generation/v1',
+  kind: 'image',
+  prompt: '桜の下の猫, a cat, SDCPP: {not json}',
+  negative_prompt: 'lowres',
+  width: 512,
+  height: 768,
+  clip_skip: -1,
+  seed: '4294967295',
+  sample_params: { sample_steps: 20, guidance: { txt_cfg: 6.5, distilled_guidance: 3.5 }, sample_method: 'euler_a', scheduler: 'karras' },
+  hires: { enabled: true, upscaler: 'Latent', scale: 2, target_width: 1024, target_height: 1536, steps: 10, denoising_strength: 0.45, model_path: '/home/me/models/up.pth' },
+  loras: [
+    { path: 'styles/ink.safetensors', multiplier: 0.8, is_high_noise: false },
+    { path: 'wan/high.safetensors', multiplier: 1, is_high_noise: true },
+  ],
+  models: { model: 'C:/private/models/sd15/v1-5-pruned.gguf', vae: 'vae.safetensors' },
+}
+const SDCPP_TEXT =
+  '桜の下の猫, a cat, SDCPP: {not json} <lora:ink:0.8>\nNegative prompt: lowres\n' +
+  'Steps: 20, Sampler: Euler a, Schedule type: Karras, CFG scale: 6.5, Seed: 4294967295, Size: 512x768, Model: v1-5-pruned, ' +
+  'Hires resize: 1024x1536, Hires steps: 10, Denoising strength: 0.45, Hires upscaler: Latent, Version: stable-diffusion.cpp, SDCPP: ' +
+  JSON.stringify(SDCPP_RECORD)
+const SDCPP_META: ImageMeta = {
+  source: 'sdcpp',
+  prompt: '桜の下の猫, a cat, SDCPP: {not json}',
+  negativePrompt: 'lowres',
+  seed: 4294967295,
+  width: 512,
+  height: 768,
+  steps: 20,
+  cfg: 6.5,
+  sampler: 'euler_a',
+  scheduler: 'karras',
+  hires: { scale: 2, steps: 10, denoise: 0.45, upscaler: 'Latent' },
+  model: 'v1-5-pruned',
+  loras: ['ink'],
+}
 
 // ── A minimal TIFF/EXIF block, built by hand so every encoding can be tried ──
 type Entry = { tag: number; type: number; data: Buffer }
@@ -158,6 +203,39 @@ async function main() {
     const comfy = await readImageInfo(at('sharp.webp'))
     eq(metaFromText(comfy?.text ?? {})?.seed, 5, "WebP: ComfyUI's graph from EXIF Make")
 
+    // ── stable-diffusion.cpp: the same text in PNG tEXt (UTF-8 bytes), a JPEG comment and WebP XMP ──
+    const pngSd = await base.clone().png().toBuffer()
+    const tEXt = encodeChunk('tEXt', Buffer.concat([Buffer.from('parameters\0', 'latin1'), Buffer.from(SDCPP_TEXT, 'utf8')]))
+    // After the signature (8) and IHDR (25).
+    await writeFile(at('sd.png'), Buffer.concat([pngSd.subarray(0, 33), tEXt, pngSd.subarray(33)]))
+    eq(metaFromText((await readImageInfo(at('sd.png')))?.text ?? {}), SDCPP_META, 'sd.cpp PNG: its native record, UTF-8 prompt intact, paths cut to file names')
+
+    const comBody = Buffer.concat([Buffer.from('parameters\0', 'latin1'), Buffer.from(SDCPP_TEXT, 'utf8'), Buffer.from([0])])
+    const com = Buffer.concat([Buffer.from([0xff, 0xfe, (comBody.length + 2) >> 8, (comBody.length + 2) & 0xff]), comBody])
+    const otherCom = Buffer.concat([Buffer.from([0xff, 0xfe, 0, 7]), Buffer.from('hello', 'latin1')])
+    await writeFile(at('sd.jpg'), Buffer.concat([jpeg.subarray(0, 2), otherCom, com, jpeg.subarray(2)]))
+    const sdJpg = await readImageInfo(at('sd.jpg'))
+    eq([sdJpg?.width, sdJpg?.height], [64, 96], 'sd.cpp JPEG: size still read past the comments')
+    eq(metaFromText(sdJpg?.text ?? {}), SDCPP_META, 'sd.cpp JPEG: parameters from its comment, another comment skipped')
+
+    const escaped = SDCPP_TEXT.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
+    const xmpText = `<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description rdf:about="" xmlns:sdcpp="https://github.com/leejet/stable-diffusion.cpp/ns/1.0/"><sdcpp:parameters>${escaped}</sdcpp:parameters></rdf:Description></rdf:RDF></x:xmpmeta>`
+    const xmpBytes = Buffer.from(xmpText, 'utf8')
+    const xmpHead = Buffer.alloc(8)
+    xmpHead.write('XMP ', 0, 'latin1')
+    xmpHead.writeUInt32LE(xmpBytes.length, 4)
+    const xmpChunk = Buffer.concat([xmpHead, xmpBytes, xmpBytes.length % 2 ? Buffer.alloc(1) : Buffer.alloc(0)])
+    const vp8xXmp = Buffer.from(vp8x)
+    vp8xXmp[8] = 0x04 // XMP present
+    const sdBody = Buffer.concat([Buffer.from('WEBP', 'latin1'), vp8xXmp, vp8, xmpChunk])
+    const sdRiff = Buffer.alloc(8)
+    sdRiff.write('RIFF', 0, 'latin1')
+    sdRiff.writeUInt32LE(sdBody.length, 4)
+    await writeFile(at('sd.webp'), Buffer.concat([sdRiff, sdBody]))
+    const sdWebp = await readImageInfo(at('sd.webp'))
+    eq([sdWebp?.width, sdWebp?.height], [64, 96], 'sd.cpp WebP: size')
+    eq(metaFromText(sdWebp?.text ?? {}), SDCPP_META, 'sd.cpp WebP: parameters from its XMP, unescaped')
+
     // ── Not pictures, and broken ones ──
     await writeFile(at('text.png'), 'just text')
     eq(await readImageInfo(at('text.png')), null, 'a file that is no picture')
@@ -226,6 +304,7 @@ async function main() {
   eq(parseLatentryRecord(JSON.stringify({ prompt: 'x' })), null, 'nor is one without a schema')
 
   await comfyGraphs()
+  sdcppText()
 
   done('image-meta')
 }
@@ -423,3 +502,33 @@ main().catch((error) => {
   console.error(error)
   process.exit(1)
 })
+
+/** stable-diffusion.cpp's text, apart from any file. */
+function sdcppText() {
+  check(isSdcppParameters(SDCPP_TEXT), 'sd.cpp: told apart by its SDCPP record')
+  check(isSdcppParameters('a cat\nSteps: 4, Seed: 1, Version: stable-diffusion.cpp'), 'sd.cpp: or by its Version, without a record')
+  check(!isSdcppParameters(INFOTEXT), 'an A1111 infotext is not sd.cpp')
+  eq(parseSdcppParameters(SDCPP_TEXT), SDCPP_META, 'sd.cpp: the record is read past an SDCPP mark inside the prompt')
+
+  const upscale = parseSdcppParameters(JSON.stringify({ schema: 'sdcpp.generation/v1', kind: 'image', width: 2048, height: 2048, seed: '7', upscale: { upscale_factor: 4 } }))
+  eq([upscale.source, upscale.prompt, upscale.seed, upscale.width], ['sdcpp', '', 7, 2048], 'sd.cpp: an upscale record is the JSON alone')
+
+  const broken = parseSdcppParameters(SDCPP_TEXT.replace(', SDCPP: {"schema"', ', SDCPP: {"schema" broken'))
+  eq(
+    [broken.source, broken.seed, broken.steps, broken.hires],
+    ['sdcpp', 4294967295, 20, { scale: 2, steps: 10, denoise: 0.45, upscaler: 'Latent' }],
+    'sd.cpp: a record that does not parse falls back to the infotext, its Hires resize read as a scale'
+  )
+  check(!JSON.stringify(broken).includes('schema'), 'and none of the JSON lands in the settings')
+
+  const huge = parseSdcppParameters(SDCPP_TEXT.replace('"seed":"4294967295"', '"seed":"18446744073709551615"'))
+  eq(huge.seed, undefined, 'sd.cpp: a seed past what a number holds exactly is left out, not rounded')
+
+  const old = metaFromText({ parameters: 'a cat\nSteps: 20, CFG scale: 7, Seed: 42, Size: 512x512, Model: v1-5.safetensors, RNG: cuda, Sampler: euler_a karras' })
+  eq([old?.source, old?.seed], ['a1111', 42], 'an older sd.cpp line (no record, no Version) is read as before')
+
+  eq(parametersComment(Buffer.from('parameters\0text\0\0', 'latin1')), 'text', 'JPEG comment: label and trailing NULs taken off')
+  eq(parametersComment(Buffer.from('a photo comment', 'latin1')), null, 'JPEG comment: any other comment is not settings')
+  eq(sdcppXmpParameters('<sdcpp:parameters>a &lt;b&gt; &amp; &#26716; &#x732b;</sdcpp:parameters>'), 'a <b> & 桜 猫', 'XMP: entities unescaped')
+  eq(sdcppXmpParameters('<dc:title>x</dc:title>'), null, 'XMP: nothing without the sd.cpp element')
+}
