@@ -211,6 +211,20 @@ async function main() {
     eq(await names({ source: 'none' }), ['wide.webp'], 'pictures without settings')
     eq(await names({ model: RECORD.model!, untagged: true }), ['p10.png'], 'model and untagged together')
 
+    // ── A picture stable-diffusion.cpp saved itself ──
+    const sdDir: GalleryDir = { index: 5, path: path.join(root, 'sdcpp'), label: 'sdcpp', autoLabel: true, writable: false, role: 'read', shared: false }
+    await mkdir(sdDir.path)
+    const sdRecord = { schema: 'sdcpp.generation/v1', kind: 'image', prompt: 'a red fox', seed: '42', sample_params: { sample_steps: 4 }, models: { model: 'nested/sd_turbo.safetensors' } }
+    await writeFile(
+      path.join(sdDir.path, 'fox.png'),
+      writePngText(png, { [PARAMETERS_KEY]: `a red fox\nSteps: 4, Seed: 42, Model: sd_turbo, Version: stable-diffusion.cpp, SDCPP: ${JSON.stringify(sdRecord)}` })
+    )
+    await writeFile(path.join(sdDir.path, 'other.png'), written)
+    const inSd = async (filter: Parameters<typeof listPage>[1]['filter']) =>
+      (await listPage(sdDir, { limit: 10, filter: { sort: 'name-asc', ...filter } })).items.map((item) => item.name)
+    eq(await inSd({ source: 'sdcpp' }), ['fox.png'], 'the stable-diffusion.cpp source filter')
+    eq(await inSd({ q: 'model:sd_turbo' }), ['fox.png'], 'and its model by file name, no folder')
+
     // ── LoRAs, from a picture A1111 wrote ──
     const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', autoLabel: true, writable: false, role: 'read', shared: false }
     await mkdir(loraDir.path)

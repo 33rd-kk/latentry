@@ -392,6 +392,7 @@
       "latentry": "Latentry",
       "a1111": "A1111 / Forge",
       "comfyui": "ComfyUI",
+      "sdcpp": "stable-diffusion.cpp",
       "none": "設定なし",
       "untagged": "WD14 タグのない画像だけ",
       "untaggedChip": "WD14 タグなし",
