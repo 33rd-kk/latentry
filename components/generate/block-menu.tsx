@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils"
  * or grid stays as set, for when it is shown again, but is not sent. Which ones
  * are hidden is remembered in this browser (not in secret mode).
  */
-export const BLOCKS = ["characters", "source", "pose", "control", "hires", "grid"] as const
+export const BLOCKS = ["characters", "source", "pose", "control", "reference", "hires", "grid"] as const
 export type Block = (typeof BLOCKS)[number]
 
 const HIDDEN_KEY = "latentry:generate-hidden"

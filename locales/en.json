@@ -307,6 +307,7 @@
         "inpaint": "Inpaint mask",
         "pose": "Skeleton pose",
         "control": "Control picture (edges, depth, line art)",
+        "ip_adapter": "Reference picture (IP-Adapter)",
         "hires": "Hires fix",
         "upscale": "Upscale"
       },
@@ -317,11 +318,13 @@
           "img2img": "Latentry cannot send a source image to this kind of backend.",
           "inpaint": "Latentry cannot send an inpaint mask to this kind of backend.",
           "pose": "Latentry cannot drive pose control on an A1111 web UI. Use a diffusers-compatible server or Latentry's engine for pose.",
-          "control": "Latentry does not send control pictures to an A1111 web UI yet."
+          "control": "Latentry does not send control pictures to an A1111 web UI yet.",
+          "ip_adapter": "Latentry does not send a reference picture to an A1111 web UI yet."
         },
         "sdcpp": {
           "pose": "Latentry cannot drive pose control on stable-diffusion.cpp. Use Latentry's engine, ComfyUI or a diffusers-compatible server for pose.",
-          "control": "Latentry cannot drive ControlNet on stable-diffusion.cpp. Use Latentry's engine for controls."
+          "control": "Latentry cannot drive ControlNet on stable-diffusion.cpp. Use Latentry's engine for controls.",
+          "ip_adapter": "Latentry cannot drive IP-Adapter on stable-diffusion.cpp. Use Latentry's engine for a reference picture."
         }
       },
       "setup": {
@@ -336,6 +339,7 @@
         "inpaint": "The server's /api/health has \"inpaint\": false or no answer for it. Drop that field (or set it to true) and accept \"mask_base64\" and \"mask_blur\" on /api/generate.",
         "pose": "The server's /api/health does not say \"pose_control\": true. To use pose, answer that, add POST /api/pose (draws the skeleton), and accept \"pose_image_base64\", \"pose_is_skeleton\" and \"pose_strength\" on /api/generate. See \"POST /api/pose\" in docs/backend-api.md.",
         "control": "The server's /api/health does not list \"control_kinds\". If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: list the kinds it follows (\"canny\", \"depth\", \"lineart\") and accept \"control_kind\", \"control_image_base64\" and \"control_strength\" on /api/generate. See docs/backend-api.md.",
+        "ip_adapter": "The server's /api/health does not say \"ip_adapter\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: answer that and accept \"ip_adapter_image_base64\" and \"ip_adapter_scale\" on /api/generate. See docs/backend-api.md.",
         "hires": "The server's /api/health does not say \"hires\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to use hires fix, answer that, list the upscalers it takes in \"upscalers\", and accept \"hr_scale\", \"hr_steps\", \"hr_denoise\" and \"hr_upscaler\" on /api/generate. See docs/backend-api.md.",
         "upscale": "The server's /api/health does not say \"upscale\": true. If it is Latentry's own engine, it is older than this Latentry: run Repair / update on Setup, then stop and start it. For another server: to upscale a source, answer that and accept \"upscale\": true with \"init_image_base64\" and the hr_* fields on /api/generate. See docs/backend-api.md."
       }
@@ -345,6 +349,7 @@
       "characters": "Characters",
       "source": "Source image",
       "control": "Control",
+      "reference": "Reference",
       "pose": "Pose",
       "hires": "Hires fix",
       "grid": "X/Y grid",
@@ -383,6 +388,17 @@
       "strength": "Control strength: {value}",
       "hint": "Made on this computer from the reference; the reference itself is not sent. Edges need no download; depth and line art need their model from Setup.",
       "failed": "Could not make the control picture."
+    },
+    "reference": {
+      "title": "Reference",
+      "fromSource": "From source",
+      "fromGallery": "From gallery",
+      "drop": "Drop a picture whose look to take, or click to choose one",
+      "alt": "The reference picture",
+      "show": "Show",
+      "scale": "Reference strength: {value}",
+      "hint": "Takes the picture's look (colours, style, a character's appearance) with IP-Adapter. Unlike a control picture, the reference itself goes to the backend.",
+      "failed": "Could not read that picture."
     }
   },
   "gallery": {
@@ -524,6 +540,8 @@
     "hiresValue": "{scale}× {upscaler}, denoise {denoise}",
     "control": "Control",
     "controlValue": "{kind}, strength {strength}",
+    "ipAdapter": "Reference",
+    "ipAdapterValue": "IP-Adapter, strength {scale}",
     "showTags": "Tags",
     "select": "Select",
     "cardNoTags": "No tags yet",

@@ -401,6 +401,16 @@ async function main() {
   eq(controlRecord.control, { kind: 'depth', strength: 0.7 }, 'a run that followed a control picture records its kind and strength')
   check(!JSON.stringify(controlRecord).includes('control_image'), 'but never the picture')
   eq('control' in recordFor(job, job.images[0], created, null), false, 'a run without one records none')
+  const referenceJob = startJob({
+    backend: 'reference',
+    total: 1,
+    steps: 1,
+    context: { ...job.context, request: { ...job.context.request, ip_adapter_scale: 0.45, ip_adapter_image_base64: undefined } },
+  })
+  applyEvent(referenceJob, { type: 'image', index: 0, seed: 6, imageBase64: 'AA==' })
+  const referenceRecord = recordFor(referenceJob, referenceJob.images[0], created, null)
+  eq(referenceRecord.ip_adapter, { scale: 0.45 }, 'a run that took a reference picture\'s look records its scale')
+  check(!JSON.stringify(referenceRecord).includes('ip_adapter_image'), 'but never the picture')
   const hiresJob = startJob({
     backend: 'hires',
     total: 1,
@@ -448,34 +458,34 @@ async function main() {
   eq(diffusersHints(null), {}, 'a server that did not answer gets no feature hints')
   eq(
     diffusersHints({ model: 'anima' }),
-    { pose: { reason: 'not-reported' }, control: { reason: 'not-reported' }, hires: { reason: 'not-reported' }, upscale: { reason: 'not-reported' } },
-    'a server silent about pose, controls, hires fix and upscale is told to report them; img2img and inpaint stay on'
+    { pose: { reason: 'not-reported' }, control: { reason: 'not-reported' }, ip_adapter: { reason: 'not-reported' }, hires: { reason: 'not-reported' }, upscale: { reason: 'not-reported' } },
+    'a server silent about pose, controls, a reference, hires fix and upscale is told to report them; img2img and inpaint stay on'
   )
-  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
-  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: true }), {}, 'a server with pose, controls, hires fix, upscale and default img2img/inpaint has no hints')
-  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], hires: false, upscale: true }), { hires: { reason: 'declined' } }, 'hires fix said no to is declined')
-  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: false }), { upscale: { reason: 'declined' } }, 'and so is upscale')
+  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: true, lora: false }), {}, 'LoRA support is not a hinted feature: the prompt says so where it matters')
+  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: true }), {}, 'a server with pose, controls, hires fix, upscale and default img2img/inpaint has no hints')
+  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: false, upscale: true }), { hires: { reason: 'declined' } }, 'hires fix said no to is declined')
+  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: false }), { upscale: { reason: 'declined' } }, 'and so is upscale')
   eq(
-    diffusersHints({ pose_control: false, control_kinds: ['canny', 'depth', 'lineart'], inpaint: false, hires: true, upscale: true, unavailable: { pose: 'Needs a 28-layer model.' } }),
+    diffusersHints({ pose_control: false, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, inpaint: false, hires: true, upscale: true, unavailable: { pose: 'Needs a 28-layer model.' } }),
     { inpaint: { reason: 'declined' }, pose: { reason: 'declined', detail: 'Needs a 28-layer model.' } },
     "an explicit false is declined, with the server's reason when it gives one"
   )
   eq(
-    diffusersHints({ control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: true, unavailable: { pose: 'Adapter weights missing.' } }),
+    diffusersHints({ control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: true, unavailable: { pose: 'Adapter weights missing.' } }),
     { pose: { reason: 'declined', detail: 'Adapter weights missing.' } },
     'a reason without the flag still counts as the server declining'
   )
-  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
-  eq(diffusersHints({ control_kinds: ['canny', 'depth', 'lineart'], hires: true, upscale: true, unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
+  eq(diffusersHints({ pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: true, unavailable: { pose: 'stale' } }), {}, 'a reason for a feature that is on is ignored')
+  eq(diffusersHints({ control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, hires: true, upscale: true, unavailable: 'nope' }), { pose: { reason: 'not-reported' } }, 'a malformed unavailable field is ignored')
   eq(hintDetail('  two\nlines\t here  '), 'two lines here', 'a reason is folded onto one line')
   eq(hintDetail(''), undefined, 'an empty reason is none')
   eq(hintDetail(42), undefined, 'a reason that is not text is none')
   const long = hintDetail('x'.repeat(500))
   check(long?.length === MAX_HINT_DETAIL && long.endsWith('…'), 'a long reason is cut to the limit')
-  eq(a1111Hints(true), { pose: { reason: 'kind' }, control: { reason: 'kind' } }, 'A1111 cannot take a pose or a control picture, by kind')
-  eq(diffusersHints({ pose_control: true, control_kinds: [], hires: true, upscale: true }), { control: { reason: 'not-reported' } }, 'an empty list of control kinds is none')
+  eq(a1111Hints(true), { pose: { reason: 'kind' }, control: { reason: 'kind' }, ip_adapter: { reason: 'kind' } }, 'A1111 cannot take a pose, a control picture or a reference, by kind')
+  eq(diffusersHints({ pose_control: true, control_kinds: [], ip_adapter: true, hires: true, upscale: true }), { control: { reason: 'not-reported' } }, 'an empty list of control kinds is none')
   eq(
-    diffusersHints({ pose_control: true, control_kinds: false, hires: true, upscale: true, unavailable: { control: 'Canny, depth and line art need an SDXL model.' } }),
+    diffusersHints({ pose_control: true, control_kinds: false, ip_adapter: true, hires: true, upscale: true, unavailable: { control: 'Canny, depth and line art need an SDXL model.' } }),
     { control: { reason: 'declined', detail: 'Canny, depth and line art need an SDXL model.' } },
     "controls declined, with the server's reason"
   )
@@ -583,6 +593,15 @@ async function main() {
   eq('control_kind' in (parsed({ control_kind: 'canny' }) ?? {}), false, 'nor a kind without its picture')
   const upscaledControl = parsed({ upscale: true, init_image_base64: 'AAAA', hr_scale: 2, control_kind: 'canny', control_image_base64: 'DDDD' })
   eq(['control_kind' in (upscaledControl ?? {}), 'control_image_base64' in (upscaledControl ?? {})], [false, false], 'an upscale drops a control picture too')
+
+  // ── A reference picture (IP-Adapter) in a request ──
+  const referenced = parsed({ ip_adapter_image_base64: 'EEEE', ip_adapter_scale: 3 })
+  eq([referenced?.ip_adapter_image_base64, referenced?.ip_adapter_scale], ['EEEE', 1], 'a reference is read, its scale held to 1')
+  eq(parsed({ ip_adapter_image_base64: 'EEEE' })?.ip_adapter_scale, 0.3, 'its scale is 0.3 unless given')
+  eq('ip_adapter_scale' in (parsed({ ip_adapter_scale: 0.5 }) ?? {}), false, 'no scale without a picture')
+  const upscaledReference = parsed({ upscale: true, init_image_base64: 'AAAA', hr_scale: 2, ip_adapter_image_base64: 'EEEE' })
+  eq('ip_adapter_image_base64' in (upscaledReference ?? {}), false, 'an upscale drops a reference')
+  eq('ip_adapter_image_base64' in (parsed({ workflow: 'mine', ip_adapter_image_base64: 'EEEE' }) ?? {}), false, 'and so does a workflow run')
   eq('upscale' in (parsed({ upscale: true, hr_scale: 2 }) ?? {}), false, 'no upscale without a source')
   const sourceOnly = parsed({ upscale: true, init_image_base64: 'AAAA', strength: 0.5 })
   eq([sourceOnly?.upscale, sourceOnly?.strength], [undefined, 0.5], 'nor without hr_*: then it is plain img2img')

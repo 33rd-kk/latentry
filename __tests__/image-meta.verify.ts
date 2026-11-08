@@ -291,6 +291,8 @@ async function main() {
   eq(parseLatentryRecord(JSON.stringify({ ...base, hires: { scale: 'x' } }))?.hires, undefined, 'a malformed one is dropped')
   eq(parseLatentryRecord(JSON.stringify({ ...base, control: { kind: 'depth', strength: 0.7 } }))?.control, { kind: 'depth', strength: 0.7 }, "a record's control picture use is read")
   eq(parseLatentryRecord(JSON.stringify({ ...base, control: { kind: '../x', strength: 0.7 } }))?.control, undefined, 'a malformed one is dropped')
+  eq(parseLatentryRecord(JSON.stringify({ ...base, ip_adapter: { scale: 0.45 } }))?.ipAdapter, { scale: 0.45 }, "a record's reference (IP-Adapter) scale is read")
+  eq(parseLatentryRecord(JSON.stringify({ ...base, ip_adapter: { scale: 'high' } }))?.ipAdapter, undefined, 'a malformed one is dropped')
   const record = (fields: object) => parseLatentryRecord(JSON.stringify({ schema: 1, prompt: 'x, <lora:mine:0.7>', ...fields }))?.loras
   eq(record({ kind: 'diffusers', loras: [{ name: 'applied', weight: 1 }] }), ['applied'], "Latentry's record: the LoRAs the backend applied, not the prompt's")
   eq(record({ kind: 'diffusers', loras: [] }), undefined, "Latentry's record: an empty list is none")

@@ -85,7 +85,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
       }
       const route = `${request.method} ${new URL(request.url ?? '/', 'http://mock').pathname}`
       if (route === 'GET /api/health') {
-        return reply(200, { status: 'ok', model: 'mock-pose-model', pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], lora: false, tagger: false, busy: false })
+        return reply(200, { status: 'ok', model: 'mock-pose-model', pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, lora: false, tagger: false, busy: false })
       }
       if (route === 'GET /api/presets') return reply(200, { default: null, presets: [] })
       if (route === 'POST /api/cancel') {
@@ -108,9 +108,9 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
         // Read as typed: a profile may have respelled its spaces as underscores.
         const prompt = typeof body.prompt === 'string' ? body.prompt.replace(/_/g, ' ') : ''
         if (prompt.includes(NO_MODEL)) return reply(409, { detail: 'No model is loaded' })
-        const { init_image_base64: _source, mask_base64: _mask, pose_image_base64: _pose, control_image_base64: control, ...asked } = body
-        // Whether a control picture came, not the picture itself.
-        generates.push(typeof control === 'string' ? { ...asked, control_image: true } : asked)
+        const { init_image_base64: _source, mask_base64: _mask, pose_image_base64: _pose, control_image_base64: control, ip_adapter_image_base64: reference, ...asked } = body
+        // Whether a control picture or a reference came, not the pictures themselves.
+        generates.push({ ...asked, ...(typeof control === 'string' ? { control_image: true } : {}), ...(typeof reference === 'string' ? { ip_adapter_image: true } : {}) })
         const total = typeof body.image_count === 'number' ? body.image_count : 1
         const first = typeof body.seed === 'number' && body.seed >= 0 ? body.seed : 1000
         response.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store' })

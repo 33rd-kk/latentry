@@ -24,7 +24,7 @@ import torch
 from PIL import Image, ImageFilter
 from poseorbit import letterbox
 
-from . import loras, pipelines, pose_control, samplers
+from . import ip_adapter, loras, pipelines, pose_control, samplers
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 from .pictures import (
@@ -79,6 +79,10 @@ class GenerateRequest:
     control_kind: str | None = None
     control_image: Image.Image | None = None
     control_strength: float = 0.5
+    # IP-Adapter (ip_adapter.py): a reference picture whose look the run
+    # takes, at ip_scale (0-1). SDXL only.
+    ip_image: Image.Image | None = None
+    ip_scale: float = 0.3
     # Hires fix (txt2img only): each picture upscaled by hr_scale with Lanczos,
     # then redrawn for hr_steps (0: as many as the first pass) at hr_denoise.
     hr_scale: float | None = None
@@ -154,6 +158,21 @@ class Engine:
         if self.plan.device == "cuda":
             torch.cuda.empty_cache()
 
+    def _ip_adapter(self, on: bool, pipes: list) -> None:
+        """IP-Adapter in the model's UNet, the image encoder on each of `pipes`;
+        or, for a run without a reference, out of it again (ip_adapter.py)."""
+        loaded = self.loaded
+        assert loaded
+        if on:
+            if not loaded.ip_adapter:
+                ip_adapter.load(loaded.pipe, self.controls_dir)
+                loaded.ip_adapter = True
+            for pipe in pipes:
+                ip_adapter.share(loaded.pipe, pipe)
+        elif loaded.ip_adapter:
+            ip_adapter.unload(loaded.pipe, list(loaded.variants.values()))
+            loaded.ip_adapter = False
+
     def _variant(self, kind: str, control: str | bool | None = None):
         """The pipeline for this kind of run on the loaded model (pipelines.variant):
         `control` names its ControlNet ("pose", "union", "union2"), if any."""
@@ -171,6 +190,8 @@ class Engine:
             "pose_control": self._pose_supported(),
             # The control pictures it follows (Latentry makes them): SDXL's union ControlNet.
             "control_kinds": list(CONTROL_KINDS) if family == FAMILY_SDXL else [],
+            # A reference picture's look (IP-Adapter, ip_adapter.py): SDXL only.
+            "ip_adapter": family == FAMILY_SDXL,
             "lora": self.loaded is not None,
             "tagger": False,
             "hires": family in (FAMILY_SDXL, FAMILY_ANIMA),
@@ -183,10 +204,11 @@ class Engine:
     def _unavailable(self, family: str | None) -> dict[str, str]:
         if self.loaded is None:
             reason = "No model is loaded. Choose one in Latentry's settings."
-            return {"img2img": reason, "inpaint": reason, "pose": reason, "control": reason, "lora": reason, "hires": reason, "upscale": reason}
+            return {"img2img": reason, "inpaint": reason, "pose": reason, "control": reason, "ip_adapter": reason, "lora": reason, "hires": reason, "upscale": reason}
         reasons: dict[str, str] = {}
         if family == FAMILY_ANIMA:
             reasons["control"] = "Edges, depth and line art need an SDXL model: there is no such ControlNet for Anima."
+            reasons["ip_adapter"] = "A reference picture's look (IP-Adapter) needs an SDXL model: there is no IP-Adapter for Anima."
 
         if family == FAMILY_ANIMA:
             reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
@@ -222,11 +244,13 @@ class Engine:
             raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
         if request.control_image is not None and (self.loaded.family != FAMILY_SDXL or request.control_kind not in CONTROL_KINDS):
             raise EngineError("Edges, depth and line art need an SDXL model.")
+        if request.ip_image is not None and self.loaded.family != FAMILY_SDXL:
+            raise EngineError("A reference picture's look (IP-Adapter) needs an SDXL model.")
         if request.upscale:
             if request.init_image is None or request.hr_scale is None:
                 raise EngineError("Upscale needs a source picture and a scale.")
-            if request.mask is not None or request.pose_skeleton is not None or request.control_image is not None:
-                raise EngineError("Upscale redraws the whole picture; it does not go with a mask, a pose or a control picture.")
+            if request.mask is not None or request.pose_skeleton is not None or request.control_image is not None or request.ip_image is not None:
+                raise EngineError("Upscale redraws the whole picture; it does not go with a mask, a pose, a control picture or a reference.")
             # An img2img run at the hires denoise, asked for a schedule that runs
             # exactly the hires steps; its size comes from the source.
             request = replace(
@@ -292,6 +316,11 @@ class Engine:
             hires_skeleton = letterbox(request.pose_skeleton, (hires_width, hires_height)) if pose else None
             hires_control = letterbox(request.control_image.convert("RGB"), (hires_width, hires_height)) if controlled else None
         total_steps = steps + hires_steps
+        # IP-Adapter in the UNet for this run, or out of it (ip_adapter.py).
+        reference = request.ip_image.convert("RGB") if request.ip_image is not None else None
+        self._ip_adapter(reference is not None, [pipe, hires_pipe] if hires else [pipe])
+        if reference is not None:
+            pipe.set_ip_adapter_scale(request.ip_scale)
 
         if request.upscale:
             # As hires fix's second pass: the larger canvas always in tiles.
@@ -309,7 +338,7 @@ class Engine:
             done = 0
             # With hires fix, one picture at a time: each gets its second pass
             # before the next, and only one large canvas is on the GPU.
-            batch_size = 1 if hires or request.upscale else self.pose_batch_size if net else self.batch_size
+            batch_size = 1 if hires or request.upscale else self.pose_batch_size if net or reference is not None else self.batch_size
             while done < len(seeds):
                 batch = seeds[done : done + batch_size]
                 emit("start", {"index": done, "total": len(seeds), "steps": total_steps, "run_id": run_id})
@@ -334,6 +363,8 @@ class Engine:
                     arguments.update(image=source, strength=request.strength)
                     if mask is not None:
                         arguments.update(mask_image=pipe.mask_processor.blur(mask, blur_factor=request.mask_blur) if request.mask_blur else mask, width=width, height=height)
+                if reference is not None:
+                    arguments["ip_adapter_image"] = reference
                 if controlled:
                     arguments.update(union_arguments(skeleton, control_picture, request))
                 elif skeleton is not None:
@@ -350,7 +381,7 @@ class Engine:
                     if len(batch) == 1:
                         raise
                     batch_size = max(1, len(batch) // 2)
-                    if net:
+                    if net or reference is not None:
                         self.pose_batch_size = batch_size
                     else:
                         self.batch_size = batch_size
@@ -376,6 +407,8 @@ class Engine:
                         "generator": torch.Generator(generator_device).manual_seed(seed),
                         "callback_on_step_end": on_hires_step,
                     }
+                    if reference is not None:
+                        hires_arguments["ip_adapter_image"] = reference
                     if controlled:
                         hires_arguments.update(union_arguments(hires_skeleton, hires_control, request))
                     elif hires_skeleton is not None:

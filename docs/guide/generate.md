@@ -49,10 +49,11 @@ it is not part of what you type into a run.
 ## Show only what you use
 
 The **Show** row under the backend hides the parts of the form you do not
-need: **Characters**, **Source image**, **Pose**, **Control**, **Hires
-fix** and **X/Y grid** (only those the backend can do are listed). A hidden
-part is not used: a source image, a skeleton, a
-[control picture](controls.md), hires fix or a grid in it is not sent.
+need: **Characters**, **Source image**, **Pose**, **Control**,
+**Reference**, **Hires fix** and **X/Y grid** (only those the backend can do
+are listed). A hidden part is not used: a source image, a skeleton, a
+[control picture or reference](controls.md), hires fix or a grid in it is
+not sent.
 What it holds is kept, and an amber dot on its button says so, until you
 show it again. Sending a picture to the form as a source (from the gallery
 or a result) shows **Source image** again.
