@@ -3,7 +3,7 @@ import { adapterOr404, bodyTooLarge, jsonError, json, modeOf, readJson, toGenera
 import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { enqueue, positionOf, pump, queueLength } from '@/lib/diffusion/run-queue'
-import { gridCells, gridErrorMessage, parseGrid, readGridInput, type GridSpec } from '@/lib/generate/grid'
+import { checkModelAxis, gridCells, gridErrorMessage, parseGrid, readGridInput, type GridSpec } from '@/lib/generate/grid'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { serverMessage } from '@/lib/i18n/core'
 import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
@@ -104,7 +104,14 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     if (!gridInput) return jsonError(serverMessage('generate.grid.error.invalid'), 400)
     const parsed = parseGrid(gridInput, generate)
     if (!parsed.ok) return jsonError(gridErrorMessage(parsed.error), 400)
-    return queueGrid(id, input, parsed.value)
+    // A model axis names checkpoints this backend must list, checked now so
+    // a typo is refused before any cell runs.
+    const spec = parsed.value
+    if (spec.x.kind === 'model' || spec.y?.kind === 'model') {
+      const models = checkModelAxis(spec, (await adapter.status()).checkpoints ?? [], Boolean(generate.workflow))
+      if (models) return jsonError(gridErrorMessage(models), 400)
+    }
+    return queueGrid(id, input, spec)
   }
 
   // The lock closes the gap between seeing the backend free and startJob

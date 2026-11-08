@@ -72,8 +72,9 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
       request: { ...generate, ...(input.sourceSize ?? {}), init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
       profile: input.profile,
       kind: adapter.config.kind,
-      // A workflow loads its own model unless one is set for the backend; status cannot say which.
-      model: generate.workflow && !adapter.config.model ? null : (status?.model ?? null),
+      // A model named for this run (an X/Y grid's model axis) is the one drawn with. A
+      // workflow loads its own model unless one is set for the backend; status cannot say which.
+      model: generate.model ?? (generate.workflow && !adapter.config.model ? null : (status?.model ?? null)),
       mode: input.mode,
       ...(input.promptTemplate ? { promptTemplate: input.promptTemplate } : {}),
       ...(input.grid ? { grid: input.grid } : {}),

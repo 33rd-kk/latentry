@@ -22,6 +22,12 @@ folders. This computer and owner devices are not affected.
   sampler and LoRAs come out right; model and LoRA folders are dropped.
   A1111's `Hires resize` is read too, and PNG text written as UTF-8 by
   other tools no longer comes out garbled.
+- **Compare models in the X/Y grid**: on ComfyUI, **Model** is an axis of
+  its own. Click the checkpoints ComfyUI lists, and each cell draws with
+  its own, recorded in its picture. Checkpoints are listed by file name
+  only. Other backends do not offer it: a web UI would have to switch its
+  own model. See
+  [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
 - **Fix faces**: a source picture's **Faces** mode finds its faces and
   redraws each one larger as an inpaint, pasting it back, on any backend
   that inpaints (ADetailer-style). The faces are found on this computer by
