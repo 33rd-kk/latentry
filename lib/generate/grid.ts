@@ -12,7 +12,7 @@ import { GRID_MAX_CELLS, GRID_MAX_IMAGES, GRID_MAX_VALUES } from '@/lib/limits'
  * Shared by the page and the server: nothing here touches Node.
  */
 
-export const GRID_AXES = ['cfg', 'steps', 'seed', 'hr_denoise', 'sampler', 'scheduler', 'prompt_sr'] as const
+export const GRID_AXES = ['cfg', 'steps', 'seed', 'hr_denoise', 'sampler', 'scheduler', 'model', 'prompt_sr'] as const
 export type GridAxisKind = (typeof GRID_AXES)[number]
 
 /** An axis as the page sends it: which setting, and its values as typed. */
@@ -72,6 +72,8 @@ export type GridError =
   | { code: 'sameAxis' }
   | { code: 'notInPrompt'; axis: 'x' | 'y'; value: string }
   | { code: 'noHires' }
+  | { code: 'noModels' }
+  | { code: 'modelWorkflow' }
   | { code: 'tooManyCells'; max: number }
   | { code: 'tooManyImages'; max: number }
 
@@ -167,9 +169,9 @@ export function parseAxis(axis: GridAxisInput, which: 'x' | 'y'): Parsed<GridAxi
     }
     values = numbers.map(String)
   } else {
-    // Sampler and scheduler names come from the backend's own list; a prompt
-    // fragment is any text. Both are kept to a sane length.
-    const bad = parts.find((part) => part.length > (axis.kind === 'prompt_sr' ? 1000 : 100))
+    // Sampler, scheduler and model names come from the backend's own list; a
+    // prompt fragment is any text. All are kept to a sane length.
+    const bad = parts.find((part) => part.length > (axis.kind === 'prompt_sr' ? 1000 : axis.kind === 'model' ? MAX_MODEL_NAME : 100))
     if (bad !== undefined) return { ok: false, error: { code: 'value', axis: which, value: bad.slice(0, 40) } }
     values = parts
   }
@@ -228,6 +230,25 @@ export function parseGrid(input: GridSpecInput, base: Pick<GenerateRequest, 'pro
   return { ok: true, value: { x: x.value, y } }
 }
 
+/** A checkpoint's file name, as the model axis takes it. */
+const MAX_MODEL_NAME = 260
+
+/**
+ * Checks a grid's model axis against the backend: it needs the checkpoints
+ * the backend lists (ComfyUI only) and a built-in graph, since a workflow may
+ * load its model in a way Latentry cannot change. Null when it may run.
+ */
+export function checkModelAxis(spec: GridSpec, checkpoints: readonly string[], workflow: boolean): GridError | null {
+  for (const [which, axis] of [['x', spec.x], ['y', spec.y]] as const) {
+    if (axis?.kind !== 'model') continue
+    if (checkpoints.length === 0) return { code: 'noModels' }
+    if (workflow) return { code: 'modelWorkflow' }
+    const missing = axis.values.find((value) => !checkpoints.includes(value))
+    if (missing !== undefined) return { code: 'value', axis: which, value: missing.slice(0, 40) }
+  }
+  return null
+}
+
 /** Every cell, row by row: the X values across, the Y values down. */
 export function gridCells(spec: GridSpec): GridCell[] {
   const rows = spec.y?.values ?? [null]
@@ -259,6 +280,9 @@ function apply(request: GenerateRequest, axis: GridAxis, value: string): void {
       return
     case 'scheduler':
       request.scheduler = value
+      return
+    case 'model':
+      request.model = value
       return
     case 'prompt_sr': {
       // A1111's rule: every place the first value appears takes this one.

@@ -115,6 +115,7 @@
         "hr_denoise": "Hires denoise",
         "sampler": "Sampler",
         "scheduler": "Scheduler",
+        "model": "Model",
         "prompt_sr": "Prompt S/R"
       },
       "hintNumbers": "Commas between values, or a range: 20-40:5 is 20 to 40 in steps of 5.",
@@ -146,6 +147,8 @@
         "sameAxis": "The X and Y axes change the same setting.",
         "notInPrompt": "{axis} axis: “{value}” is not in the prompt. Prompt S/R looks for its first value there.",
         "noHires": "Hires denoise needs Hires fix turned on.",
+        "noModels": "This backend cannot change the model for each cell. A model axis works on ComfyUI.",
+        "modelWorkflow": "A model axis works with the built-in graph only. Choose it instead of a workflow.",
         "tooManyCells": "A grid can have at most {max} cells.",
         "tooManyImages": "A grid can draw at most {max} pictures in all (cells × pictures per run).",
         "sheetSecret": "Sheets are not saved in secret mode.",
