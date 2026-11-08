@@ -27,6 +27,11 @@ export interface RunInput {
   /** Face fix: the faces the route found in the source, each redrawn in turn (lib/facefix/run.ts). */
   facefix?: FaceFixPlan
   /**
+   * Any free GPU: another engine of the same pool with this model loaded may
+   * draw it if it frees up first (gpu-pool.ts). Absent: only the engine asked.
+   */
+  anyGpu?: { model: string }
+  /**
    * Who started it: a paired device sees only its own runs, and they are
    * saved to the paired devices' save folder when one is set.
    */

@@ -31,6 +31,12 @@ export interface BackendConfig {
   workflowsDir?: string
   /** comfyui: whether paired devices see (and may pick) those workflows by name. */
   shareWorkflows?: boolean
+  /**
+   * Set by Latentry on its own engines only (one per GPU), never from settings:
+   * a run asked for with Any free GPU may go to another backend of the same
+   * pool (lib/diffusion/gpu-pool.ts).
+   */
+  pool?: string
 }
 
 export interface Capabilities {
@@ -80,6 +86,8 @@ export interface BackendStatus {
   busy: boolean
   /** The loaded model, as the backend names it; null when it does not say. */
   model: string | null
+  /** Latentry's engines only: their pool, for Any free GPU (lib/diffusion/gpu-pool.ts). */
+  pool?: string
   capabilities: Capabilities
   /** For each hinted feature it cannot use while up: why. Empty when offline. */
   hints: Partial<Record<HintedFeature, FeatureHint>>

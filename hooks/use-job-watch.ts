@@ -39,6 +39,8 @@ export interface JobWatch {
   saveWarning: string | null
   /** The run on screen, for what is tied to one run (secret mode's "Show"). */
   runId: string | null
+  /** The backend drawing the run on screen: another engine than the one chosen when Any free GPU sent it there. */
+  drawnOn: string | null
   isGenerating: boolean
   /** How many runs wait in this backend's queue, from any page; only the number. */
   queued: number
@@ -75,6 +77,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
   const [jobError, setJobError] = useState<string | null>(null)
   const [saveWarning, setSaveWarning] = useState<string | null>(null)
   const [runId, setRunId] = useState<string | null>(null)
+  const [drawnOn, setDrawnOn] = useState<string | null>(null)
   const [queued, setQueued] = useState(0)
   const [earlier, setEarlier] = useTabMemory<EarlierRun[]>("generate.earlier", () => [])
 
@@ -147,6 +150,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       source.addEventListener("snapshot", (event) => {
         if (!mine()) return
         const job = JSON.parse((event as MessageEvent).data)
+        setDrawnOn(typeof job.backend === "string" ? job.backend : null)
         setProgress({ completed: job.completed, total: job.total, currentStep: job.currentStep, stepsPerImage: job.stepsPerImage })
         setResults(job.images ?? [])
         setJobError(job.error ?? null)
@@ -255,6 +259,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     closeSource()
     watchedIdRef.current = null
     setRunId(null)
+    setDrawnOn(null)
     setResults([])
     setProgress(null)
     setJobError(null)
@@ -301,6 +306,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
       keepShown()
       watchedIdRef.current = null
       setRunId(null)
+      setDrawnOn(null)
       setResults([])
       setJobError(null)
       setSaveWarning(null)
@@ -323,6 +329,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
     jobError,
     saveWarning,
     runId,
+    drawnOn,
     isGenerating: jobStatus === "running",
     queued,
     isCancelling,

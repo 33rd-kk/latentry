@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { adapterOr404, jsonError } from '@/lib/api'
 import { encodeSseEvent } from '@/lib/diffusion/sse'
 import { getJob, isWatchable, subscribe, toSnapshot, type Job } from '@/lib/diffusion/job-store'
-import { getGrid, getQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
+import { getGrid, poolQueued, positionOf, subscribeQueued, type QueuedRun } from '@/lib/diffusion/run-queue'
+import { poolJob } from '@/lib/diffusion/gpu-pool'
 import { serverMessage } from '@/lib/i18n/core'
 import { sseSlot } from '@/lib/security/request-budget'
 import { maySeeRun, viewerOf } from '@/lib/security/viewer'
@@ -108,8 +109,12 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
       const ended = (job: Job) => job.status !== 'running' && job.pendingSaves === 0
       const sendEnd = (job: Job) => send('end', { status: job.status, error: job.error, saveError: job.saveError })
 
+      // The engine drawing the run: the one asked, or another of its pool
+      // that took it (Any free GPU, gpu-pool.ts).
+      let drawing = backend
+
       const push = () => {
-        const job = getJob(backend, id)
+        const job = getJob(drawing, id)
         // Forgotten, or the server restarted.
         if (!job) {
           send('end', { status: 'gone', error: null })
@@ -134,7 +139,9 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
       }
 
       const watchJob = () => {
-        const job = getJob(backend, id)
+        const located = poolJob(backend, id)
+        const job = located?.job
+        if (located) drawing = located.backend
         // Past its window a run is over for every viewer, not only for /job.
         if (!job || !isWatchable(job) || !visible(job.context.startedBy)) {
           send('end', { status: 'gone', error: null })
@@ -150,7 +157,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
           close()
           return
         }
-        unsubscribe = subscribe(backend, id, push)
+        unsubscribe = subscribe(drawing, id, push)
       }
 
       // A run still in the queue: its place until it starts, then the run itself.
@@ -265,7 +272,7 @@ export async function GET(request: NextRequest, ctx: RouteContext<'/api/gen/[bac
 
       const found = getGrid(backend, id)
       const grid = found && visible(found.startedBy) ? found : null
-      const waiting = grid || found ? null : getQueued(backend, id)
+      const waiting = grid || found ? null : poolQueued(backend, id)
       const queued = waiting && visible(waiting.startedBy) ? waiting : null
       if (grid) watchGrid(grid)
       else if (queued) waitInQueue(queued)

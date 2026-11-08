@@ -30,7 +30,8 @@ picture.
   you run it.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
   runs per NVIDIA GPU, each with its port, state, loaded model, version and
-  **Log**. An engine still running a version other than the one in
+  **Log**. With several, a run can go to whichever is free: see
+  [Any free GPU](many.md#any-free-gpu). An engine still running a version other than the one in
   Latentry's folder was started before an update; Setup says so, and a stop
   and start runs the new one.
 - **Show the LoRA list on paired devices** (off by default): phones and

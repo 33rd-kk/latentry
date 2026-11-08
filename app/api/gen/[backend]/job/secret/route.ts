@@ -1,6 +1,8 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { getCurrentJob, isWatchable, markSecret } from '@/lib/diffusion/job-store'
-import { getGrid, getQueued, markQueuedSecret } from '@/lib/diffusion/run-queue'
+import { getGrid, markQueuedSecret, poolQueued } from '@/lib/diffusion/run-queue'
+import { poolJob } from '@/lib/diffusion/gpu-pool'
+import { getAdapter } from '@/lib/backends'
 
 export const runtime = 'nodejs'
 
@@ -27,16 +29,19 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     return json({ secret: true })
   }
   // Still waiting: it will start as a secret run, and has left nothing on the backend yet.
-  const queued = typeof body?.job === 'string' ? getQueued(adapter.config.id, body.job) : null
+  // Also a run that waits on, or went to, another engine of the pool (Any free GPU).
+  const queued = typeof body?.job === 'string' ? poolQueued(adapter.config.id, body.job) : null
   if (queued) {
     markQueuedSecret(queued)
     return json({ secret: true })
   }
-  const current = getCurrentJob(adapter.config.id)
+  const located = typeof body?.job === 'string' ? poolJob(adapter.config.id, body.job) : null
+  const drawing = located ? located.backend : adapter.config.id
+  const current = getCurrentJob(drawing)
   if (typeof body?.job !== 'string' || !current || current.id !== body.job || !isWatchable(current)) {
     return jsonError('That run is not on this backend', 409)
   }
   markSecret(current)
-  await adapter.markSecret?.()
+  await (drawing === adapter.config.id ? adapter : getAdapter(drawing))?.markSecret?.()
   return json({ secret: true })
 }

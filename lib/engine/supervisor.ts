@@ -261,6 +261,8 @@ export function engineBackends(): BackendConfig[] {
       url: `http://127.0.0.1:${engine.port}/`,
       profile: profileFor(engine.model, engine.family),
       token: engine.token,
+      // One pool: Any free GPU may send a run to whichever is free.
+      pool: 'engine',
     }))
 }
 

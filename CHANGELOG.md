@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
+  switch under **Generate** lets a run go to another engine that is free and
+  has the same model loaded, at once when the chosen one is busy, or when
+  one frees up first. The page goes on showing it, says which engine drew
+  it, and **Cancel** and secret mode work as usual. Off by default; an X/Y
+  grid and **Faces** stay on the chosen engine. See
+  [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so
