@@ -97,7 +97,7 @@ steps.
   "init_image_base64": "…", "strength": 0.6,
   "mask_base64": "…", "mask_blur": 4,
   "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
-  "control_kind": "depth", "control_image_base64": "…", "control_strength": 0.8,
+  "control_kind": "depth", "control_image_base64": "…", "control_strength": 0.5,
   "hr_scale": 2, "hr_steps": 0, "hr_denoise": 0.4, "hr_upscaler": "Lanczos",
   "lora_hashes": false
 }
@@ -117,7 +117,7 @@ steps.
   control picture Latentry made from the user's reference, a PNG, white on
   black (Canny edges, a depth map with nearer lighter, or line art), at the
   reference's aspect ratio and at most 1024 pixels a side; fit it to the
-  run's size. Follow it at `control_strength` (0–2, 0.8 by default) with a
+  run's size. Follow it at `control_strength` (0–2, 0.5 by default) with a
   model for `control_kind`. It may come together with a pose. All three
   fields come together, or none.
 - **Hires fix** (servers with `hires: true`, txt2img and pose only): each

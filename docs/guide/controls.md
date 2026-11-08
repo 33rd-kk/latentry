@@ -15,7 +15,7 @@ follows control pictures), then:
    **From gallery**, or take the source image with **From source**.
 3. The control picture appears, white on black, as the run will send it.
    Picking another kind makes it again from the same reference.
-4. **Control strength** (0.8 by default, 0–2) sets how closely the backend
+4. **Control strength** (0.5 by default, 0–2) sets how closely the backend
    follows it.
 
 | Kind | What it keeps | Needs |

@@ -9,5 +9,9 @@ export function isControlKind(value: unknown): value is ControlKind {
   return typeof value === 'string' && (CONTROL_KINDS as readonly string[]).includes(value)
 }
 
-/** How strongly a backend follows the control picture, 0–2; 1 by default, as pose. */
-export const CONTROL_STRENGTH = { min: 0, max: 2, default: 0.8 } as const
+/**
+ * How strongly a backend follows the control picture, 0–2. 0.5 by default:
+ * the layout holds, and the picture stays as crisp as without one (at 0.8 the
+ * engine's union ControlNet left Illustrious pictures hazy).
+ */
+export const CONTROL_STRENGTH = { min: 0, max: 2, default: 0.5 } as const

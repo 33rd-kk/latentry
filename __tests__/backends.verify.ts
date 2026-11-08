@@ -578,7 +578,7 @@ async function main() {
   // ── A control picture in a request ──
   const controlled = parsed({ control_kind: 'lineart', control_image_base64: 'data:image/png;base64,DDDD', control_strength: 9 })
   eq([controlled?.control_kind, controlled?.control_image_base64, controlled?.control_strength], ['lineart', 'data:image/png;base64,DDDD', 2], 'a control picture is read as sent, its strength held to 2')
-  eq(parsed({ control_kind: 'canny', control_image_base64: 'DDDD' })?.control_strength, 0.8, 'its strength is 0.8 unless given')
+  eq(parsed({ control_kind: 'canny', control_image_base64: 'DDDD' })?.control_strength, 0.5, 'its strength is 0.5 unless given')
   eq('control_kind' in (parsed({ control_kind: 'blur', control_image_base64: 'DDDD' }) ?? {}), false, 'an unknown kind takes none')
   eq('control_kind' in (parsed({ control_kind: 'canny' }) ?? {}), false, 'nor a kind without its picture')
   const upscaledControl = parsed({ upscale: true, init_image_base64: 'AAAA', hr_scale: 2, control_kind: 'canny', control_image_base64: 'DDDD' })

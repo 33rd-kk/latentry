@@ -38,13 +38,13 @@ test('a reference becomes an edges picture, which the run sends instead of the r
   expect(answer.status()).toBe(200)
   expect(answer.request().postDataJSON()).toMatchObject({ kind: 'canny' })
   await expect(page.getByRole('img', { name: 'The Edges control picture the run follows' })).toBeVisible()
-  await expect(page.getByText('Control strength: 0.80')).toBeVisible()
+  await expect(page.getByText('Control strength: 0.50')).toBeVisible()
 
   await page.getByRole('main').locator('#prompt').fill('a box on a table')
   const sent = page.waitForRequest(isGenerate)
   await page.getByRole('button', { name: 'Generate', exact: true }).click()
   const body = (await sent).postDataJSON() as Record<string, unknown>
-  expect(body).toMatchObject({ control_kind: 'canny', control_strength: 0.8 })
+  expect(body).toMatchObject({ control_kind: 'canny', control_strength: 0.5 })
   expect(String(body.control_image_base64)).toMatch(/^data:image\/png;base64,/)
   // The reference is never sent with the run: only the control picture made from it.
   expect(body).not.toHaveProperty('init_image_base64')
