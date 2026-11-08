@@ -113,6 +113,8 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     request.control_image_base64 = control
     request.control_strength = num(body.control_strength, CONTROL_STRENGTH.default, CONTROL_STRENGTH.min, CONTROL_STRENGTH.max)
   }
+  // A ComfyUI workflow has its own nodes and no place for one: not sent, so not recorded either.
+  if (request.workflow) dropControl(request)
   // Upscale: the source itself, larger and redrawn. Nothing else rides along:
   // no mask, no skeleton, no workflow, and no strength (hr_denoise is it).
   const upscale = body.upscale === true && request.init_image_base64 !== undefined && typeof body.hr_scale === 'number'

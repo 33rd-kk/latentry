@@ -44,7 +44,9 @@ better.
 A backend lists the kinds it follows; the slot offers only those. The
 built-in engine follows all three with SDXL-family models (not Anima),
 through xinsir's union ControlNet, downloaded (2.5 GB) on the first run with
-a control picture; with a pose too, each keeps its own strength. See
+a control picture; with a pose too, each keeps its own strength. ComfyUI
+follows the kinds you give a ControlNet for in Settings
+([Control pictures](../reference/backends.md#control-pictures)). See
 [What each backend can do](../reference/backends.md#what-each-backend-can-do).
 For a server of your own, see `control_kinds` in
 [the backend API](https://github.com/33rd-kk/latentry/blob/main/docs/backend-api.md).

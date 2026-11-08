@@ -2,6 +2,7 @@
 // from, and the built-in profiles to compare against. Tokens never appear;
 // only whether one is set, and where.
 
+import type { ControlKind } from '@/lib/control/kinds'
 import { backendsSource, getBackends, hasEnvToken, taggerPreference } from '@/lib/backends/config'
 import { getGalleryDirs, autoTagEnabled, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { getBuiltinProfile, PROFILE_IDS, type ProfileId } from '@/lib/profiles'
@@ -20,7 +21,7 @@ export interface SettingsView {
   /** Latentry's own version, so the owner can match it against advisories (shown to this computer only, like the rest). */
   version: string
   file: string
-  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; workflowsDir: string | null; shareWorkflows: boolean }[]
+  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; controlnets: Partial<Record<ControlKind, string>>; workflowsDir: string | null; shareWorkflows: boolean }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
   gallery: {
@@ -62,13 +63,14 @@ export function settingsView(settings: Settings = getSettings()): SettingsView {
     editable: true,
     version: packageJson.version,
     file: settingsPath(),
-    backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, workflowsDir, shareWorkflows }) => ({
+    backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, controlnets, workflowsDir, shareWorkflows }) => ({
       id,
       kind,
       url,
       profile,
       model: model ?? null,
       controlnet: controlnet ?? null,
+      controlnets: controlnets ?? {},
       workflowsDir: workflowsDir ?? null,
       shareWorkflows: shareWorkflows === true,
       token: stored.get(id)?.token ? 'settings' : hasEnvToken(id, url) ? 'env' : null,

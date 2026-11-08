@@ -63,6 +63,22 @@ export async function preparedSkeleton(base64: string, width: number, height: nu
   }
 }
 
+/**
+ * A control picture (white on black) at the run's size, its aspect kept: the
+ * rest is filled black, which a ControlNet reads as nothing there.
+ */
+export async function letterboxedControl(base64: string, width: number, height: number): Promise<Buffer | null> {
+  try {
+    return await sharp(Buffer.from(stripDataUrl(base64), 'base64'))
+      .resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0 } })
+      .removeAlpha()
+      .png()
+      .toBuffer()
+  } catch {
+    return null
+  }
+}
+
 /** A 1×1 transparent PNG, to overwrite an uploaded picture with nothing. */
 export function blankPng(): Promise<Buffer> {
   return sharp({ create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()

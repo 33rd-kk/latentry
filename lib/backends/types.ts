@@ -28,6 +28,8 @@ export interface BackendConfig {
   model?: string
   /** comfyui: the ControlNet the built-in graph follows a skeleton with, as ComfyUI lists it; no pose without one. */
   controlnet?: string
+  /** comfyui: for each control picture kind, the ControlNet that follows it, as ComfyUI lists it; a kind without one is not offered. */
+  controlnets?: Partial<Record<ControlKind, string>>
   /** comfyui: a folder of API-format workflows to pick from on the Generate page. */
   workflowsDir?: string
   /** comfyui: whether paired devices see (and may pick) those workflows by name. */
@@ -68,7 +70,7 @@ export type HintedFeature = (typeof HINTED_FEATURES)[number]
 export interface FeatureHint {
   reason: 'kind' | 'not-reported' | 'declined' | 'setup'
   /** For `setup`: what is missing before Latentry can use the feature there. */
-  need?: 'controlnet' | 'engine' | 'nodes' | 'marker'
+  need?: 'controlnet' | 'engine' | 'nodes' | 'marker' | 'controls'
   /** The server's words, plain text, already trimmed. */
   detail?: string
 }

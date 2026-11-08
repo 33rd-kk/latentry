@@ -33,6 +33,7 @@
 // - ComfyUI has no login. A token is sent as a Bearer token, for a proxy in
 //   front of it.
 
+import { CONTROL_KINDS, type ControlKind } from '@/lib/control/kinds'
 import { randomInt, randomUUID } from 'node:crypto'
 import { FormData, fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
@@ -44,7 +45,7 @@ import { getProfile } from '@/lib/profiles'
 import { comfyHints, problemOf } from './hints'
 import { fillWorkflow, poseSlots, readWorkflow, type ComfyGraph, type SkeletonStyle } from './comfy-workflows'
 import { DiffusersAdapter } from './diffusers'
-import { blankPng, preparedImages, preparedSkeleton } from './images'
+import { blankPng, letterboxedControl, preparedImages, preparedSkeleton } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
 import type {
   BackendAdapter,
@@ -223,6 +224,8 @@ const UPLOAD_FOLDER = 'latentry'
 const MAX_LORAS = 20
 /** The node ComfyUI applies a ControlNet with, to positive and negative at once. */
 const CONTROLNET_APPLY = 'ControlNetApplyAdvanced'
+// Tells a union ControlNet which kind of picture it is given (ComfyUI core).
+const UNION_TYPE_NODE = 'SetUnionControlNetType'
 /**
  * A node SwarmUI installs into every ComfyUI it uses (SwarmComfyCommon). Seen
  * here, this ComfyUI sits behind a SwarmUI, which hands it out again under
@@ -240,6 +243,8 @@ interface StaticInfo {
   loras: string[] | null
   /** ControlNetLoader's files; null when ComfyUI has no such node (or no ControlNetApplyAdvanced). */
   controlnets: string[] | null
+  /** SetUnionControlNetType's types (e.g. "depth", "canny/lineart/anime_lineart/mlsd"); null without the node. */
+  unionTypes: string[] | null
   /** UpscaleModelLoader's files, folders included; empty without the node. */
   upscaleModels: string[]
 }
@@ -332,6 +337,25 @@ type GraphNode = { class_type: string; inputs: Record<string, unknown> }
 /** The uploaded source (and mask) of a run; `size`, an upscale's source size, which the graph enlarges. */
 type SourceImages = { source: string; mask?: string; strength: number; size?: { width: number; height: number } }
 
+/** A control picture as uploaded to ComfyUI, with what follows it. */
+export interface ControlUpload {
+  image: string
+  controlnet: string
+  strength: number
+  unionType?: string
+}
+
+/**
+ * The SetUnionControlNetType type for a control picture kind, when the
+ * ControlNet looks like a union model (its file name says "union") and ComfyUI
+ * lists a type naming that kind ("depth", "canny/lineart/…"). Otherwise none:
+ * a ControlNet made for one kind needs no type.
+ */
+export function unionType(controlnet: string, kind: ControlKind, types: string[] | null): string | null {
+  if (!types || !/union/i.test(modelFileName(controlnet))) return null
+  return types.find((type) => type.split('/').includes(kind)) ?? null
+}
+
 /**
  * The graph for one picture, in ComfyUI's API format: checkpoint → LoRA
  * loaders → the two prompts → a latent → KSampler → decode → PreviewImage
@@ -355,6 +379,8 @@ export function buildComfyGraph(
     images?: SourceImages
     /** The uploaded skeleton, the ControlNet file to follow it with, and how strongly. */
     pose?: { image: string; controlnet: string; strength: number }
+    /** The uploaded control picture, its ControlNet, how strongly, and a union model's type for it. */
+    control?: ControlUpload
     /** Hires fix's upscale model file, as ComfyUI lists it; without one, Lanczos. */
     upscaleModel?: string
   }
@@ -427,6 +453,22 @@ export function buildComfyGraph(
     }
     positive = ['34', 0]
     negative = ['34', 1]
+  }
+  if (options.control) {
+    // After pose's, so both shape the prompts the sampler gets.
+    graph['36'] = { class_type: 'LoadImage', inputs: { image: options.control.image } }
+    graph['37'] = { class_type: 'ControlNetLoader', inputs: { control_net_name: options.control.controlnet } }
+    let net: [string, number] = ['37', 0]
+    if (options.control.unionType) {
+      graph['38'] = { class_type: UNION_TYPE_NODE, inputs: { control_net: net, type: options.control.unionType } }
+      net = ['38', 0]
+    }
+    graph['39'] = {
+      class_type: CONTROLNET_APPLY,
+      inputs: { positive, negative, control_net: net, image: ['36', 0], strength: options.control.strength, start_percent: 0, end_percent: 1, vae: ['1', 2] },
+    }
+    positive = ['39', 0]
+    negative = ['39', 1]
   }
   const sampler = (steps: number, denoise: number, latentImage: [string, number]): GraphNode => ({
     class_type: 'KSampler',
@@ -518,13 +560,14 @@ export class ComfyUIAdapter implements BackendAdapter {
     const key = `${this.config.id}|${this.config.url}`
     const cached = staticInfo.get(key)
     if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
-    const [checkpoints, sampler, loras, controlnets, apply, upscalers] = await Promise.all([
+    const [checkpoints, sampler, loras, controlnets, apply, upscalers, union] = await Promise.all([
       this.getOrNull('/object_info/CheckpointLoaderSimple'),
       this.getOrNull('/object_info/KSampler'),
       this.getOrNull('/object_info/LoraLoader'),
       this.getOrNull('/object_info/ControlNetLoader'),
       this.getOrNull(`/object_info/${CONTROLNET_APPLY}`),
       this.getOrNull('/object_info/UpscaleModelLoader'),
+      this.getOrNull(`/object_info/${UNION_TYPE_NODE}`),
     ])
     const canApply = !!apply && typeof apply === 'object' && CONTROLNET_APPLY in apply
     const info: StaticInfo = {
@@ -535,6 +578,7 @@ export class ComfyUIAdapter implements BackendAdapter {
       loras: comboOptions(loras, 'LoraLoader', 'lora_name'),
       controlnets: canApply ? comboOptions(controlnets, 'ControlNetLoader', 'control_net_name') : null,
       upscaleModels: comboOptions(upscalers, 'UpscaleModelLoader', 'model_name') ?? [],
+      unionTypes: comboOptions(union, UNION_TYPE_NODE, 'type'),
     }
     // Only a complete answer is cached; a ComfyUI still starting is asked again.
     if (checkpoints !== null && sampler !== null) staticInfo.set(key, info)
@@ -562,6 +606,16 @@ export class ComfyUIAdapter implements BackendAdapter {
   /** What pose on the built-in graph still lacks here, all true when it can run. */
   private poseReady(info: StaticInfo): { nodes: boolean; controlnet: boolean; engine: boolean } {
     return { nodes: info.controlnets !== null, controlnet: !!this.config.controlnet?.trim(), engine: this.poseReader() !== null }
+  }
+
+  /** The control picture kinds the built-in graph can follow here: those with a ControlNet set that ComfyUI lists. */
+  private controlKinds(info: StaticInfo): ControlKind[] {
+    const listed = info.controlnets
+    if (listed === null) return []
+    return CONTROL_KINDS.filter((kind) => {
+      const file = this.config.controlnets?.[kind]?.trim()
+      return !!file && listed.includes(file)
+    })
   }
 
   /** The checkpoint a run uses: the configured one, else the first listed. */
@@ -595,6 +649,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         img2img: true,
         inpaint: true,
         pose: alive && pose.nodes && pose.controlnet && pose.engine,
+        control: alive ? this.controlKinds(info) : [],
         lora: info.loras !== null,
         tag: false,
         presets: false,
@@ -603,7 +658,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         hires: alive,
         upscale: alive,
       },
-      hints: comfyHints(alive, pose),
+      hints: comfyHints(alive, pose, { nodes: info.controlnets !== null, kinds: this.controlKinds(info).length }),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
       upscalers: alive ? upscalerNames(info.upscaleModels) : [],
@@ -653,6 +708,16 @@ export class ComfyUIAdapter implements BackendAdapter {
       if (!controlnet) return { ok: false, status: 400, error: 'Choose a Pose ControlNet for this backend in Settings' }
       if (!info.controlnets.includes(controlnet)) {
         return { ok: false, status: 400, error: `The Pose ControlNet set for this backend is not in ComfyUI's list: ${modelFileName(controlnet)}` }
+      }
+    }
+
+    // A control picture, on the built-in graph only (a workflow brings its own nodes).
+    const controlFile = request.control_kind ? this.config.controlnets?.[request.control_kind]?.trim() : undefined
+    if (request.control_image_base64 && !request.workflow) {
+      if (info.controlnets === null) return { ok: false, status: 400, error: `This ComfyUI has no ControlNetLoader and ${CONTROLNET_APPLY}` }
+      if (!controlFile) return { ok: false, status: 400, error: `Choose a ControlNet for ${request.control_kind} pictures for this backend in Settings` }
+      if (!info.controlnets.includes(controlFile)) {
+        return { ok: false, status: 400, error: `The ControlNet set for ${request.control_kind} pictures is not in ComfyUI's list: ${modelFileName(controlFile)}` }
       }
     }
 
@@ -726,10 +791,27 @@ export class ComfyUIAdapter implements BackendAdapter {
       }
       pose = { image: uploaded.name, strength: request.pose_strength ?? 1 }
     }
+    let control: ControlUpload | undefined
+    if (request.control_image_base64 && request.control_kind && controlFile && !workflow) {
+      const multiple = getProfile(this.config.profile).sizeMultiple
+      const snap = (value: number) => Math.max(multiple, Math.round(value / multiple) * multiple)
+      const picture = await letterboxedControl(request.control_image_base64, snap(drawn.width), snap(drawn.height))
+      const uploaded = picture
+        ? await this.uploadPicture(`${this.config.id}-control.png`, picture, inflight)
+        : { error: 'Could not read the control picture' }
+      if ('error' in uploaded) {
+        // A source, mask or skeleton may have gone up already; a secret run takes them back.
+        if (inflight.secret && inflight.uploads.length) await this.wipe([], inflight.uploads)
+        return { ok: false, status: picture ? 502 : 400, error: uploaded.error }
+      }
+      // A union ControlNet is told which kind it is given, when ComfyUI has the node.
+      const type = unionType(controlFile, request.control_kind, info.unionTypes)
+      control = { image: uploaded.name, controlnet: controlFile, strength: request.control_strength ?? 0.5, ...(type ? { unionType: type } : {}) }
+    }
 
     inflightRuns.set(this.config.id, inflight)
     const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
-    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose }, workflow, upscaleModel ?? undefined) }
+    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose, control }, workflow, upscaleModel ?? undefined) }
   }
 
   /**
@@ -808,7 +890,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
     inflight: Inflight,
-    uploaded: { images?: SourceImages; pose?: { image: string; strength: number } },
+    uploaded: { images?: SourceImages; pose?: { image: string; strength: number }; control?: ControlUpload },
     workflow?: ComfyGraph,
     upscaleModel?: string
   ): AsyncGenerator<BackendEvent> {
@@ -873,6 +955,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             sizeMultiple,
             ...(uploaded.images ? { images: uploaded.images } : {}),
             ...(uploaded.pose ? { pose: { ...uploaded.pose, controlnet: this.config.controlnet?.trim() ?? '' } } : {}),
+            ...(uploaded.control ? { control: uploaded.control } : {}),
             ...(upscaleModel ? { upscaleModel } : {}),
           })
         }

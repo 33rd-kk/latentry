@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Controls on ComfyUI**: the built-in graph follows edges, depth and line
+  art with a ControlNet you choose for each kind in Settings (or
+  `GEN_CONTROL_<KIND>_<ID>`), after a pose if there is one; a union
+  ControlNet is told which kind each picture is. Only the control picture
+  goes to ComfyUI, and a secret run wipes it. See
+  [Control pictures](https://33rd-kk.github.io/latentry/reference/backends/#control-pictures).
+
 - **Controls on the built-in engine** (engine 0.9.0): SDXL-family models
   follow edges, depth and line art through xinsir's union ControlNet
   (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
