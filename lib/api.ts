@@ -3,6 +3,7 @@
 
 import { getAdapter } from '@/lib/backends'
 import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
+import { CONTROL_STRENGTH, isControlKind } from '@/lib/control/kinds'
 import { HIRES_DEFAULTS, HIRES_LIMITS, maxHiresScale } from '@/lib/diffusion/hires'
 import { IMAGE_COUNT_MAX, MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
@@ -105,6 +106,13 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     request.pose_is_skeleton = body.pose_is_skeleton === true
     request.pose_strength = num(body.pose_strength, 1, 0, 2)
   }
+  // A control picture Latentry made (POST /api/control), beside pose.
+  const control = image(body.control_image_base64)
+  if (control && isControlKind(body.control_kind)) {
+    request.control_kind = body.control_kind
+    request.control_image_base64 = control
+    request.control_strength = num(body.control_strength, CONTROL_STRENGTH.default, CONTROL_STRENGTH.min, CONTROL_STRENGTH.max)
+  }
   // Upscale: the source itself, larger and redrawn. Nothing else rides along:
   // no mask, no skeleton, no workflow, and no strength (hr_denoise is it).
   const upscale = body.upscale === true && request.init_image_base64 !== undefined && typeof body.hr_scale === 'number'
@@ -115,6 +123,7 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     delete request.pose_image_base64
     delete request.pose_is_skeleton
     delete request.pose_strength
+    dropControl(request)
     delete request.workflow
     request.upscale = true
   }
@@ -142,4 +151,11 @@ export function modeOf(request: GenerateRequest): 'txt2img' | 'img2img' | 'inpai
   if (request.pose_image_base64) return 'pose'
   if (request.init_image_base64) return request.mask_base64 ? 'inpaint' : 'img2img'
   return 'txt2img'
+}
+
+/** Takes a control picture off a request that redraws a source on its own terms (Upscale, Extend, Faces). */
+export function dropControl(request: GenerateRequest): void {
+  delete request.control_kind
+  delete request.control_image_base64
+  delete request.control_strength
 }

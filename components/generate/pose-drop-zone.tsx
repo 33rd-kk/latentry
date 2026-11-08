@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef, useState, type ReactNode } from "react"
 import { Loader2, PersonStanding } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
@@ -10,10 +10,13 @@ interface PoseDropZoneProps {
   onFile: (file: File) => void
   loading: boolean
   disabled?: boolean
+  /** In place of the pose wording and figure, for another slot that takes a picture. */
+  label?: string
+  icon?: ReactNode
 }
 
 /** The empty pose slot: drop a picture on it, or click to choose one. */
-export function PoseDropZone({ onFile, loading, disabled }: PoseDropZoneProps) {
+export function PoseDropZone({ onFile, loading, disabled, label, icon }: PoseDropZoneProps) {
   const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
   const [isDragActive, setIsDragActive] = useState(false)
@@ -44,8 +47,8 @@ export function PoseDropZone({ onFile, loading, disabled }: PoseDropZoneProps) {
           isDragActive ? "border-primary bg-primary/5" : "hover:border-muted-foreground/60"
         )}
       >
-        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PersonStanding className="h-4 w-4" />}
-        {t("generate.poseDrop")}
+        {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : (icon ?? <PersonStanding className="h-4 w-4" />)}
+        {label ?? t("generate.poseDrop")}
       </button>
       <input
         ref={inputRef}

@@ -55,6 +55,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `model` | no | Shown in the UI. `org/` is dropped. |
 | `transformer`, `num_layers` | no | Shown with the model when present. |
 | `pose_control` | no | `true` enables the skeleton pose slot and `/api/pose`. |
+| `control_kinds` | no | The control pictures it follows, from `"canny"`, `"depth"`, `"lineart"` (the `control_*` fields below). Without it, or empty, the Control slot is not offered. |
 | `lora` | no | `true`: the server applies `<lora:name:weight>` calls in the prompt itself. Without it, the prompt shows a note that such a call is read as plain words. |
 | `busy` | no | Something is generating. Shown as the backend's state. |
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
@@ -96,6 +97,7 @@ steps.
   "init_image_base64": "…", "strength": 0.6,
   "mask_base64": "…", "mask_blur": 4,
   "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
+  "control_kind": "depth", "control_image_base64": "…", "control_strength": 0.8,
   "hr_scale": 2, "hr_steps": 0, "hr_denoise": 0.4, "hr_upscaler": "Lanczos",
   "lora_hashes": false
 }
@@ -111,6 +113,13 @@ steps.
   (`pose_is_skeleton: true`), followed at `pose_strength` (0–2, 1.0 as
   trained). The skeleton's drawing style is the backend's business: it is
   drawn by the same backend that follows it.
+- **Control** (servers listing `control_kinds`): `control_image_base64` is a
+  control picture Latentry made from the user's reference, a PNG, white on
+  black (Canny edges, a depth map with nearer lighter, or line art), at the
+  reference's aspect ratio and at most 1024 pixels a side; fit it to the
+  run's size. Follow it at `control_strength` (0–2, 0.8 by default) with a
+  model for `control_kind`. It may come together with a pose. All three
+  fields come together, or none.
 - **Hires fix** (servers with `hires: true`, txt2img and pose only): each
   picture is upscaled by `hr_scale` (1–4, at most 4096 pixels a side) with
   `hr_upscaler` (one of the health's `upscalers`), then redrawn at

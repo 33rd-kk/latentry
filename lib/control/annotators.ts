@@ -15,8 +15,9 @@ import { catalogEntry } from '@/lib/engine/catalog'
 import { localModelDir } from '@/lib/engine/tagger-download'
 import { cannyEdges, CANNY_DEFAULTS } from './canny'
 
-export const CONTROL_KINDS = ['canny', 'depth', 'lineart'] as const
-export type ControlKind = (typeof CONTROL_KINDS)[number]
+import { CONTROL_KINDS, type ControlKind } from './kinds'
+
+export { CONTROL_KINDS, type ControlKind }
 
 /** The catalog entry each model-made kind is downloaded from. */
 export const ANNOTATOR_ENTRY: Record<Exclude<ControlKind, 'canny'>, string> = {
