@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Inpaint on Anima** (engine 0.9.0): the built-in engine now inpaints with
+  Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
+  they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps
+  the source outside the mask at every step, and copies its pixels back
+  exactly at the end. After updating, stop and start the engine on **Setup**
+  once. See
+  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so
