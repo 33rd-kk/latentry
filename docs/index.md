@@ -21,10 +21,13 @@ it again by what it shows or how it was made.
   [Upscale](guide/bigger.md#upscale-a-picture) does the same to one already
   in the gallery. [Extend](guide/from-a-picture.md#extend-a-picture-outpainting)
   grows a picture's canvas and draws the new area, and
-  [wildcards](guide/many.md#wildcards) fill in parts of a prompt from a
-  folder of text files. More runs [queue](guide/many.md#the-queue)
+  [Fix faces](guide/from-a-picture.md#fix-faces) redraws each face larger.
+  [Wildcards](guide/many.md#wildcards) fill in parts of a prompt from a
+  folder of text or YAML files, and [variants](guide/many.md#variants) pick
+  one of `{a|b}`. More runs [queue](guide/many.md#the-queue)
   behind the one going, and an [X/Y grid](guide/many.md#xy-grid) draws a
-  run again for each value of one or two settings.
+  run again for each value of one or two settings, or for each ComfyUI
+  checkpoint.
 - **Poses from group pictures, turned in 3D**: pick which of the people in a
   picture to follow (one, several or everyone), turn the pose in 3D, drag a
   joint and frame it, then generate along that skeleton. See
@@ -34,7 +37,8 @@ it again by what it shows or how it was made.
   sizes, steps, CFG, negative prompt, artist notation and quality tags.
 - **Gallery**: every finished image is saved with its settings embedded
   (readable by A1111's PNG Info too); other tools' folders are browsed
-  read-only, with settings read from PNG, JPEG and WebP. Search by prompt,
+  read-only, with settings read from PNG, JPEG and WebP (stable-diffusion.cpp's
+  own too). Search by prompt,
   tag or setting (`model:`, `steps:>=30`) with suggestions as you type,
   rate with stars, order and filter, stack pictures that share a prompt,
   open an X/Y grid as a grid, compare two, send settings, tags or the

@@ -21,11 +21,14 @@ made, then sends those settings back to the form to make it again.
 - **Generate.** Text-to-image, img2img (variation, or a picture as a pose
   reference) and inpainting with a painted mask. Hires fix redraws a new
   picture at a larger size, and Upscale does the same to one already in the
-  gallery, and Extend grows a picture's canvas and draws the new area.
-  `__wildcards__` in a prompt take a line from a folder of text files. Runs
+  gallery, and Extend grows a picture's canvas and draws the new area. Fix
+  faces finds the faces in a picture on this computer and redraws each one
+  larger. `__wildcards__` in a prompt take a line from a folder of text or
+  YAML files, and `{red|blue}` picks one choice per run. Runs
   live on the server, so a reload or a second tab picks up a run in progress,
   and more runs queue behind the one going. An X/Y grid draws a run again
-  for each value of one or two settings, to compare them side by side.
+  for each value of one or two settings, to compare them side by side, or
+  with each of ComfyUI's checkpoints.
 - **Poses from group pictures, turned in 3D.** Drop in any picture, pick
   which of the people in it to follow (one, several or everyone), turn the
   pose in 3D, drag a joint and frame it, then generate along that skeleton.
@@ -36,7 +39,8 @@ made, then sends those settings back to the form to make it again.
 - **A gallery that knows how every picture was made.** Every finished image
   is saved with its settings embedded (readable by A1111's PNG Info too).
   Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
-  and their settings are read from PNG, JPEG and WebP alike.
+  and their settings are read from PNG, JPEG and WebP alike, including
+  those saved by ComfyUI with custom samplers and by stable-diffusion.cpp.
   - Search prompts and tags, or one setting: `model:`, `seed:`,
     `steps:>=30`, `w:1024`; leave pictures out with `-tag`. The search box
     suggests tags, settings and how to write a search.

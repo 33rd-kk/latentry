@@ -2,9 +2,48 @@
 
 ## Unreleased
 
-**Upgrading**: paired phones and computers see no gallery folder until you
-turn **Show on paired devices** on for a folder in Settings > Gallery
-folders. This computer and owner devices are not affected.
+## 0.16.0 (2026-11-08)
+
+**Upgrading from 0.15.0**: the usual update; the engine is unchanged, so
+neither a restart of it nor **Repair / update** is needed. With Docker,
+`git pull` then `docker compose up -d` (with `-f compose.yaml -f
+compose.gpu.yaml` for a GPU) downloads this release's image. Paired phones
+and computers now see no gallery folder until you turn **Show on paired
+devices** on for a folder in Settings > Gallery folders; this computer and
+owner devices are not affected. **Fix faces** needs a face detector,
+downloaded on **Setup** when you press its Download.
+
+**Generate**
+
+- **Fix faces**: a source picture's **Faces** mode finds its faces and
+  redraws each one larger as an inpaint, pasting it back, on any backend
+  that inpaints (ADetailer-style). The faces are found on this computer by
+  a face detector downloaded on Setup: YuNet for photos or deepghs's anime
+  face detector, each pinned to a commit and checked against its SHA-256,
+  and fetched only when you press Download. The gallery viewer has **Fix
+  faces**. See
+  [Fix faces](https://33rd-kk.github.io/latentry/guide/from-a-picture/#fix-faces).
+- **Compare models in the X/Y grid**: on ComfyUI, **Model** is an axis of
+  its own. Click the checkpoints ComfyUI lists, and each cell draws with
+  its own, recorded in its picture. Checkpoints are listed by file name
+  only. Other backends do not offer it: a web UI would have to switch its
+  own model. See
+  [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
+- **Variants and YAML wildcards**: `{red|blue|green}` in a prompt takes one
+  choice for the run, drawn from the seed like a wildcard's line, with
+  counts such as `{2$$a|b|c}` as in Dynamic Prompts; it needs no wildcards
+  folder. The wildcards folder also reads YAML files, whose keys name the
+  lists (`__group/name__` for nested keys). The picture keeps the prompt as
+  typed. Braces with no `|`, such as `{masterpiece}`, are left as written.
+  See [Variants](https://33rd-kk.github.io/latentry/guide/many/#variants).
+- **Save without settings on the Generate page**: each result, and the
+  viewer's panel, has **Save without settings**, made in the page from the
+  picture on screen (nothing is sent for it), and **Save with settings**,
+  the gallery's copy, once the picture is in the gallery. The plain
+  **Download** link and the viewer's own save button are gone. See
+  [Results](https://33rd-kk.github.io/latentry/guide/generate/#results).
+
+**Backends**
 
 - **stable-diffusion.cpp as a backend**: the new kind `sdcpp` draws on a
   stable-diffusion.cpp `sd-server`, a single program with no Python that
@@ -15,27 +54,6 @@ folders. This computer and owner devices are not affected.
   sd-server has no login, so Settings warns about one reached over the
   network without a token. See
   [stable-diffusion.cpp](https://33rd-kk.github.io/latentry/reference/backends/#stable-diffusioncpp).
-- **The gallery reads stable-diffusion.cpp's pictures**: pictures that
-  `sd-server` or `sd-cli` saved themselves show their settings, from PNG,
-  JPEG (its comment) and WebP (its XMP), and **Settings from** has
-  stable-diffusion.cpp. Its own record is read first, so hires fix, the
-  sampler and LoRAs come out right; model and LoRA folders are dropped.
-  A1111's `Hires resize` is read too, and PNG text written as UTF-8 by
-  other tools no longer comes out garbled.
-- **Compare models in the X/Y grid**: on ComfyUI, **Model** is an axis of
-  its own. Click the checkpoints ComfyUI lists, and each cell draws with
-  its own, recorded in its picture. Checkpoints are listed by file name
-  only. Other backends do not offer it: a web UI would have to switch its
-  own model. See
-  [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
-- **Fix faces**: a source picture's **Faces** mode finds its faces and
-  redraws each one larger as an inpaint, pasting it back, on any backend
-  that inpaints (ADetailer-style). The faces are found on this computer by
-  a face detector downloaded on Setup: YuNet for photos or deepghs's anime
-  face detector, each pinned to a commit and checked against its SHA-256,
-  and fetched only when you press Download. The gallery viewer has **Fix
-  faces**. See
-  [Fix faces](https://33rd-kk.github.io/latentry/guide/from-a-picture/#fix-faces).
 - **SwarmUI's ComfyUI as a backend, with a warning**: the ComfyUI that
   SwarmUI starts works as an ordinary `comfyui` backend at its own port
   (checked with SwarmUI 0.9.8.4). SwarmUI shares that ComfyUI under its own
@@ -43,20 +61,16 @@ folders. This computer and owner devices are not affected.
   now says when a ComfyUI has SwarmUI's nodes: keep SwarmUI's Host on
   localhost, or turn on its login before opening it to the network. See
   [SwarmUI](https://33rd-kk.github.io/latentry/reference/backends/#swarmui).
-- **Choose which folders paired devices see**: each gallery folder has
-  **Show on paired devices** (off by default), and a folder that is off
-  answers a paired device as if it did not exist, on every route. Runs
-  started from a paired device can go to their own **Save folder for paired
-  devices**, and a paired device now sees and stops only the runs it started
-  itself. See
-  [Gallery folders](https://33rd-kk.github.io/latentry/guide/settings/#gallery-folders).
-- **Variants and YAML wildcards**: `{red|blue|green}` in a prompt takes one
-  choice for the run, drawn from the seed like a wildcard's line, with
-  counts such as `{2$$a|b|c}` as in Dynamic Prompts; it needs no wildcards
-  folder. The wildcards folder also reads YAML files, whose keys name the
-  lists (`__group/name__` for nested keys). The picture keeps the prompt as
-  typed. Braces with no `|`, such as `{masterpiece}`, are left as written.
-  See [Variants](https://33rd-kk.github.io/latentry/guide/many/#variants).
+
+**Gallery**
+
+- **The gallery reads stable-diffusion.cpp's pictures**: pictures that
+  `sd-server` or `sd-cli` saved themselves show their settings, from PNG,
+  JPEG (its comment) and WebP (its XMP), and **Settings from** has
+  stable-diffusion.cpp. Its own record is read first, so hires fix, the
+  sampler and LoRAs come out right; model and LoRA folders are dropped.
+  A1111's `Hires resize` is read too, and PNG text written as UTF-8 by
+  other tools no longer comes out garbled.
 - **Settings from custom ComfyUI samplers**: the gallery reads the prompt,
   seed, steps, CFG and sampler of ComfyUI pictures made with a custom sampler
   node (one named like `KSampler`, or any node taking a latent and the
@@ -68,16 +82,20 @@ folders. This computer and owner devices are not affected.
 - **Stars stay put**: stars given in the viewer no longer vanish when the
   gallery list was being refreshed at that moment (a new search, or a folder
   still being read).
+
+**Paired devices and Settings**
+
+- **Choose which folders paired devices see**: each gallery folder has
+  **Show on paired devices** (off by default), and a folder that is off
+  answers a paired device as if it did not exist, on every route. Runs
+  started from a paired device can go to their own **Save folder for paired
+  devices**, and a paired device now sees and stops only the runs it started
+  itself. See
+  [Gallery folders](https://33rd-kk.github.io/latentry/guide/settings/#gallery-folders).
 - **Settings asks before unsaved changes are lost**: with changes not yet
   saved, going to another page from the header, reloading or closing the tab
   first asks whether to leave. Switching sections still keeps the changes. See
   [Settings](https://33rd-kk.github.io/latentry/guide/settings/).
-- **Save without settings on the Generate page**: each result, and the
-  viewer's panel, has **Save without settings**, made in the page from the
-  picture on screen (nothing is sent for it), and **Save with settings**,
-  the gallery's copy, once the picture is in the gallery. The plain
-  **Download** link and the viewer's own save button are gone. See
-  [Results](https://33rd-kk.github.io/latentry/guide/generate/#results).
 
 ## 0.15.0 (2026-11-04)
 

@@ -101,11 +101,13 @@ export async function shotBetween(page: Page, name: string, top: Locator, bottom
   const a = (await top.boundingBox())!
   const b = (await bottom.boundingBox())!
   const c = column ? (await column.boundingBox())! : { x: 0, width: WIDTH }
+  // Boxes are measured from the window, a full-page clip from the page's top.
+  const scrolled = await page.evaluate(() => window.scrollY)
   const pad = 12
   const png = await page.screenshot({
     animations: 'disabled',
     fullPage: true,
-    clip: { x: Math.max(0, c.x - pad), y: Math.max(0, a.y - pad), width: Math.min(WIDTH, c.width + 2 * pad), height: b.y + b.height - a.y + pad + below },
+    clip: { x: Math.max(0, c.x - pad), y: Math.max(0, a.y + scrolled - pad), width: Math.min(WIDTH, c.width + 2 * pad), height: b.y + b.height - a.y + pad + below },
   })
   await writeWebp(name, png)
 }
