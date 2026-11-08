@@ -227,6 +227,7 @@
     "sourceModePose": "Pose reference",
     "sourceModeUpscale": "Upscale",
     "sourceModeExtend": "Extend",
+    "sourceModeFaceFix": "Faces",
     "extendLeft": "Left: {value}px",
     "extendRight": "Right: {value}px",
     "extendTop": "Top: {value}px",
@@ -342,6 +343,22 @@
       "hires": "Hires fix",
       "grid": "X/Y grid",
       "holding": "Hidden, so not used. What it holds is kept for when it is shown again."
+    },
+    "facefix": {
+      "detector": "Find faces in",
+      "photo": "Photos",
+      "anime": "Anime / illustration",
+      "denoise": "Denoise: {value}",
+      "maxFaces": "Faces at most: {value}",
+      "confidence": "Confidence: {value}",
+      "prompt": "Face prompt",
+      "promptPlaceholder": "Empty: the prompt above",
+      "hint": "Each face is cut out, redrawn larger as an inpaint, and pasted back; the rest of the picture stays as it is. The faces are found on this computer, by a face detector downloaded on Setup.",
+      "setupLink": "Face detectors on Setup",
+      "noGrid": "Face fix runs on its own, not in an X/Y grid.",
+      "badPicture": "Face fix could not read the picture.",
+      "noDetector": "Download this face detector on Setup first.",
+      "noFaces": "No face was found. Try the other detector, or a lower confidence."
     }
   },
   "gallery": {
@@ -444,6 +461,8 @@
     "useAsPoseHint": "Sets this picture as the form's pose reference: its pose carries over, but not its hair or outfit. Prompts and settings stay as they are.",
     "upscale": "Upscale",
     "upscaleHint": "Opens this picture in Generate to make it larger and redraw its detail (hires fix for a finished picture). Its prompts come along when it has them.",
+    "fixFaces": "Fix faces",
+    "fixFacesHint": "Opens this picture in Generate to redraw its faces, each one larger, and paste them back. Its prompts come along when it has them.",
     "reveal": "Show in folder",
     "revealHint": "Opens the folder in this computer's file manager, with the picture selected. Only from this computer.",
     "openApp": "Open in default app",
@@ -842,6 +861,8 @@
     "recommended": "Recommended",
     "tagger": "Tagger",
     "taggerBody": "The WD14 tagger reads tags from pictures. It runs inside Latentry, so it needs no engine.",
+    "faceDetectors": "Face detectors",
+    "faceDetectorsBody": "For Face fix: they find the faces in a picture, on this computer. Nothing is downloaded until you press Download.",
     "inUse": "In use",
     "use": "Use this one",
     "failed": "That did not work: {error}",

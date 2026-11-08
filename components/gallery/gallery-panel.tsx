@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react"
 import { useRouter } from "next/navigation"
-import { Download, ExternalLink, Eye, FolderOpen, ImageUp, Loader2, Maximize2, PersonStanding, Tags, Wand2 } from "lucide-react"
+import { Download, ExternalLink, Eye, FolderOpen, ImageUp, Loader2, Maximize2, PersonStanding, ScanFace, Tags, Wand2 } from "lucide-react"
 import { LightboxTagPanel, type LightboxTagSection } from "@/components/ui/lightbox-tag-panel"
 import { pictureUrl, saveDownload, type GalleryPicture } from "@/hooks/use-gallery"
 import { pushHandoff } from "@/lib/storage"
@@ -138,9 +138,9 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
     router.push("/")
   }
 
-  const sendSource = (as: "variation" | "pose" | "upscale") => {
-    // An upscale redraws this picture, so its own prompts go along when it has them.
-    const words = as === "upscale" && meta?.prompt ? { prompt: meta.prompt, negativePrompt: meta.negativePrompt } : {}
+  const sendSource = (as: "variation" | "pose" | "upscale" | "facefix") => {
+    // An upscale or a face fix redraws this picture, so its own prompts go along when it has them.
+    const words = (as === "upscale" || as === "facefix") && meta?.prompt ? { prompt: meta.prompt, negativePrompt: meta.negativePrompt } : {}
     pushHandoff({ type: "source", url: pictureUrl(picture), as, ...words })
     router.push("/")
   }
@@ -228,6 +228,10 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         <button type="button" className={action} onClick={() => sendSource("upscale")} title={t("gallery.upscaleHint")}>
           <Maximize2 className="h-3 w-3" />
           {t("gallery.upscale")}
+        </button>
+        <button type="button" className={action} onClick={() => sendSource("facefix")} title={t("gallery.fixFacesHint")}>
+          <ScanFace className="h-3 w-3" />
+          {t("gallery.fixFaces")}
         </button>
         <button type="button" className={action} onClick={() => void save("clean")} title={t("gallery.download.cleanHint")}>
           <Download className="h-3 w-3" />

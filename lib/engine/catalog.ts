@@ -7,7 +7,7 @@
 
 import type { ProfileId } from '@/lib/profiles'
 
-export type CatalogKind = 'checkpoint' | 'tagger'
+export type CatalogKind = 'checkpoint' | 'tagger' | 'detector'
 
 export interface CatalogEntry {
   id: string
@@ -21,7 +21,7 @@ export interface CatalogEntry {
   revision: string
   /** One file in the repository; absent for a whole diffusers folder. */
   filename?: string
-  /** For a tagger: the files it needs from the repository. */
+  /** For a tagger or a face detector: the files it needs from the repository. */
   files?: string[]
   /**
    * SHA-256 of `filename` or of each of `files`, checked before the file is
@@ -158,6 +158,37 @@ export const CATALOG: CatalogEntry[] = [
     licenseUrl: 'https://huggingface.co/SmilingWolf/wd-eva02-large-tagger-v3',
     commercialOutputs: true,
     terms: 'Permissive. More accurate, three times the size.',
+  },
+  // Face fix's detectors (lib/facefix): small ONNX models run by Latentry itself.
+  {
+    id: 'yunet-2023mar',
+    kind: 'detector',
+    name: 'YuNet (photos)',
+    repo: 'opencv/face_detection_yunet',
+    revision: '3cc26e7f1014a5ee5d74a42acee58bafc9d0a310',
+    files: ['face_detection_yunet_2023mar.onnx'],
+    sha256: { 'face_detection_yunet_2023mar.onnx': '8f2383e4dd3cfbb4553ea8718107fc0423210dc964f9f4280604804ed2552fa4' },
+    bytes: 232589,
+    license: 'MIT',
+    licenseUrl: 'https://huggingface.co/opencv/face_detection_yunet',
+    commercialOutputs: true,
+    terms: 'Permissive. Finds faces in photos and realistic pictures.',
+  },
+  {
+    id: 'anime-face-v1.4n',
+    kind: 'detector',
+    name: 'Anime face detection v1.4 (deepghs)',
+    repo: 'deepghs/anime_face_detection',
+    revision: '784dc4c0bb692351ddcdbe6131a050b17d3025d5',
+    files: ['face_detect_v1.4_n/model.onnx'],
+    sha256: { 'face_detect_v1.4_n/model.onnx': 'fd860b650a4377046842c3cd80d01b0b408bdfbdb4acee5759630f82c6ef04a9' },
+    bytes: 12102558,
+    license: 'MIT (model card)',
+    licenseUrl: 'https://huggingface.co/deepghs/anime_face_detection',
+    commercialOutputs: true,
+    terms:
+      'Finds faces in anime and illustrations. The model card says MIT, but it is a YOLOv8 model trained with Ultralytics, whose AGPL-3.0 Ultralytics says also covers trained models. Latentry runs it with its own code and does not include it.',
+    recommended: true,
   },
 ]
 

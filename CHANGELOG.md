@@ -28,6 +28,14 @@ folders. This computer and owner devices are not affected.
   only. Other backends do not offer it: a web UI would have to switch its
   own model. See
   [X/Y grid](https://33rd-kk.github.io/latentry/guide/many/#xy-grid).
+- **Fix faces**: a source picture's **Faces** mode finds its faces and
+  redraws each one larger as an inpaint, pasting it back, on any backend
+  that inpaints (ADetailer-style). The faces are found on this computer by
+  a face detector downloaded on Setup: YuNet for photos or deepghs's anime
+  face detector, each pinned to a commit and checked against its SHA-256,
+  and fetched only when you press Download. The gallery viewer has **Fix
+  faces**. See
+  [Fix faces](https://33rd-kk.github.io/latentry/guide/from-a-picture/#fix-faces).
 - **SwarmUI's ComfyUI as a backend, with a warning**: the ComfyUI that
   SwarmUI starts works as an ordinary `comfyui` backend at its own port
   (checked with SwarmUI 0.9.8.4). SwarmUI shares that ComfyUI under its own

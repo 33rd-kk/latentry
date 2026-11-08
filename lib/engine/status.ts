@@ -9,7 +9,7 @@ import { chooseTorch, detectGpus, type Gpu, type TorchChoice } from './gpus'
 import { installJob, installRecord, type InstallRecord, type InstallState } from './install'
 import { enginePaths } from './paths'
 import { DEFAULT_BASE_PORT, engineFetch, engines, modelsDir, type EngineState } from './supervisor'
-import { taggerDir, taggerDownloads } from './tagger-download'
+import { detectorDir, taggerDir, taggerDownloads } from './tagger-download'
 import { sourceEngineVersion } from './version'
 
 export interface DownloadView {
@@ -139,6 +139,19 @@ export async function engineStatus(): Promise<EngineStatus> {
   const catalog = await Promise.all(
     CATALOG.map(async (entry): Promise<CatalogView> => {
       const modelId = engineModelId(entry)
+      if (entry.kind === 'detector') {
+        const target = detectorDir(entry)
+        const item = taggerProgress.find((download) => download.id === entry.id)
+        const installed = await Promise.all((entry.files ?? []).map((file) => exists(path.join(target, path.basename(file)))))
+        return {
+          ...entry,
+          modelId,
+          installed: installed.length > 0 && installed.every(Boolean),
+          inUse: false,
+          dir: target,
+          download: item ? { state: item.state, doneBytes: item.doneBytes, totalBytes: item.totalBytes, error: item.error } : null,
+        }
+      }
       if (entry.kind === 'tagger') {
         const target = taggerDir(entry)
         const item = taggerProgress.find((download) => download.id === entry.id)

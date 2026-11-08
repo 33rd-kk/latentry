@@ -108,3 +108,12 @@ compares the two with the other backends.
 
 The WD14 tagger reads tags from pictures. It runs inside Latentry, on the
 CPU, so it needs no engine. Download one here and **Use this one**.
+
+## Face detectors
+
+[Fix faces](from-a-picture.md#fix-faces) finds faces with a small detector
+that runs inside Latentry, on the CPU, so it needs no engine either. Download
+**YuNet** for photos, the **anime face detector** for anime and
+illustrations, or both; each is used as soon as it is downloaded. Each card
+shows its license before **Download**, and the file is checked against its
+pinned SHA-256 before it is kept, in the models folder under `detectors`.

@@ -17,6 +17,8 @@ use **Use as source** under a result. Then choose what it is for:
   [Upscale a picture](bigger.md#upscale-a-picture).
 - **Extend**: the canvas grows around the picture and the new area is drawn
   (outpainting); see [Extend a picture](#extend-a-picture-outpainting).
+- **Faces**: each face in the picture is redrawn larger and pasted back; see
+  [Fix faces](#fix-faces).
 
 While a source is set, the **Hires fix** section is hidden.
 
@@ -56,6 +58,44 @@ most 1024; a slider stops where the canvas would pass that. The size is
 rounded up to a multiple of 16 on the right and bottom, so every backend
 draws it as it is. The width × height set below do not apply. The picture
 is saved with the mode `outpaint`.
+
+## Fix faces
+
+**Faces** (on backends that can inpaint) finds the faces in the picture and
+redraws each one: it cuts a square around the face, sends it to the backend
+as an ordinary inpaint at about the width × height area set below, and
+pastes the redrawn face back through a soft-edged mask. A face that is small
+in the picture gets the backend's full resolution, the way ADetailer works
+in a web UI. Nothing outside the faces changes, and it works the same on
+every backend that inpaints.
+
+- **Find faces in**: **Anime / illustration** or **Photos**. Each uses a
+  face detector that runs on this computer; download it first under **Face
+  detectors** on [Setup](engine.md). Nothing is downloaded until you press
+  **Download**, and the picture is never sent anywhere to be looked at.
+- **Denoise**: how much of each face is redrawn (0.4 to start). Higher
+  changes the face more.
+- **Faces at most**: the surest faces first, up to 8.
+- **Confidence**: how sure the detector must be. Lower finds more faces,
+  and more things that are not faces.
+- **Face prompt**: what each face is drawn from; empty uses the prompt
+  above. The negative prompt, sampler, steps, CFG and LoRAs are the form's.
+
+The faces are drawn one after another as one run, with one progress bar for
+all of them, on the seed set below (the next face on the next seed). If no
+face is found, the run is refused before it starts: try the other detector,
+or a lower confidence. A run with Faces cannot be part of an [X/Y
+grid](many.md#xy-grid). The picture keeps its size and is saved with the
+mode `facefix`, its denoise as the strength.
+
+| Detector | For | Size | License |
+|---|---|---|---|
+| YuNet (OpenCV Zoo) | Photos and realistic pictures | 0.2 MB | MIT |
+| Anime face detection v1.4 (deepghs) | Anime and illustrations | 12 MB | MIT on its model card; trained with Ultralytics YOLOv8, whose AGPL-3.0 Ultralytics says also covers trained models |
+
+Both are fetched from a fixed commit and kept only if their SHA-256
+matches. Latentry runs them with its own code (onnxruntime), and ships
+neither.
 
 ## Tags from the source
 
