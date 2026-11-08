@@ -99,8 +99,11 @@ Face, under its own licence, into the **models folder**:
 
 The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with
-txt2img, img2img and pose (v1.0 models). The pose models download on first
-use into `models/controls/`; Anima-Control-Pose is non-commercial, as Anima
+txt2img, img2img and pose (v1.0 models). SDXL models also follow
+[control pictures](controls.md) (edges, depth, line art) through xinsir's
+union ControlNet (Apache-2.0, 2.5 GB). The pose and control models download
+on first use into `models/controls/`, each pinned to a commit and checked
+against its SHA-256; Anima-Control-Pose is non-commercial, as Anima
 itself is. [What each backend can do](../reference/backends.md#what-each-backend-can-do)
 compares the two with the other backends.
 

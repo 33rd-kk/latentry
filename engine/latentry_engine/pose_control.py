@@ -15,6 +15,10 @@ this module applies the drawn skeleton to the loaded model:
 - SDXL: xinsir/controlnet-openpose-sdxl-1.0 through diffusers' own ControlNet
   pipelines, built from the loaded pipeline's components. Skeletons are drawn
   "openpose".
+- SDXL control pictures (canny, depth, line art, made by Latentry):
+  xinsir/controlnet-union-sdxl-1.0 through diffusers' union pipelines. With
+  a pose too, the union model takes both (its openpose mode), each at its
+  own strength.
 
 Weights download on first use into `<models>/controls/`, from a fixed commit
 of their repository, and each file is checked against its SHA-256 before it
@@ -46,6 +50,18 @@ SDXL_CONTROLNET_FILES = {
     "config.json": "b5b8f9a7619c9452f19407ef73a01ce3f061fcf932de43ddbaca336d12d02801",
     "diffusion_pytorch_model.safetensors": "b8524e557a7df60d081f5d4a0eb109967d107df217943bf88c2d99b9ebcc06c5",
 }
+
+# Canny, depth and line art (Latentry makes the control pictures): one union
+# ControlNet for all of them, each run telling it which kind it is given.
+SDXL_UNION_REPO = "xinsir/controlnet-union-sdxl-1.0"
+SDXL_UNION_REVISION = "801a4a3fa3d4c936f4feea95b98607bc6726f80c"
+SDXL_UNION_FILES = {
+    "config.json": "b5b8f9a7619c9452f19407ef73a01ce3f061fcf932de43ddbaca336d12d02801",
+    "diffusion_pytorch_model.safetensors": "a9e13fd61f3193887791c8a0dd07a07202174dc47d5ddaea94ea1344f07c7467",
+}
+# The union model's control types (its model card): openpose 0, depth 1,
+# canny / lineart / anime lineart / mlsd 3.
+UNION_MODES = {"pose": 0, "depth": 1, "canny": 3, "lineart": 3}
 
 # Files already checked, by (path, size, mtime_ns): hashing the 2.5 GB
 # ControlNet on every model load would cost seconds. Kept in memory only.
@@ -216,6 +232,38 @@ def sdxl_pose_pipeline(kind: str, base, controlnet, dtype: torch.dtype):
         "txt2img": StableDiffusionXLControlNetPipeline,
         "img2img": StableDiffusionXLControlNetImg2ImgPipeline,
         "inpaint": StableDiffusionXLControlNetInpaintPipeline,
+    }[kind]
+    pipe = cls.from_pipe(base, controlnet=controlnet, torch_dtype=dtype)
+    pipe.set_progress_bar_config(disable=True)
+    return pipe
+
+
+def load_sdxl_union(folder: Path, dtype: torch.dtype):
+    """The union ControlNet (2.5 GB in fp16) for canny, depth and line art, downloaded on first use."""
+    from diffusers import ControlNetUnionModel
+
+    target = folder / SDXL_UNION_REPO.split("/")[1]
+    for filename, sha256 in SDXL_UNION_FILES.items():
+        pinned_download(SDXL_UNION_REPO, SDXL_UNION_REVISION, filename, sha256, target)
+    return ControlNetUnionModel.from_pretrained(str(target), torch_dtype=dtype, use_safetensors=True)
+
+
+def sdxl_union_pipeline(kind: str, base, controlnet, dtype: torch.dtype):
+    """The union ControlNet twin of a txt2img / img2img / inpaint pipeline, sharing its weights.
+
+    `controlnet` is the union model, or a MultiControlNetUnionModel of it
+    twice (a pose and another control, each at its own strength).
+    """
+    from diffusers import (
+        StableDiffusionXLControlNetUnionImg2ImgPipeline,
+        StableDiffusionXLControlNetUnionInpaintPipeline,
+        StableDiffusionXLControlNetUnionPipeline,
+    )
+
+    cls = {
+        "txt2img": StableDiffusionXLControlNetUnionPipeline,
+        "img2img": StableDiffusionXLControlNetUnionImg2ImgPipeline,
+        "inpaint": StableDiffusionXLControlNetUnionInpaintPipeline,
     }[kind]
     pipe = cls.from_pipe(base, controlnet=controlnet, torch_dtype=dtype)
     pipe.set_progress_bar_config(disable=True)

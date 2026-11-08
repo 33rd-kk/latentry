@@ -41,6 +41,10 @@ from .pictures import (
 # The only upscaler: no model to fetch or trust, and the same as Latentry's default.
 UPSCALERS = ["Lanczos"]
 from .pipelines import EngineError, Loaded
+from .pose_control import UNION_MODES
+
+# The control pictures SDXL follows through the union ControlNet.
+CONTROL_KINDS = ("canny", "depth", "lineart")
 from .prompts import encode_sdxl
 
 Emit = Callable[[str, dict], None]
@@ -70,6 +74,11 @@ class GenerateRequest:
     # size: it is letterboxed onto the run's.
     pose_skeleton: Image.Image | None = None
     pose_strength: float = 1.0
+    # A control picture Latentry made (canny, depth or line art), white on
+    # black, at any size: it is letterboxed onto the run's. SDXL only.
+    control_kind: str | None = None
+    control_image: Image.Image | None = None
+    control_strength: float = 0.5
     # Hires fix (txt2img only): each picture upscaled by hr_scale with Lanczos,
     # then redrawn for hr_steps (0: as many as the first pass) at hr_denoise.
     hr_scale: float | None = None
@@ -145,10 +154,11 @@ class Engine:
         if self.plan.device == "cuda":
             torch.cuda.empty_cache()
 
-    def _variant(self, kind: str, pose: bool = False):
-        """The pipeline for this kind of run on the loaded model (pipelines.variant)."""
+    def _variant(self, kind: str, control: str | bool | None = None):
+        """The pipeline for this kind of run on the loaded model (pipelines.variant):
+        `control` names its ControlNet ("pose", "union", "union2"), if any."""
         assert self.loaded
-        return pipelines.variant(self.loaded, kind, self.plan, self.controls_dir, pose)
+        return pipelines.variant(self.loaded, kind, self.plan, self.controls_dir, control)
 
     # ── Capabilities ────────────────────────────────────────────────────────
 
@@ -159,6 +169,8 @@ class Engine:
             # Anima's stock pipeline has no inpainting.
             "inpaint": family == FAMILY_SDXL,
             "pose_control": self._pose_supported(),
+            # The control pictures it follows (Latentry makes them): SDXL's union ControlNet.
+            "control_kinds": list(CONTROL_KINDS) if family == FAMILY_SDXL else [],
             "lora": self.loaded is not None,
             "tagger": False,
             "hires": family in (FAMILY_SDXL, FAMILY_ANIMA),
@@ -171,8 +183,11 @@ class Engine:
     def _unavailable(self, family: str | None) -> dict[str, str]:
         if self.loaded is None:
             reason = "No model is loaded. Choose one in Latentry's settings."
-            return {"img2img": reason, "inpaint": reason, "pose": reason, "lora": reason, "hires": reason, "upscale": reason}
+            return {"img2img": reason, "inpaint": reason, "pose": reason, "control": reason, "lora": reason, "hires": reason, "upscale": reason}
         reasons: dict[str, str] = {}
+        if family == FAMILY_ANIMA:
+            reasons["control"] = "Edges, depth and line art need an SDXL model: there is no such ControlNet for Anima."
+
         if family == FAMILY_ANIMA:
             reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
             if not self._pose_supported():
@@ -205,11 +220,13 @@ class Engine:
             raise EngineError("This model cannot inpaint.")
         if request.pose_skeleton is not None and not self._pose_supported():
             raise EngineError("This model cannot follow a pose (Anima needs a 28-layer v1.0 model).")
+        if request.control_image is not None and (self.loaded.family != FAMILY_SDXL or request.control_kind not in CONTROL_KINDS):
+            raise EngineError("Edges, depth and line art need an SDXL model.")
         if request.upscale:
             if request.init_image is None or request.hr_scale is None:
                 raise EngineError("Upscale needs a source picture and a scale.")
-            if request.mask is not None or request.pose_skeleton is not None:
-                raise EngineError("Upscale redraws the whole picture; it does not go with a mask or a pose.")
+            if request.mask is not None or request.pose_skeleton is not None or request.control_image is not None:
+                raise EngineError("Upscale redraws the whole picture; it does not go with a mask, a pose or a control picture.")
             # An img2img run at the hires denoise, asked for a schedule that runs
             # exactly the hires steps; its size comes from the source.
             request = replace(
@@ -242,7 +259,11 @@ class Engine:
         assert loaded
         kind = "inpaint" if request.mask is not None else "img2img" if request.init_image is not None else "txt2img"
         pose = request.pose_skeleton is not None
-        pipe = self._variant(kind, pose)
+        controlled = request.control_image is not None
+        # The ControlNet: the pose one alone; the union one for a control
+        # picture, twice when a pose comes too (each at its own strength).
+        net = ("union2" if pose else "union") if controlled else "pose" if pose else None
+        pipe = self._variant(kind, net)
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
 
         source = flatten(request.init_image) if request.init_image is not None else None
@@ -256,6 +277,7 @@ class Engine:
         mask = mask_from_alpha(request.mask, (width, height)) if request.mask is not None else None
         steps = img2img_steps(request.num_inference_steps, request.strength, loaded.family) if source is not None else request.num_inference_steps
         skeleton = letterbox(request.pose_skeleton, (width, height)) if pose else None
+        control_picture = letterbox(request.control_image.convert("RGB"), (width, height)) if controlled else None
 
         # Hires fix: the img2img pipeline on the same weights (and LoRAs),
         # asked for a schedule long enough to run the hires steps exactly.
@@ -265,9 +287,10 @@ class Engine:
             hires_width, hires_height = hires_size(width, height, request.hr_scale)
             hires_schedule_steps = hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, loaded.family)
             hires_steps = img2img_steps(hires_schedule_steps, request.hr_denoise, loaded.family)
-            hires_pipe = self._variant("img2img", pose)
+            hires_pipe = self._variant("img2img", net)
             hires_pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
             hires_skeleton = letterbox(request.pose_skeleton, (hires_width, hires_height)) if pose else None
+            hires_control = letterbox(request.control_image.convert("RGB"), (hires_width, hires_height)) if controlled else None
         total_steps = steps + hires_steps
 
         if request.upscale:
@@ -286,7 +309,7 @@ class Engine:
             done = 0
             # With hires fix, one picture at a time: each gets its second pass
             # before the next, and only one large canvas is on the GPU.
-            batch_size = 1 if hires or request.upscale else self.pose_batch_size if pose else self.batch_size
+            batch_size = 1 if hires or request.upscale else self.pose_batch_size if net else self.batch_size
             while done < len(seeds):
                 batch = seeds[done : done + batch_size]
                 emit("start", {"index": done, "total": len(seeds), "steps": total_steps, "run_id": run_id})
@@ -311,7 +334,9 @@ class Engine:
                     arguments.update(image=source, strength=request.strength)
                     if mask is not None:
                         arguments.update(mask_image=pipe.mask_processor.blur(mask, blur_factor=request.mask_blur) if request.mask_blur else mask, width=width, height=height)
-                if skeleton is not None:
+                if controlled:
+                    arguments.update(union_arguments(skeleton, control_picture, request))
+                elif skeleton is not None:
                     # txt2img takes the control picture as `image`; the others use that for the source.
                     arguments["image" if source is None else "control_image"] = skeleton
                     arguments["controlnet_conditioning_scale"] = request.pose_strength
@@ -325,7 +350,7 @@ class Engine:
                     if len(batch) == 1:
                         raise
                     batch_size = max(1, len(batch) // 2)
-                    if pose:
+                    if net:
                         self.pose_batch_size = batch_size
                     else:
                         self.batch_size = batch_size
@@ -351,7 +376,9 @@ class Engine:
                         "generator": torch.Generator(generator_device).manual_seed(seed),
                         "callback_on_step_end": on_hires_step,
                     }
-                    if hires_skeleton is not None:
+                    if controlled:
+                        hires_arguments.update(union_arguments(hires_skeleton, hires_control, request))
+                    elif hires_skeleton is not None:
                         hires_arguments.update(control_image=hires_skeleton, controlnet_conditioning_scale=request.pose_strength)
                     # The larger canvas is always encoded and decoded in tiles: at
                     # full precision a whole one can take the last GB the GPU has
@@ -495,3 +522,20 @@ class Engine:
             if tiled is not None:
                 tiled.disable_tiling()
             scopes.close()
+
+
+def union_arguments(skeleton: Image.Image | None, control: Image.Image, request: GenerateRequest) -> dict:
+    """The union pipeline's arguments for a control picture, and a pose with it:
+    each picture with its mode and its own strength. All union pipelines take
+    `control_image` (txt2img too). With a pose, the pipeline's two union nets
+    take one picture and mode each: diffusers 0.41 wraps each item itself, so
+    the lists stay flat."""
+    mode = UNION_MODES[request.control_kind]
+    if skeleton is None:
+        return {"control_image": [control], "control_mode": [mode], "controlnet_conditioning_scale": request.control_strength}
+    return {
+        "control_image": [skeleton, control],
+        "control_mode": [UNION_MODES["pose"], mode],
+        "controlnet_conditioning_scale": [request.pose_strength, request.control_strength],
+    }
+

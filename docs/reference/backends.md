@@ -22,7 +22,7 @@ control, rather than only hiding it.
 | From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Inpaint, **Extend** and **Faces** | Yes | No | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
-| Control picture (edges, depth, line art) | Not yet | No | If it lists the kinds¹ | Not yet | Not yet | No | No |
+| Control picture (edges, depth, line art) | Yes, with a pose too | No | If it lists the kinds¹ | Not yet | Not yet | No | No |
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes | If its model can⁵ |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph | With Lanczos, Nearest or its ESRGAN model |
 | Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's | sd-server's |

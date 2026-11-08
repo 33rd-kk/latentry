@@ -14,7 +14,7 @@ model you pick.
 
 | Family | Files | Modes |
 |---|---|---|
-| SDXL (SDXL, Illustrious, NoobAI, Animagine, Pony…) | a single `.safetensors` checkpoint, or a diffusers folder | txt2img, img2img, inpaint, pose |
+| SDXL (SDXL, Illustrious, NoobAI, Animagine, Pony…) | a single `.safetensors` checkpoint, or a diffusers folder | txt2img, img2img, inpaint, pose, control pictures (canny, depth, line art) |
 | Anima | the diffusers folder (`circlestone-labs/Anima-Base-v1.0-Diffusers`), through diffusers' `ModularPipeline` | txt2img, img2img, pose (28-layer v1.0 models) |
 
 Put models in `models/` (or the folder set on the Setup page). The id of a
