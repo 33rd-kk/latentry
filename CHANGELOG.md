@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Control picture models on Setup**: a new card downloads the models that
+  turn a reference picture into a depth map (Depth Anything V2 Small,
+  Apache-2.0) or line art (Informative Drawings, MIT), each pinned to a
+  commit, checked against its SHA-256 and fetched only when you press
+  Download. They run inside Latentry on the CPU, as Canny edges do without
+  any model, for the coming Controls. See
+  [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so

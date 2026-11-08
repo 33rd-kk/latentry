@@ -7,7 +7,7 @@
 
 import type { ProfileId } from '@/lib/profiles'
 
-export type CatalogKind = 'checkpoint' | 'tagger' | 'detector'
+export type CatalogKind = 'checkpoint' | 'tagger' | 'detector' | 'annotator'
 
 export interface CatalogEntry {
   id: string
@@ -189,6 +189,36 @@ export const CATALOG: CatalogEntry[] = [
     terms:
       'Finds faces in anime and illustrations. The model card says MIT, but it is a YOLOv8 model trained with Ultralytics, whose AGPL-3.0 Ultralytics says also covers trained models. Latentry runs it with its own code and does not include it.',
     recommended: true,
+  },
+  // Control pictures (lib/control): small ONNX models run by Latentry itself, on the CPU.
+  {
+    id: 'depth-anything-v2-small',
+    kind: 'annotator',
+    name: 'Depth Anything V2 Small (depth)',
+    repo: 'onnx-community/depth-anything-v2-small',
+    revision: '4472b7362082ad9968fee890ca0f1e5aca36b93d',
+    files: ['onnx/model.onnx'],
+    sha256: { 'onnx/model.onnx': 'afb6a5c28f3b6bf1618c6e43f02073ef9dfdc70e937502d51603e57b0a1df10c' },
+    bytes: 99060839,
+    license: 'Apache-2.0',
+    licenseUrl: 'https://huggingface.co/depth-anything/Depth-Anything-V2-Small',
+    commercialOutputs: true,
+    terms: 'Permissive (the Small model only; the larger Depth Anything V2 models are non-commercial). Makes a depth map: nearer is lighter.',
+  },
+  {
+    id: 'informative-drawings-lineart',
+    kind: 'annotator',
+    name: 'Informative Drawings (line art)',
+    repo: 'rocca/informative-drawings-line-art-onnx',
+    revision: 'd38eccbd448cdcd228fb81d708506e5e60b41ccb',
+    files: ['model.onnx'],
+    sha256: { 'model.onnx': '1fef40b8f7126d827e30fbebccf95ae9b0b391795df926bf9366a821bad4f498' },
+    bytes: 17193338,
+    license: 'MIT (Caroline Chan)',
+    licenseUrl: 'https://github.com/carolineec/informative-drawings',
+    commercialOutputs: true,
+    terms:
+      "Caroline Chan's informative-drawings model (MIT), as an ONNX export by rocca, whose repository states no license of its own. Draws line art from a picture; made for photos and drawings, it may look weaker on anime pictures.",
   },
 ]
 

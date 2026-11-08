@@ -22,7 +22,7 @@ export const MAX_REQUEST_BODY_BYTES = 48 * 1024 * 1024
 export const MAX_JSON_BODY_BYTES = 1024 * 1024
 
 // The routes whose body is a picture: generate, the pose preview, tagging.
-const PICTURE_ROUTES = /^\/api\/gen\/(?:tag|[^/]+\/(?:generate|pose))$/
+const PICTURE_ROUTES = /^\/api\/(?:control|gen\/(?:tag|[^/]+\/(?:generate|pose)))$/
 
 /** The largest body the /api route at `pathname` accepts, in bytes. */
 export function maxBodyBytes(pathname: string): number {
