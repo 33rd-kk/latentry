@@ -22,7 +22,9 @@ Setup and pair your other devices, as this computer may.
    copy, are under **Make this browser the owner instead** on that page, and
    on Settings and Setup of a device that may not change them.
 
-The owner code works once, for 10 minutes, like the other codes. Only a
+The owner code is 12 characters (`ABCD-EFGH-JKMN`) and works once, for
+10 minutes, like the other codes. Wrong tries on the pairing page do not
+use it up, so nobody else on the network can make it stop working. Only a
 terminal on that computer can make one, so being able to run a command
 there is what makes an owner: an owner device cannot make another owner
 from its browser. Settings lists it with **Owner**, and **Remove** takes
