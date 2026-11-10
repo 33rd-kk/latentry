@@ -142,7 +142,12 @@ What it does guard against:
 
 What is out of scope: anyone already on this machine, a paired device, and
 exposing Latentry to the internet. To do that, put an authenticating reverse
-proxy on this machine in front of it that overwrites `X-Forwarded-For`.
+proxy on this machine in front of it that overwrites `X-Forwarded-For`, and
+set `LATENTRY_TRUST_LOOPBACK=proxied`. Then a connection from 127.0.0.1
+without that header counts as another device, not this machine. That matters
+when something else here forwards connections without saying whom for
+(`ssh -L` shared with others, `socat`, a container's port proxy). In a
+container that sets neither `off` nor `proxied`, Latentry warns at start.
 
 Dependencies are watched by Dependabot and audited weekly (`npm audit` of
 what ships, pip-audit); the engine's Python packages are pinned in

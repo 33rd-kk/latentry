@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **`LATENTRY_TRUST_LOOPBACK=proxied` for a Latentry behind a reverse
+  proxy**: a request from 127.0.0.1 then counts as this computer only when
+  the proxy's `X-Forwarded-For` says so, so a forwarder on the same
+  computer that does not add the header (`ssh -L`, `socat`, a container's
+  port proxy) cannot make other machines look like this one. Latentry also
+  warns at start when it runs in a container that set no mode.
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so

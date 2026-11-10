@@ -4,7 +4,8 @@
 // really came from (see lib/security/peer.ts), makes the private files
 // owner-only (see lib/security/private-files.ts), writes the token a terminal
 // in the container proves itself with (see lib/security/local-token.ts; only
-// with LATENTRY_TRUST_LOOPBACK=off), then brings up Latentry's
+// with LATENTRY_TRUST_LOOPBACK=off or proxied, and it warns in a container
+// that set neither), then brings up Latentry's
 // own engine if it is installed (see lib/engine). LATENTRY_ENGINE=off, or
 // turning auto-start off on the setup page, leaves it to be started by hand.
 
@@ -18,7 +19,8 @@ export async function register() {
   installPeerStamp()
   const { restrictPrivateFiles } = await import('./lib/security/private-files')
   restrictPrivateFiles()
-  const { writeLocalToken } = await import('./lib/security/local-token')
+  const { warnUntrustedContainer, writeLocalToken } = await import('./lib/security/local-token')
+  warnUntrustedContainer()
   writeLocalToken()
   const { autoStart } = await import('./lib/engine/supervisor')
   await autoStart()
