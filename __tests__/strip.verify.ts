@@ -4,7 +4,7 @@
  *
  * Run with: npm test -- strip
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, truncateSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { crc32 } from 'node:zlib'
@@ -12,6 +12,8 @@ import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import { GET as pictureRoute } from '../app/api/gallery/[dir]/[name]/route'
 import { POST as downloadRoute } from '../app/api/gallery/download/route'
+import { MAX_DOWNLOADS_AT_ONCE } from '../lib/limits'
+import { holders, tryEnter } from '../lib/security/concurrency'
 import { attachment, zipStore } from '../lib/gallery/zip'
 import {
   encodeChunk,
@@ -190,6 +192,23 @@ async function main() {
       )
       eq((await post({ dir: 5, names: ['a.png'] })).status, 404, 'in a folder that is there')
       eq((await post({ dir: 0, names: ['broken.png'] })).status, 422, 'and at least one picture that can be saved')
+
+      // A file past the limit is refused by its size on disk, before it is read.
+      const huge = path.join(folder, 'huge.png')
+      truncateSync((writeFileSync(huge, ''), huge), 300 * 1024 * 1024)
+      const started = Date.now()
+      eq((await post({ dir: 0, names: ['a.png', 'huge.png'], clean: false })).status, 413, 'a ZIP past 256 MB is refused')
+      check(Date.now() - started < 2000, `by the size on disk, without reading the file (${Date.now() - started} ms)`)
+      rmSync(huge)
+      // Each download may hold its pictures in memory, so only a few run at once.
+      const held = Array.from({ length: MAX_DOWNLOADS_AT_ONCE }, () => tryEnter('gallery:download', MAX_DOWNLOADS_AT_ONCE)!)
+      try {
+        eq((await post({ dir: 0, names: ['a.png'] })).status, 429, `a download past ${MAX_DOWNLOADS_AT_ONCE} at once is asked to wait`)
+      } finally {
+        for (const release of held) release()
+      }
+      eq((await post({ dir: 0, names: ['a.png'] })).status, 200, 'and goes through once one ends')
+      eq(holders('gallery:download'), 0, 'every download gives its place back')
     } finally {
       for (const [name, value] of [
         ['LATENTRY_SETTINGS_FILE', saved.settings],

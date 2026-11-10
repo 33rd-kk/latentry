@@ -88,8 +88,10 @@ What it does guard against:
   the address in Settings. A backend reached over plain `http://` on another
   machine sends its prompts, pictures and token unencrypted.
 - **Request size and load**: requests that carry no picture are capped at
-  1 MB, the others at 48 MB; tagging and pose previews run at most two at a
-  time.
+  1 MB, the others at 48 MB; tagging, pose previews and gallery ZIP
+  downloads run at most two at a time. A picture sent in, or sent back by a
+  backend, is decoded only up to 8192 × 8192 pixels, and a ZIP download
+  checks each file's size before reading it.
 - **Pages** are sent with `Cache-Control: no-store`, a Content-Security-Policy
   that forbids framing and plugins, and a Permissions-Policy that turns off
   the camera, microphone and location.

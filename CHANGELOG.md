@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Big pictures no longer fill the memory**: a picture sent to the server
+  (a source, mask or picture to tag) or sent back by a backend is read only
+  up to 8192 × 8192 pixels. A gallery ZIP download checks each file's size
+  before reading it, and at most two are built at once; a third is asked to
+  wait a moment.
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so
