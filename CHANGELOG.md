@@ -13,6 +13,12 @@
   up to 8192 × 8192 pixels. A gallery ZIP download checks each file's size
   before reading it, and at most two are built at once; a third is asked to
   wait a moment.
+- **`LATENTRY_TRUST_LOOPBACK=proxied` for a Latentry behind a reverse
+  proxy**: a request from 127.0.0.1 then counts as this computer only when
+  the proxy's `X-Forwarded-For` says so, so a forwarder on the same
+  computer that does not add the header (`ssh -L`, `socat`, a container's
+  port proxy) cannot make other machines look like this one. Latentry also
+  warns at start when it runs in a container that set no mode.
 
 ## 0.16.0 (2026-11-08)
 
