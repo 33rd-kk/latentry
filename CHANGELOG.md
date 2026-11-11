@@ -10,6 +10,33 @@
   once. See
   [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
 
+## 0.16.1 (2026-11-11)
+
+**Upgrading from 0.16.0**: the usual update, recommended for everyone; the
+engine is unchanged, so neither a restart of it nor **Repair / update** is
+needed. With Docker, `git pull` then `docker compose up -d` (with `-f
+compose.yaml -f compose.gpu.yaml` for a GPU) downloads this release's image.
+
+**Security**
+
+- **Sturdier picture reading and pairing codes**: the settings text in a
+  picture is read only up to a sane size, so an odd file in a gallery
+  folder cannot slow Latentry down or stop it. An owner code from `npm run
+  owner-code` is now 12 characters (`ABCD-EFGH-JKMN`), and wrong tries on
+  the pairing page no longer use it up; an ordinary code takes 100 wrong
+  tries instead of 10, and the server log says when one was used up.
+- **Big pictures no longer fill the memory**: a picture sent to the server
+  (a source, mask or picture to tag) or sent back by a backend is read only
+  up to 8192 × 8192 pixels. A gallery ZIP download checks each file's size
+  before reading it, and at most two are built at once; a third is asked to
+  wait a moment.
+- **`LATENTRY_TRUST_LOOPBACK=proxied` for a Latentry behind a reverse
+  proxy**: a request from 127.0.0.1 then counts as this computer only when
+  the proxy's `X-Forwarded-For` says so, so a forwarder on the same
+  computer that does not add the header (`ssh -L`, `socat`, a container's
+  port proxy) cannot make other machines look like this one. Latentry also
+  warns at start when it runs in a container that set no mode.
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so

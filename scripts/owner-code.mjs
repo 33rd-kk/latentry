@@ -20,7 +20,8 @@ if (typeof code?.code !== 'string') {
   process.exit(1)
 }
 
-const shown = `${code.code.slice(0, 4)}-${code.code.slice(4)}`
+// In fours, as typed: ABCD-EFGH-JKMN.
+const shown = code.code.match(/.{1,4}/g).join('-')
 const until = new Date(code.expiresAt).toLocaleTimeString()
 console.log(`
 Owner code: ${shown}
