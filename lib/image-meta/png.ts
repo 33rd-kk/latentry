@@ -65,6 +65,20 @@ export function encodeChunk(type: string, data: Buffer): Buffer {
   return Buffer.concat([head, data, crc])
 }
 
+/**
+ * The most one compressed text chunk may inflate to. Settings and tags are a
+ * few kilobytes, but deflate can grow a small chunk a thousandfold, so a
+ * picture someone else made must not decide how much memory reading it takes.
+ * A chunk that would inflate past this reads as no text.
+ */
+export const MAX_TEXT_BYTES = 4 * 1024 * 1024
+/** The most text all of one picture's chunks may add up to; the rest is not read. */
+export const MAX_TOTAL_TEXT_BYTES = 16 * 1024 * 1024
+
+function inflateText(bytes: Buffer): Buffer {
+  return inflateSync(bytes, { maxOutputLength: MAX_TEXT_BYTES })
+}
+
 const strictUtf8 = new TextDecoder('utf-8', { fatal: true })
 
 /**
@@ -90,7 +104,7 @@ export function decodeTextChunk(chunk: PngChunk): { keyword: string; text: strin
   const keyword = data.toString('latin1', 0, nul)
   try {
     if (type === 'tEXt') return { keyword, text: tEXtText(data.subarray(nul + 1)) }
-    if (type === 'zTXt') return { keyword, text: inflateSync(data.subarray(nul + 2)).toString('latin1') }
+    if (type === 'zTXt') return { keyword, text: inflateText(data.subarray(nul + 2)).toString('latin1') }
     // iTXt: compression flag, method, language tag \0, translated keyword \0, text.
     const compressed = data[nul + 1] === 1
     const langEnd = data.indexOf(0, nul + 3)
@@ -98,20 +112,40 @@ export function decodeTextChunk(chunk: PngChunk): { keyword: string; text: strin
     const translatedEnd = data.indexOf(0, langEnd + 1)
     if (translatedEnd === -1) return null
     const body = data.subarray(translatedEnd + 1)
-    return { keyword, text: (compressed ? inflateSync(body) : body).toString('utf8') }
+    return { keyword, text: (compressed ? inflateText(body) : body).toString('utf8') }
   } catch {
     return null
   }
 }
 
+/**
+ * A picture's text chunks as keyword -> text: the first wins when a keyword
+ * repeats, and once MAX_TOTAL_TEXT_BYTES has been kept, nothing more is.
+ */
+export class TextCollector {
+  readonly text: Record<string, string> = {}
+  private total = 0
+
+  /** False once the picture's text budget is spent: decode no more chunks. */
+  get open(): boolean {
+    return this.total < MAX_TOTAL_TEXT_BYTES
+  }
+
+  add(decoded: { keyword: string; text: string } | null): void {
+    if (!decoded || decoded.keyword in this.text || !this.open) return
+    this.total += decoded.text.length
+    if (this.total <= MAX_TOTAL_TEXT_BYTES) this.text[decoded.keyword] = decoded.text
+  }
+}
+
 /** All text chunks as keyword -> text; the first wins when a keyword repeats. */
 export function readPngText(png: Buffer): Record<string, string> {
-  const result: Record<string, string> = {}
+  const collector = new TextCollector()
   for (const chunk of readChunks(png)) {
-    const decoded = decodeTextChunk(chunk)
-    if (decoded && !(decoded.keyword in result)) result[decoded.keyword] = decoded.text
+    if (!collector.open) break
+    collector.add(decodeTextChunk(chunk))
   }
-  return result
+  return collector.text
 }
 
 function isLatin1(text: string): boolean {
@@ -160,8 +194,12 @@ export function writePngText(png: Buffer, entries: Record<string, string>): Buff
   const replacing = new Set(Object.keys(entries))
   const parts: Buffer[] = [PNG_SIGNATURE]
   for (const chunk of chunks) {
-    const decoded = decodeTextChunk(chunk)
-    if (decoded && replacing.has(decoded.keyword)) continue
+    // By the keyword in the chunk's head, as removePngText does, so one too
+    // big to inflate is replaced too.
+    if (chunk.type === 'tEXt' || chunk.type === 'zTXt' || chunk.type === 'iTXt') {
+      const nul = chunk.data.indexOf(0)
+      if (nul > 0 && replacing.has(chunk.data.toString('latin1', 0, nul))) continue
+    }
     parts.push(encodeChunk(chunk.type, chunk.data))
     if (chunk.type === 'IHDR') {
       for (const [keyword, text] of Object.entries(entries)) {

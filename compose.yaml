@@ -13,8 +13,8 @@ services:
   latentry:
     # The official image of this release, built and attested by Latentry's
     # release workflow. Each release names its own version here; check it with
-    #   gh attestation verify oci://ghcr.io/33rd-kk/latentry:0.16.0 --repo 33rd-kk/latentry
-    image: ghcr.io/33rd-kk/latentry:0.16.0
+    #   gh attestation verify oci://ghcr.io/33rd-kk/latentry:0.16.1 --repo 33rd-kk/latentry
+    image: ghcr.io/33rd-kk/latentry:0.16.1
     init: true
     restart: unless-stopped
     ports:

@@ -13,6 +13,9 @@
 // this machine: in a container, a port forwarder may make other machines look
 // like loopback. Its owner devices then do what this machine would, and a
 // terminal in the container proves itself with lib/security/local-token.ts.
+// LATENTRY_TRUST_LOOPBACK=proxied, for a Latentry behind a reverse proxy on
+// this machine, counts a loopback request as this machine only when the
+// proxy says, with X-Forwarded-For, that it came from loopback too.
 //
 // "local" goes by the Host header and the forwarded client address, which a
 // browser cannot forge, and by the address the connection really came from
@@ -21,7 +24,7 @@
 // machine is still told apart by the client address it forwards.
 
 import { deviceCookie, pairedDevice, pairingEnabled } from '@/lib/security/pairing'
-import { trustsLoopback } from '@/lib/security/local-token'
+import { loopbackTrust } from '@/lib/security/local-token'
 import { isLoopbackAddress as isLoopback, peerAddress } from '@/lib/security/peer'
 import { clientIp } from '@/lib/security/request-budget'
 
@@ -48,7 +51,11 @@ function hostnameOf(host: string): string {
  * this machine, like opening a picture in its file manager.
  */
 export function isFromThisMachine(headers: Headers, env: Env = process.env): boolean {
-  if (!trustsLoopback(env)) return false
+  const trust = loopbackTrust(env)
+  if (trust === 'none') return false
+  // Without the header the request did not come through the proxy, so it
+  // may have come through a forwarder that hides where it came from.
+  if (trust === 'proxied' && !headers.get('x-forwarded-for')?.trim()) return false
   const host = hostnameOf(headers.get('host') ?? '')
   const peer = peerAddress(headers)
   // A server that is not stamping (started some way that skipped

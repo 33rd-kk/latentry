@@ -165,7 +165,8 @@ you ask:
   Credentials (C2PA), which say where a picture came from, stay as they are.
 - **Save with settings**: the file as it is.
 - With **Select**, **Download N without settings** saves the chosen pictures
-  as one ZIP (up to 200 at a time and 256 MB in all); **With settings**
+  as one ZIP (up to 200 at a time and 256 MB in all, two downloads at
+  once); **With settings**
   saves them as they are. The ZIP holds the file names only, no folder, and
   no dates.
 

@@ -14,6 +14,8 @@ export {
   encodeTextChunk,
   isPng,
   LATENTRY_KEY,
+  MAX_TEXT_BYTES,
+  MAX_TOTAL_TEXT_BYTES,
   PARAMETERS_KEY,
   PNG_SIGNATURE,
   pngSize,

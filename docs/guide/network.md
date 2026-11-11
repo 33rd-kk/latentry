@@ -223,5 +223,16 @@ believes that header only from a proxy on this computer). If that proxy does
 its own login, `LATENTRY_PAIRING=off` turns pairing off; without such a
 proxy, do not: then anyone who can reach Latentry can use it.
 
+Behind a proxy, also set `LATENTRY_TRUST_LOOPBACK=proxied`. Latentry counts
+a request from 127.0.0.1 as this computer, and anything on this computer
+that forwards connections without that header makes everyone it forwards
+look like this computer: an `ssh -L` tunnel others use, `socat`, the port
+proxy of a container you built yourself, some tunnel tools. With `proxied`,
+a request from 127.0.0.1 counts as this computer only when the proxy's
+`X-Forwarded-For` says it came from 127.0.0.1 too; anything else pairs like
+any other device. `npm run owner-code` and `npm run forget-devices` keep
+working from a terminal here. Latentry warns at start when it runs in a
+container that set neither `off` nor `proxied`.
+
 Report security problems privately through
 [GitHub](https://github.com/33rd-kk/latentry/security/advisories/new).
