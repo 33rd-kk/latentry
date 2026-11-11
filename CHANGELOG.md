@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Sturdier picture reading and pairing codes**: the settings text in a
+  picture is read only up to a sane size, so an odd file in a gallery
+  folder cannot slow Latentry down or stop it. An owner code from `npm run
+  owner-code` is now 12 characters (`ABCD-EFGH-JKMN`), and wrong tries on
+  the pairing page no longer use it up; an ordinary code takes 100 wrong
+  tries instead of 10, and the server log says when one was used up.
+- **Big pictures no longer fill the memory**: a picture sent to the server
+  (a source, mask or picture to tag) or sent back by a backend is read only
+  up to 8192 × 8192 pixels. A gallery ZIP download checks each file's size
+  before reading it, and at most two are built at once; a third is asked to
+  wait a moment.
 - **`LATENTRY_TRUST_LOOPBACK=proxied` for a Latentry behind a reverse
   proxy**: a request from 127.0.0.1 then counts as this computer only when
   the proxy's `X-Forwarded-For` says so, so a forwarder on the same

@@ -51,8 +51,9 @@ inside() { compose exec -T latentry node -e "fetch('http://127.0.0.1:3000$1').th
 check '127.0.0.1 inside the container is not this computer' 'grep -qE "^40[13]$" <<<"$(inside /api/settings)"'
 
 # The owner code, from a terminal in the container.
-code=$(compose exec -T latentry npm run --silent owner-code | sed -n 's/^Owner code: \([A-Z0-9]\{4\}\)-\([A-Z0-9]\{4\}\)$/\1\2/p')
-check 'owner-code prints a code' '[ -n "$code" ]'
+# Printed in fours (ABCD-EFGH-JKMN); sent without the dashes.
+code=$(compose exec -T latentry npm run --silent owner-code | sed -n 's/^Owner code: \([A-Z0-9]\{4\}\)-\([A-Z0-9]\{4\}\)-\([A-Z0-9]\{4\}\)$/\1\2\3/p')
+check 'owner-code prints a 12-character code' '[ ${#code} -eq 12 ]'
 jar=$(mktemp)
 check 'the code pairs this browser' '[ "$(status -c "$jar" -H "Content-Type: application/json" -d "{\"code\":\"$code\"}" "$base/api/pair")" = 200 ]'
 check 'the owner may change the settings' 'curl -s -b "$jar" "$base/api/settings" | grep -q "\"editable\":true"'
