@@ -5,6 +5,7 @@
 // back, through the same soft edge, so nothing else of the picture changes.
 
 import sharp from 'sharp'
+import { decodeImage } from '@/lib/images/decode'
 import type { FaceBox } from './decode'
 
 /** A square in the picture's pixels, and where the face sits in it. */
@@ -72,7 +73,7 @@ export interface Canvas {
 }
 
 export async function canvasOf(base64: string): Promise<Canvas> {
-  const { data, info } = await sharp(Buffer.from(base64, 'base64')).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  const { data, info } = await decodeImage(Buffer.from(base64, 'base64')).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
   return { width: info.width, height: info.height, rgba: data }
 }
 
@@ -88,7 +89,7 @@ export async function cropPng(canvas: Canvas, crop: FaceCrop): Promise<string> {
 
 /** Pastes a redrawn crop (any size; scaled back to the crop's) into the canvas through the crop's mask. */
 export async function pasteFace(canvas: Canvas, crop: FaceCrop, redrawnBase64: string): Promise<void> {
-  const redrawn = await sharp(Buffer.from(redrawnBase64, 'base64')).resize(crop.size, crop.size, { fit: 'fill', kernel: 'lanczos3' }).ensureAlpha().raw().toBuffer()
+  const redrawn = await decodeImage(Buffer.from(redrawnBase64, 'base64')).resize(crop.size, crop.size, { fit: 'fill', kernel: 'lanczos3' }).ensureAlpha().raw().toBuffer()
   const weights = maskWeights(crop)
   for (let y = 0; y < crop.size; y += 1) {
     for (let x = 0; x < crop.size; x += 1) {

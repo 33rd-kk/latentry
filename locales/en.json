@@ -934,8 +934,8 @@
     "run": "Type the line for how you run Latentry and press Enter:",
     "docker": "With Docker (the folder that holds compose.yaml)",
     "native": "Without Docker (the Latentry folder)",
-    "enterHere": "It prints Owner code: ABCD-EFGH. Type that code in Code below within 10 minutes and press Pair.",
-    "enterOnPair": "It prints Owner code: ABCD-EFGH. Within 10 minutes, open <link>the pairing page</link> in this browser and type the code there.",
+    "enterHere": "It prints Owner code: ABCD-EFGH-JKMN. Type that code in Code below within 10 minutes and press Pair.",
+    "enterOnPair": "It prints Owner code: ABCD-EFGH-JKMN. Within 10 minutes, open <link>the pairing page</link> in this browser and type the code there.",
     "after": "This browser then becomes an owner device for 7 days: it can change settings and Setup, and pair your other devices. The code works once and is shown only in that terminal.",
     "copy": "Copy the command",
     "copied": "Copied"

@@ -7,7 +7,7 @@
 
 import { existsSync } from 'node:fs'
 import path from 'node:path'
-import sharp from 'sharp'
+import { decodeImage, fitsDecode } from '@/lib/images/decode'
 import type { FaceDetector } from '@/lib/generate/facefix'
 import { catalogEntry } from '@/lib/engine/catalog'
 import { detectorDir } from '@/lib/engine/tagger-download'
@@ -63,9 +63,10 @@ export async function detectFaces(imageBase64: string, detector: FaceDetector, o
   const file = detectorFile(detector)
   if (!file) throw new DetectorMissingError(detector)
   const run = state.queue.then(async () => {
-    const source = sharp(Buffer.from(imageBase64, 'base64'))
-    const { width = 0, height = 0 } = await source.metadata()
-    if (!width || !height) return []
+    const source = decodeImage(Buffer.from(imageBase64, 'base64'))
+    // A picture too large to decode (sharp refuses even its header) has no faces to find.
+    const { width = 0, height = 0 } = await source.metadata().catch(() => ({ width: 0, height: 0 }))
+    if (!fitsDecode({ width, height })) return []
     const fit = letterbox(width, height, INPUT_SIZE)
     // Letterboxed onto grey, as both models were trained.
     const rgb = await source

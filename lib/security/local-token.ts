@@ -1,5 +1,6 @@
 // How a terminal in the container proves it is there, when loopback is not
-// trusted (LATENTRY_TRUST_LOOPBACK=off, set by the Docker image).
+// trusted (LATENTRY_TRUST_LOOPBACK=off, set by the Docker image), or trusted
+// only through a proxy (LATENTRY_TRUST_LOOPBACK=proxied).
 //
 // In a container, a port forwarder may hand over connections from other
 // machines as if they came from 127.0.0.1 (rootless Docker and Podman can),
@@ -14,7 +15,7 @@
 //   LATENTRY_LOCAL_TOKEN_FILE   default: <temp dir>/latentry-local-token
 
 import { randomBytes, timingSafeEqual } from 'node:crypto'
-import { unlinkSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { restrictExistingToOwner } from '@/lib/security/owner-only'
@@ -26,9 +27,56 @@ export const LOCAL_TOKEN_HEADER = 'x-latentry-local-token'
 
 const globalForToken = globalThis as typeof globalThis & { __latentryLocalToken?: string }
 
-/** Whether a request from loopback counts as this computer (on unless LATENTRY_TRUST_LOOPBACK=off). */
+/**
+ * Which requests from loopback count as this computer (LATENTRY_TRUST_LOOPBACK):
+ *   all       (default) every one
+ *   proxied   only one a reverse proxy on this computer forwarded, saying
+ *             with X-Forwarded-For whom for. One without it may have come
+ *             through a forwarder that does not say (ssh -L, socat, a
+ *             container's port proxy) from another machine, so it counts as
+ *             another device.
+ *   none      (off, the Docker image) none at all
+ */
+export type LoopbackTrust = 'all' | 'proxied' | 'none'
+
+export function loopbackTrust(env: Env = process.env): LoopbackTrust {
+  const value = env.LATENTRY_TRUST_LOOPBACK?.trim().toLowerCase()
+  return value === 'off' ? 'none' : value === 'proxied' ? 'proxied' : 'all'
+}
+
+/** Whether any request from loopback may count as this computer (all but LATENTRY_TRUST_LOOPBACK=off). */
 export function trustsLoopback(env: Env = process.env): boolean {
-  return env.LATENTRY_TRUST_LOOPBACK?.trim().toLowerCase() !== 'off'
+  return loopbackTrust(env) !== 'none'
+}
+
+/**
+ * Whether this server seems to run in a container: Docker's and Podman's
+ * marker files, or a container's name in PID 1's cgroup. Only for a warning.
+ */
+export function inContainer(
+  exists: (file: string) => boolean = existsSync,
+  read: (file: string) => string = (file) => readFileSync(file, 'utf8')
+): boolean {
+  if (exists('/.dockerenv') || exists('/run/.containerenv')) return true
+  try {
+    return /docker|kubepods|containerd|libpod|lxc/.test(read('/proc/1/cgroup'))
+  } catch {
+    return false
+  }
+}
+
+/**
+ * At start: a container that did not say how far to trust loopback (the
+ * Docker image says off) may have a port forwarder that makes every other
+ * machine look like 127.0.0.1, and with it like this computer.
+ */
+export function warnUntrustedContainer(env: Env = process.env, container: boolean = inContainer()): string | null {
+  if (!container || env.LATENTRY_TRUST_LOOPBACK?.trim()) return null
+  const message =
+    '[security] Latentry seems to run in a container, where a port forwarder can make other machines look like 127.0.0.1 and so like this computer. ' +
+    'Set LATENTRY_TRUST_LOOPBACK=off (as the Docker image does), or =proxied behind a reverse proxy here (see docs/guide/network.md).'
+  console.warn(message)
+  return message
 }
 
 export function localTokenPath(env: Env = process.env): string {
@@ -36,14 +84,15 @@ export function localTokenPath(env: Env = process.env): string {
 }
 
 /**
- * Writes a new token for this process, when loopback is not trusted. Whatever
+ * Writes a new token for this process, when not every loopback request is
+ * trusted (the scripts send none of X-Forwarded-For either). Whatever
  * is in its place (a file from an earlier run, or a link) is removed first,
  * never followed. Where that is not allowed (another user's file in the shared
  * temp folder, which its sticky bit protects), no token is made, so the
  * scripts say Latentry refused.
  */
 export function writeLocalToken(env: Env = process.env): void {
-  if (trustsLoopback(env)) return
+  if (loopbackTrust(env) === 'all') return
   const file = localTokenPath(env)
   try {
     unlinkSync(file)
