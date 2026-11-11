@@ -8,7 +8,7 @@
 import { crc32 } from 'node:zlib'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
-import { imageSize, preparedImages } from '../lib/backends/images'
+import { imageSize, letterboxedControl, preparedImages } from '../lib/backends/images'
 import { controlPicture } from '../lib/control/annotators'
 import { canvasOf } from '../lib/facefix/image'
 import { prepareOutpaint } from '../lib/generate/outpaint-image'
@@ -44,6 +44,7 @@ async function main(): Promise<void> {
   eq(await prepareOutpaint(b64, { left: 64, right: 0, top: 0, bottom: 0 }), null, 'and so does Extend')
   check(await canvasOf(b64).then(() => false, () => true), 'face fix refuses it as well')
   check(await controlPicture('canny', huge).then(() => false, () => true), 'and a control picture is not made from it')
+  eq(await letterboxedControl(b64, 1024, 1024), null, 'nor sent to ComfyUI')
 
   // An ordinary picture is read as before.
   const ordinary = await sharp({ create: { width: 2048, height: 1536, channels: 3, background: '#468' } }).png().toBuffer()
