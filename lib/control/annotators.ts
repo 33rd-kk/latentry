@@ -12,6 +12,7 @@ import { existsSync } from 'node:fs'
 import path from 'node:path'
 import sharp from 'sharp'
 import { catalogEntry } from '@/lib/engine/catalog'
+import { decodeImage, fitsDecode } from '@/lib/images/decode'
 import { localModelDir } from '@/lib/engine/tagger-download'
 import { cannyEdges, CANNY_DEFAULTS } from './canny'
 
@@ -99,7 +100,8 @@ export function fitWithin(width: number, height: number, edge: number = CONTROL_
  */
 export async function controlPicture(kind: ControlKind, picture: Buffer, options: ControlOptions = {}): Promise<Buffer> {
   const meta = await sharp(picture).metadata()
-  if (!meta.width || !meta.height) throw new Error('Could not read the picture')
+  // A picture from outside: one past MAX_INPUT_PIXELS is refused before it is decoded.
+  if (!fitsDecode(meta)) throw new Error('Could not read the picture')
   const target = fitWithin(meta.width, meta.height)
   if (kind === 'canny') return canny(picture, target, options)
   const file = annotatorFile(kind)
@@ -111,7 +113,7 @@ async function canny(picture: Buffer, target: { width: number; height: number },
   const low = clampThreshold(options.low, CANNY_DEFAULTS.low)
   const high = Math.max(low, clampThreshold(options.high, CANNY_DEFAULTS.high))
   // A light blur first, as OpenCV's users (and ControlNet's preprocessor) do.
-  const { data, info } = await sharp(picture).rotate().resize(target.width, target.height, { fit: 'fill' }).greyscale().blur(1).raw().toBuffer({ resolveWithObject: true })
+  const { data, info } = await decodeImage(picture).rotate().resize(target.width, target.height, { fit: 'fill' }).greyscale().blur(1).raw().toBuffer({ resolveWithObject: true })
   const edges = cannyEdges(new Uint8Array(data.buffer, data.byteOffset, data.length), info.width, info.height, low, high)
   return sharp(Buffer.from(edges), { raw: { width: info.width, height: info.height, channels: 1 } }).toColourspace('b-w').png().toBuffer()
 }
@@ -146,7 +148,7 @@ async function depth(file: string, picture: Buffer, target: { width: number; hei
   const scale = DEPTH_SIDE / Math.min(target.width, target.height)
   const width = onGrid(target.width * scale, DEPTH_MULTIPLE)
   const height = onGrid(target.height * scale, DEPTH_MULTIPLE)
-  const { data } = await sharp(picture).rotate().removeAlpha().resize(width, height, { fit: 'fill', kernel: 'cubic' }).raw().toBuffer({ resolveWithObject: true })
+  const { data } = await decodeImage(picture).rotate().removeAlpha().resize(width, height, { fit: 'fill', kernel: 'cubic' }).raw().toBuffer({ resolveWithObject: true })
   const ort = await import('onnxruntime-node')
   const model = await session(file)
   const input = new ort.Tensor('float32', planes(data, width, height, (value, channel) => (value / 255 - IMAGENET_MEAN[channel]) / IMAGENET_STD[channel]), [1, 3, height, width])
@@ -167,7 +169,7 @@ async function lineart(file: string, picture: Buffer, target: { width: number; h
   const sized = fitWithin(target.width, target.height, LINEART_EDGE)
   const width = onGrid(sized.width, 8)
   const height = onGrid(sized.height, 8)
-  const { data } = await sharp(picture).rotate().removeAlpha().resize(width, height, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true })
+  const { data } = await decodeImage(picture).rotate().removeAlpha().resize(width, height, { fit: 'fill' }).raw().toBuffer({ resolveWithObject: true })
   const ort = await import('onnxruntime-node')
   const model = await session(file)
   const input = new ort.Tensor('float32', planes(data, width, height, (value) => value / 255), [1, 3, height, width])
