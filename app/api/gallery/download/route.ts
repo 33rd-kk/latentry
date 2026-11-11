@@ -1,9 +1,11 @@
 import { jsonError, readJson } from '@/lib/api'
 import { dirFor } from '@/lib/gallery/access'
-import { readInDir } from '@/lib/gallery/fs'
+import { openInDir } from '@/lib/gallery/fs'
 import { attachment, zipStore, type ZipEntry } from '@/lib/gallery/zip'
 import { serverMessage } from '@/lib/i18n/core'
 import { stripMetadata } from '@/lib/image-meta'
+import { MAX_DOWNLOADS_AT_ONCE } from '@/lib/limits'
+import { tryEnter } from '@/lib/security/concurrency'
 
 export const runtime = 'nodejs'
 
@@ -28,16 +30,34 @@ export async function POST(request: Request) {
   }
   const clean = body?.clean !== false
 
+  const release = tryEnter('gallery:download', MAX_DOWNLOADS_AT_ONCE)
+  if (!release) return jsonError(serverMessage('system.tooManyRequests', { seconds: 5 }), 429)
+  try {
+    return await zipped(dir, names as string[], clean)
+  } finally {
+    release()
+  }
+}
+
+async function zipped(dir: NonNullable<ReturnType<typeof dirFor>>, names: string[], clean: boolean): Promise<Response> {
   const entries: ZipEntry[] = []
   let total = 0
   let leftOut = 0
-  for (const name of new Set(names as string[])) {
-    const read = await readInDir(dir, name)
-    if (!read) {
+  for (const name of new Set(names)) {
+    const opened = await openInDir(dir, name)
+    if (!opened) {
       leftOut += 1
       continue
     }
-    const data = clean ? stripMetadata(read.bytes) : read.bytes
+    let bytes: Buffer
+    try {
+      // By its size on disk, before reading it: a file far past the limit is never read.
+      if (total + Number(opened.info.size) > MAX_DOWNLOAD_BYTES) return jsonError(serverMessage('gallery.download.tooLarge'), 413)
+      bytes = await opened.handle.readFile()
+    } finally {
+      await opened.handle.close()
+    }
+    const data = clean ? stripMetadata(bytes) : bytes
     if (!data) {
       leftOut += 1
       continue

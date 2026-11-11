@@ -2,6 +2,7 @@
 // its new canvas, and a mask over what is new.
 
 import sharp from 'sharp'
+import { decodeImage, fitsDecode } from '@/lib/images/decode'
 import { stripDataUrl } from '@/lib/backends/http'
 import { outpaintCanvas, outpaintFits, OUTPAINT_OVERLAP, type OutpaintSides } from './outpaint'
 
@@ -25,7 +26,7 @@ export async function prepareOutpaint(sourceBase64: string, sides: OutpaintSides
   try {
     input = Buffer.from(stripDataUrl(sourceBase64), 'base64')
     const meta = await sharp(input).metadata()
-    if (!meta.width || !meta.height) return null
+    if (!fitsDecode(meta)) return null
     size = { width: meta.width, height: meta.height }
   } catch {
     return null
@@ -33,7 +34,7 @@ export async function prepareOutpaint(sourceBase64: string, sides: OutpaintSides
   if (!outpaintFits(size, sides)) return null
   const { width, height, pad } = outpaintCanvas(size, sides)
 
-  const image = await sharp(input)
+  const image = await decodeImage(input)
     // Transparency would come out white on some backends (the engine flattens on white).
     .flatten({ background: '#808080' })
     .extend({ ...pad, extendWith: 'copy' })
