@@ -58,3 +58,6 @@ export const QUEUE_MAX_BYTES = 96 * 1024 * 1024
 export const GRID_MAX_CELLS = 64
 export const GRID_MAX_IMAGES = 128
 export const GRID_MAX_VALUES = 16
+
+/** Gallery ZIP downloads built at once: each may hold up to 256 MB of pictures in memory. */
+export const MAX_DOWNLOADS_AT_ONCE = 2

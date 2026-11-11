@@ -34,7 +34,9 @@ stops fitting its surroundings.
 
 The source picture, mask and pose are sent together, up to 48 MB. Only a
 very detailed 2048px source comes near that; if it goes over, a message asks
-for a smaller or simpler picture.
+for a smaller or simpler picture. The server also reads no picture larger
+than 8192 × 8192 pixels; the page shrinks a source to 2048 before sending
+it, so only a picture sent some other way meets that limit.
 
 On a ComfyUI backend, the source and mask are uploaded into ComfyUI's input
 folder under two names that each run reuses; after a secret run they are

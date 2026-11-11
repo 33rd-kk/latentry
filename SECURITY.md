@@ -34,7 +34,10 @@ What it does guard against:
 - **Devices that are not paired**: every request that does not come from
   this machine needs a device cookie, which a device gets by typing a code
   shown on this machine's Settings page (8 characters, one use, 10 minutes,
-  10 tries, 5 tries a minute per device). The cookie is HMAC-signed,
+  100 wrong tries, 5 tries a minute per device). An owner code is 12
+  characters and is tried only by codes of its length, with no count of
+  tries to use up, so nobody can spend it to keep the owner from pairing.
+  The cookie is HMAC-signed,
   HttpOnly, SameSite=Strict and good for 30 days, and verifies only while
   its device is on the list of paired devices kept next to the settings
   file (its name, when it was paired and when that ends; nothing about its
@@ -88,8 +91,10 @@ What it does guard against:
   the address in Settings. A backend reached over plain `http://` on another
   machine sends its prompts, pictures and token unencrypted.
 - **Request size and load**: requests that carry no picture are capped at
-  1 MB, the others at 48 MB; tagging and pose previews run at most two at a
-  time.
+  1 MB, the others at 48 MB; tagging, pose previews and gallery ZIP
+  downloads run at most two at a time. A picture sent in, or sent back by a
+  backend, is decoded only up to 8192 × 8192 pixels, and a ZIP download
+  checks each file's size before reading it.
 - **Pages** are sent with `Cache-Control: no-store`, a Content-Security-Policy
   that forbids framing and plugins, and a Permissions-Policy that turns off
   the camera, microphone and location.
@@ -142,7 +147,12 @@ What it does guard against:
 
 What is out of scope: anyone already on this machine, a paired device, and
 exposing Latentry to the internet. To do that, put an authenticating reverse
-proxy on this machine in front of it that overwrites `X-Forwarded-For`.
+proxy on this machine in front of it that overwrites `X-Forwarded-For`, and
+set `LATENTRY_TRUST_LOOPBACK=proxied`. Then a connection from 127.0.0.1
+without that header counts as another device, not this machine. That matters
+when something else here forwards connections without saying whom for
+(`ssh -L` shared with others, `socat`, a container's port proxy). In a
+container that sets neither `off` nor `proxied`, Latentry warns at start.
 
 Dependencies are watched by Dependabot and audited weekly (`npm audit` of
 what ships, pip-audit); the engine's Python packages are pinned in

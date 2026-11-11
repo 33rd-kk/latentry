@@ -29,13 +29,14 @@ import {
   listDevices,
   MAX_NAME_LENGTH,
   normalizeCode,
+  OWNER_CODE_LENGTH,
   pairedDevice,
   pairingEnabled,
   redeemCode,
   removeDevice,
   verifyDevice,
 } from '../lib/security/pairing'
-import { hasLocalToken, LOCAL_TOKEN_HEADER, localTokenPath, trustsLoopback, writeLocalToken } from '../lib/security/local-token'
+import { hasLocalToken, inContainer, LOCAL_TOKEN_HEADER, localTokenPath, loopbackTrust, trustsLoopback, warnUntrustedContainer, writeLocalToken } from '../lib/security/local-token'
 import { UNPAIRED_HEADER } from '../lib/security/unpaired'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { engineEnv } from '../lib/engine/supervisor'
@@ -149,11 +150,20 @@ async function main(): Promise<void> {
   const guessed = createCode(now).code
   for (let i = 0; i < CODE_TRIES - 1; i++) redeemCode('WRONGWRG', now)
   check(currentCode(now) !== null, `${CODE_TRIES - 1} wrong tries leave the code`)
-  redeemCode('WRONGWRG', now)
+  const usedUp: string[] = []
+  const infoBefore = console.info
+  console.info = (...args: unknown[]) => void usedUp.push(args.join(' '))
+  try {
+    redeemCode('WRONGWRG', now)
+  } finally {
+    console.info = infoBefore
+  }
   eq(redeemCode(guessed, now), null, `after ${CODE_TRIES} wrong tries the right code no longer works`)
+  check(usedUp.length === 1 && /pairing code was used up/.test(usedUp[0]) && !usedUp[0].includes(guessed), `the log says the code was used up, without the code (${usedUp[0]})`)
 
   // Owner codes: their own slot, never shown on Settings, not replaced by an ordinary code.
   const owner = createOwnerCode(now).code
+  check(owner.length === OWNER_CODE_LENGTH && /^[A-HJKMNP-Z2-9]+$/.test(owner), `an owner code is ${OWNER_CODE_LENGTH} characters (${owner.length})`)
   const ordinary = createCode(now).code
   eq(currentCode(now)?.code, ordinary, 'the Settings page shows the ordinary code, never the owner code')
   eq(redeemCode(owner, now), 'owner', 'the owner code is told apart')
@@ -164,6 +174,20 @@ async function main(): Promise<void> {
     eq(redeemCode(createCode(now).code, now), 'device', 'pairing phones…')
   }
   eq(redeemCode(spared, now), 'owner', `…${CODE_TRIES - 1} times costs the owner code no tries`)
+
+  // Nobody can spend the owner code: wrong tries of any length leave it, only time ends it.
+  const kept = createOwnerCode(now).code
+  createCode(now)
+  for (let i = 0; i < CODE_TRIES * 2; i++) redeemCode('WRONGWRG', now)
+  check(currentCode(now) === null, 'wrong 8-character tries use up the ordinary code…')
+  for (let i = 0; i < CODE_TRIES * 2; i++) redeemCode('WRONGWRONGWR', now)
+  eq(redeemCode(`${kept.slice(0, 4)}-${kept.slice(4, 8)}-${kept.slice(8).toLowerCase()}`, now + 1000), 'owner', `…but neither they nor ${CODE_TRIES * 2} wrong 12-character tries use up the owner code`)
+  const timed = createOwnerCode(now).code
+  eq(redeemCode(timed, now + CODE_MS), null, 'an owner code still ends after 10 minutes')
+  const both = createCode(now).code
+  createOwnerCode(now)
+  eq(redeemCode(both + 'AAAA', now), null, 'a 12-character try is never matched against the ordinary code')
+  eq(redeemCode(both, now), 'device', 'and costs it nothing')
   createOwnerCode(now)
   createCode(now)
   forgetAllDevices()
@@ -395,6 +419,33 @@ async function main(): Promise<void> {
   }
   check(isFromThisMachine(new Headers(fromHere)), 'with loopback trusted again, 127.0.0.1 is this computer')
   forgetAllDevices()
+
+  // ── LATENTRY_TRUST_LOOPBACK=proxied (behind a reverse proxy on this computer) ──
+  const proxied = { ...process.env, LATENTRY_TRUST_LOOPBACK: 'proxied' }
+  eq([loopbackTrust({}), loopbackTrust({ LATENTRY_TRUST_LOOPBACK: 'off' }), loopbackTrust(proxied)], ['all', 'none', 'proxied'], 'the three ways to trust loopback')
+  check(!isFromThisMachine(new Headers(fromHere), proxied), 'proxied: loopback without X-Forwarded-For is another device (a forwarder that does not say)')
+  check(isFromThisMachine(new Headers({ ...fromHere, 'x-forwarded-for': '127.0.0.1' }), proxied), 'the proxy saying it came from loopback: this computer')
+  check(!isFromThisMachine(new Headers({ ...fromHere, 'x-forwarded-for': '192.168.1.50' }), proxied), 'the proxy forwarding a LAN device: not')
+  check(!isFromThisMachine(new Headers({ ...fromLan, 'x-forwarded-for': '127.0.0.1' }), proxied), 'a LAN device writing the header itself: not')
+  eq(editRefusal(new Headers(fromHere), proxied), 'notLocal', 'so a forwarded stranger may not change settings')
+  check(isFromThisMachine(new Headers(fromHere)), 'the default still counts loopback without the header')
+  const proxiedToken = path.join(scratch, 'proxied-token')
+  writeLocalToken({ ...proxied, LATENTRY_LOCAL_TOKEN_FILE: proxiedToken })
+  check(existsSync(proxiedToken), 'proxied: the token is written, so owner-code and forget-devices still work from a terminal')
+  rmSync(proxiedToken)
+
+  // A container that did not say: warned at start.
+  check(inContainer((file) => file === '/.dockerenv') && inContainer(() => false, () => '0::/system.slice/docker-abc.scope'), 'a container is told by its marker or its cgroup')
+  check(!inContainer(() => false, () => '0::/user.slice') && !inContainer(() => false, () => { throw new Error('no /proc') }), 'a plain computer is not')
+  const warned: string[] = []
+  const warnBefore = console.warn
+  console.warn = (...args: unknown[]) => void warned.push(args.join(' '))
+  try {
+    check(warnUntrustedContainer({}, true) !== null && /LATENTRY_TRUST_LOOPBACK/.test(warned[0] ?? ''), 'a container with loopback trust unset is warned about')
+    eq([warnUntrustedContainer({ LATENTRY_TRUST_LOOPBACK: 'off' }, true), warnUntrustedContainer({ LATENTRY_TRUST_LOOPBACK: 'proxied' }, true), warnUntrustedContainer({}, false)], [null, null, null], 'not one that set it (the Docker image), nor a plain computer')
+  } finally {
+    console.warn = warnBefore
+  }
 
   let limited = 0
   for (let i = 0; i < 6; i++) {
