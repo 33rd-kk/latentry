@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.16.1 (2026-11-11)
+
+**Upgrading from 0.16.0**: the usual update, recommended for everyone; the
+engine is unchanged, so neither a restart of it nor **Repair / update** is
+needed. With Docker, `git pull` then `docker compose up -d` (with `-f
+compose.yaml -f compose.gpu.yaml` for a GPU) downloads this release's image.
+
+**Security**
+
 - **Sturdier picture reading and pairing codes**: the settings text in a
   picture is read only up to a sane size, so an odd file in a gallery
   folder cannot slow Latentry down or stop it. An owner code from `npm run
