@@ -29,6 +29,7 @@ import {
   listDevices,
   MAX_NAME_LENGTH,
   normalizeCode,
+  OWNER_CODE_LENGTH,
   pairedDevice,
   pairingEnabled,
   redeemCode,
@@ -149,11 +150,20 @@ async function main(): Promise<void> {
   const guessed = createCode(now).code
   for (let i = 0; i < CODE_TRIES - 1; i++) redeemCode('WRONGWRG', now)
   check(currentCode(now) !== null, `${CODE_TRIES - 1} wrong tries leave the code`)
-  redeemCode('WRONGWRG', now)
+  const usedUp: string[] = []
+  const infoBefore = console.info
+  console.info = (...args: unknown[]) => void usedUp.push(args.join(' '))
+  try {
+    redeemCode('WRONGWRG', now)
+  } finally {
+    console.info = infoBefore
+  }
   eq(redeemCode(guessed, now), null, `after ${CODE_TRIES} wrong tries the right code no longer works`)
+  check(usedUp.length === 1 && /pairing code was used up/.test(usedUp[0]) && !usedUp[0].includes(guessed), `the log says the code was used up, without the code (${usedUp[0]})`)
 
   // Owner codes: their own slot, never shown on Settings, not replaced by an ordinary code.
   const owner = createOwnerCode(now).code
+  check(owner.length === OWNER_CODE_LENGTH && /^[A-HJKMNP-Z2-9]+$/.test(owner), `an owner code is ${OWNER_CODE_LENGTH} characters (${owner.length})`)
   const ordinary = createCode(now).code
   eq(currentCode(now)?.code, ordinary, 'the Settings page shows the ordinary code, never the owner code')
   eq(redeemCode(owner, now), 'owner', 'the owner code is told apart')
@@ -164,6 +174,20 @@ async function main(): Promise<void> {
     eq(redeemCode(createCode(now).code, now), 'device', 'pairing phones…')
   }
   eq(redeemCode(spared, now), 'owner', `…${CODE_TRIES - 1} times costs the owner code no tries`)
+
+  // Nobody can spend the owner code: wrong tries of any length leave it, only time ends it.
+  const kept = createOwnerCode(now).code
+  createCode(now)
+  for (let i = 0; i < CODE_TRIES * 2; i++) redeemCode('WRONGWRG', now)
+  check(currentCode(now) === null, 'wrong 8-character tries use up the ordinary code…')
+  for (let i = 0; i < CODE_TRIES * 2; i++) redeemCode('WRONGWRONGWR', now)
+  eq(redeemCode(`${kept.slice(0, 4)}-${kept.slice(4, 8)}-${kept.slice(8).toLowerCase()}`, now + 1000), 'owner', `…but neither they nor ${CODE_TRIES * 2} wrong 12-character tries use up the owner code`)
+  const timed = createOwnerCode(now).code
+  eq(redeemCode(timed, now + CODE_MS), null, 'an owner code still ends after 10 minutes')
+  const both = createCode(now).code
+  createOwnerCode(now)
+  eq(redeemCode(both + 'AAAA', now), null, 'a 12-character try is never matched against the ordinary code')
+  eq(redeemCode(both, now), 'device', 'and costs it nothing')
   createOwnerCode(now)
   createCode(now)
   forgetAllDevices()

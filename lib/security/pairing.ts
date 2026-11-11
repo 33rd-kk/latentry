@@ -8,8 +8,8 @@
 // Settings page:
 //
 //   code    8 characters, shown only on this machine; one use, 10 minutes,
-//           10 tries in all. Never put in a URL or a log, so it is in no
-//           browser history and no terminal scrollback.
+//           CODE_TRIES wrong tries in all. Never put in a URL or a log, so
+//           it is in no browser history and no terminal scrollback.
 //   cookie  v1.<device id>.<expires at>.<HMAC-SHA256>, HttpOnly,
 //           SameSite=Strict, good for 30 days. Signed with a random key kept
 //           next to the settings file; a new key forgets every device. An
@@ -32,9 +32,14 @@
 // pairing others): for a Latentry in a container, or on a computer used from
 // another. Its code comes from an owner code, made only by a request from
 // this machine -- a terminal on it, `npm run owner-code` -- so being able to
-// run a command there is what makes an owner. Owner codes follow the same
-// rules as the others and are kept apart from them. LATENTRY_PAIRING=off turns it off
-// for everyone (for a reverse proxy that does its own login).
+// run a command there is what makes an owner. Owner codes are 12 characters,
+// kept apart from the others: a code is matched only against the kind its
+// length says, so tries at a phone's code never touch the owner code. And an
+// owner code has no count of tries to use up, so nobody on the network can
+// spend it and keep the owner from pairing: 31^12 codes against /api/pair's
+// 5 tries a minute per address make a guess hopeless within its 10 minutes.
+// LATENTRY_PAIRING=off turns pairing off for everyone (for a reverse proxy
+// that does its own login).
 //
 // Why not a library (looked at 2026-10): the crypto here is node:crypto's
 // own (HMAC-SHA256, AES-256-GCM, timingSafeEqual); only the flow is ours.
@@ -68,10 +73,16 @@ const OWNER_GRACE_MS = OWNER_GRACE_DAYS * 24 * 60 * 60 * 1000
 const DEVICE_TAG = 'v1'
 const OWNER_TAG = 'o1'
 export const CODE_MS = 10 * 60 * 1000
-export const CODE_TRIES = 10
+/**
+ * Wrong tries an ordinary code takes before it is gone. With 5 tries a minute
+ * per address, it takes many addresses to use them up, and even then a guess
+ * succeeds about once in 10^10 codes.
+ */
+export const CODE_TRIES = 100
 // No 0/O, 1/I/L: read off one screen and typed on another.
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-const CODE_LENGTH = 8
+export const CODE_LENGTH = 8
+export const OWNER_CODE_LENGTH = 12
 
 export function pairingEnabled(env: Env = process.env): boolean {
   return env.LATENTRY_PAIRING?.trim().toLowerCase() !== 'off'
@@ -116,6 +127,7 @@ const globalForPairing = globalThis as typeof globalThis & {
   __ownerCode?: PendingCode | null
 }
 
+/** triesLeft is Infinity for an owner code, which only time or use ends. */
 type PendingCode = { code: string; expiresAt: number; triesLeft: number }
 
 /** A new random key in `file`; with flag 'wx', only if there is no file yet. */
@@ -394,15 +406,15 @@ export function forgetAllDevices(env: Env = process.env): void {
   if (owners) logOwner(`every device was forgotten, ${owners} owner${owners === 1 ? '' : 's'} among them`)
 }
 
-function newCode(now: number): PendingCode {
+function newCode(now: number, length: number, triesLeft: number): PendingCode {
   let code = ''
-  for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
-  return { code, expiresAt: now + CODE_MS, triesLeft: CODE_TRIES }
+  for (let i = 0; i < length; i++) code += CODE_ALPHABET[randomInt(CODE_ALPHABET.length)]
+  return { code, expiresAt: now + CODE_MS, triesLeft }
 }
 
 /** A fresh pairing code, replacing any earlier one. */
 export function createCode(now = Date.now()): { code: string; expiresAt: number } {
-  const { code, expiresAt } = (globalForPairing.__pairingCode = newCode(now))
+  const { code, expiresAt } = (globalForPairing.__pairingCode = newCode(now, CODE_LENGTH, CODE_TRIES))
   return { code, expiresAt }
 }
 
@@ -413,7 +425,7 @@ export function createCode(now = Date.now()): { code: string; expiresAt: number 
  * machine (app/api/settings/pairing), that is, a terminal on it.
  */
 export function createOwnerCode(now = Date.now()): { code: string; expiresAt: number } {
-  const { code, expiresAt } = (globalForPairing.__ownerCode = newCode(now))
+  const { code, expiresAt } = (globalForPairing.__ownerCode = newCode(now, OWNER_CODE_LENGTH, Infinity))
   return { code, expiresAt }
 }
 
@@ -424,24 +436,26 @@ export function normalizeCode(input: string): string {
 
 /**
  * Which code `input` is, if either: 'owner' for the owner code, 'device' for
- * the ordinary one, null for neither. A match uses that code up and leaves
- * the other alone, so pairing a phone does not cost the owner code a try. A
- * wrong code counts against each waiting code's CODE_TRIES, after which it is
- * gone and a new one is needed.
+ * the ordinary one, null for neither. Its length says which one it is tried
+ * against (12 characters the owner code, any other length the ordinary one),
+ * so a try never touches the other. A match uses that code up. A wrong try at
+ * the ordinary code counts against its CODE_TRIES, after which it is gone and
+ * a new one is needed; the owner code has no such count.
  */
 export function redeemCode(input: string, now = Date.now()): 'owner' | 'device' | null {
-  const owner = waiting('__ownerCode', now)
-  const device = waiting('__pairingCode', now)
-  if (owner && matches(owner, input)) {
-    globalForPairing.__ownerCode = null
-    return 'owner'
+  const ownerLength = normalizeCode(input).length === OWNER_CODE_LENGTH
+  const slot = ownerLength ? '__ownerCode' : '__pairingCode'
+  const code = waiting(slot, now)
+  if (!code) return null
+  if (matches(code, input)) {
+    globalForPairing[slot] = null
+    return ownerLength ? 'owner' : 'device'
   }
-  if (device && matches(device, input)) {
-    globalForPairing.__pairingCode = null
-    return 'device'
-  }
-  for (const [slot, code] of [['__ownerCode', owner], ['__pairingCode', device]] as const) {
-    if (code && --code.triesLeft <= 0) globalForPairing[slot] = null
+  if (--code.triesLeft <= 0) {
+    globalForPairing[slot] = null
+    // When, never the code or who tried: so whoever runs Latentry can tell
+    // why the code stopped working, and that someone may be guessing.
+    console.info(`[pairing] ${new Date().toISOString()} a pairing code was used up by ${CODE_TRIES} wrong tries; make a new one`)
   }
   return null
 }
@@ -454,7 +468,7 @@ function waiting(slot: '__pairingCode' | '__ownerCode', now: number): PendingCod
 }
 
 function matches(code: PendingCode, input: string): boolean {
-  const sent = Buffer.from(normalizeCode(input).padEnd(CODE_LENGTH).slice(0, 64))
+  const sent = Buffer.from(normalizeCode(input).padEnd(code.code.length).slice(0, 64))
   const expected = Buffer.from(code.code)
   return sent.length === expected.length && timingSafeEqual(sent, expected)
 }
