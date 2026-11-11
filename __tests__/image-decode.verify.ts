@@ -9,6 +9,7 @@ import { crc32 } from 'node:zlib'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import { imageSize, preparedImages } from '../lib/backends/images'
+import { controlPicture } from '../lib/control/annotators'
 import { canvasOf } from '../lib/facefix/image'
 import { prepareOutpaint } from '../lib/generate/outpaint-image'
 import { decodeImage, fitsDecode, MAX_INPUT_PIXELS } from '../lib/images/decode'
@@ -42,12 +43,14 @@ async function main(): Promise<void> {
   eq(await preparedImages({ init_image_base64: b64, width: 1024, height: 1024 }, 8), null, 'so img2img for another backend refuses it')
   eq(await prepareOutpaint(b64, { left: 64, right: 0, top: 0, bottom: 0 }), null, 'and so does Extend')
   check(await canvasOf(b64).then(() => false, () => true), 'face fix refuses it as well')
+  check(await controlPicture('canny', huge).then(() => false, () => true), 'and a control picture is not made from it')
 
   // An ordinary picture is read as before.
   const ordinary = await sharp({ create: { width: 2048, height: 1536, channels: 3, background: '#468' } }).png().toBuffer()
   eq(await imageSize(ordinary.toString('base64')), { width: 2048, height: 1536 }, 'a 2048 picture has its size')
   eq((await decodeImage(ordinary).resize(32, 24).raw().toBuffer({ resolveWithObject: true })).info.width, 32, 'and decodes')
   eq((await canvasOf(ordinary.toString('base64'))).width, 2048, 'face fix reads it')
+  eq((await sharp(await controlPicture('canny', ordinary)).metadata()).width, 1024, 'and Canny edges are made from it')
 }
 
 main()
