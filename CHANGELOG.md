@@ -8,6 +8,11 @@
   owner-code` is now 12 characters (`ABCD-EFGH-JKMN`), and wrong tries on
   the pairing page no longer use it up; an ordinary code takes 100 wrong
   tries instead of 10, and the server log says when one was used up.
+- **Big pictures no longer fill the memory**: a picture sent to the server
+  (a source, mask or picture to tag) or sent back by a backend is read only
+  up to 8192 × 8192 pixels. A gallery ZIP download checks each file's size
+  before reading it, and at most two are built at once; a third is asked to
+  wait a moment.
 
 ## 0.16.0 (2026-11-08)
 
