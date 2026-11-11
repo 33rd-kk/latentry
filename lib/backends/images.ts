@@ -70,7 +70,7 @@ export async function preparedSkeleton(base64: string, width: number, height: nu
  */
 export async function letterboxedControl(base64: string, width: number, height: number): Promise<Buffer | null> {
   try {
-    return await sharp(Buffer.from(stripDataUrl(base64), 'base64'))
+    return await decodeImage(Buffer.from(stripDataUrl(base64), 'base64'))
       .resize(width, height, { fit: 'contain', background: { r: 0, g: 0, b: 0 } })
       .removeAlpha()
       .png()
