@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Sturdier picture reading and pairing codes**: the settings text in a
+  picture is read only up to a sane size, so an odd file in a gallery
+  folder cannot slow Latentry down or stop it. An owner code from `npm run
+  owner-code` is now 12 characters (`ABCD-EFGH-JKMN`), and wrong tries on
+  the pairing page no longer use it up; an ordinary code takes 100 wrong
+  tries instead of 10, and the server log says when one was used up.
+
 ## 0.16.0 (2026-11-08)
 
 **Upgrading from 0.15.0**: the usual update; the engine is unchanged, so
