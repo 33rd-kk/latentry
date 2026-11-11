@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import sharp from 'sharp'
+import { decodeImage } from '@/lib/images/decode'
 import type { WdTag } from '@/lib/backends/types'
 
 export const CATEGORY_GENERAL = 0
@@ -143,7 +143,7 @@ export async function tagImage(dir: string, imageBase64: string, thresholds: Wd1
   const run = async () => {
     const model = await loaded(dir)
     const bytes = Buffer.from(imageBase64.startsWith('data:') ? imageBase64.slice(imageBase64.indexOf(',') + 1) : imageBase64, 'base64')
-    const { data } = await sharp(bytes)
+    const { data } = await decodeImage(bytes)
       .rotate()
       .flatten({ background: '#ffffff' })
       .resize(model.size, model.size, { fit: 'contain', background: '#ffffff', kernel: 'cubic' })

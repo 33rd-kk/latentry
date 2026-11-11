@@ -2,19 +2,20 @@
 // diffusers-compatible takes: its size, and a mask in its convention.
 
 import sharp from 'sharp'
+import { decodeImage, fitsDecode } from '@/lib/images/decode'
 import { fitToImage } from '@/lib/profiles'
 import { stripDataUrl } from './http'
 
 /** Latentry's mask (opaque = redraw) as white (redraw) on black (keep), PNG. */
 export async function alphaToMask(maskBase64: string): Promise<Buffer> {
-  return sharp(Buffer.from(stripDataUrl(maskBase64), 'base64')).ensureAlpha().extractChannel(3).png().toBuffer()
+  return decodeImage(Buffer.from(stripDataUrl(maskBase64), 'base64')).ensureAlpha().extractChannel(3).png().toBuffer()
 }
 
-/** The pixel size of a picture, or null when it cannot be read. */
+/** The pixel size of a picture, or null when it cannot be read or is too large to decode. */
 export async function imageSize(base64: string): Promise<{ width: number; height: number } | null> {
   try {
     const meta = await sharp(Buffer.from(stripDataUrl(base64), 'base64')).metadata()
-    return meta.width && meta.height ? { width: meta.width, height: meta.height } : null
+    return fitsDecode(meta) ? { width: meta.width!, height: meta.height! } : null
   } catch {
     return null
   }
@@ -36,7 +37,7 @@ export async function preparedImages(
   if (!size) return null
   const { width, height } = request.upscale ? size : fitToImage(size, request.width, request.height, sizeMultiple)
   try {
-    const source = await sharp(Buffer.from(stripDataUrl(request.init_image_base64), 'base64'))
+    const source = await decodeImage(Buffer.from(stripDataUrl(request.init_image_base64), 'base64'))
       .resize(width, height, { fit: 'fill' })
       .png()
       .toBuffer()
@@ -57,7 +58,7 @@ export async function preparedImages(
  */
 export async function preparedSkeleton(base64: string, width: number, height: number): Promise<Buffer | null> {
   try {
-    return await sharp(Buffer.from(stripDataUrl(base64), 'base64')).resize(width, height, { fit: 'fill' }).removeAlpha().png().toBuffer()
+    return await decodeImage(Buffer.from(stripDataUrl(base64), 'base64')).resize(width, height, { fit: 'fill' }).removeAlpha().png().toBuffer()
   } catch {
     return null
   }
