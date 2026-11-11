@@ -13,7 +13,7 @@
 //
 // Beside it: sdcpp-payload.ts (capabilities and the job body).
 
-import sharp from 'sharp'
+import { decodeImage } from '@/lib/images/decode'
 import { getProfile } from '@/lib/profiles'
 import { DEFAULT } from './a1111-payload'
 import { jsonTransport, type A1111Transport } from './a1111-transport'
@@ -153,7 +153,7 @@ export class SdcppAdapter implements BackendAdapter {
       }
     }
     try {
-      const png = await sharp(Buffer.from(source, 'base64')).resize(enlarge.width, enlarge.height, { fit: 'fill', kernel: enlarge.kernel }).png().toBuffer()
+      const png = await decodeImage(Buffer.from(source, 'base64')).resize(enlarge.width, enlarge.height, { fit: 'fill', kernel: enlarge.kernel }).png().toBuffer()
       return { image: png.toString('base64') }
     } catch {
       return { error: 'Could not read the source image' }

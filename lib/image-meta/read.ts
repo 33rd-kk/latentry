@@ -15,7 +15,7 @@
 
 import { open, type FileHandle } from 'node:fs/promises'
 import { readExifText, type ExifText } from './exif'
-import { decodeTextChunk, PNG_SIGNATURE } from './png'
+import { decodeTextChunk, PNG_SIGNATURE, TextCollector } from './png'
 
 export type ImageFormat = 'png' | 'jpeg' | 'webp'
 
@@ -63,7 +63,7 @@ async function readPng(read: Reader): Promise<ImageInfo> {
   let position = 8
   let width = 0
   let height = 0
-  const text: Record<string, string> = {}
+  const text = new TextCollector()
   while (true) {
     const chunkHead = await read(8, position)
     if (chunkHead.length < 8) break
@@ -76,15 +76,14 @@ async function readPng(read: Reader): Promise<ImageInfo> {
         width = ihdr.readUInt32BE(0)
         height = ihdr.readUInt32BE(4)
       }
-    } else if ((type === 'tEXt' || type === 'zTXt' || type === 'iTXt') && length <= MAX_BLOCK) {
-      const decoded = decodeTextChunk({ type, data: await read(length, dataAt) })
-      if (decoded && !(decoded.keyword in text)) text[decoded.keyword] = decoded.text
+    } else if ((type === 'tEXt' || type === 'zTXt' || type === 'iTXt') && length <= MAX_BLOCK && text.open) {
+      text.add(decodeTextChunk({ type, data: await read(length, dataAt) }))
     } else if (type === 'IEND') {
       break
     }
     position = dataAt + length + 4
   }
-  return { format: 'png', width, height, text }
+  return { format: 'png', width, height, text: text.text }
 }
 
 /**

@@ -954,8 +954,8 @@
     "run": "Latentry の動かし方に合った行を入力して Enter を押します:",
     "docker": "Docker の場合（compose.yaml があるフォルダー）",
     "native": "Docker を使わない場合（Latentry のフォルダー）",
-    "enterHere": "Owner code: ABCD-EFGH と表示されます。10 分以内に、そのコードを下の「コード」に入力して「ペアリング」を押してください。",
-    "enterOnPair": "Owner code: ABCD-EFGH と表示されます。10 分以内に、このブラウザーで<link>ペアリングのページ</link>を開いてコードを入力してください。",
+    "enterHere": "Owner code: ABCD-EFGH-JKMN と表示されます。10 分以内に、そのコードを下の「コード」に入力して「ペアリング」を押してください。",
+    "enterOnPair": "Owner code: ABCD-EFGH-JKMN と表示されます。10 分以内に、このブラウザーで<link>ペアリングのページ</link>を開いてコードを入力してください。",
     "after": "これでこのブラウザーが 7 日間、持ち主の端末になり、設定やセットアップを変えたり、ほかの端末をペアリングしたりできます。コードは 1 回だけ使え、そのターミナルにだけ表示されます。",
     "copy": "コマンドをコピー",
     "copied": "コピーしました"

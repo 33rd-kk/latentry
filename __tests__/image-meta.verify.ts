@@ -7,11 +7,14 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { deflateSync } from 'node:zlib'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import {
+  decodeTextChunk,
   decodeUserComment,
   encodeChunk,
+  encodeTextChunk,
   isSdcppParameters,
   parametersComment,
   parseSdcppParameters,
@@ -30,6 +33,8 @@ import {
   readImageInfo,
   readPngText,
   writePngText,
+  MAX_TEXT_BYTES,
+  MAX_TOTAL_TEXT_BYTES,
   PARAMETERS_KEY,
   type ImageMeta,
 } from '../lib/image-meta'
@@ -307,6 +312,7 @@ async function main() {
 
   await comfyGraphs()
   sdcppText()
+  await textBounds()
 
   done('image-meta')
 }
@@ -498,6 +504,40 @@ async function comfyGraphs(): Promise<void> {
   // Through a real PNG: ComfyUI writes its graph as a tEXt chunk named "prompt".
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer(), { prompt: JSON.stringify(txt2img) })
   eq(settings(metaFromText(readPngText(png))), expected, 'a PNG with a ComfyUI prompt chunk reads back the same')
+}
+
+// ── Compressed text is read only up to a bound ──
+
+async function textBounds(): Promise<void> {
+  // 64 MiB of zeros deflates to about 64 KiB: far past the bound, cheap to make.
+  const huge = deflateSync(Buffer.alloc(64 * 1024 * 1024))
+  const zTXt = encodeChunk('zTXt', Buffer.concat([Buffer.from('parameters  ', 'latin1'), huge]))
+  const iTXt = encodeChunk('iTXt', Buffer.concat([Buffer.from('parameters', 'latin1'), Buffer.from([0, 1, 0, 0, 0]), huge]))
+  eq(decodeTextChunk({ type: 'zTXt', data: zTXt.subarray(8, -4) }), null, 'a zTXt that would inflate past MAX_TEXT_BYTES reads as no text')
+  eq(decodeTextChunk({ type: 'iTXt', data: iTXt.subarray(8, -4) }), null, 'so does an iTXt')
+
+  const plain = await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } }).png().toBuffer()
+  const after = (chunks: Buffer[]) => Buffer.concat([plain.subarray(0, 33), ...chunks, plain.subarray(33)])
+  const ok = encodeTextChunk('latentry', 'x'.repeat(10_000), { compress: true })
+  eq(readPngText(after([zTXt, ok])).latentry, 'x'.repeat(10_000), 'past an oversized chunk, an ordinary compressed one still reads')
+
+  // Many chunks just under the bound do not add up past the picture's total.
+  const near = 'y'.repeat(MAX_TEXT_BYTES - 1024)
+  const many = Array.from({ length: 6 }, (_, i) => encodeTextChunk(`k${i}`, near, { compress: true }))
+  const kept = Object.values(readPngText(after(many))).reduce((sum, text) => sum + text.length, 0)
+  check(kept > 0 && kept <= MAX_TOTAL_TEXT_BYTES, `readPngText keeps at most MAX_TOTAL_TEXT_BYTES (${kept})`)
+
+  const root = await mkdtemp(path.join(tmpdir(), 'latentry-textbounds-'))
+  try {
+    await writeFile(path.join(root, 'bomb.png'), after([zTXt, ok]))
+    const bomb = await readImageInfo(path.join(root, 'bomb.png'))
+    eq([bomb?.width, bomb?.text.parameters, bomb?.text.latentry?.length], [8, undefined, 10_000], 'the gallery reader: size read, the oversized chunk skipped, the rest kept')
+    await writeFile(path.join(root, 'many.png'), after(many))
+    const total = Object.values((await readImageInfo(path.join(root, 'many.png')))?.text ?? {}).reduce((sum, text) => sum + text.length, 0)
+    check(total > 0 && total <= MAX_TOTAL_TEXT_BYTES, `the gallery reader keeps at most MAX_TOTAL_TEXT_BYTES too (${total})`)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 }
 
 main().catch((error) => {
