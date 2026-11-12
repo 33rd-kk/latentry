@@ -24,7 +24,7 @@ import torch
 from PIL import Image, ImageFilter
 from poseorbit import letterbox
 
-from . import ip_adapter, loras, pipelines, pose_control, samplers
+from . import anima_inpaint, ip_adapter, loras, pipelines, pose_control, samplers
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 from .pictures import (
@@ -185,8 +185,8 @@ class Engine:
         family = self.loaded.family if self.loaded else None
         return {
             "img2img": family in (FAMILY_SDXL, FAMILY_ANIMA),
-            # Anima's stock pipeline has no inpainting.
-            "inpaint": family == FAMILY_SDXL,
+            # Anima's own pipeline has no inpainting; anima_inpaint.py adds it.
+            "inpaint": family in (FAMILY_SDXL, FAMILY_ANIMA),
             "pose_control": self._pose_supported(),
             # The control pictures it follows (Latentry makes them): SDXL's union ControlNet.
             "control_kinds": list(CONTROL_KINDS) if family == FAMILY_SDXL else [],
@@ -209,9 +209,6 @@ class Engine:
         if family == FAMILY_ANIMA:
             reasons["control"] = "Edges, depth and line art need an SDXL model: there is no such ControlNet for Anima."
             reasons["ip_adapter"] = "A reference picture's look (IP-Adapter) needs an SDXL model: there is no IP-Adapter for Anima."
-
-        if family == FAMILY_ANIMA:
-            reasons["inpaint"] = "Anima's pipeline has no inpainting; load an SDXL model to inpaint."
             if not self._pose_supported():
                 layers = int(self.loaded.pipe.transformer.config.num_layers)
                 reasons["pose"] = (
@@ -427,9 +424,7 @@ class Engine:
                         raise Cancelled()
                 for offset, (image, seed) in enumerate(zip(images, batch)):
                     if mask is not None and source is not None:
-                        # Outside the mask, the source's own pixels, exactly.
-                        soft = mask.filter(ImageFilter.GaussianBlur(request.mask_blur)) if request.mask_blur else mask
-                        image = Image.composite(image.resize(source.size), source, soft)
+                        image = composite_masked(image, source, mask, request.mask_blur)
                     emit("image", {
                         "index": done + offset,
                         "total": len(seeds),
@@ -454,6 +449,7 @@ class Engine:
             width, height = fit_to_image(source, request.width, request.height, 16) if source else (snap(request.width, 16), snap(request.height, 16))
         if source is not None:
             source = source.resize((width, height), Image.Resampling.LANCZOS)
+        mask = mask_from_alpha(request.mask, (width, height)) if request.mask is not None and source is not None else None
         steps = img2img_steps(request.num_inference_steps, request.strength, loaded.family) if source is not None else request.num_inference_steps
         hires = request.hr_scale is not None and source is None
         hires_steps = 0
@@ -489,6 +485,9 @@ class Engine:
                 scopes.enter_context(loaded.pose_adapter.applied(skeleton, request.pose_strength))
             # After the pose adapter, so it stays on beside the prompt's LoRAs.
             scopes.enter_context(loaded.lora_keeper.applied(pipe, request.loras))
+            if mask is not None:
+                # Only the masked area is drawn (anima_inpaint.py).
+                scopes.enter_context(anima_inpaint.masked(pipe.scheduler, mask))
         except BaseException:
             # A LoRA that would not load must not leave the pose adapter on.
             scopes.close()
@@ -542,6 +541,8 @@ class Engine:
                         if vae is not None:
                             vae.disable_tiling()
                     image = output.images[0] if hasattr(output, "images") else output.get("images")[0]
+                if mask is not None and source is not None:
+                    image = composite_masked(image, source, mask, request.mask_blur)
                 emit("image", {
                     "index": index,
                     "total": len(seeds),
@@ -572,3 +573,8 @@ def union_arguments(skeleton: Image.Image | None, control: Image.Image, request:
         "controlnet_conditioning_scale": [request.pose_strength, request.control_strength],
     }
 
+
+def composite_masked(image: Image.Image, source: Image.Image, mask: Image.Image, blur: float) -> Image.Image:
+    """Outside the mask, the source's own pixels, exactly; the edge softened by `blur`."""
+    soft = mask.filter(ImageFilter.GaussianBlur(blur)) if blur else mask
+    return Image.composite(image.convert(source.mode).resize(source.size), source, soft)

@@ -20,7 +20,7 @@ control, rather than only hiding it.
 |---|---|---|---|---|---|---|---|
 | Text to picture | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
-| Inpaint, **Extend** and **Faces** | Yes | No | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
+| Inpaint, **Extend** and **Faces** | Yes | Yes (engine 0.9.0 and later) | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
 | Control picture (edges, depth, line art) | Yes, with a pose too | No | If it lists the kinds¹ | Not yet | With a ControlNet set for that kind | No | No |
 | Reference picture (IP-Adapter) | Yes | No | If it says so¹ | No | Not yet | No | No |
