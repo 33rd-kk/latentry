@@ -10,6 +10,12 @@
   any model, for the coming Controls. See
   [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
 
+**Security**
+
+- **poseorbit 0.3.2 in the engine**: a picture sent to find the people in it
+  is checked for size (up to 8192 x 8192 pixels) before it is decoded. Setup
+  asks for **Repair / update** to install it.
+
 ## 0.16.1 (2026-11-11)
 
 **Upgrading from 0.16.0**: the usual update, recommended for everyone; the
