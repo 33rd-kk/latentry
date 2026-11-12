@@ -9,6 +9,7 @@ import { HardwareCard } from "./hardware-card"
 import { ModelsCard } from "./models-card"
 import { TaggerCard } from "./tagger-card"
 import { FaceDetectorCard } from "./face-detector-card"
+import { ControlModelsCard } from "./control-models-card"
 
 export function SetupPanel() {
   const t = useT()
@@ -43,6 +44,7 @@ export function SetupPanel() {
       <ModelsCard status={status} actions={actions} />
       <TaggerCard status={status} actions={actions} />
       <FaceDetectorCard status={status} actions={actions} />
+      <ControlModelsCard status={status} actions={actions} />
     </div>
   )
 }

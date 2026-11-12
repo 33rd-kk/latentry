@@ -40,8 +40,8 @@ export interface RunInput {
 
 /** Roughly how much memory the run's pictures hold while it waits. */
 export function inputBytes(input: RunInput): number {
-  const { init_image_base64, mask_base64, pose_image_base64 } = input.generate
-  return (init_image_base64?.length ?? 0) + (mask_base64?.length ?? 0) + (pose_image_base64?.length ?? 0)
+  const { init_image_base64, mask_base64, pose_image_base64, control_image_base64 } = input.generate
+  return (init_image_base64?.length ?? 0) + (mask_base64?.length ?? 0) + (pose_image_base64?.length ?? 0) + (control_image_base64?.length ?? 0)
 }
 
 /**
@@ -74,7 +74,7 @@ export async function launchRun(adapter: BackendAdapter, input: RunInput, id?: s
       // The settings without the pictures: the record only needs to say a
       // source was used (strength is set exactly when one was), and the
       // base64 would sit in memory for as long as the job does.
-      request: { ...generate, ...(input.sourceSize ?? {}), init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined },
+      request: { ...generate, ...(input.sourceSize ?? {}), init_image_base64: undefined, mask_base64: undefined, pose_image_base64: undefined, control_image_base64: undefined },
       profile: input.profile,
       kind: adapter.config.kind,
       // A model named for this run (an X/Y grid's model axis) is the one drawn with. A

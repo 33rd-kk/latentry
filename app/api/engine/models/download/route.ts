@@ -28,8 +28,8 @@ export async function POST(request: Request) {
   const entry = typeof body?.id === 'string' ? catalogEntry(body.id) : null
   if (!entry) return jsonError('Not in the catalog', 404)
 
-  // Taggers and face detectors run in Latentry, which fetches them itself.
-  if (entry.kind === 'tagger' || entry.kind === 'detector') return json(startTaggerDownload(entry), { status: 202 })
+  // Taggers, face detectors and control picture models run in Latentry, which fetches them itself.
+  if (entry.kind === 'tagger' || entry.kind === 'detector' || entry.kind === 'annotator') return json(startTaggerDownload(entry), { status: 202 })
 
   return startOnEngine({
     repo_id: entry.repo,

@@ -306,6 +306,7 @@
         "img2img": "元画像",
         "inpaint": "インペイントのマスク",
         "pose": "スケルトンポーズ",
+        "control": "コントロール画像（エッジ・深度・線画）",
         "hires": "Hires fix",
         "upscale": "アップスケール"
       },
@@ -315,10 +316,12 @@
         "a1111": {
           "img2img": "この種類のバックエンドには、Latentry から元画像を送れません。",
           "inpaint": "この種類のバックエンドには、Latentry からインペイントのマスクを送れません。",
-          "pose": "Latentry は A1111 web UI のポーズ制御を操作できません。ポーズには diffusers 互換サーバーか Latentry のエンジンを使ってください。"
+          "pose": "Latentry は A1111 web UI のポーズ制御を操作できません。ポーズには diffusers 互換サーバーか Latentry のエンジンを使ってください。",
+          "control": "LatentryはまだA1111系Web UIにコントロール画像を送れません。"
         },
         "sdcpp": {
-          "pose": "Latentry は stable-diffusion.cpp のポーズ制御を操作できません。ポーズには Latentry のエンジン、ComfyUI、diffusers 互換サーバーのどれかを使ってください。"
+          "pose": "Latentry は stable-diffusion.cpp のポーズ制御を操作できません。ポーズには Latentry のエンジン、ComfyUI、diffusers 互換サーバーのどれかを使ってください。",
+          "control": "Latentryはstable-diffusion.cppのControlNetを操作できません。コントロールにはLatentryのエンジンを使ってください。"
         }
       },
       "setup": {
@@ -331,6 +334,7 @@
         "img2img": "サーバーの /api/health が \"img2img\": false か、何も答えていません。その項目を外す（または true にする）とともに、/api/generate で \"init_image_base64\" と \"strength\" を受け付けてください。",
         "inpaint": "サーバーの /api/health が \"inpaint\": false か、何も答えていません。その項目を外す（または true にする）とともに、/api/generate で \"mask_base64\" と \"mask_blur\" を受け付けてください。",
         "pose": "サーバーの /api/health が \"pose_control\": true と答えていません。ポーズを使うには、そう答え、POST /api/pose（スケルトンを描く）を追加し、/api/generate で \"pose_image_base64\"、\"pose_is_skeleton\"、\"pose_strength\" を受け付けてください。docs/backend-api.md の \"POST /api/pose\" を参照してください。",
+        "control": "サーバーの /api/health に \"control_kinds\" がありません。Latentryのエンジンなら、このLatentryより古いものです。Setupで「修復・更新」を実行し、エンジンを停止・起動してください。他のサーバーでは、従える種類（\"canny\"、\"depth\"、\"lineart\"）を列挙し、/api/generate で \"control_kind\"、\"control_image_base64\"、\"control_strength\" を受け付けてください。docs/backend-api.md を参照してください。",
         "hires": "サーバーの /api/health が \"hires\": true と答えていません。Latentry 自身のエンジンなら、この Latentry より古い版です。セットアップで「修復 / 更新」を実行し、停止してから起動してください。他のサーバーで Hires fix を使うには、そう答え、受け付けるアップスケーラーを \"upscalers\" に並べ、/api/generate で \"hr_scale\"、\"hr_steps\"、\"hr_denoise\"、\"hr_upscaler\" を受け付けてください。docs/backend-api.md を参照してください。",
         "upscale": "サーバーの /api/health が \"upscale\": true と答えていません。Latentry 自身のエンジンなら、この Latentry より古い版です。セットアップで「修復 / 更新」を実行し、停止してから起動してください。他のサーバーで元画像をアップスケールするには、そう答え、/api/generate で \"upscale\": true を \"init_image_base64\" と hr_* の項目と一緒に受け付けてください。docs/backend-api.md を参照してください。"
       }
@@ -339,6 +343,7 @@
       "label": "表示",
       "characters": "キャラクター",
       "source": "元画像",
+      "control": "コントロール",
       "pose": "ポーズ",
       "hires": "Hires fix",
       "grid": "X/Y グリッド",
@@ -364,6 +369,24 @@
       "label": "空いているGPUを使う（同じモデルのエンジンがあと{count}台）",
       "hint": "このエンジンが使用中のとき、同じモデルを読み込んでいる空いたLatentryのエンジンで描きます。X/Yグリッドと顔の修正はこのエンジンのままです。",
       "drawnOn": "{backend} で描画"
+    },
+    "control": {
+      "missing": "先にSetupで{kind}のモデルをダウンロードしてください。",
+      "badPicture": "その画像を読み込めませんでした。",
+      "busy": "別のコントロール画像を作成中です。少し待ってからもう一度お試しください。",
+      "title": "コントロール",
+      "fromSource": "ソース画像から",
+      "fromGallery": "ギャラリーから",
+      "drop": "参照画像をドロップ、またはクリックして選択",
+      "kind": {
+        "canny": "エッジ",
+        "depth": "深度",
+        "lineart": "線画"
+      },
+      "preview": "実行時に従う{kind}のコントロール画像",
+      "strength": "コントロールの強さ: {value}",
+      "hint": "参照画像からこのコンピューター上で作ります。参照画像そのものは送りません。エッジはダウンロード不要、深度と線画はSetupでモデルが必要です。",
+      "failed": "コントロール画像を作れませんでした。"
     }
   },
   "gallery": {
@@ -503,6 +526,8 @@
     "strength": "強度",
     "hires": "Hires",
     "hiresValue": "{scale}× {upscaler}、ノイズ除去 {denoise}",
+    "control": "コントロール",
+    "controlValue": "{kind}、強さ {strength}",
     "showTags": "タグ",
     "select": "選択",
     "cardNoTags": "タグはまだありません",
@@ -868,6 +893,8 @@
     "taggerBody": "WD14 タガーは画像からタグを読み取ります。Latentry の中で動くので、エンジンは要りません。",
     "faceDetectors": "顔検出モデル",
     "faceDetectorsBody": "顔の修正で使います。画像の中の顔を、このコンピューターの上で探します。「ダウンロード」を押すまで何もダウンロードしません。",
+    "controlModels": "コントロール画像のモデル",
+    "controlModelsBody": "コントロール用：参照画像から深度マップや線画を、このコンピューター上で作ります。Cannyのエッジはダウンロード不要です。「ダウンロード」を押すまで何もダウンロードしません。",
     "inUse": "使用中",
     "use": "これを使う",
     "failed": "うまくいきませんでした：{error}",

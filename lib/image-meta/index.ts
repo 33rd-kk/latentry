@@ -45,6 +45,7 @@ export {
   type ComfyRoles,
   type ComfySlot,
   type GridAxisUse,
+  type ControlUse,
   type GridUse,
   type HiresUse,
   type ImageMeta,

@@ -10,6 +10,22 @@
   grid and **Faces** stay on the chosen engine. See
   [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
 
+- **Controls on the Generate page**: a **Control** block makes a control
+  picture from a reference picture, on this computer, as edges, a depth map
+  or line art, shows it, and sends it with the run at its own strength,
+  beside a pose. The reference is never sent, and a picture records only the
+  kind and strength. Offered on backends that list the kinds they follow
+  (`control_kinds` in the backend API). See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+
+- **Control picture models on Setup**: a new card downloads the models that
+  turn a reference picture into a depth map (Depth Anything V2 Small,
+  Apache-2.0) or line art (Informative Drawings, MIT), each pinned to a
+  commit, checked against its SHA-256 and fetched only when you press
+  Download. They run inside Latentry on the CPU, as Canny edges do without
+  any model, for the coming Controls. See
+  [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
+
 - **Inpaint on Anima** (engine 0.9.0): the built-in engine now inpaints with
   Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
   they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps

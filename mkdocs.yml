@@ -37,6 +37,7 @@ nav:
       - Bigger pictures: guide/bigger.md
       - Many pictures: guide/many.md
       - Pose and the 3D view: guide/pose.md
+      - Controls: guide/controls.md
   - Gallery: guide/gallery.md
   - Devices:
       - Owner device: guide/owner-device.md

@@ -1,5 +1,5 @@
 import { randomInt } from 'node:crypto'
-import { adapterOr404, bodyTooLarge, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
+import { adapterOr404, bodyTooLarge, dropControl, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
 import { getAdapter } from '@/lib/backends'
 import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
@@ -61,6 +61,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     delete generate.pose_image_base64
     delete generate.pose_is_skeleton
     delete generate.pose_strength
+    dropControl(generate)
   }
   // Face fix: the faces are found here, before the run waits, so a picture
   // with none (or no detector downloaded yet) is answered now. The run then
@@ -84,6 +85,7 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     // The record names the picture as it comes back: the source's size, one picture, the denoise as strength.
     Object.assign(generate, { init_image_base64: source, strength: fix.denoise, image_count: 1, width: size.width, height: size.height })
     for (const key of ['mask_base64', 'mask_blur', 'pose_image_base64', 'pose_is_skeleton', 'pose_strength', 'workflow'] as const) delete generate[key]
+    dropControl(generate)
   }
   // Only for the record: the backend is sent the prompt with its wildcards replaced.
   const template = body.prompt_template

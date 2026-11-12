@@ -72,6 +72,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     ...(image.loras?.length ? { loras: image.loras.map(({ name, weight }) => ({ name, weight })) } : {}),
     ...(request.workflow ? { workflow: request.workflow } : {}),
     ...(grid ? { grid } : {}),
+    // The kind and strength only: the control picture itself is never kept.
+    ...(request.control_kind && request.control_strength !== undefined ? { control: { kind: request.control_kind, strength: request.control_strength } } : {}),
     created: created.toISOString(),
   }
 }

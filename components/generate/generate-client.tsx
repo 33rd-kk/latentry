@@ -15,6 +15,8 @@ import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
 import { CharacterPresets } from "@/components/generate/character-presets"
 import { ModelInfoCard } from "@/components/generate/model-info-card"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
+import { ControlSlot, type ControlPicture } from "@/components/generate/control-slot"
+import { CONTROL_STRENGTH } from "@/lib/control/kinds"
 import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
@@ -168,6 +170,9 @@ export function GenerateClient() {
   const [lastExtractedTags, setLastExtractedTags] = useState("")
   const [poseSkeleton, setPoseSkeleton] = useState<PoseSkeleton | null>(null)
   const [poseStrength, setPoseStrength] = useState(DEFAULT_POSE_STRENGTH)
+  // The control picture (edges, depth, line art) and how strongly it is followed; this page's memory only.
+  const [control, setControl] = useState<ControlPicture | null>(null)
+  const [controlStrength, setControlStrength] = useState<number>(CONTROL_STRENGTH.default)
 
   const addExtractedTags = useCallback(
     (tags: string[]) => {
@@ -244,12 +249,13 @@ export function GenerateClient() {
   const available = useMemo(
     () =>
       statusCapabilities && workflow
-        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, hires: false }
+        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, control: [], hires: false }
         : statusCapabilities,
     [statusCapabilities, workflow, workflowPose, engineReady]
   )
   const showSource = shown("source")
   const showPose = shown("pose")
+  const showControl = shown("control")
   const showHires = shown("hires")
   const showGrid = shown("grid")
   const capabilities = useMemo(
@@ -259,9 +265,10 @@ export function GenerateClient() {
         img2img: available.img2img && showSource,
         inpaint: available.inpaint && showSource,
         pose: available.pose && showPose,
+        control: showControl ? (available.control ?? []) : [],
         hires: available.hires && showHires,
       },
-    [available, showSource, showPose, showHires]
+    [available, showSource, showPose, showControl, showHires]
   )
   const hints = useMemo(() => {
     if (!statusHints || !workflow || !engineReady) return statusHints
@@ -378,6 +385,9 @@ export function GenerateClient() {
             ...(capabilities?.pose && poseSkeleton
               ? { pose_image_base64: poseSkeleton.dataUrl, pose_is_skeleton: true, pose_strength: poseStrength }
               : {}),
+            ...(control && capabilities?.control?.includes(control.kind)
+              ? { control_kind: control.kind, control_image_base64: control.dataUrl, control_strength: controlStrength }
+              : {}),
             ...(hires ? hrFields : {}),
           }),
     })
@@ -446,7 +456,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, anyGpu, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, control, controlStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, anyGpu, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -537,6 +547,7 @@ export function GenerateClient() {
                 { block: "characters" as const, holding: false },
                 ...(available?.img2img ? [{ block: "source" as const, holding: Boolean(sourceImage) }] : []),
                 ...(available?.pose ? [{ block: "pose" as const, holding: Boolean(poseSkeleton) }] : []),
+                ...(available?.control?.length ? [{ block: "control" as const, holding: Boolean(control) }] : []),
                 ...(available?.hires ? [{ block: "hires" as const, holding: form.hires }] : []),
                 { block: "grid" as const, holding: gridForm.on },
               ]}
@@ -626,6 +637,16 @@ export function GenerateClient() {
             )}
             {!available?.pose && poseSkeleton && (
               <p className="text-xs text-amber-600 dark:text-amber-500">{t("generate.poseDropped")}</p>
+            )}
+            {Boolean(capabilities?.control?.length) && !upscaling && !extending && !fixingFaces && (
+              <ControlSlot
+                kinds={capabilities!.control!}
+                value={control}
+                onChange={setControl}
+                strength={controlStrength}
+                onStrengthChange={setControlStrength}
+                source={capabilities?.img2img ? sourceImage : null}
+              />
             )}
             {status.alive && <UnavailableFeatures hints={hints ?? {}} kind={status.kind} />}
 

@@ -6,6 +6,7 @@
 // the other adapters only have to synthesise it. The job store and the page
 // never learn which kind of server a run went to.
 
+import type { ControlKind } from '@/lib/control/kinds'
 import type { LoraUse } from '@/lib/image-meta'
 import type { ProfileId } from '@/lib/profiles'
 
@@ -56,10 +57,12 @@ export interface Capabilities {
   hires: boolean
   /** Upscale: the source picture itself upscaled and redrawn by the hr_* fields (`upscale: true`). */
   upscale: boolean
+  /** The control pictures it follows (control_* fields on generate), beside pose; absent or empty: none. */
+  control?: readonly ControlKind[]
 }
 
 /** The features a backend can lack that the page explains instead of just hiding. */
-export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'hires', 'upscale'] as const
+export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'control', 'hires', 'upscale'] as const
 export type HintedFeature = (typeof HINTED_FEATURES)[number]
 
 /**
@@ -145,6 +148,15 @@ export interface GenerateRequest {
   pose_image_base64?: string
   pose_is_skeleton?: boolean
   pose_strength?: number
+  /**
+   * A control picture Latentry made from a reference (lib/control): edges,
+   * a depth map or line art, white on black, as a PNG; followed at
+   * `control_strength` (0–2). Beside pose, not in place of it. All three are
+   * set together, or none.
+   */
+  control_kind?: ControlKind
+  control_image_base64?: string
+  control_strength?: number
   /**
    * Hires fix, txt2img only (pose included): each picture is upscaled by
    * `hr_scale` with `hr_upscaler`, then redrawn at `hr_denoise` for `hr_steps`
