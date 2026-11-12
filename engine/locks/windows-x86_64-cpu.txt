@@ -1,4 +1,4 @@
-# The engine's Python packages for windows-x86_64-cpu, resolved for 2026-11-01.
+# The engine's Python packages for windows-x86_64-cpu, resolved for 2026-11-12.
 # Made by scripts/lock-engine.mjs (npm run engine:lock); do not edit by hand.
 accelerate==1.15.0 \
     --hash=sha256:5654f8c5eaa0d4fa68b33e287a97765da6849bf6d51dcac874e73fbbddfb6134 \
@@ -702,9 +702,9 @@ pillow==13.0.0 \
     #   diffusers
     #   poseorbit
     #   torchvision
-poseorbit==0.3.1 \
-    --hash=sha256:a0cf629d47d63330febe13122d5c59b724856b888af53584e77658a649f68d95 \
-    --hash=sha256:ab4dd5e5ef733d9e4bc3ee6ad6822d8d21a25dd30aa4ea9885e9453540b1f085
+poseorbit==0.3.2 \
+    --hash=sha256:e4cb5c50a61cdca4fcf0df074796e2299bab63cff2959a925ac6b8701095781d \
+    --hash=sha256:e76bc5b56a3e11b296d07933c53465b0d1f05fd5663580861e26e1745d7620c9
     # via latentry-engine (engine/pyproject.toml)
 protobuf==7.36.2 \
     --hash=sha256:497d0463ff3316681da6c0b9e8d06cb465d61abce00b613ab42226175644d1bb \
