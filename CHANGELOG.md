@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Controls on the built-in engine** (engine 0.9.0): SDXL-family models
+- **Controls on the built-in engine** (engine 0.10.0): SDXL-family models
   follow edges, depth and line art through xinsir's union ControlNet
   (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
   picture), in txt2img, img2img, inpaint and hires fix, and together with a
