@@ -100,7 +100,9 @@ Face, under its own licence, into the **models folder**:
 
 The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with
-txt2img, img2img and pose (v1.0 models). The pose models download on first
+txt2img, img2img, inpainting and pose (pose on v1.0 models). Anima's own
+pipeline has no inpainting; the engine adds it by keeping the source outside
+the mask at every step, so Extend and **Faces** work on Anima too. The pose models download on first
 use into `models/controls/`; Anima-Control-Pose is non-commercial, as Anima
 itself is. [What each backend can do](../reference/backends.md#what-each-backend-can-do)
 compares the two with the other backends.

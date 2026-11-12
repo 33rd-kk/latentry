@@ -10,6 +10,14 @@
   grid and **Faces** stay on the chosen engine. See
   [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
 
+- **Inpaint on Anima** (engine 0.9.0): the built-in engine now inpaints with
+  Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
+  they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps
+  the source outside the mask at every step, and copies its pixels back
+  exactly at the end. After updating, stop and start the engine on **Setup**
+  once. See
+  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+
 **Security**
 
 - **poseorbit 0.3.2 in the engine**: a picture sent to find the people in it

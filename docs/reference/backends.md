@@ -20,7 +20,7 @@ control, rather than only hiding it.
 |---|---|---|---|---|---|---|---|
 | Text to picture | Yes | Yes | Yes | Yes | Yes | Yes | Yes |
 | From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
-| Inpaint, **Extend** and **Faces** | Yes | No | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
+| Inpaint, **Extend** and **Faces** | Yes | Yes (engine 0.9.0 and later) | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes | If its model can⁵ |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph | With Lanczos, Nearest or its ESRGAN model |
