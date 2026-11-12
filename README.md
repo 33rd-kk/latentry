@@ -113,7 +113,7 @@ says how. Check your own setup, backends included, with
 
 | Kind | What | Notes |
 |---|---|---|
-| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, pose (v1.0). Hires fix and Upscale with Lanczos. 3D pose turning. |
+| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, inpaint, pose (v1.0). Hires fix and Upscale with Lanczos. 3D pose turning. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose, hires fix, Upscale (each if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint, hires fix and Upscale with the web UI's upscalers. No pose control. |
 | `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Hires fix and Upscale with Lanczos or an upscale model. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |

@@ -9,7 +9,7 @@
   goes to ComfyUI, and a secret run wipes it. See
   [Control pictures](https://33rd-kk.github.io/latentry/reference/backends/#control-pictures).
 
-- **Controls on the built-in engine** (engine 0.9.0): SDXL-family models
+- **Controls on the built-in engine** (engine 0.10.0): SDXL-family models
   follow edges, depth and line art through xinsir's union ControlNet
   (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
   picture), in txt2img, img2img, inpaint and hires fix, and together with a
@@ -32,6 +32,14 @@
   Download. They run inside Latentry on the CPU, as Canny edges do without
   any model, for the coming Controls. See
   [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
+
+- **Inpaint on Anima** (engine 0.9.0): the built-in engine now inpaints with
+  Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
+  they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps
+  the source outside the mask at every step, and copies its pixels back
+  exactly at the end. After updating, stop and start the engine on **Setup**
+  once. See
+  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
 
 **Security**
 
