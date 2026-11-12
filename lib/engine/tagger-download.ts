@@ -35,11 +35,16 @@ export function detectorDir(entry: CatalogEntry): string {
   return path.join(modelsDir(), 'detectors', entry.id)
 }
 
+/** The folder of a model Latentry runs itself (a face detector, or a control picture's model), kept by its file's own name. */
+export function localModelDir(entry: CatalogEntry): string {
+  return entry.kind === 'annotator' ? path.join(modelsDir(), 'annotators', entry.id) : detectorDir(entry)
+}
+
 export function startTaggerDownload(entry: CatalogEntry): TaggerDownload {
   const running = downloads.get(entry.id)
   if (running?.state === 'downloading') return running
-  const detector = entry.kind === 'detector'
-  const item: TaggerDownload = { id: entry.id, state: 'downloading', doneBytes: 0, totalBytes: entry.bytes, error: null, dir: detector ? detectorDir(entry) : taggerDir(entry) }
+  const detector = entry.kind === 'detector' || entry.kind === 'annotator'
+  const item: TaggerDownload = { id: entry.id, state: 'downloading', doneBytes: 0, totalBytes: entry.bytes, error: null, dir: detector ? localModelDir(entry) : taggerDir(entry) }
   downloads.set(entry.id, item)
 
   void (async () => {
@@ -56,7 +61,7 @@ export function startTaggerDownload(entry: CatalogEntry): TaggerDownload {
           },
         })
       }
-      // A tagger is used straight away, keeping any thresholds already set; a detector is found by its folder.
+      // A tagger is used straight away, keeping any thresholds already set; a detector or annotator is found by its folder.
       if (!detector) {
         const settings = getSettings()
         await saveSettings({ ...settings, wd14: { ...settings.wd14, modelDir: item.dir } })

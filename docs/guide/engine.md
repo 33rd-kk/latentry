@@ -119,3 +119,20 @@ that runs inside Latentry, on the CPU, so it needs no engine either. Download
 illustrations, or both; each is used as soon as it is downloaded. Each card
 shows its license before **Download**, and the file is checked against its
 pinned SHA-256 before it is kept, in the models folder under `detectors`.
+
+## Control picture models
+
+Controls make a control picture from a reference, inside Latentry, on the
+CPU, so the reference never leaves this computer. **Canny** edges need no
+download. A depth map and line art each need a small model, downloaded here:
+
+| Model | For | Size | License |
+|---|---|---|---|
+| Depth Anything V2 Small | depth maps (nearer is lighter) | 99 MB | Apache-2.0 (the Small model only; the larger ones are non-commercial) |
+| Informative Drawings | line art | 17 MB | MIT (Caroline Chan's model, as an ONNX export by a third party) |
+
+Each card shows its license before **Download**, and the file is checked
+against its pinned SHA-256 before it is kept, in the models folder under
+`annotators`. Line art is made for photos and drawings; on anime pictures it
+may look weaker, where Canny often does well. On a typical desktop CPU a
+picture takes about 0.2 s for Canny, 2 s for line art and 3 s for depth.
