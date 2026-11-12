@@ -14,7 +14,7 @@
 //   - a hash that does not match never does: that is what the lock is for.
 
 /** The day the locks were resolved for (uv's --exclude-newer). scripts/lock-engine.mjs reads it from here. */
-export const LOCKED_ON = '2026-11-01'
+export const LOCKED_ON = '2026-11-12'
 
 /**
  * Whether the engine was installed from an older lock than this Latentry's:
