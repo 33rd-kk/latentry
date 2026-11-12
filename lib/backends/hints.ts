@@ -2,6 +2,7 @@
 // page can say what to change instead of only hiding the control.
 
 import { errorMessage, REDIRECT_REFUSED } from './http'
+import { CONTROL_KINDS, type ControlKind } from '@/lib/control/kinds'
 import type { BackendProblem, FeatureHint, HintedFeature } from './types'
 
 /** Longest server-given reason kept; a reason is one sentence, not a log. */
@@ -14,12 +15,18 @@ const HEALTH_FLAG: Record<HintedFeature, string> = {
   img2img: 'img2img',
   inpaint: 'inpaint',
   pose: 'pose_control',
+  control: 'control_kinds',
   hires: 'hires',
   upscale: 'upscale',
 }
 
 /** Features a diffusers-compatible server must announce; the others are on unless it says no. */
-const OPT_IN: readonly HintedFeature[] = ['pose', 'hires', 'upscale']
+const OPT_IN: readonly HintedFeature[] = ['pose', 'control', 'hires', 'upscale']
+
+/** The control kinds a health answer lists (`control_kinds`), known ones only, each once. */
+export function controlKinds(value: unknown): ControlKind[] {
+  return Array.isArray(value) ? CONTROL_KINDS.filter((kind) => value.includes(kind)) : []
+}
 
 /** A server's own reason, as plain one-line text, or nothing usable. */
 export function hintDetail(value: unknown): string | undefined {
@@ -42,7 +49,8 @@ export function diffusersHints(health: Record<string, unknown> | null): Hints {
   const hints: Hints = {}
   for (const feature of Object.keys(HEALTH_FLAG) as HintedFeature[]) {
     const flag = health[HEALTH_FLAG[feature]]
-    const on = OPT_IN.includes(feature) ? flag === true : flag !== false
+    // Controls are announced as the list of kinds the server follows.
+    const on = feature === 'control' ? controlKinds(flag).length > 0 : OPT_IN.includes(feature) ? flag === true : flag !== false
     if (on) continue
     const detail = hintDetail(reasons[feature])
     hints[feature] = flag === false || detail ? { reason: 'declined', ...(detail ? { detail } : {}) } : { reason: 'not-reported' }
@@ -67,7 +75,7 @@ export function problemOf(answer: { status: number; body: unknown } | null): Bac
 
 /** An A1111 web UI: pose is not something Latentry can drive there. */
 export function a1111Hints(alive: boolean): Hints {
-  return alive ? { pose: { reason: 'kind' } } : {}
+  return alive ? { pose: { reason: 'kind' }, control: { reason: 'kind' } } : {}
 }
 
 /**
@@ -77,7 +85,7 @@ export function a1111Hints(alive: boolean): Hints {
  */
 export function sdcppHints(alive: boolean, has: { img2img: boolean; inpaint: boolean; hires: boolean }): Hints {
   if (!alive) return {}
-  const hints: Hints = { pose: { reason: 'kind' } }
+  const hints: Hints = { pose: { reason: 'kind' }, control: { reason: 'kind' } }
   if (!has.img2img) {
     hints.img2img = { reason: 'declined' }
     hints.upscale = { reason: 'declined' }

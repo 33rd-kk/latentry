@@ -9,7 +9,7 @@ import { LANCZOS } from '@/lib/diffusion/hires'
 import { readSseFrames } from '@/lib/diffusion/sse'
 import { loraName, type LoraUse } from '@/lib/image-meta'
 import { errorMessage, fetchWithTimeout, getJson, isAbortError, probeJson, redactPaths, refuseRedirect } from './http'
-import { diffusersHints, problemOf } from './hints'
+import { controlKinds, diffusersHints, problemOf } from './hints'
 import type {
   BackendAdapter,
   BackendConfig,
@@ -40,6 +40,8 @@ interface HealthBody {
   transformer?: unknown
   num_layers?: unknown
   pose_control?: unknown
+  /** The control kinds it follows: canny, depth, lineart. */
+  control_kinds?: unknown
   lora?: unknown
   busy?: unknown
   samplers?: unknown
@@ -117,6 +119,8 @@ export class DiffusersAdapter implements BackendAdapter {
         img2img: health ? health.img2img !== false : false,
         inpaint: health ? health.inpaint !== false : false,
         pose: health?.pose_control === true,
+        // Only the kinds it lists: one that lists none gets no control picture.
+        control: controlKinds(health?.control_kinds),
         // Only a server that says so: one that does not reads the calls as words.
         lora: health?.lora === true,
         // A server that says nothing about its tagger is assumed to have one;

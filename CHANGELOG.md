@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Controls on the Generate page**: a **Control** block makes a control
+  picture from a reference picture, on this computer, as edges, a depth map
+  or line art, shows it, and sends it with the run at its own strength,
+  beside a pose. The reference is never sent, and a picture records only the
+  kind and strength. Offered on backends that list the kinds they follow
+  (`control_kinds` in the backend API). See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+
 - **Control picture models on Setup**: a new card downloads the models that
   turn a reference picture into a depth map (Depth Anything V2 Small,
   Apache-2.0) or line art (Informative Drawings, MIT), each pinned to a

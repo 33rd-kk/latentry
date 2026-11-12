@@ -45,6 +45,8 @@ export interface ImageMeta {
   promptTemplate?: string
   /** Latentry only: the X/Y grid it was drawn for, and its place there. */
   grid?: GridUse
+  /** Latentry only: the control picture it followed. */
+  control?: ControlUse
 }
 
 /**
@@ -97,7 +99,15 @@ export interface LatentryRecord {
   workflow?: string
   /** The X/Y grid it is a cell of (or the sheet of, when `mode` is "sheet"). */
   grid?: GridUse
+  /** The control picture it followed: its kind and how strongly, never the picture. */
+  control?: ControlUse
   created: string
+}
+
+/** A control picture a run followed (lib/control): which kind, and its strength. */
+export interface ControlUse {
+  kind: string
+  strength: number
 }
 
 /** A hires fix pass: upscaled by `scale` with `upscaler`, then redrawn for `steps` (0: as many as the first pass) at `denoise`. */
@@ -759,7 +769,15 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     loras: recordLoras(record),
     ...(str(record.prompt_template) ? { promptTemplate: record.prompt_template } : {}),
     ...(recordGrid(record.grid) ?? {}),
+    ...(recordControl(record.control) ?? {}),
   }
+}
+
+/** A record's control picture use, when both fields are well-formed. */
+function recordControl(value: unknown): { control: ControlUse } | null {
+  const control = value as Partial<ControlUse> | null | undefined
+  if (!control || typeof control.kind !== 'string' || !/^[a-z]{1,16}$/.test(control.kind) || typeof control.strength !== 'number' || !Number.isFinite(control.strength)) return null
+  return { control: { kind: control.kind, strength: control.strength } }
 }
 
 // More values than any grid has on one axis: a place past this is not one.
