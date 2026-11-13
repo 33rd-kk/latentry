@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Controls on the built-in engine** (engine 0.10.0): SDXL-family models
+  follow edges, depth and line art through xinsir's union ControlNet
+  (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
+  picture), in txt2img, img2img, inpaint and hires fix, and together with a
+  pose, each at its own strength. Anima says why not. After updating, stop
+  and start the engine on **Setup** once. See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+
 - **Controls on the Generate page**: a **Control** block makes a control
   picture from a reference picture, on this computer, as edges, a depth map
   or line art, shows it, and sends it with the run at its own strength,

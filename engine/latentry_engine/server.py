@@ -70,6 +70,11 @@ class GenerateBody(BaseModel):
     pose_image_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
     pose_is_skeleton: bool = False
     pose_strength: float = Field(1.0, ge=0, le=2)
+    # A control picture Latentry made (docs/backend-api.md): canny, depth or
+    # line art, white on black. All three come together, or none.
+    control_kind: Literal["canny", "depth", "lineart"] | None = None
+    control_image_base64: str | None = Field(None, max_length=MAX_IMAGE_CHARS)
+    control_strength: float = Field(0.5, ge=0, le=2)
     # Hires fix (docs/backend-api.md): upscale by hr_scale, then redraw for
     # hr_steps (0: as many as the first pass) at hr_denoise. Lanczos only.
     hr_scale: float | None = Field(None, ge=1, le=4)
@@ -289,6 +294,9 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
                 mask_blur=body.mask_blur,
                 pose_skeleton=pose_skeleton(body, (body.width, body.height)),
                 pose_strength=body.pose_strength,
+                control_kind=body.control_kind if body.control_image_base64 else None,
+                control_image=decode_image(body.control_image_base64) if body.control_image_base64 and body.control_kind else None,
+                control_strength=body.control_strength,
                 hr_scale=body.hr_scale,
                 hr_steps=body.hr_steps,
                 hr_denoise=body.hr_denoise,

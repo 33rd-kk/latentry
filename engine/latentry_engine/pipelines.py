@@ -69,6 +69,8 @@ class Loaded:
     variants: dict = field(default_factory=dict)
     # Pose control, made on the first pose run: SDXL's ControlNet, Anima's adapter.
     controlnet: object = None
+    # SDXL's union ControlNet, made on the first run with a control picture.
+    union: object = None
     pose_adapter: object = None
     # The prompt LoRAs left in this model's layers between runs.
     lora_keeper: LoraKeeper = field(default_factory=LoraKeeper)
@@ -143,22 +145,41 @@ def load_anima(info: ModelInfo, plan: GpuPlan) -> Loaded:
     return Loaded(info, FAMILY_ANIMA, pipe, pipe.scheduler)
 
 
-def variant(loaded: Loaded, kind: str, plan: GpuPlan, controls_dir: Path, pose: bool = False):
-    """The txt2img pipeline, or img2img / inpaint built on its weights;
-    with `pose`, their ControlNet twins."""
-    if pose:
-        key = f"{kind}+pose"
+# Which ControlNet a run uses: the pose one, the union one (a control
+# picture), or the union one twice (a pose and a control picture).
+CONTROLS = ("pose", "union", "union2")
+
+
+def variant(loaded: Loaded, kind: str, plan: GpuPlan, controls_dir: Path, control: str | bool | None = None):
+    """The txt2img pipeline, or img2img / inpaint built on its weights; with
+    `control`, their ControlNet twins (True: the pose one, as before)."""
+    if control is True:
+        control = "pose"
+    if control:
+        if control not in CONTROLS:
+            raise ValueError(f"Unknown control: {control}")
+        key = f"{kind}+{control}"
         if key not in loaded.variants:
-            if loaded.controlnet is None:
-                loaded.controlnet = pose_control.load_sdxl_controlnet(controls_dir, plan.dtype)
-            made = pose_control.sdxl_pose_pipeline(kind, variant(loaded, kind, plan, controls_dir), loaded.controlnet, plan.dtype)
-            if plan.offload == "none":
-                loaded.controlnet.to(plan.device)
+            base = variant(loaded, kind, plan, controls_dir)
+            if control == "pose":
+                if loaded.controlnet is None:
+                    loaded.controlnet = pose_control.load_sdxl_controlnet(controls_dir, plan.dtype)
+                made = pose_control.sdxl_pose_pipeline(kind, base, loaded.controlnet, plan.dtype)
             else:
+                if loaded.union is None:
+                    loaded.union = pose_control.load_sdxl_union(controls_dir, plan.dtype)
+                from diffusers.models import MultiControlNetUnionModel
+
+                # Twice the same weights: no more memory, a strength for each picture.
+                net = MultiControlNetUnionModel([loaded.union, loaded.union]) if control == "union2" else loaded.union
+                made = pose_control.sdxl_union_pipeline(kind, base, net, plan.dtype)
+            if plan.offload != "none":
                 # The ControlNet joins the offload chain; the shared modules
                 # keep working for the plain pipelines too.
                 place(made, plan)
             loaded.variants[key] = made
+        if plan.offload == "none":
+            only_control_on_gpu(loaded, "pose" if control == "pose" else "union", plan)
         return loaded.variants[key]
     if kind == "txt2img":
         return loaded.pipe
@@ -170,3 +191,13 @@ def variant(loaded: Loaded, kind: str, plan: GpuPlan, controls_dir: Path, pose: 
         made.set_progress_bar_config(disable=True)
         loaded.variants[kind] = made
     return loaded.variants[kind]
+
+
+def only_control_on_gpu(loaded: Loaded, keep: str, plan: GpuPlan) -> None:
+    """With everything on the GPU, the ControlNet in use is there and the other
+    waits on the CPU: two would take 5 GB beside the model."""
+    on, off = (loaded.controlnet, loaded.union) if keep == "pose" else (loaded.union, loaded.controlnet)
+    if off is not None:
+        off.to("cpu")
+    if on is not None:
+        on.to(plan.device)
