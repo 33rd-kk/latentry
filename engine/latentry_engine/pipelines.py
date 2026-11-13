@@ -71,6 +71,8 @@ class Loaded:
     controlnet: object = None
     # SDXL's union ControlNet, made on the first run with a control picture.
     union: object = None
+    # Whether IP-Adapter is in the UNet now (ip_adapter.py): only while runs use it.
+    ip_adapter: bool = False
     pose_adapter: object = None
     # The prompt LoRAs left in this model's layers between runs.
     lora_keeper: LoraKeeper = field(default_factory=LoraKeeper)

@@ -198,6 +198,7 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
       const kind = known ? t(`generate.control.kind.${meta.control.kind}` as "generate.control.kind.canny") : meta.control.kind
       facts.push([t("gallery.control"), t("gallery.controlValue", { kind, strength: meta.control.strength })])
     }
+    if (meta.ipAdapter) facts.push([t("gallery.ipAdapter"), t("gallery.ipAdapterValue", { scale: meta.ipAdapter.scale })])
   }
 
   const action = "flex items-center gap-1 rounded px-2 py-1 text-xs text-white/85 hover:bg-white/15 hover:text-white disabled:opacity-50"

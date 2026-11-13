@@ -155,5 +155,5 @@ def test_upscale_is_refused_without_its_parts(engine) -> None:
     engine, *_ = engine
     with pytest.raises(EngineError, match="source picture"):
         run(engine, GenerateRequest(prompt="x", upscale=True, hr_scale=2))
-    with pytest.raises(EngineError, match="mask, a pose or a control picture"):
+    with pytest.raises(EngineError, match="mask, a pose, a control picture or a reference"):
         run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (64, 64)), mask=Image.new("L", (64, 64)), upscale=True, hr_scale=2))

@@ -55,10 +55,12 @@ export interface Capabilities {
   upscale: boolean
   /** The control pictures it follows (control_* fields on generate), beside pose; absent or empty: none. */
   control?: readonly ControlKind[]
+  /** A reference picture's look (IP-Adapter: ip_adapter_* fields on generate). */
+  ipAdapter?: boolean
 }
 
 /** The features a backend can lack that the page explains instead of just hiding. */
-export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'control', 'hires', 'upscale'] as const
+export const HINTED_FEATURES = ['img2img', 'inpaint', 'pose', 'control', 'ip_adapter', 'hires', 'upscale'] as const
 export type HintedFeature = (typeof HINTED_FEATURES)[number]
 
 /**
@@ -151,6 +153,13 @@ export interface GenerateRequest {
   control_kind?: ControlKind
   control_image_base64?: string
   control_strength?: number
+  /**
+   * IP-Adapter: a reference picture whose look (colours, style, a character's
+   * appearance) the run takes, at `ip_adapter_scale` (0-1). Unlike a control
+   * picture, the reference itself goes to the backend.
+   */
+  ip_adapter_image_base64?: string
+  ip_adapter_scale?: number
   /**
    * Hires fix, txt2img only (pose included): each picture is upscaled by
    * `hr_scale` with `hr_upscaler`, then redrawn at `hr_denoise` for `hr_steps`

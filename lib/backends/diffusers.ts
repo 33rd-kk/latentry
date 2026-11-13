@@ -42,6 +42,8 @@ interface HealthBody {
   pose_control?: unknown
   /** The control kinds it follows: canny, depth, lineart. */
   control_kinds?: unknown
+  /** True: it takes a reference picture's look (ip_adapter_* fields). */
+  ip_adapter?: unknown
   lora?: unknown
   busy?: unknown
   samplers?: unknown
@@ -121,6 +123,7 @@ export class DiffusersAdapter implements BackendAdapter {
         pose: health?.pose_control === true,
         // Only the kinds it lists: one that lists none gets no control picture.
         control: controlKinds(health?.control_kinds),
+        ipAdapter: health?.ip_adapter === true,
         // Only a server that says so: one that does not reads the calls as words.
         lora: health?.lora === true,
         // A server that says nothing about its tagger is assumed to have one;

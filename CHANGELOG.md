@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **Reference picture (IP-Adapter)** (engine 0.11.0): a **Reference** block takes a
+  picture's look (colours, style, a character's appearance) at its own
+  strength, beside a pose and a control picture. The built-in engine does it
+  with SDXL-family models through h94's IP-Adapter Plus (Apache-2.0, pinned,
+  downloaded on the first run with a reference), and takes it out again for
+  a run without one. The reference goes to the backend, lives only in the
+  page's memory, is blurred in secret mode, and a picture records only the
+  strength. After updating, stop and start the engine on **Setup** once. See
+  [Reference picture](https://33rd-kk.github.io/latentry/guide/controls/#reference-picture-ip-adapter).
+
 - **Controls on ComfyUI**: the built-in graph follows edges, depth and line
   art with a ControlNet you choose for each kind in Settings (or
   `GEN_CONTROL_<KIND>_<ID>`), after a pose if there is one; a union

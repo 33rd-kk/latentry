@@ -3,7 +3,7 @@
 
 import { getAdapter } from '@/lib/backends'
 import { WORKFLOW_NAME, type BackendAdapter, type BackendStatus, type GenerateRequest } from '@/lib/backends/types'
-import { CONTROL_STRENGTH, isControlKind } from '@/lib/control/kinds'
+import { CONTROL_STRENGTH, IP_ADAPTER_SCALE, isControlKind } from '@/lib/control/kinds'
 import { HIRES_DEFAULTS, HIRES_LIMITS, maxHiresScale } from '@/lib/diffusion/hires'
 import { IMAGE_COUNT_MAX, MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 
@@ -113,6 +113,12 @@ export function toGenerateRequest(body: Record<string, unknown>): GenerateReques
     request.control_image_base64 = control
     request.control_strength = num(body.control_strength, CONTROL_STRENGTH.default, CONTROL_STRENGTH.min, CONTROL_STRENGTH.max)
   }
+  // IP-Adapter: a reference picture whose look the run takes.
+  const reference = image(body.ip_adapter_image_base64)
+  if (reference) {
+    request.ip_adapter_image_base64 = reference
+    request.ip_adapter_scale = num(body.ip_adapter_scale, IP_ADAPTER_SCALE.default, IP_ADAPTER_SCALE.min, IP_ADAPTER_SCALE.max)
+  }
   // A ComfyUI workflow has its own nodes and no place for one: not sent, so not recorded either.
   if (request.workflow) dropControl(request)
   // Upscale: the source itself, larger and redrawn. Nothing else rides along:
@@ -155,9 +161,11 @@ export function modeOf(request: GenerateRequest): 'txt2img' | 'img2img' | 'inpai
   return 'txt2img'
 }
 
-/** Takes a control picture off a request that redraws a source on its own terms (Upscale, Extend, Faces). */
+/** Takes a control picture and a reference off a request that redraws a source on its own terms (Upscale, Extend, Faces, a workflow). */
 export function dropControl(request: GenerateRequest): void {
   delete request.control_kind
   delete request.control_image_base64
   delete request.control_strength
+  delete request.ip_adapter_image_base64
+  delete request.ip_adapter_scale
 }

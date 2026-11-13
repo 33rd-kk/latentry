@@ -181,10 +181,13 @@ test('in the 3D view a joint is dragged, used, undone, and the camera still swin
   await expect(page.getByText('Joints moved: 1')).toHaveCount(0)
   expect(await poseAfter(page, () => use.click())).not.toHaveProperty('edits')
 
-  // Away from the joints a drag still swings the camera.
-  await page.mouse.move(box.x + 10, box.y + 10)
+  // Away from the joints a drag still swings the camera. The clicks above may
+  // have scrolled the page (it is taller than the window), so measure again.
+  await view.scrollIntoViewIfNeeded()
+  const corner = (await view.boundingBox())!
+  await page.mouse.move(corner.x + 10, corner.y + 10)
   await page.mouse.down()
-  await page.mouse.move(box.x + 90, box.y + 10, { steps: 8 })
+  await page.mouse.move(corner.x + 90, corner.y + 10, { steps: 8 })
   await page.mouse.up()
   await expect(page.getByText(/^Yaw -?[1-9]\d*°, pitch -?\d+°, zoom ×1\.0$/)).toBeVisible()
 })

@@ -113,7 +113,7 @@ def test_hires_fix_letterboxes_the_control_picture_again_for_the_second_pass(eng
 
 def test_upscale_refuses_a_control_picture(engine) -> None:
     engine, _ = engine
-    with pytest.raises(EngineError, match="control picture"):
+    with pytest.raises(EngineError, match="control picture or a reference"):
         run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (64, 64)), upscale=True, hr_scale=2, control_kind="canny", control_image=EDGES))
 
 
