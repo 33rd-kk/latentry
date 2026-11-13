@@ -101,8 +101,12 @@ export function sdcppHints(alive: boolean, has: { img2img: boolean; inpaint: boo
  * backend. The first one missing is named, the engine first: a workflow with
  * its own pose nodes needs only that, so the page can tell from the hint.
  */
-export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }): Hints {
+export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }, control?: { nodes: boolean; kinds: number }): Hints {
   if (!alive) return {}
+  const hints: Hints = {}
   const need = !pose.engine ? 'engine' : !pose.nodes ? 'nodes' : !pose.controlnet ? 'controlnet' : null
-  return need ? { pose: { reason: 'setup', need } } : {}
+  if (need) hints.pose = { reason: 'setup', need }
+  // Control pictures need no engine (Latentry makes them): the nodes, then a ControlNet for a kind.
+  if (control && (!control.nodes || control.kinds === 0)) hints.control = { reason: 'setup', need: control.nodes ? 'controls' : 'nodes' }
+  return hints
 }

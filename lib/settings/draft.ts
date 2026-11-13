@@ -2,6 +2,7 @@
 // strings as typed), and the JSON the API takes back for the parts that
 // changed. No React here, so the verify scripts can pin it down.
 
+import { CONTROL_KINDS, type ControlKind } from '@/lib/control/kinds'
 import type { BackendKind } from '@/lib/backends/types'
 import type { ProfileId } from '@/lib/profiles'
 import type { SettingsView } from './view'
@@ -24,6 +25,8 @@ export interface BackendDraft {
   model: string
   /** comfyui: the pose ControlNet, "" for no pose on the built-in graph. */
   controlnet: string
+  /** comfyui: the ControlNet for each control picture kind, "" for that kind not offered. */
+  controlnets: Record<ControlKind, string>
   /** comfyui: a folder of workflows, "" for none; and whether paired devices see them. */
   workflowsDir: string
   shareWorkflows: boolean
@@ -68,7 +71,7 @@ export const newKey = () => `b${(nextKey += 1)}`
 
 /** A row for "Add backend". */
 export function emptyBackend(): BackendDraft {
-  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', controlnet: '', workflowsDir: '', shareWorkflows: false }
+  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', controlnet: '', controlnets: noControlnets(), workflowsDir: '', shareWorkflows: false }
 }
 
 /** A profile with every field back to the built-in value. */
@@ -112,6 +115,7 @@ export function toDraft(view: SettingsView): Draft {
       tokenSource: backend.token,
       model: backend.model ?? '',
       controlnet: backend.controlnet ?? '',
+      controlnets: { ...noControlnets(), ...backend.controlnets },
       workflowsDir: backend.workflowsDir ?? '',
       shareWorkflows: backend.shareWorkflows,
     })),
@@ -150,6 +154,7 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
       ...(backend.clearToken ? { token: '' } : backend.token ? { token: backend.token } : {}),
       ...(backend.kind === 'comfyui' && backend.model.trim() ? { model: backend.model.trim() } : {}),
       ...(backend.kind === 'comfyui' && backend.controlnet.trim() ? { controlnet: backend.controlnet.trim() } : {}),
+      ...(backend.kind === 'comfyui' && Object.keys(filledControlnets(backend.controlnets)).length ? { controlnets: filledControlnets(backend.controlnets) } : {}),
       ...(backend.kind === 'comfyui' && backend.workflowsDir.trim() ? { workflowsDir: backend.workflowsDir.trim(), shareWorkflows: backend.shareWorkflows } : {}),
     }))
   }
@@ -204,4 +209,14 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
   }
   if (dirty.has('wildcards')) body.wildcards = { dir: draft.wildcardsDir.trim() || null, share: draft.wildcardsShare }
   return body
+}
+
+/** No ControlNet for any control picture kind. */
+export function noControlnets(): Record<ControlKind, string> {
+  return Object.fromEntries(CONTROL_KINDS.map((kind) => [kind, ''])) as Record<ControlKind, string>
+}
+
+/** The kinds that have a ControlNet typed, trimmed. */
+function filledControlnets(controlnets: Record<ControlKind, string>): Partial<Record<ControlKind, string>> {
+  return Object.fromEntries(CONTROL_KINDS.map((kind) => [kind, controlnets[kind].trim()]).filter(([, file]) => file))
 }

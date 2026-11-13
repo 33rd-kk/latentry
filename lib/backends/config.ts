@@ -23,6 +23,7 @@
 // port): a token is never sent to a server it was not set up for, whoever
 // edits the settings.
 
+import { CONTROL_KINDS, type ControlKind } from '@/lib/control/kinds'
 import { BACKEND_KINDS, type BackendConfig, type BackendKind } from './types'
 import { isProfileId } from '@/lib/profiles'
 import { MAX_BACKEND_MODEL_LENGTH, sameOrigin, type Settings } from '@/lib/settings/schema'
@@ -49,7 +50,7 @@ function tokenFor(id: string, env: Env): string | undefined {
  * GEN_MODEL_<ID> (a comfyui backend's checkpoint) or GEN_CONTROLNET_<ID> (its
  * pose ControlNet), as ComfyUI lists it; one line, as the settings page allows.
  */
-function fileFor(prefix: 'GEN_MODEL' | 'GEN_CONTROLNET', id: string, env: Env): string | undefined {
+function fileFor(prefix: string, id: string, env: Env): string | undefined {
   const value = env[`${prefix}_${id.toUpperCase().replace(/[^A-Z0-9]/g, '_')}`]?.trim()
   return value && value.length <= MAX_BACKEND_MODEL_LENGTH && !/[\u0000-\u001f\u007f]/.test(value) ? value : undefined
 }
@@ -112,6 +113,11 @@ export function parseBackends(env: Env): BackendConfigResult {
     // Only ComfyUI is told which checkpoint to load; the others draw with what they have.
     const model = kind === 'comfyui' ? fileFor('GEN_MODEL', normalizedId, env) : undefined
     const controlnet = kind === 'comfyui' ? fileFor('GEN_CONTROLNET', normalizedId, env) : undefined
+    // GEN_CONTROL_CANNY_<ID>, _DEPTH_ and _LINEART_: the ControlNet for each control picture kind
+    // (not GEN_CONTROLNET_<KIND>_<ID>, which a backend named "depth-…" would read as its pose one).
+    const controlnets = Object.fromEntries(
+      kind === 'comfyui' ? CONTROL_KINDS.map((control) => [control, fileFor(`GEN_CONTROL_${control.toUpperCase()}`, normalizedId, env)]).filter(([, file]) => file) : []
+    ) as Partial<Record<ControlKind, string>>
     backends.push({
       id: normalizedId,
       kind,
@@ -120,6 +126,7 @@ export function parseBackends(env: Env): BackendConfigResult {
       ...(token ? { token } : {}),
       ...(model ? { model } : {}),
       ...(controlnet ? { controlnet } : {}),
+      ...(Object.keys(controlnets).length ? { controlnets } : {}),
     })
   }
 
