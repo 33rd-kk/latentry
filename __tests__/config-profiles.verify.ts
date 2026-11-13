@@ -65,6 +65,17 @@ eq(
   [['comfy-1', 'sdxl\\openpose.safetensors', undefined], ['web', undefined, undefined], ['odd', undefined, undefined]],
   'GEN_CONTROLNET_<ID> sets a comfyui backend\'s pose ControlNet, apart from its checkpoint; the same rules'
 )
+const kinds = parseBackends({
+  GEN_BACKENDS: 'comfy-1|comfyui|http://c:1;web|a1111|http://w:2',
+  GEN_CONTROL_DEPTH_COMFY_1: ' sdxl\\union.safetensors ',
+  GEN_CONTROL_CANNY_COMFY_1: 'two\nlines',
+  GEN_CONTROL_DEPTH_WEB: 'ignored.safetensors',
+})
+eq(
+  kinds.backends.map((backend) => [backend.id, backend.controlnets ?? null]),
+  [['comfy-1', { depth: 'sdxl\\union.safetensors' }], ['web', null]],
+  'GEN_CONTROL_<KIND>_<ID> sets a comfyui backend\'s ControlNet for that control picture kind; the same rules'
+)
 
 const legacy = parseBackends({ DIFFUSION_SERVER_URL: 'http://localhost:7865', DIFFUSION_API_TOKEN: 't' })
 eq(

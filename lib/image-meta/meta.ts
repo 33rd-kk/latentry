@@ -47,6 +47,8 @@ export interface ImageMeta {
   grid?: GridUse
   /** Latentry only: the control picture it followed. */
   control?: ControlUse
+  /** Latentry only: the reference picture's look it took (IP-Adapter). */
+  ipAdapter?: IpAdapterUse
 }
 
 /**
@@ -101,7 +103,14 @@ export interface LatentryRecord {
   grid?: GridUse
   /** The control picture it followed: its kind and how strongly, never the picture. */
   control?: ControlUse
+  /** A reference picture's look it took (IP-Adapter): how much, never the picture. */
+  ip_adapter?: IpAdapterUse
   created: string
+}
+
+/** A reference picture a run took the look of (IP-Adapter): its scale. */
+export interface IpAdapterUse {
+  scale: number
 }
 
 /** A control picture a run followed (lib/control): which kind, and its strength. */
@@ -770,7 +779,14 @@ export function parseLatentryRecord(text: string): ImageMeta | null {
     ...(str(record.prompt_template) ? { promptTemplate: record.prompt_template } : {}),
     ...(recordGrid(record.grid) ?? {}),
     ...(recordControl(record.control) ?? {}),
+    ...(recordIpAdapter(record.ip_adapter) ?? {}),
   }
+}
+
+/** A record's IP-Adapter use, when its scale is a number. */
+function recordIpAdapter(value: unknown): { ipAdapter: IpAdapterUse } | null {
+  const scale = (value as Partial<IpAdapterUse> | null | undefined)?.scale
+  return typeof scale === 'number' && Number.isFinite(scale) ? { ipAdapter: { scale } } : null
 }
 
 /** A record's control picture use, when both fields are well-formed. */

@@ -16,12 +16,13 @@ const HEALTH_FLAG: Record<HintedFeature, string> = {
   inpaint: 'inpaint',
   pose: 'pose_control',
   control: 'control_kinds',
+  ip_adapter: 'ip_adapter',
   hires: 'hires',
   upscale: 'upscale',
 }
 
 /** Features a diffusers-compatible server must announce; the others are on unless it says no. */
-const OPT_IN: readonly HintedFeature[] = ['pose', 'control', 'hires', 'upscale']
+const OPT_IN: readonly HintedFeature[] = ['pose', 'control', 'ip_adapter', 'hires', 'upscale']
 
 /** The control kinds a health answer lists (`control_kinds`), known ones only, each once. */
 export function controlKinds(value: unknown): ControlKind[] {
@@ -75,7 +76,7 @@ export function problemOf(answer: { status: number; body: unknown } | null): Bac
 
 /** An A1111 web UI: pose is not something Latentry can drive there. */
 export function a1111Hints(alive: boolean): Hints {
-  return alive ? { pose: { reason: 'kind' }, control: { reason: 'kind' } } : {}
+  return alive ? { pose: { reason: 'kind' }, control: { reason: 'kind' }, ip_adapter: { reason: 'kind' } } : {}
 }
 
 /**
@@ -85,7 +86,7 @@ export function a1111Hints(alive: boolean): Hints {
  */
 export function sdcppHints(alive: boolean, has: { img2img: boolean; inpaint: boolean; hires: boolean }): Hints {
   if (!alive) return {}
-  const hints: Hints = { pose: { reason: 'kind' }, control: { reason: 'kind' } }
+  const hints: Hints = { pose: { reason: 'kind' }, control: { reason: 'kind' }, ip_adapter: { reason: 'kind' } }
   if (!has.img2img) {
     hints.img2img = { reason: 'declined' }
     hints.upscale = { reason: 'declined' }
@@ -101,8 +102,12 @@ export function sdcppHints(alive: boolean, has: { img2img: boolean; inpaint: boo
  * backend. The first one missing is named, the engine first: a workflow with
  * its own pose nodes needs only that, so the page can tell from the hint.
  */
-export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }): Hints {
+export function comfyHints(alive: boolean, pose: { nodes: boolean; controlnet: boolean; engine: boolean }, control?: { nodes: boolean; kinds: number }): Hints {
   if (!alive) return {}
+  const hints: Hints = {}
   const need = !pose.engine ? 'engine' : !pose.nodes ? 'nodes' : !pose.controlnet ? 'controlnet' : null
-  return need ? { pose: { reason: 'setup', need } } : {}
+  if (need) hints.pose = { reason: 'setup', need }
+  // Control pictures need no engine (Latentry makes them): the nodes, then a ControlNet for a kind.
+  if (control && (!control.nodes || control.kinds === 0)) hints.control = { reason: 'setup', need: control.nodes ? 'controls' : 'nodes' }
+  return hints
 }

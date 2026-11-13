@@ -15,3 +15,10 @@ export function isControlKind(value: unknown): value is ControlKind {
  * engine's union ControlNet left Illustrious pictures hazy).
  */
 export const CONTROL_STRENGTH = { min: 0, max: 2, default: 0.5 } as const
+
+/**
+ * How much of a reference picture's look a run takes (IP-Adapter), 0-1. 0.3 by
+ * default: on Illustrious, 0.15-0.3 took the reference's light, hair and
+ * clothes cleanly, and 0.6 broke the picture into streaks.
+ */
+export const IP_ADAPTER_SCALE = { min: 0, max: 1, default: 0.3 } as const

@@ -22,7 +22,8 @@ control, rather than only hiding it.
 | From a picture (img2img) | Yes | Yes | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Inpaint, **Extend** and **Faces** | Yes | Yes (engine 0.9.0 and later) | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
-| Control picture (edges, depth, line art) | Not yet | No | If it lists the kinds¹ | Not yet | Not yet | No | No |
+| Control picture (edges, depth, line art) | Yes, with a pose too | No | If it lists the kinds¹ | Not yet | With a ControlNet set for that kind | No | No |
+| Reference picture (IP-Adapter) | Yes | No | If it says so¹ | No | Not yet | No | No |
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes | If its model can⁵ |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph | With Lanczos, Nearest or its ESRGAN model |
 | Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's | sd-server's |
@@ -165,6 +166,26 @@ token ([Backends on other computers](../guide/network.md#backends-on-other-compu
 A login added to ComfyUI itself (a custom node such as ComfyUI-Login) is not
 something Latentry can get past: **Test** and the Generate page then say that
 it asks for a login, with ComfyUI's own message.
+
+### Control pictures
+
+The built-in graph follows a [control picture](../guide/controls.md) (edges,
+depth, line art) with a ControlNet you choose for each kind under
+**ControlNets for control pictures** in Settings (or
+`GEN_CONTROL_CANNY_<ID>`, `GEN_CONTROL_DEPTH_<ID>`, `GEN_CONTROL_LINEART_<ID>`),
+from ComfyUI's `controlnet` folder; a kind without one is not offered.
+Latentry makes the control picture on this computer, so only that picture
+goes to ComfyUI (named `<id>-control.png`, overwritten by the next run and
+wiped after a secret run), never the reference.
+
+- One **union** ControlNet can serve all three: give the same file for each
+  kind. When its file name says `union` and ComfyUI has the core
+  `SetUnionControlNetType` node, Latentry tells it which kind each picture is
+  (`depth`, or `canny/lineart/anime_lineart/mlsd`). For SDXL,
+  xinsir's `controlnet-union-sdxl-1.0` is the one Latentry's engine uses.
+- It follows after a pose, so both shape the picture, each at its own
+  strength. Hires fix's second pass follows it too.
+- A workflow of your own does not take a control picture.
 
 ### SwarmUI
 

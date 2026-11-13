@@ -133,10 +133,10 @@ async function main() {
   eq([...legacy.features], ['init_image'], 'an older server: the top-level mirror')
   eq(parseCapabilities(null).samplers, [], 'nonsense reads as nothing')
 
-  eq(sdcppHints(true, { img2img: true, inpaint: true, hires: true }), { pose: { reason: 'kind' }, control: { reason: 'kind' } }, 'pose and control pictures are never something Latentry drives there')
+  eq(sdcppHints(true, { img2img: true, inpaint: true, hires: true }), { pose: { reason: 'kind' }, control: { reason: 'kind' }, ip_adapter: { reason: 'kind' } }, 'pose, control pictures and references are never something Latentry drives there')
   eq(
     sdcppHints(true, { img2img: false, inpaint: false, hires: false }),
-    { pose: { reason: 'kind' }, control: { reason: 'kind' }, img2img: { reason: 'declined' }, upscale: { reason: 'declined' }, inpaint: { reason: 'declined' }, hires: { reason: 'declined' } },
+    { pose: { reason: 'kind' }, control: { reason: 'kind' }, ip_adapter: { reason: 'kind' }, img2img: { reason: 'declined' }, upscale: { reason: 'declined' }, inpaint: { reason: 'declined' }, hires: { reason: 'declined' } },
     'what the loaded model lacks is the server declining it'
   )
   eq(sdcppHints(false, { img2img: false, inpaint: false, hires: false }), {}, 'no hints while down')

@@ -16,7 +16,8 @@ import { CharacterPresets } from "@/components/generate/character-presets"
 import { ModelInfoCard } from "@/components/generate/model-info-card"
 import { PoseSlot, type PoseSkeleton } from "@/components/generate/pose-slot"
 import { ControlSlot, type ControlPicture } from "@/components/generate/control-slot"
-import { CONTROL_STRENGTH } from "@/lib/control/kinds"
+import { ReferenceSlot } from "@/components/generate/reference-slot"
+import { CONTROL_STRENGTH, IP_ADAPTER_SCALE } from "@/lib/control/kinds"
 import { problemText, UnavailableFeatures } from "@/components/generate/unavailable-features"
 import { PromptSection } from "@/components/generate/prompt-section"
 import { SettingsSection } from "@/components/generate/settings-section"
@@ -173,6 +174,9 @@ export function GenerateClient() {
   // The control picture (edges, depth, line art) and how strongly it is followed; this page's memory only.
   const [control, setControl] = useState<ControlPicture | null>(null)
   const [controlStrength, setControlStrength] = useState<number>(CONTROL_STRENGTH.default)
+  // IP-Adapter's reference picture and how much of its look a run takes; this page's memory only.
+  const [reference, setReference] = useState<SourceImage | null>(null)
+  const [referenceScale, setReferenceScale] = useState<number>(IP_ADAPTER_SCALE.default)
 
   const addExtractedTags = useCallback(
     (tags: string[]) => {
@@ -249,13 +253,14 @@ export function GenerateClient() {
   const available = useMemo(
     () =>
       statusCapabilities && workflow
-        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, control: [], hires: false }
+        ? { ...statusCapabilities, img2img: false, inpaint: false, pose: workflowPose && engineReady, control: [], ipAdapter: false, hires: false }
         : statusCapabilities,
     [statusCapabilities, workflow, workflowPose, engineReady]
   )
   const showSource = shown("source")
   const showPose = shown("pose")
   const showControl = shown("control")
+  const showReference = shown("reference")
   const showHires = shown("hires")
   const showGrid = shown("grid")
   const capabilities = useMemo(
@@ -266,9 +271,10 @@ export function GenerateClient() {
         inpaint: available.inpaint && showSource,
         pose: available.pose && showPose,
         control: showControl ? (available.control ?? []) : [],
+        ipAdapter: Boolean(available.ipAdapter) && showReference,
         hires: available.hires && showHires,
       },
-    [available, showSource, showPose, showControl, showHires]
+    [available, showSource, showPose, showControl, showReference, showHires]
   )
   const hints = useMemo(() => {
     if (!statusHints || !workflow || !engineReady) return statusHints
@@ -388,6 +394,7 @@ export function GenerateClient() {
             ...(control && capabilities?.control?.includes(control.kind)
               ? { control_kind: control.kind, control_image_base64: control.dataUrl, control_strength: controlStrength }
               : {}),
+            ...(reference && capabilities?.ipAdapter ? { ip_adapter_image_base64: reference.dataUrl, ip_adapter_scale: referenceScale } : {}),
             ...(hires ? hrFields : {}),
           }),
     })
@@ -456,7 +463,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, control, controlStrength, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, anyGpu, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, control, controlStrength, reference, referenceScale, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, anyGpu, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -548,6 +555,7 @@ export function GenerateClient() {
                 ...(available?.img2img ? [{ block: "source" as const, holding: Boolean(sourceImage) }] : []),
                 ...(available?.pose ? [{ block: "pose" as const, holding: Boolean(poseSkeleton) }] : []),
                 ...(available?.control?.length ? [{ block: "control" as const, holding: Boolean(control) }] : []),
+                ...(available?.ipAdapter ? [{ block: "reference" as const, holding: Boolean(reference) }] : []),
                 ...(available?.hires ? [{ block: "hires" as const, holding: form.hires }] : []),
                 { block: "grid" as const, holding: gridForm.on },
               ]}
@@ -646,6 +654,15 @@ export function GenerateClient() {
                 strength={controlStrength}
                 onStrengthChange={setControlStrength}
                 source={capabilities?.img2img ? sourceImage : null}
+              />
+            )}
+            {capabilities?.ipAdapter && !upscaling && !extending && !fixingFaces && (
+              <ReferenceSlot
+                value={reference}
+                onChange={setReference}
+                scale={referenceScale}
+                onScaleChange={setReferenceScale}
+                source={capabilities.img2img ? sourceImage : null}
               />
             )}
             {status.alive && <UnavailableFeatures hints={hints ?? {}} kind={status.kind} />}

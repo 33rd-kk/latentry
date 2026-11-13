@@ -16,6 +16,7 @@ import { check, done, eq } from './assert'
 import { startMockComfyUI } from './fixtures/mock-comfyui'
 import {
   buildComfyGraph,
+  unionType,
   checkpointNames,
   comboOptions,
   ComfyUIAdapter,
@@ -123,7 +124,13 @@ async function scriptedComfy(
       if (path === '/object_info/LoraLoader') return { status: 200, body: combo('LoraLoader', 'lora_name', ['COMBO', { options: ['styles/Ink.safetensors'] }]) }
       // ComfyUI answers {} for a node it does not have.
       if (path === '/object_info/ControlNetLoader') {
-        return { status: 200, body: options.controlnet ? combo('ControlNetLoader', 'control_net_name', [['sdxl/openpose.safetensors']]) : {} }
+        return {
+          status: 200,
+          body: options.controlnet ? combo('ControlNetLoader', 'control_net_name', [['sdxl/openpose.safetensors', 'sdxl/xinsir-union.safetensors', 'sdxl/depth-only.safetensors']]) : {},
+        }
+      }
+      if (path === '/object_info/SetUnionControlNetType') {
+        return { status: 200, body: options.controlnet ? combo('SetUnionControlNetType', 'type', [['auto', 'openpose', 'depth', 'hed/pidi/scribble/ted', 'canny/lineart/anime_lineart/mlsd']]) : {} }
       }
       if (path === '/object_info/ControlNetApplyAdvanced') return { status: 200, body: options.controlnet ? { ControlNetApplyAdvanced: { input: { required: {} } } } : {} }
       if (path === '/object_info/SwarmKSampler') return { status: 200, body: options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {} }
@@ -228,11 +235,11 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: true, upscale: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix and upscale, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, control: [], lora: true, tag: false, presets: false, preciseCancel: true, hires: true, upscale: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix and upscale, cancel of our own prompt')
   eq(status.upscalers, ['Lanczos'], 'without UpscaleModelLoader, hires fix upscales with Lanczos only')
-  eq(status.hints, { pose: { reason: 'setup', need: 'engine' } }, 'pose is explained: no engine runs to draw the skeleton')
+  eq(status.hints, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'nodes' } }, 'pose is explained: no engine runs to draw the skeleton; controls need the ControlNet nodes')
   const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
-  eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
+  eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' }, control: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
   const nothing = { nodes: false, controlnet: false, engine: false }
   eq(comfyHints(false, nothing), {}, 'no hints while it is down')
   eq(
@@ -529,10 +536,10 @@ async function main() {
   const POSED: BackendConfig = { ...CONFIG, controlnet: 'sdxl/openpose.safetensors' }
   const poser = await scriptedComfy({ socket: true, controlnet: true })
   const posed = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).status()
-  eq([posed.capabilities.pose, posed.hints], [true, {}], 'pose is on with the nodes, a ControlNet set and a running engine')
+  eq([posed.capabilities.pose, posed.hints], [true, { control: { reason: 'setup', need: 'controls' } }], 'pose is on with the nodes, a ControlNet set and a running engine (controls still want theirs)')
   const noEngine = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => null)
-  eq([(await noEngine.status()).capabilities.pose, (await noEngine.status()).hints], [false, { pose: { reason: 'setup', need: 'engine' } }], 'off without an engine, and said why')
-  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'poser' }, poser.transport, () => engine).status()).hints, { pose: { reason: 'setup', need: 'controlnet' } }, 'off without a ControlNet chosen')
+  eq([(await noEngine.status()).capabilities.pose, (await noEngine.status()).hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' } }], 'off without an engine, and said why')
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'poser' }, poser.transport, () => engine).status()).hints, { pose: { reason: 'setup', need: 'controlnet' }, control: { reason: 'setup', need: 'controls' } }, 'off without a ControlNet chosen')
 
   const detected = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).pose({ image_base64: 'abc', person: [0, 2] })
   eq([detected.ok, asked], [true, [{ image_base64: 'abc', person: [0, 2], style: 'openpose' }]], '/pose goes to the engine, asking for OpenPose drawing; nothing to ComfyUI')
@@ -572,6 +579,66 @@ async function main() {
     'a raw reference picture is refused, so it never goes to ComfyUI'
   )
   eq(poser.uploads.length, 1, 'nothing goes up for a refused run')
+
+  // ── Control pictures on the built-in graph ──
+  const TYPES = ['auto', 'openpose', 'depth', 'hed/pidi/scribble/ted', 'canny/lineart/anime_lineart/mlsd']
+  eq(
+    [unionType('sdxl/xinsir-union.safetensors', 'depth', TYPES), unionType('Union.safetensors', 'lineart', TYPES), unionType('sdxl/depth-only.safetensors', 'depth', TYPES), unionType('sdxl/union.safetensors', 'canny', null)],
+    ['depth', 'canny/lineart/anime_lineart/mlsd', null, null],
+    'a union ControlNet (by its name) gets the type naming its kind; a single-kind one, or a ComfyUI without the node, none'
+  )
+  const controlGraph = buildComfyGraph(REQUEST, {
+    checkpoint: 'c',
+    loras: [],
+    seed: 1,
+    sizeMultiple: 8,
+    pose: { image: 'p.png', controlnet: 'cn', strength: 1 },
+    control: { image: 'latentry/x-control.png', controlnet: 'sdxl/xinsir-union.safetensors', strength: 0.5, unionType: 'depth' },
+  })
+  eq(
+    [controlGraph['36']?.inputs, controlGraph['37']?.inputs, controlGraph['38']?.inputs, controlGraph['39']?.inputs],
+    [
+      { image: 'latentry/x-control.png' },
+      { control_net_name: 'sdxl/xinsir-union.safetensors' },
+      { control_net: ['37', 0], type: 'depth' },
+      { positive: ['34', 0], negative: ['34', 1], control_net: ['38', 0], image: ['36', 0], strength: 0.5, start_percent: 0, end_percent: 1, vae: ['1', 2] },
+    ],
+    'a control picture follows the pose: loaded, its union type set, applied to what the pose gave'
+  )
+  eq([controlGraph['5'].inputs.positive, controlGraph['5'].inputs.negative], [['39', 0], ['39', 1]], 'and the sampler takes its conditioning from it')
+  const plainControl = buildComfyGraph(REQUEST, { checkpoint: 'c', loras: [], seed: 1, sizeMultiple: 8, control: { image: 'c.png', controlnet: 'depth.safetensors', strength: 0.7 } })
+  eq(['38' in plainControl, plainControl['39'].inputs.control_net, plainControl['39'].inputs.positive], [false, ['37', 0], ['2', 0]], 'a single-kind ControlNet, without a pose: no type node, the prompts straight in')
+
+  const CONTROLLED: BackendConfig = { ...CONFIG, id: 'ctl', controlnets: { depth: 'sdxl/xinsir-union.safetensors', lineart: 'sdxl/depth-only.safetensors', canny: 'gone.safetensors' } }
+  const controlComfy = await scriptedComfy({ socket: true, controlnet: true })
+  const controlStatus = await new ComfyUIAdapter(CONTROLLED, controlComfy.transport, () => engine).status()
+  eq([controlStatus.capabilities.control, controlStatus.hints.control], [['depth', 'lineart'], undefined], 'the kinds with a ControlNet ComfyUI lists are offered; one it does not list is not')
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'ctl' }, controlComfy.transport, () => engine).status()).hints.control, { reason: 'setup', need: 'controls' }, 'none set: the hint says to choose one')
+  eq((await new ComfyUIAdapter({ ...CONTROLLED, id: 'ctl-bare' }, quiet.transport, () => engine).status()).hints.control, { reason: 'setup', need: 'nodes' }, 'no ControlNet nodes: it says so first')
+
+  const controlPng = await sharp({ create: { width: 100, height: 50, channels: 3, background: { r: 255, g: 255, b: 255 } } }).png().toBuffer()
+  const CONTROL_RUN: GenerateRequest = { ...REQUEST, image_count: 1, control_kind: 'depth', control_image_base64: `data:image/png;base64,${controlPng.toString('base64')}`, control_strength: 0.6 }
+  const controlRun = await new ComfyUIAdapter(CONTROLLED, controlComfy.transport, () => engine).start(CONTROL_RUN)
+  check(controlRun.ok, 'a run with a control picture starts')
+  if (controlRun.ok) await collect(controlRun.value)
+  eq(controlComfy.uploads.map(({ subfolder, name }) => `${subfolder}/${name}`), ['latentry/ctl-control.png'], 'the control picture goes up under a fixed name for this backend')
+  const upControl = await sharp(controlComfy.uploads[0].png).raw().toBuffer({ resolveWithObject: true })
+  eq([upControl.info.width, upControl.info.height, upControl.info.channels], [832, 1216, 3], 'at the size the latent is drawn at, without alpha')
+  // Letterboxed: the 2:1 picture keeps its shape, black above and below.
+  eq([upControl.data[0], upControl.data[(608 * 832 + 416) * 3]], [0, 255], 'its shape kept, the rest black')
+  eq(
+    [controlComfy.graphs[0]['37'].inputs.control_net_name, controlComfy.graphs[0]['38'].inputs.type, controlComfy.graphs[0]['39'].inputs.strength],
+    ['sdxl/xinsir-union.safetensors', 'depth', 0.6],
+    'the graph follows it with the ControlNet set for depth, typed for depth, at its strength'
+  )
+  const refuseControl = async (config: BackendConfig, request: GenerateRequest, comfy = controlComfy) => {
+    const outcome = await new ComfyUIAdapter(config, comfy.transport, () => engine).start(request)
+    return outcome.ok ? 'started' : `${outcome.status} ${outcome.error}`
+  }
+  eq(await refuseControl(CONTROLLED, { ...CONTROL_RUN, control_kind: 'canny' }), "400 The ControlNet set for canny pictures is not in ComfyUI's list: gone.safetensors", 'a ControlNet ComfyUI does not list is refused')
+  eq(await refuseControl({ ...CONFIG, id: 'ctl' }, CONTROL_RUN), '400 Choose a ControlNet for depth pictures for this backend in Settings', 'and none set')
+  eq(await refuseControl({ ...CONTROLLED, id: 'ctl-bare' }, CONTROL_RUN, quiet), '400 This ComfyUI has no ControlNetLoader and ControlNetApplyAdvanced', 'and a ComfyUI without the nodes')
+  eq(controlComfy.uploads.length, 1, 'nothing goes up for a refused run')
 
   // ── Pose in your own workflow: a LoadImage marked latentry:pose ──
   const flowDir = mkdtempSync(path.join(tmpdir(), 'latentry-comfy-pose-'))
@@ -800,7 +867,7 @@ async function throughRoutes(): Promise<void> {
       )
     const tried = (await (await tryBackend('127.0.0.1:3000')).json()) as { controlnets?: string[]; capabilities?: { pose?: boolean }; hints?: unknown }
     eq(tried.controlnets, ['private-folder/openpose.safetensors'], 'Settings Test lists ComfyUI\'s ControlNets, folders included, on this machine')
-    eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' } }], 'and says pose waits for a running engine')
+    eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' } }], 'and says pose waits for a running engine')
     eq((tried as { swarmui?: unknown }).swarmui, undefined, 'a plain ComfyUI: no SwarmUI notice')
     eq((await tryBackend('192.168.1.20:3000')).status, 403, 'a paired device cannot ask for that list')
     const swarmMock = await startMockComfyUI({ swarmui: true })

@@ -74,6 +74,8 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
     ...(grid ? { grid } : {}),
     // The kind and strength only: the control picture itself is never kept.
     ...(request.control_kind && request.control_strength !== undefined ? { control: { kind: request.control_kind, strength: request.control_strength } } : {}),
+    // The scale only: the reference picture itself is never kept.
+    ...(request.ip_adapter_scale !== undefined ? { ip_adapter: { scale: request.ip_adapter_scale } } : {}),
     created: created.toISOString(),
   }
 }

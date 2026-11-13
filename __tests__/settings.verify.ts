@@ -14,7 +14,7 @@ import { autoTagEnabled, loraHashesEnabled, parseGalleryDirs } from '../lib/gall
 import { folderNamesKey } from '../lib/gallery/folder-names'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
-import { EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
+import { controlnetsFrom, EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
 import { checkDir, getSettings, NewerSettingsError, saveSettings } from '../lib/settings/store'
 
 const ABS = process.platform === 'win32' ? 'C:\\pictures' : '/pictures'
@@ -214,6 +214,18 @@ async function main() {
   } finally {
     await rm(root, { recursive: true, force: true })
   }
+
+  // ── A ComfyUI backend's ControlNet for each control picture kind ──
+  eq(controlnetsFrom({ depth: ' sdxl/union.safetensors ', canny: '', lineart: null }), { depth: 'sdxl/union.safetensors' }, 'control ControlNets: trimmed, empty ones left out')
+  eq(controlnetsFrom(undefined), {}, 'none given is none')
+  eq([controlnetsFrom({ blur: 'x' }), controlnetsFrom({ depth: 'a\nb' }), controlnetsFrom({ depth: 3 }), controlnetsFrom(['x'])], [null, null, null, null], 'an unknown kind, a control character, a number or a list is refused')
+  const withKinds = validateSettings(
+    { backends: [{ id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188', profile: 'sdxl', controlnets: { depth: 'sdxl/union.safetensors' } }, { id: 'web', kind: 'a1111', url: 'http://127.0.0.1:7860', profile: 'sdxl', controlnets: { depth: 'x' } }] },
+    EMPTY_SETTINGS
+  )
+  eq(withKinds.ok ? withKinds.settings.backends?.map((backend) => backend.controlnets ?? null) : withKinds, [{ depth: 'sdxl/union.safetensors' }, null], 'kept for a ComfyUI backend only')
+  const badKinds = validateSettings({ backends: [{ id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188', profile: 'sdxl', controlnets: { blur: 'x' } }] }, EMPTY_SETTINGS)
+  eq(badKinds.ok ? null : Object.keys(badKinds.errors), ['backends.0.controlnets'], 'and an unknown kind is an error on that field')
 
   done('settings')
 }

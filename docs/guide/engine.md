@@ -102,8 +102,14 @@ The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with
 txt2img, img2img, inpainting and pose (pose on v1.0 models). Anima's own
 pipeline has no inpainting; the engine adds it by keeping the source outside
-the mask at every step, so Extend and **Faces** work on Anima too. The pose models download on first
-use into `models/controls/`; Anima-Control-Pose is non-commercial, as Anima
+the mask at every step, so Extend and **Faces** work on Anima too. SDXL
+models also follow [control pictures](controls.md) (edges, depth, line art)
+through xinsir's union ControlNet (Apache-2.0, 2.5 GB), and take a
+[reference picture's look](controls.md#reference-picture-ip-adapter) through
+h94's IP-Adapter Plus (Apache-2.0, 3.4 GB with its image encoder). The pose,
+control and IP-Adapter models download on first use into `models/controls/`,
+each pinned to a commit and checked against its SHA-256; Anima-Control-Pose
+is non-commercial, as Anima
 itself is. [What each backend can do](../reference/backends.md#what-each-backend-can-do)
 compares the two with the other backends.
 

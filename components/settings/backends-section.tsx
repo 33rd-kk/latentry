@@ -10,6 +10,7 @@ import { problemText, UnavailableFeatures } from "@/components/generate/unavaila
 import { useBackendTests, type BackendTest } from "@/hooks/use-backend-tests"
 import { openBackendWarning } from "@/lib/backends/exposure"
 import { BACKEND_KINDS, type BackendKind } from "@/lib/backends/types"
+import { CONTROL_KINDS } from "@/lib/control/kinds"
 import type { ProfileId } from "@/lib/profiles"
 import { emptyBackend, type BackendDraft, type ChangeDraft } from "@/lib/settings/draft"
 import type { SettingsView } from "@/lib/settings/view"
@@ -164,6 +165,25 @@ function BackendRow({
             ))}
           </datalist>
           <FieldError errors={errors} at={`backends.${index}.controlnet`} />
+        </Field>
+      )}
+      {backend.kind === "comfyui" && (
+        <Field label={t("settings.backendControlnets")} hint={t("settings.backendControlnetsHint")}>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {CONTROL_KINDS.map((kind) => (
+              <label key={kind} className="space-y-1 text-xs text-muted-foreground">
+                {t(`generate.control.kind.${kind}`)}
+                <Input
+                  value={backend.controlnets[kind]}
+                  onChange={(event) => update({ controlnets: { ...backend.controlnets, [kind]: event.target.value } })}
+                  placeholder={t("settings.backendControlnetsNone")}
+                  list={`controlnets-${backend.key}`}
+                  autoComplete="off"
+                />
+              </label>
+            ))}
+          </div>
+          <FieldError errors={errors} at={`backends.${index}.controlnets`} />
         </Field>
       )}
       {backend.kind === "comfyui" && (

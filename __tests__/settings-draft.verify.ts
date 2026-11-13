@@ -27,8 +27,8 @@ const view: SettingsView = {
   version: '0.0.0',
   file: '/config/settings.json',
   backends: [
-    { id: 'box', kind: 'a1111', url: 'http://127.0.0.1:7860/', profile: 'sdxl', token: 'settings', model: null, controlnet: null, workflowsDir: null, shareWorkflows: false },
-    { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188/', profile: 'anima', token: null, model: 'base.safetensors', controlnet: 'sdxl/openpose.safetensors', workflowsDir: '/workflows', shareWorkflows: true },
+    { id: 'box', kind: 'a1111', url: 'http://127.0.0.1:7860/', profile: 'sdxl', token: 'settings', model: null, controlnet: null, controlnets: {}, workflowsDir: null, shareWorkflows: false },
+    { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188/', profile: 'anima', token: null, model: 'base.safetensors', controlnet: 'sdxl/openpose.safetensors', controlnets: { depth: 'sdxl/union.safetensors' }, workflowsDir: '/workflows', shareWorkflows: true },
   ],
   tagger: null,
   wd14: { modelDir: '/models/wd14', general: 0.35, character: 0.9, found: true, defaults: { general: 0.35, character: 0.85 } },
@@ -91,13 +91,13 @@ eq(toInput({ ...draft, wildcardsDir: ' ', wildcardsShare: true }, new Set<Part>(
 const backends = (d: Draft) => toInput(d, new Set<Part>(['backends'])).backends as Record<string, unknown>[]
 const sent = backends(draft)
 check(!('token' in sent[0]), 'an untouched token is kept, not sent')
-eq(sent[1], { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188/', profile: 'anima', model: 'base.safetensors', controlnet: 'sdxl/openpose.safetensors', workflowsDir: '/workflows', shareWorkflows: true }, 'comfyui sends its model, pose ControlNet and workflows folder')
+eq(sent[1], { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188/', profile: 'anima', model: 'base.safetensors', controlnet: 'sdxl/openpose.safetensors', controlnets: { depth: 'sdxl/union.safetensors' }, workflowsDir: '/workflows', shareWorkflows: true }, 'comfyui sends its model, pose ControlNet and workflows folder')
 const typed = { ...draft, backends: [{ ...draft.backends[0], token: 'secret' }, { ...draft.backends[1], clearToken: true, token: '' }] }
 eq([backends(typed)[0].token, backends(typed)[1].token], ['secret', ''], 'a typed token is set, a cleared one emptied')
 const asA1111 = { ...draft, backends: [{ ...draft.backends[1], kind: 'a1111' as const }] }
 eq(Object.keys(backends(asA1111)[0]), ['id', 'kind', 'url', 'profile'], 'model and workflows only for comfyui')
-const noFolder = { ...draft, backends: [{ ...draft.backends[1], model: '  ', controlnet: ' ', workflowsDir: ' ' }] }
-eq(Object.keys(backends(noFolder)[0]), ['id', 'kind', 'url', 'profile'], 'blank model, ControlNet and folder are left out, and so is sharing')
+const noFolder = { ...draft, backends: [{ ...draft.backends[1], model: '  ', controlnet: ' ', controlnets: { canny: ' ', depth: '', lineart: '' }, workflowsDir: ' ' }] }
+eq(Object.keys(backends(noFolder)[0]), ['id', 'kind', 'url', 'profile'], 'blank model, ControlNets and folder are left out, and so is sharing')
 const added = emptyBackend()
 eq([added.kind, added.profile, added.id, added.tokenSource], ['a1111', 'sdxl', '', null], 'a new backend starts as an empty a1111 row')
 check(added.key !== draft.backends[0].key && added.key !== draft.backends[1].key, 'with a key of its own')

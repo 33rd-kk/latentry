@@ -10,6 +10,31 @@
   grid and **Faces** stay on the chosen engine. See
   [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
 
+- **Reference picture (IP-Adapter)** (engine 0.11.0): a **Reference** block takes a
+  picture's look (colours, style, a character's appearance) at its own
+  strength, beside a pose and a control picture. The built-in engine does it
+  with SDXL-family models through h94's IP-Adapter Plus (Apache-2.0, pinned,
+  downloaded on the first run with a reference), and takes it out again for
+  a run without one. The reference goes to the backend, lives only in the
+  page's memory, is blurred in secret mode, and a picture records only the
+  strength. After updating, stop and start the engine on **Setup** once. See
+  [Reference picture](https://33rd-kk.github.io/latentry/guide/controls/#reference-picture-ip-adapter).
+
+- **Controls on ComfyUI**: the built-in graph follows edges, depth and line
+  art with a ControlNet you choose for each kind in Settings (or
+  `GEN_CONTROL_<KIND>_<ID>`), after a pose if there is one; a union
+  ControlNet is told which kind each picture is. Only the control picture
+  goes to ComfyUI, and a secret run wipes it. See
+  [Control pictures](https://33rd-kk.github.io/latentry/reference/backends/#control-pictures).
+
+- **Controls on the built-in engine** (engine 0.10.0): SDXL-family models
+  follow edges, depth and line art through xinsir's union ControlNet
+  (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
+  picture), in txt2img, img2img, inpaint and hires fix, and together with a
+  pose, each at its own strength. Anima says why not. After updating, stop
+  and start the engine on **Setup** once. See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+
 - **Controls on the Generate page**: a **Control** block makes a control
   picture from a reference picture, on this computer, as edges, a depth map
   or line art, shows it, and sends it with the run at its own strength,

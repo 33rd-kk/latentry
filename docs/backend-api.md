@@ -55,6 +55,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `model` | no | Shown in the UI. `org/` is dropped. |
 | `transformer`, `num_layers` | no | Shown with the model when present. |
 | `pose_control` | no | `true` enables the skeleton pose slot and `/api/pose`. |
+| `ip_adapter` | no | `true`: it takes a reference picture's look (the `ip_adapter_*` fields below). Without it, the Reference slot is not offered. |
 | `control_kinds` | no | The control pictures it follows, from `"canny"`, `"depth"`, `"lineart"` (the `control_*` fields below). Without it, or empty, the Control slot is not offered. |
 | `lora` | no | `true`: the server applies `<lora:name:weight>` calls in the prompt itself. Without it, the prompt shows a note that such a call is read as plain words. |
 | `busy` | no | Something is generating. Shown as the backend's state. |
@@ -98,6 +99,7 @@ steps.
   "mask_base64": "…", "mask_blur": 4,
   "pose_image_base64": "…", "pose_is_skeleton": true, "pose_strength": 1.0,
   "control_kind": "depth", "control_image_base64": "…", "control_strength": 0.5,
+  "ip_adapter_image_base64": "…", "ip_adapter_scale": 0.3,
   "hr_scale": 2, "hr_steps": 0, "hr_denoise": 0.4, "hr_upscaler": "Lanczos",
   "lora_hashes": false
 }
@@ -120,6 +122,10 @@ steps.
   run's size. Follow it at `control_strength` (0–2, 0.5 by default) with a
   model for `control_kind`. It may come together with a pose. All three
   fields come together, or none.
+- **Reference** (servers with `ip_adapter: true`): `ip_adapter_image_base64`
+  is a picture whose look (colours, style, appearance) the run takes, with
+  an IP-Adapter, at `ip_adapter_scale` (0–1, 0.3 by default). It may come
+  with a pose and a control picture.
 - **Hires fix** (servers with `hires: true`, txt2img and pose only): each
   picture is upscaled by `hr_scale` (1–4, at most 4096 pixels a side) with
   `hr_upscaler` (one of the health's `upscalers`), then redrawn at
