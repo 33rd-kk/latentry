@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
+  switch under **Generate** lets a run go to another engine that is free and
+  has the same model loaded, at once when the chosen one is busy, or when
+  one frees up first. The page goes on showing it, says which engine drew
+  it, and **Cancel** and secret mode work as usual. Off by default; an X/Y
+  grid and **Faces** stay on the chosen engine. See
+  [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
+
 - **Reference picture (IP-Adapter)** (engine 0.11.0): a **Reference** block takes a
   picture's look (colours, style, a character's appearance) at its own
   strength, beside a pose and a control picture. The built-in engine does it

@@ -24,6 +24,26 @@ before it ends, and their pictures are saved like any others.
 - The queue is held in memory only. Stopping Latentry drops the runs that
   were still waiting.
 
+### Any free GPU
+
+With the built-in engine on two or more NVIDIA GPUs, each GPU has its own
+engine and its own queue. When another engine has the same model loaded as
+the one chosen, **Any free GPU** appears under **Generate** (off until you
+turn it on). With it on:
+
+- if the chosen engine is busy, the run starts at once on another engine
+  that is free and has the same model;
+- if all of them are busy, the run waits on the chosen engine and is drawn
+  by whichever of them frees up first;
+- the page goes on showing it as a run of the chosen engine, with
+  **Drawn on** and the engine that drew it; **Cancel** and secret mode work
+  as for any run;
+- an engine with another model loaded is never used, and no model is
+  loaded for it. An X/Y grid and **Faces** stay on the chosen engine.
+
+After a reload, the page shows the chosen engine's own run; a run drawn on
+another engine still finishes and is saved.
+
 ## X/Y grid
 
 **X/Y grid** under the settings draws the run again for each value of one

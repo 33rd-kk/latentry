@@ -27,6 +27,8 @@ import { WorkflowPicker } from "@/components/generate/workflow-picker"
 import { DEFAULT_GRID_FORM, GridSection, type GridForm } from "@/components/generate/grid-section"
 import { BlockMenu, useShownBlocks } from "@/components/generate/block-menu"
 import { useBackends } from "@/hooks/use-backends"
+import { useLocalFlag } from "@/hooks/use-local-flag"
+import { Switch } from "@/components/ui/switch"
 import { useEngineLoras } from "@/hooks/use-engine-loras"
 import { useWildcards } from "@/hooks/use-wildcards"
 import { useEngineModels, type EngineModelOption } from "@/hooks/use-engine-models"
@@ -202,6 +204,13 @@ export function GenerateClient() {
   const { isGenerating, isCancelling, setIsCancelling, begin, abandon, attach, backendRef, runId } = job
   const queue = useRunQueue(selectedId, attach, t)
   const grids = useGridRuns(selectedId, t)
+  // Any free GPU: offered when another of Latentry's engines has the same
+  // model loaded; a run may then be drawn by whichever is free (gpu-pool.ts).
+  const poolPeers = status?.pool
+    ? backends.filter((other) => other.id !== status.id && other.pool === status.pool && other.alive && other.model === status.model).length
+    : 0
+  const [anyGpuChosen, setAnyGpu] = useLocalFlag("generate.anyGpu", false)
+  const anyGpu = poolPeers > 0 && anyGpuChosen
   // The X/Y grid's axes as typed; this tab's memory only, like the queue.
   const [gridForm, setGridForm] = useTabMemory<GridForm>("generate.gridForm", () => DEFAULT_GRID_FORM)
   // The start of each run's prompt, to tell earlier runs apart; this tab's
@@ -369,6 +378,7 @@ export function GenerateClient() {
       secret: isSecretMode(),
       ...(workflow ? { workflow } : {}),
       ...(grid ? { grid } : {}),
+      ...(anyGpu && !grid ? { any_gpu: true } : {}),
       ...(upscaling && sourceImage
         ? { init_image_base64: sourceImage.dataUrl, upscale: true, ...hrFields }
         : extending && sourceImage
@@ -453,7 +463,7 @@ export function GenerateClient() {
       if (!queueing) abandon()
       toast.error(t("generate.failed"), { description: error instanceof Error ? error.message : t("generate.unreachable") })
     }
-  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, control, controlStrength, reference, referenceScale, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, label, begin, abandon, attach, t])
+  }, [form, selectedId, sourceImage, capabilities, strength, mask, poseSkeleton, poseStrength, control, controlStrength, reference, referenceScale, profile, sampler, scheduler, workflow, hires, upscaling, extending, extendSides, fixingFaces, faceFix, hrFields, isGenerating, queue, grids, gridInput, gridParsed, anyGpu, label, begin, abandon, attach, t])
 
   const handleCancel = useCallback(async () => {
     if (!selectedId || !runId) return
@@ -728,6 +738,15 @@ export function GenerateClient() {
                 <TooltipContent>{t("generate.reset")}</TooltipContent>
               </Tooltip>
             </div>
+            {poolPeers > 0 && (
+              <label className="flex items-center gap-2 text-xs text-muted-foreground" title={t("generate.anyGpu.hint")}>
+                <Switch checked={anyGpuChosen} onCheckedChange={setAnyGpu} />
+                {t("generate.anyGpu.label", { count: poolPeers })}
+              </label>
+            )}
+            {job.drawnOn && job.drawnOn !== selectedId && (
+              <p className="text-xs text-muted-foreground">{t("generate.anyGpu.drawnOn", { backend: job.drawnOn })}</p>
+            )}
             {!status.alive && (
               <p className="text-xs text-destructive">
                 {t("generate.backendOffline", { backend: status.id })}

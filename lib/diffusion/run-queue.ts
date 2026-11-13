@@ -4,6 +4,7 @@ import type { Outcome } from '@/lib/backends/types'
 import { getCurrentJob, getJob, keptForRun, markSecret, onBackendIdle } from '@/lib/diffusion/job-store'
 import { inputBytes, isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { cancelFaceFix } from '@/lib/facefix/run'
+import { isFree, loadedModel, poolMembers } from './gpu-pool'
 import { cellRequest, gridPlace, type GridCell, type GridSpec } from '@/lib/generate/grid'
 import { serverMessage } from '@/lib/i18n/core'
 import { QUEUE_MAX_BYTES, QUEUE_MAX_RUNS } from '@/lib/limits'
@@ -116,6 +117,14 @@ export function waitingCount(backend: string): number {
 /** The waiting run with this id, while it still waits. */
 export function getQueued(backend: string, id: string): QueuedRun | null {
   return queues.get(backend)?.find((run) => run.id === id) ?? null
+}
+
+/**
+ * As getQueued, and also a run asked for on `backend` that another engine of
+ * its pool has taken over (Any free GPU) and is still waiting for.
+ */
+export function poolQueued(backend: string, id: string): QueuedRun | null {
+  return getQueued(backend, id) ?? poolMembers(backend).map((member) => getQueued(member, id)).find((run) => run !== null) ?? null
 }
 
 /** A grid by its id: waiting, drawing its cells, or recently finished. */
@@ -299,7 +308,7 @@ export function pump(backend: string): void {
 }
 
 async function next(backend: string): Promise<void> {
-  const head = queues.get(backend)?.[0]
+  const head = queues.get(backend)?.[0] ?? ((await adopt(backend)) ? queues.get(backend)?.[0] : undefined)
   if (!head || launching.has(head)) return
   if (getCurrentJob(backend)?.status === 'running') return
   const release = tryAcquire(`gen:start:${backend}`)
@@ -363,6 +372,39 @@ async function next(backend: string): Promise<void> {
     launching.delete(head)
     release()
   }
+}
+
+/**
+ * Any free GPU: `backend` has nothing of its own to do, so it takes the oldest
+ * run waiting on another engine of its pool that asked for any free GPU and
+ * needs the model `backend` has loaded. The run keeps its id; the page that
+ * queued it goes on watching it through the engine it asked (poolQueued,
+ * gpu-pool.ts poolJob).
+ */
+async function adopt(backend: string): Promise<boolean> {
+  if (getCurrentJob(backend)?.status === 'running') return false
+  const waiting = poolMembers(backend)
+    .flatMap((member) => queues.get(member) ?? [])
+    .filter((run) => run.state === 'queued' && run.input?.anyGpu && !run.grid && !launching.has(run))
+  if (waiting.length === 0) return false
+  const model = await loadedModel(backend)
+  if (!model || !(await isFree(backend, queueLength))) return false
+  const run = waiting.sort((a, b) => a.enqueuedAt - b.enqueuedAt).find((candidate) => candidate.input?.anyGpu?.model === model)
+  if (!run) return false
+  // Checked again after the awaits: it may have started, been cancelled or taken meanwhile.
+  const from = queues.get(run.backend)
+  const at = from?.indexOf(run) ?? -1
+  if (!from || at < 0 || run.state !== 'queued' || launching.has(run) || queueLength(backend) > 0 || getCurrentJob(backend)?.status === 'running') return false
+  from.splice(at, 1)
+  if (from.length === 0) queues.delete(run.backend)
+  const left = run.backend
+  run.backend = backend
+  run.waitingSince = null
+  retried.delete(run)
+  listOf(backend).push(run)
+  notify(run)
+  notifyAll(left)
+  return true
 }
 
 /** Moves a grid on to its next cell, or out of the queue after its last. */

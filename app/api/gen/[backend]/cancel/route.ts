@@ -1,6 +1,8 @@
 import { adapterOr404, jsonError, json, readJson } from '@/lib/api'
 import { getCurrentJob } from '@/lib/diffusion/job-store'
-import { cancelGrid, cancelQueued, getGrid, getQueued } from '@/lib/diffusion/run-queue'
+import { cancelGrid, cancelQueued, getGrid, poolQueued } from '@/lib/diffusion/run-queue'
+import { poolJob } from '@/lib/diffusion/gpu-pool'
+import { getAdapter } from '@/lib/backends'
 import { cancelFaceFix } from '@/lib/facefix/run'
 import { maySeeRun, viewerOf } from '@/lib/security/viewer'
 
@@ -32,17 +34,21 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     await cancelGrid(grid)
     return json({ status: 'cancelled' })
   }
-  const waiting = !found && typeof body?.job === 'string' ? getQueued(adapter.config.id, body.job) : null
+  // A run asked for here may wait on, or be drawn by, another engine of its pool (Any free GPU).
+  const waiting = !found && typeof body?.job === 'string' ? poolQueued(adapter.config.id, body.job) : null
   const queued = waiting && maySeeRun(viewer, waiting.startedBy) ? waiting : null
   if (queued) {
     cancelQueued(queued)
     return json({ status: 'cancelled' })
   }
-  const current = getCurrentJob(adapter.config.id)
-  if (found || waiting || typeof body?.job !== 'string' || !current || current.id !== body.job || current.status !== 'running' || !maySeeRun(viewer, current.context.startedBy)) {
+  const located = !found && !waiting && typeof body?.job === 'string' ? poolJob(adapter.config.id, body.job) : null
+  const drawing = located ? located.backend : adapter.config.id
+  const current = getCurrentJob(drawing)
+  const drawer = drawing === adapter.config.id ? adapter : getAdapter(drawing)
+  if (found || waiting || !drawer || typeof body?.job !== 'string' || !current || current.id !== body.job || current.status !== 'running' || !maySeeRun(viewer, current.context.startedBy)) {
     return jsonError('That run is not running', 409)
   }
   // A face fix stops the face being drawn and skips the rest.
-  const result = (await cancelFaceFix(adapter.config.id)) ?? (await adapter.cancel(current.runId))
+  const result = (await cancelFaceFix(drawing)) ?? (await drawer.cancel(current.runId))
   return result.ok ? json(result.value) : jsonError(result.error, result.status)
 }

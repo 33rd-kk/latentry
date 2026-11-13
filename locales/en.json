@@ -371,6 +371,11 @@
       "noDetector": "Download this face detector on Setup first.",
       "noFaces": "No face was found. Try the other detector, or a lower confidence."
     },
+    "anyGpu": {
+      "label": "Any free GPU ({count} more with this model)",
+      "hint": "When this engine is busy, the run goes to another of Latentry's engines that is free and has the same model loaded. An X/Y grid or Faces stays on this engine.",
+      "drawnOn": "Drawn on {backend}"
+    },
     "control": {
       "missing": "Download the {kind} model on Setup first.",
       "badPicture": "Could not read that picture.",

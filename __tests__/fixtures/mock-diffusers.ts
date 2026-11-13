@@ -61,7 +61,7 @@ function figure(x: number): { points_3d: number[][]; scores: number[] } {
 }
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
-export async function startMockDiffusers(options: { port?: number; subsets?: boolean; movable?: boolean } = {}): Promise<MockDiffusers> {
+export async function startMockDiffusers(options: { port?: number; subsets?: boolean; movable?: boolean; model?: string } = {}): Promise<MockDiffusers> {
   const subsets = options.subsets ?? true
   // Moving joints (poseorbit 0.3) comes with lists of people (0.2) unless said otherwise.
   const movable = options.movable ?? subsets
@@ -85,7 +85,7 @@ export async function startMockDiffusers(options: { port?: number; subsets?: boo
       }
       const route = `${request.method} ${new URL(request.url ?? '/', 'http://mock').pathname}`
       if (route === 'GET /api/health') {
-        return reply(200, { status: 'ok', model: 'mock-pose-model', pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, lora: false, tagger: false, busy: false })
+        return reply(200, { status: 'ok', model: options.model ?? 'mock-pose-model', pose_control: true, control_kinds: ['canny', 'depth', 'lineart'], ip_adapter: true, lora: false, tagger: false, busy: false })
       }
       if (route === 'GET /api/presets') return reply(200, { default: null, presets: [] })
       if (route === 'POST /api/cancel') {

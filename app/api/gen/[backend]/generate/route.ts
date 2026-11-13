@@ -1,8 +1,10 @@
 import { randomInt } from 'node:crypto'
 import { adapterOr404, bodyTooLarge, dropControl, jsonError, json, modeOf, readJson, toGenerateRequest } from '@/lib/api'
+import { getAdapter } from '@/lib/backends'
 import { getCurrentJob, toSnapshot } from '@/lib/diffusion/job-store'
 import { isBusy, launchRun, type RunInput } from '@/lib/diffusion/launch'
 import { enqueue, positionOf, pump, queueLength } from '@/lib/diffusion/run-queue'
+import { freeMember, loadedModel, poolMembers } from '@/lib/diffusion/gpu-pool'
 import { checkModelAxis, gridCells, gridErrorMessage, parseGrid, readGridInput, type GridSpec } from '@/lib/generate/grid'
 import { getSaveDir, loraHashesEnabled } from '@/lib/gallery/dirs'
 import { serverMessage } from '@/lib/i18n/core'
@@ -98,6 +100,13 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     startedBy: viewerOf(request.headers),
     ...(facefix ? { facefix } : {}),
   }
+  // Any free GPU: with Latentry's engines on several GPUs, a run may be drawn
+  // by another engine that is free and has the same model (gpu-pool.ts). An
+  // X/Y grid and a face fix stay on the engine asked, start to end.
+  if (body.any_gpu === true && body.grid === undefined && !facefix && poolMembers(id).length > 0) {
+    const model = await loadedModel(id)
+    if (model) input.anyGpu = { model }
+  }
 
   // An X/Y grid always goes through the queue, as one run however many cells
   // it has; the queue starts its cells in turn.
@@ -125,7 +134,8 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
   const release = tryAcquire(`gen:start:${id}`)
   if (!release || getCurrentJob(id)?.status === 'running' || queueLength(id) > 0) {
     release?.()
-    return queueRun(id, input)
+    const elsewhere = input.anyGpu ? await startElsewhere(id, input) : null
+    return elsewhere ?? queueRun(id, input)
   }
   try {
     const started = await launchRun(adapter, input)
@@ -133,10 +143,34 @@ export async function POST(request: Request, ctx: RouteContext<'/api/gen/[backen
     // Busy with a run this server did not start (another client on the web
     // UI): wait for it rather than refuse. Any other 409 (the engine with no
     // model loaded) goes back to the page as it is.
-    if (started.status === 409 && (await isBusy(adapter))) return queueRun(id, input)
+    if (started.status === 409 && (await isBusy(adapter))) {
+      const elsewhere = input.anyGpu ? await startElsewhere(id, input) : null
+      return elsewhere ?? queueRun(id, input)
+    }
     return jsonError(started.error, started.status)
   } finally {
     release?.()
+  }
+}
+
+/**
+ * Any free GPU, while the engine asked is busy: starts the run on another
+ * engine of its pool that is free and has the same model, and answers as a
+ * start on the engine asked would (the job names the engine drawing it).
+ * Null when none is free, so the run waits in the queue instead.
+ */
+async function startElsewhere(asked: string, input: RunInput): Promise<Response | null> {
+  const member = await freeMember(asked, input.anyGpu?.model ?? null, queueLength)
+  const adapter = member ? getAdapter(member) : null
+  if (!member || !adapter) return null
+  const release = tryAcquire(`gen:start:${member}`)
+  if (!release) return null
+  try {
+    if (getCurrentJob(member)?.status === 'running' || queueLength(member) > 0) return null
+    const started = await launchRun(adapter, input)
+    return started.ok ? json({ job: toSnapshot(started.value) }) : null
+  } finally {
+    release()
   }
 }
 
