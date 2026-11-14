@@ -2,7 +2,7 @@
 // first visit, and the header's language menu switches to English and keeps
 // that choice after a reload. Every other spec runs in English (en-US).
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 
 test.use({ locale: 'ja-JP' })
 

@@ -4,7 +4,7 @@
 // or everyone on "pose-single", which does not), the 3D view opens, and
 // secret mode blurs the picture people are picked from but not their boxes.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const isPose = (request: Request) => request.method() === 'POST' && /^\/api\/gen\/pose(-single)?\/pose$/.test(new URL(request.url()).pathname)

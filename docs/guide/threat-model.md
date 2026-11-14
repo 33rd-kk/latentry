@@ -50,6 +50,9 @@ that it can read the answers too.
 - The built-in engine needs a random token that only Latentry holds, and
   answers only requests addressed to this computer by name or address.
 - Pages cannot be framed by other sites.
+- A page runs only the scripts Latentry sent with it, and loads nothing from
+  other sites. Should a prompt or picture name from another tool ever reach
+  a page as markup, it still could not run a script there.
 
 ### Another device on your network
 

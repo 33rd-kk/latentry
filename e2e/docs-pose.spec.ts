@@ -2,7 +2,7 @@
 // the mock diffusers-compatible server with pose ("pose", which finds three
 // people). Picking people and secret mode are in pose.spec.ts.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const isPose = (request: Request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/gen/pose/pose'

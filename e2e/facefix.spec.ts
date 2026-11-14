@@ -3,7 +3,7 @@
 // the run is refused before it starts, pointing to Setup. (The detection and
 // the redraw are checked in __tests__/facefix.verify.ts: E2E downloads no model.)
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const generateButton = (page: Page) => page.getByRole('button', { name: 'Generate', exact: true })

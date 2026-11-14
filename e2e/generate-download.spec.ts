@@ -3,7 +3,7 @@
 // them, from the gallery's copy. The viewer has no save of its own.
 
 import { readFileSync } from 'node:fs'
-import { expect, test, type Download, type Page } from '@playwright/test'
+import { expect, test, type Download, type Page } from './test'
 
 async function generateOnce(page: Page, prompt: string) {
   await page.goto('/')

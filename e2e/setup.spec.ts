@@ -2,7 +2,7 @@
 // /api/engine itself, so these tests need no engine, GPU or download, and
 // each button's request is caught and recorded rather than sent on.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 const entry = (id: string, kind: 'checkpoint' | 'tagger', extra: Record<string, unknown> = {}) => ({
   id,

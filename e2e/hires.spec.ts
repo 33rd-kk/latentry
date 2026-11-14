@@ -1,7 +1,7 @@
 // Hires fix on the mock A1111 web UI: off until switched on, then sent with
 // the upscaler the backend lists, and written into the saved picture.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 import { openViewerPanel } from './viewer'
 
 const PROMPT = 'a castle on a hill, hires run'

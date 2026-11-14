@@ -2,7 +2,7 @@
 // canvas grown on one side, and the run drawn on the mock A1111 web UI; the
 // picture is saved with mode "outpaint".
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 

@@ -4,7 +4,7 @@
 // this one finds its own by searching for their prompts.
 
 import { readFileSync } from 'node:fs'
-import { expect, test, type Download, type Page } from '@playwright/test'
+import { expect, test, type Download, type Page } from './test'
 import { openViewerPanel } from './viewer'
 
 async function generateOnce(page: Page, prompt: string) {

@@ -3,7 +3,7 @@
 // specs save pictures to the same folder, so each test finds its own by a
 // word in their prompts.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import { openViewerPanel } from './viewer'
 
 const thumbs = (page: Page) => page.locator('img[src^="/api/gallery/0/"][src*="thumb=1"]')

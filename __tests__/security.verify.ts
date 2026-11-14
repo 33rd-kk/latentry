@@ -20,7 +20,7 @@ import { startJob } from '../lib/diffusion/job-store'
 import { editRefusal } from '../lib/settings/access'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
-import { securityHeaders } from '../lib/security/headers'
+import { API_POLICY, newNonce, pagePolicy, PLAIN_PAGE_POLICY, securityHeaders } from '../lib/security/headers'
 import { restrictToOwner } from '../lib/security/owner-only'
 import { restrictPrivateFiles } from '../lib/security/private-files'
 import { checkApiRequest } from '../lib/security/route-guard'
@@ -132,7 +132,18 @@ eq([pageHeaders['Cache-Control'], pageHeaders['X-Frame-Options']], ['no-store', 
 check(apiHeaders['Cache-Control'] === undefined, 'API routes keep their own Cache-Control')
 check(/camera=\(\)/.test(apiHeaders['Permissions-Policy']) && /microphone=\(\)/.test(pageHeaders['Permissions-Policy']), 'no camera or microphone')
 check(!/clipboard/.test(pageHeaders['Permissions-Policy']), 'copying tags to the clipboard still works')
-check(pageHeaders['Content-Security-Policy'].includes("frame-ancestors 'none'") && !pageHeaders['Content-Security-Policy'].includes('script-src'), 'a CSP that cannot break Next.js scripts')
+{
+  const page = securityHeaders('/gallery', 'abc123==')['Content-Security-Policy']
+  check(page.includes("script-src 'self' 'nonce-abc123==' 'strict-dynamic';"), 'a page runs only scripts with its nonce')
+  check(!page.includes('unsafe-eval') && pagePolicy('n', true).includes("'strict-dynamic' 'unsafe-eval'"), "'unsafe-eval' only in dev")
+  check(!/upgrade-insecure-requests/.test(page), 'plain-http LAN pages are not pushed to https')
+  check(["default-src 'self'", "connect-src 'self'", "img-src 'self' data: blob:", "frame-ancestors 'none'", "object-src 'none'"].every((d) => page.includes(d)), 'everything else from Latentry itself')
+  check(!page.includes('https:') && !page.includes('*'), 'no outside origin is allowed')
+  check(newNonce() !== newNonce() && Buffer.from(newNonce(), 'base64').length === 16, 'a fresh 16-byte nonce each time')
+  eq(apiHeaders['Content-Security-Policy'], API_POLICY, 'an API answer gets the policy that loads nothing')
+  check(API_POLICY.startsWith("default-src 'none'") && !API_POLICY.includes('script-src'), 'which runs no script')
+  check(pageHeaders['Content-Security-Policy'] === PLAIN_PAGE_POLICY && !PLAIN_PAGE_POLICY.includes('script-src'), 'a page proxy.ts answers itself runs no script')
+}
 
 // ── Budget classes ──
 eq(classifyRequest('/', 'GET'), 'page', 'a page load')
