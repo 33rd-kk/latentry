@@ -1,9 +1,10 @@
 import { jsonError, json, readJson } from '@/lib/api'
-import { editRefusal } from '@/lib/settings/access'
+import { plainHttpOnNetwork } from '@/lib/security/request-info'
+import { editMode, editRefusal } from '@/lib/settings/access'
 import { validateSettings, type SettingsErrors, type SettingsInput } from '@/lib/settings/schema'
 import { serverMessage } from '@/lib/i18n/core'
 import { checkDir, getSettings, NewerSettingsError, saveSettings } from '@/lib/settings/store'
-import { settingsView } from '@/lib/settings/view'
+import { settingsView, type AccessView } from '@/lib/settings/view'
 import { hasModel } from '@/lib/tagger/wd14'
 
 export const runtime = 'nodejs'
@@ -16,7 +17,12 @@ export const runtime = 'nodejs'
 export async function GET(request: Request) {
   const refusal = editRefusal(request.headers)
   if (refusal) return json({ editable: false, reason: refusal })
-  return json(settingsView())
+  return json(settingsView(access(request)))
+}
+
+/** What Settings warns about: who may change it, and plain http on the network. */
+function access(request: Request): AccessView {
+  return { mode: editMode() === 'lan' ? 'lan' : 'local', plainHttp: plainHttpOnNetwork(request) }
 }
 
 /**
@@ -80,5 +86,5 @@ export async function PUT(request: Request) {
     console.error('Saving settings failed:', error)
     return jsonError('Could not write the settings file', 500)
   }
-  return json(settingsView(checked.settings))
+  return json(settingsView(access(request), checked.settings))
 }

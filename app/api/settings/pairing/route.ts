@@ -1,7 +1,7 @@
 import { jsonError, json, readJson } from '@/lib/api'
 import { createCode, createOwnerCode, currentCode, DEVICE_DAYS, forgetAllDevices, listDevices, pairingEnabled, removeDevice } from '@/lib/security/pairing'
 import { hasLocalToken } from '@/lib/security/local-token'
-import { isLoopbackAddress } from '@/lib/security/loopback'
+import { listensOnNetwork } from '@/lib/security/request-info'
 import { isFromThisMachine, mayAdminister } from '@/lib/settings/access'
 
 export const runtime = 'nodejs'
@@ -21,12 +21,6 @@ export const runtime = 'nodejs'
 export async function GET(request: Request) {
   if (!mayAdminister(request.headers)) return jsonError('Only from this computer or an owner device', 403)
   return json({ enabled: pairingEnabled(), days: DEVICE_DAYS, code: currentCode(), devices: listDevices(), network: listensOnNetwork() })
-}
-
-/** Whether other devices can reach this server: it listens beyond loopback (set by scripts/serve.mjs). */
-function listensOnNetwork(env: NodeJS.ProcessEnv = process.env): boolean {
-  const host = env.LATENTRY_LISTEN_HOST?.trim()
-  return !!host && !isLoopbackAddress(host)
 }
 
 export async function POST(request: Request) {

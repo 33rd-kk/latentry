@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Settings warns about who can reach it**: with `SETTINGS_EDIT=lan`,
+  Settings says at the top that every device on your network may change
+  the settings, install the engine, choose folders and download models.
+  When devices reach Latentry over plain `http://` on your network, it also
+  says that their pairing cookie and what they see can be read there, and
+  points to [HTTPS](https://33rd-kk.github.io/latentry/guide/network/#https).
 - **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
   switch under **Generate** lets a run go to another engine that is free and
   has the same model loaded, at once when the chosen one is busy, or when
