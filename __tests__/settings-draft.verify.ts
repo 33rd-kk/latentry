@@ -24,6 +24,7 @@ const builtin = {
 
 const view: SettingsView = {
   editable: true,
+  access: { mode: 'local', plainHttp: false },
   version: '0.0.0',
   file: '/config/settings.json',
   backends: [

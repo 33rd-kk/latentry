@@ -488,6 +488,8 @@
   "settings.intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
   "settings.version": "Latentry {version}",
   "settings.lockedRemote": "Settings can only be changed on the computer running Latentry (open it at http://localhost), or from an owner device. To make this browser an owner device:",
+  "settings.lanEditNotice": "SETTINGS_EDIT=lan: every device on your network can change these settings, install or update the engine, choose the folders Latentry reads and saves to, download models and see model info, without pairing as an owner. Set SETTINGS_EDIT=local in .env.local to keep that to this computer and owner devices.",
+  "settings.plainHttpNotice": "Devices reach Latentry over plain http on your network here, so their pairing cookie and everything Latentry shows them can be read by others on that network. Put Latentry behind HTTPS (see HTTPS in the manual's Network page), or keep it on this computer only.",
   "settings.lockedOff": "Settings are read-only here (SETTINGS_EDIT=off). Edit .env.local or latentry.settings.json instead.",
   "settings.fromSettings": "Set here",
   "settings.fromEnv": "From .env.local",

@@ -673,6 +673,8 @@
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
     "lockedRemote": "設定を変えられるのは、Latentry を動かしているコンピューター（http://localhost で開く）か、持ち主の端末からだけです。このブラウザーを持ち主の端末にするには:",
+    "lanEditNotice": "SETTINGS_EDIT=lan：ネットワーク上のすべての端末が、オーナーとしてペアリングしなくても、この設定の変更、エンジンの導入と更新、Latentry が読み書きするフォルダの指定、モデルのダウンロード、モデル情報の閲覧をできます。このコンピューターとオーナー端末だけに戻すには、.env.local で SETTINGS_EDIT=local にしてください。",
+    "plainHttpNotice": "この環境では、端末がネットワーク上の平文の http で Latentry に接続しています。そのため、端末のペアリング Cookie と Latentry が表示する内容を、同じネットワーク上の他の人が読み取れます。Latentry を HTTPS の後ろに置くか（マニュアルの「ネットワーク」ページの HTTPS を参照）、このコンピューターだけで使ってください。",
     "lockedOff": "ここでは設定は読み取り専用です（SETTINGS_EDIT=off）。代わりに .env.local か latentry.settings.json を編集してください。",
     "fromSettings": "ここで設定",
     "fromEnv": ".env.local から",
