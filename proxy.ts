@@ -4,7 +4,7 @@ import { serverMessage } from '@/lib/i18n/core'
 import { checkRequestBudget, type BudgetRejection } from '@/lib/security/request-budget'
 import { hasLocalToken } from '@/lib/security/local-token'
 import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
-import { securityHeaders } from '@/lib/security/headers'
+import { newNonce, NONCE_HEADER, securityHeaders } from '@/lib/security/headers'
 import { checkApiRequest } from '@/lib/security/route-guard'
 import { UNPAIRED_HEADER } from '@/lib/security/unpaired'
 import { isFromThisMachine } from '@/lib/settings/access'
@@ -16,6 +16,12 @@ const TOO_MANY_REQUESTS_HTML = `<!doctype html>
 <h1 style="font-size:1.25rem">Too many requests</h1>
 <p>Wait a few seconds, then reload.</p>
 </body></html>`
+
+/** `response` with the security headers for `pathname` (see lib/security/headers.ts). */
+function withHeaders(response: NextResponse, pathname: string): NextResponse {
+  for (const [name, value] of Object.entries(securityHeaders(pathname))) response.headers.set(name, value)
+  return response
+}
 
 function budgetRejection(rejection: BudgetRejection): NextResponse {
   const headers = {
@@ -47,7 +53,7 @@ export function proxy(request: NextRequest) {
   if (pathname.startsWith('/api/')) {
     const rejection = checkApiRequest({ method: request.method, headers: request.headers, pathname }, process.env)
     if (rejection) {
-      return NextResponse.json({ error: rejection.error }, { status: rejection.status, headers: { 'Cache-Control': 'no-store' } })
+      return withHeaders(NextResponse.json({ error: rejection.error }, { status: rejection.status, headers: { 'Cache-Control': 'no-store' } }), pathname)
     }
   }
 
@@ -61,22 +67,36 @@ export function proxy(request: NextRequest) {
     !(pathname === '/api/settings/pairing' && hasLocalToken(request.headers))
   ) {
     if (pathname.startsWith('/api/')) {
-      return NextResponse.json(
-        { error: serverMessage('system.notPaired'), pairing: true },
-        { status: 401, headers: { 'Cache-Control': 'no-store', [UNPAIRED_HEADER]: '1' } }
+      return withHeaders(
+        NextResponse.json(
+          { error: serverMessage('system.notPaired'), pairing: true },
+          { status: 401, headers: { 'Cache-Control': 'no-store', [UNPAIRED_HEADER]: '1' } }
+        ),
+        pathname
       )
     }
     const pair = request.nextUrl.clone()
     pair.pathname = '/pair'
     pair.search = ''
-    return NextResponse.redirect(pair, { headers: { 'Cache-Control': 'no-store' } })
+    return withHeaders(NextResponse.redirect(pair, { headers: { 'Cache-Control': 'no-store' } }), pathname)
   }
 
   const overBudget = checkRequestBudget({ method: request.method, headers: request.headers, pathname }, process.env)
-  if (overBudget) return budgetRejection(overBudget)
+  if (overBudget) return withHeaders(budgetRejection(overBudget), pathname)
 
-  const response = NextResponse.next()
-  for (const [name, value] of Object.entries(securityHeaders(pathname))) response.headers.set(name, value)
+  if (pathname.startsWith('/api/')) return withHeaders(NextResponse.next(), pathname)
+
+  // A page: Next reads the nonce from the request's CSP and puts it on the
+  // scripts it renders; the browser reads the policy from the response.
+  // app/layout.tsx reads the nonce for the theme script. Both request headers
+  // are set here, so one a client sent is replaced.
+  const nonce = newNonce()
+  const headers = securityHeaders(pathname, nonce)
+  const forwarded = new Headers(request.headers)
+  forwarded.set('Content-Security-Policy', headers['Content-Security-Policy'])
+  forwarded.set(NONCE_HEADER, nonce)
+  const response = NextResponse.next({ request: { headers: forwarded } })
+  for (const [name, value] of Object.entries(headers)) response.headers.set(name, value)
   return response
 }
 

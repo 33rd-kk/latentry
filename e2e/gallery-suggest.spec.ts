@@ -2,7 +2,7 @@
 // pictures shown so far, settings by name, how to write a search; the note
 // that says where tags come from; and in secret mode only how to search.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 async function generateOnce(page: Page, prompt: string) {
   await page.goto('/')

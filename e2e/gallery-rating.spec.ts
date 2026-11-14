@@ -3,7 +3,7 @@
 // neither shown nor given in secret mode. Other tests save pictures to the
 // same folder, so this one finds its own by searching for their prompts.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import { openViewerPanel } from './viewer'
 
 async function generateOnce(page: Page, prompt: string) {

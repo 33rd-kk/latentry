@@ -1,7 +1,7 @@
 // Secret mode turned on after a run makes that run secret on the server: a
 // reload no longer brings it back, as it does for an ordinary run.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 const result = (page: Page) => page.locator('img[alt^="Generated image, seed"]')
 

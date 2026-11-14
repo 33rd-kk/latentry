@@ -1,7 +1,7 @@
 // Sliders on a touch screen: a tap on the track leaves the value alone (a
 // swipe to scroll often starts there), and only a drag from the thumb moves it.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 test.use({ hasTouch: true, viewport: { width: 390, height: 844 } })
 

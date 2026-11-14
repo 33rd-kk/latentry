@@ -1,7 +1,7 @@
 // A ComfyUI backend's own workflow, picked on the Generate page from its
 // folder (scripts/e2e.mjs puts portrait.json there), drawn on the mock ComfyUI.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 
 test('a workflow from the folder is offered, and draws a picture', async ({ page }) => {
   await page.goto('/')

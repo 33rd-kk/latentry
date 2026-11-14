@@ -5,7 +5,7 @@
 // mock diffusers-compatible server, whose run with UNTIL_CANCELLED in the
 // prompt goes on until it is cancelled.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import { openViewerPanel } from './viewer'
 import { UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
 

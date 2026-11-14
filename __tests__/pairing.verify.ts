@@ -38,6 +38,7 @@ import {
 } from '../lib/security/pairing'
 import { hasLocalToken, inContainer, LOCAL_TOKEN_HEADER, localTokenPath, loopbackTrust, trustsLoopback, warnUntrustedContainer, writeLocalToken } from '../lib/security/local-token'
 import { UNPAIRED_HEADER } from '../lib/security/unpaired'
+import { API_POLICY, PLAIN_PAGE_POLICY } from '../lib/security/headers'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { engineEnv } from '../lib/engine/supervisor'
 import { DELETE as unpairRoute, GET as thisDeviceRoute, POST as pairRoute } from '../app/api/pair/route'
@@ -239,6 +240,18 @@ async function main(): Promise<void> {
   eq(lan('/api/gen/backends').headers.get(UNPAIRED_HEADER), '1', "the 401 is marked, so the page goes to the pairing page (components/unpaired-guard.tsx)")
   eq(lan('/api/gen/backends', { cookie: `${DEVICE_COOKIE}=${paired.value}` }).headers.get(UNPAIRED_HEADER), null, 'a paired request is not')
   eq(proxy(new NextRequest('http://192.168.1.20:3000/api/gen/backends', { headers: { host: 'localhost', 'x-forwarded-for': '127.0.0.1', [peer]: '192.168.1.30', 'sec-fetch-site': 'same-origin' } })).status, 401, 'forged local headers do not make a LAN device local')
+
+  // Security headers (lib/security/headers.ts), also on what proxy.ts answers itself.
+  eq([api.headers.get('content-security-policy'), api.headers.get('x-content-type-options')], [API_POLICY, 'nosniff'], 'the 401 carries the API policy')
+  eq([page.headers.get('content-security-policy'), page.headers.get('x-frame-options')], [PLAIN_PAGE_POLICY, 'DENY'], 'the redirect to pairing carries a script-free policy')
+  const rendered = here('/gallery')
+  const csp = rendered.headers.get('content-security-policy') ?? ''
+  const nonce = /'nonce-([^']+)'/.exec(csp)?.[1]
+  check(!!nonce && csp.includes("'strict-dynamic'"), 'a page Next renders gets a nonce policy')
+  eq(rendered.headers.get('x-middleware-request-x-nonce'), nonce, 'and the render is told the same nonce')
+  eq(rendered.headers.get('x-middleware-request-content-security-policy'), csp, 'and the same policy, which Next reads it from')
+  check(nonce !== /'nonce-([^']+)'/.exec(here('/gallery').headers.get('content-security-policy') ?? '')?.[1], 'a new nonce for every page load')
+  eq(here('/api/gen/backends').headers.get('x-middleware-request-x-nonce'), null, 'an API call gets none')
   process.env.LATENTRY_PAIRING = 'off'
   eq(lan('/api/gen/backends').headers.get('x-middleware-next'), '1', 'LATENTRY_PAIRING=off lets everyone through')
   delete process.env.LATENTRY_PAIRING

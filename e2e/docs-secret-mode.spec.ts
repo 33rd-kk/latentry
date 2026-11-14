@@ -2,7 +2,7 @@
 // checked on the mock A1111 web UI. Secret mode is per browser, so each test
 // has its own; turning it on is done through the header's eye.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 const toggle = (page: Page) => page.getByRole('button', { name: 'Secret mode' }).first()
 

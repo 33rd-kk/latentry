@@ -2,7 +2,7 @@
 // pictures to compare or tag. Other tests save pictures to the same folder,
 // so this one finds its own by searching for their prompts.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 async function generateOnce(page: Page, prompt: string) {
   await page.goto('/')

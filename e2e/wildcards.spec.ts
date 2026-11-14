@@ -4,7 +4,7 @@
 // picker puts one in, the run is drawn with its line, and the picture keeps
 // the prompt as typed.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 import { openViewerPanel } from './viewer'
 
 test('a wildcard is picked, filled in for the run, and kept with the picture', async ({ page }) => {

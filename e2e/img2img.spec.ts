@@ -3,7 +3,7 @@
 // generate.md's own checks (docs-generate.spec.ts) look at the controls; this
 // one follows a run through to the gallery.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 

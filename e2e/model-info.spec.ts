@@ -3,7 +3,7 @@
 // only when asked, and sent with the next run.
 
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 
 const generateButton = (page: Page) => page.getByRole('button', { name: 'Generate', exact: true })
 const editor = (page: Page) => page.getByRole('group', { name: 'Info for mock-model.safetensors' })
