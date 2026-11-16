@@ -85,6 +85,8 @@ earlier releases. Never remake its fixtures to make it pass.
 - Give every control a name: link its label with `htmlFor` and `id`. A
   select box needs this too, because its text does not count as its name.
   `e2e/a11y.spec.ts` checks each page with axe-core.
+- A page has to fit a 360px wide phone in every language;
+  `e2e/mobile.spec.ts` checks it.
 - Add or change a verify script in `__tests__/` for what you change.
 
 **Docs and changelog.**

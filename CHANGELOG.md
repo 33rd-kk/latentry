@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The header fits a narrow phone**: on a screen narrower than 400px the
+  page no longer scrolls sideways. The name **Latentry** is left out there
+  (the Generate icon leads to the same page), and on a phone the secret mode
+  button is a filled pill without its label. On **Generate**, the character
+  row's delete and save buttons no longer slip past the card's edge; a long
+  placeholder ends in "…" instead. A new browser test opens each page at
+  phone width, in English and in Japanese, and fails if a page is wider than
+  the screen or a button or label is cut off at the edge of its card.
 - **A stricter Content Security Policy**: each page may now run only the
   scripts Latentry sent with it, marked by a random value that is new for
   every page load, and may load pictures, styles and data only from

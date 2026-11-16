@@ -66,7 +66,9 @@ export function AppHeader() {
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
       <div className="container mx-auto flex h-12 max-w-7xl items-center gap-2 px-4">
-        <Link href="/" className="mr-2 font-semibold tracking-tight">
+        {/* Not on the narrowest phones, where the row would be wider than the
+            screen: the Generate icon leads to the same page. */}
+        <Link href="/" className="mr-2 hidden font-semibold tracking-tight min-[400px]:inline">
           Latentry
         </Link>
         <nav className="flex items-center gap-1">
@@ -94,7 +96,8 @@ export function AppHeader() {
                 className={cn(secret && "gap-1.5 rounded-full px-3")}
               >
                 {secret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                {secret && <span className="text-xs font-semibold">{t("app.secretModeOn")}</span>}
+                {/* The name only where it fits; on a phone the filled pill says it. */}
+                {secret && <span className="hidden text-xs font-semibold sm:inline">{t("app.secretModeOn")}</span>}
               </Button>
             </TooltipTrigger>
             <TooltipContent className="max-w-64">{t("app.secretModeHint")}</TooltipContent>
