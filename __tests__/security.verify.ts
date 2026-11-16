@@ -21,6 +21,7 @@ import { editRefusal } from '../lib/settings/access'
 import { installPeerStamp, peerHeaderName } from '../lib/security/peer'
 import { activeRun, holders, setActiveRun, tryAcquire, tryEnter } from '../lib/security/concurrency'
 import { API_POLICY, newNonce, pagePolicy, PLAIN_PAGE_POLICY, securityHeaders } from '../lib/security/headers'
+import { isHttps, listensOnNetwork, plainHttpOnNetwork } from '../lib/security/request-info'
 import { restrictToOwner } from '../lib/security/owner-only'
 import { restrictPrivateFiles } from '../lib/security/private-files'
 import { checkApiRequest } from '../lib/security/route-guard'
@@ -143,6 +144,24 @@ check(!/clipboard/.test(pageHeaders['Permissions-Policy']), 'copying tags to the
   eq(apiHeaders['Content-Security-Policy'], API_POLICY, 'an API answer gets the policy that loads nothing')
   check(API_POLICY.startsWith("default-src 'none'") && !API_POLICY.includes('script-src'), 'which runs no script')
   check(pageHeaders['Content-Security-Policy'] === PLAIN_PAGE_POLICY && !PLAIN_PAGE_POLICY.includes('script-src'), 'a page proxy.ts answers itself runs no script')
+}
+
+// ── How a request came (lib/security/request-info.ts) ──
+{
+  const at = (url: string, headers: Record<string, string> = {}) => new Request(url, { headers })
+  check(isHttps(at('https://latentry.lan/')), 'https here')
+  check(isHttps(at('http://127.0.0.1:3000/', { 'x-forwarded-proto': 'HTTPS, http' })), 'https at a proxy in front (its first hop)')
+  check(!isHttps(at('http://127.0.0.1:3000/', { 'x-forwarded-proto': 'http, https' })), 'not when the first hop was http')
+  eq([listensOnNetwork({}), listensOnNetwork({ LATENTRY_LISTEN_HOST: '127.0.0.1' }), listensOnNetwork({ LATENTRY_LISTEN_HOST: '0.0.0.0' })], [false, false, true], 'listening on the network')
+  const plain = (url: string, headers: Record<string, string>, env: Record<string, string> = {}, container = false) => plainHttpOnNetwork(at(url, headers), env, container)
+  const lan = { LATENTRY_LISTEN_HOST: '0.0.0.0' }
+  check(plain('http://192.168.1.20:3000/', { host: '192.168.1.20:3000' }), 'a device over http on the network is plain')
+  check(!plain('http://192.168.1.20:3000/', { host: '192.168.1.20:3000', 'x-forwarded-proto': 'https' }), 'not behind an https proxy')
+  check(!plain('http://localhost:3000/', { host: 'localhost:3000' }), 'this computer on localhost, listening here only, is not')
+  check(!plain('http://127.0.0.1:3000/', { host: '[::1]:3000' }), 'nor on ::1')
+  check(plain('http://localhost:3000/', { host: 'localhost:3000' }, lan), 'but listening on the network over http is, even seen from here')
+  check(!plain('http://localhost:3000/', { host: 'localhost:3000' }, lan, true), 'except in a container, which always listens on every address')
+  check(plain('http://192.168.1.20:3000/', { host: '192.168.1.20:3000' }, lan, true), 'where a device on plain http still is')
 }
 
 // ── Budget classes ──

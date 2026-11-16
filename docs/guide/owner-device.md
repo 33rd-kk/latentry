@@ -58,9 +58,12 @@ This works even if someone else, as an owner, removed your device.
 An owner device keeps its cookie as every paired device does. Over plain
 `http://` someone who can watch your network could copy it, and with it
 change your settings, so use an owner device on a network you trust, or
-put Latentry behind [HTTPS](network.md#https).
+put Latentry behind [HTTPS](network.md#https). Settings says so at the top
+whenever devices reach Latentry over plain http on your network: when the
+page itself came that way, or when Latentry listens on the network
+(`LATENTRY_HOST`) without a proxy in front.
 
 `SETTINGS_EDIT=lan` still lets every address that can reach Latentry change
-settings, paired or not. An owner device is the safer way, and it works
-from anywhere you paired it.
+settings, paired or not, and Settings says so at the top while it is on. An
+owner device is the safer way, and it works from anywhere you paired it.
 

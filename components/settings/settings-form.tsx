@@ -1,7 +1,7 @@
 "use client"
 
 import { useCallback, useSyncExternalStore } from "react"
-import { Loader2, Save } from "lucide-react"
+import { Loader2, Save, ShieldAlert } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -56,6 +56,16 @@ function useSection(): [SectionId, (id: SectionId) => void] {
     [setStored]
   )
   return [section, choose]
+}
+
+/** A standing warning at the top of Settings about how Latentry is reached. */
+function AccessNotice({ children }: { children: string }) {
+  return (
+    <p role="note" className="mt-3 flex items-start gap-1.5 rounded-md border border-amber-600/40 px-3 py-2 text-sm text-amber-700 dark:text-amber-500">
+      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+      <span>{children}</span>
+    </p>
+  )
 }
 
 export function SettingsForm() {
@@ -114,6 +124,8 @@ export function SettingsForm() {
         <h1 className="text-2xl font-semibold">{t("settings.title")}</h1>
         <p className="mt-1 text-xs text-muted-foreground">{t("settings.version", { version: view.version })}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t("settings.intro", { file: view.file })}</p>
+        {view.access.mode === "lan" && <AccessNotice>{t("settings.lanEditNotice")}</AccessNotice>}
+        {view.access.plainHttp && <AccessNotice>{t("settings.plainHttpNotice")}</AccessNotice>}
       </div>
 
       {/* One section at a time, chosen on the left (above, on a phone). */}

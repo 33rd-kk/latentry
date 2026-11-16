@@ -16,8 +16,20 @@ import type { ProfileOverride, Settings } from './schema'
 
 type Source = 'settings' | 'env'
 
+/**
+ * How this server is reached, for the notices at the top of Settings: whether
+ * every device on the network may change settings (SETTINGS_EDIT=lan), and
+ * whether devices reach it over plain http on the network
+ * (lib/security/request-info.ts).
+ */
+export interface AccessView {
+  mode: 'local' | 'lan'
+  plainHttp: boolean
+}
+
 export interface SettingsView {
   editable: true
+  access: AccessView
   /** Latentry's own version, so the owner can match it against advisories (shown to this computer only, like the rest). */
   version: string
   file: string
@@ -56,11 +68,12 @@ export interface SettingsView {
   }[]
 }
 
-export function settingsView(settings: Settings = getSettings()): SettingsView {
+export function settingsView(access: AccessView, settings: Settings = getSettings()): SettingsView {
   const dirs = getGalleryDirs()
   const stored = new Map((settings.backends ?? []).map((backend) => [backend.id, backend]))
   return {
     editable: true,
+    access,
     version: packageJson.version,
     file: settingsPath(),
     backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, controlnets, workflowsDir, shareWorkflows }) => ({

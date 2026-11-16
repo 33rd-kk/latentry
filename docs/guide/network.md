@@ -55,7 +55,9 @@ the settings file.
 
 Paired devices can generate and use the gallery. **Settings and Setup stay
 read-only from them**: settings decide which folders are read and written.
-`SETTINGS_EDIT=off` makes them read-only everywhere.
+`SETTINGS_EDIT=off` makes them read-only everywhere. `SETTINGS_EDIT=lan`
+opens them to every device that can reach Latentry, paired as an owner or
+not; Settings says so at the top while it is on.
 
 ### An owner device
 
@@ -81,6 +83,10 @@ Keep Latentry on 127.0.0.1 (the default) so devices reach it only through
 the proxy, add the proxy's name to `ALLOWED_HOSTS`, and trust Caddy's local
 certificate on your devices. Over HTTPS the device cookie is marked
 `Secure`, so the browser never sends it over plain `http://`.
+
+Until then **Settings** warns at the top: when the page came over plain
+`http://` from another address, or when Latentry listens on the network
+(`LATENTRY_HOST`) itself. Behind the proxy above the warning goes away.
 
 ## Backends on other computers
 

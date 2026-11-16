@@ -3,6 +3,7 @@ import { jsonError, json, readJson } from '@/lib/api'
 import { serverMessage } from '@/lib/i18n/core'
 import { cleanName, DEVICE_COOKIE, deviceCookie, endedOwner, issueDevice, pairedDevice, redeemCode, removeDevice } from '@/lib/security/pairing'
 import { clientIp, FixedWindow } from '@/lib/security/request-budget'
+import { isHttps } from '@/lib/security/request-info'
 import { isFromThisMachine } from '@/lib/settings/access'
 
 export const runtime = 'nodejs'
@@ -62,16 +63,6 @@ export async function POST(request: Request) {
     maxAge: issued.maxAgeSeconds,
   })
   return response
-}
-
-/**
- * Whether the page came over https, here or at a proxy in front: then the
- * cookie is marked Secure, so the browser never sends it over plain http.
- * A forged header can only make the cookie stricter.
- */
-function isHttps(request: Request): boolean {
-  if (new URL(request.url).protocol === 'https:') return true
-  return request.headers.get('x-forwarded-proto')?.split(',')[0].trim().toLowerCase() === 'https'
 }
 
 export async function DELETE(request: Request) {

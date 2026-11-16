@@ -252,6 +252,13 @@ async function main(): Promise<void> {
     eq([offStatus, off.error], [403, 'Settings are read-only (SETTINGS_EDIT=off)'], 'nor can this machine with SETTINGS_EDIT=off')
     eq((await read(await settingsGet(request('/api/settings', { method: 'GET' }))))[1], { editable: false, reason: 'off' }, 'which the page is told')
     delete process.env.SETTINGS_EDIT
+    eq(view.access, { mode: 'local', plainHttp: false }, 'this machine on localhost: no notice')
+    process.env.SETTINGS_EDIT = 'lan'
+    const [lanStatus, lanView] = await read(await settingsGet(request('/api/settings', { method: 'GET', from: PHONE })))
+    eq([lanStatus, lanView.access], [200, { mode: 'lan', plainHttp: true }], 'with SETTINGS_EDIT=lan a phone may edit, and is told everyone may, over plain http')
+    const httpsPhone = { ...PHONE, 'x-forwarded-proto': 'https' }
+    eq((await read(await settingsGet(request('/api/settings', { method: 'GET', from: httpsPhone }))))[1].access, { mode: 'lan', plainHttp: false }, 'behind an https proxy it is not plain')
+    delete process.env.SETTINGS_EDIT
     eq((await put('{not json')).status, 400, 'a body that is not JSON is refused')
     const [badStatus, bad] = await read(await put({ gallery: { saveDir: 'relative/out' } }))
     eq([badStatus, bad.errors], [422, { 'gallery.saveDir': 'settings.errorAbsolute' }], 'a value that is not valid is named')

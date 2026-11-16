@@ -216,3 +216,11 @@ test('Settings shows the version of Latentry it runs', async ({ page }) => {
   await open(page)
   await expect(page.getByText(/^Latentry \d+\.\d+\.\d+/)).toBeVisible()
 })
+
+// The tests' server listens on 127.0.0.1 with SETTINGS_EDIT unset, as most do:
+// Settings warns about nothing (__tests__/admin-routes.verify.ts checks when it does).
+test('Settings shows no access warning on this computer', async ({ page }) => {
+  await open(page)
+  await expect(page.getByText('SETTINGS_EDIT=lan: every device')).toHaveCount(0)
+  await expect(page.getByText(/over plain http on your network/)).toHaveCount(0)
+})
