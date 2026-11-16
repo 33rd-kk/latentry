@@ -303,7 +303,10 @@ browser once with `npx playwright install chromium`, or use one you have:
 with the traces of failed tests in it. The `docs-*` tests check what the
 guide says against the app. `a11y.spec.ts` runs axe-core on each page, in
 the light and the dark theme, against WCAG 2.1 A and AA: a serious or
-critical finding fails it.
+critical finding fails it. `mobile.spec.ts` opens each page on a 360px wide
+touch screen, in English and in Japanese, and fails if a page is wider than
+the screen or a button or label reaches past a card that cuts it off; it
+prints text cut off by its own box and controls smaller than 24×24px.
 
 `npm run docs:screenshots` retakes the guide's `docs/assets/manual-*.webp`
 the same way (`e2e/screenshots/docs.shots.ts`). Its gallery is made from

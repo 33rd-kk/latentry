@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **The header fits a narrow phone**: on a screen narrower than 400px the
+  page no longer scrolls sideways. The name **Latentry** is left out there
+  (the Generate icon leads to the same page), and on a phone the secret mode
+  button is a filled pill without its label. On **Generate**, the character
+  row's delete and save buttons no longer slip past the card's edge; a long
+  placeholder ends in "…" instead. A new browser test opens each page at
+  phone width, in English and in Japanese, and fails if a page is wider than
+  the screen or a button or label is cut off at the edge of its card.
 - **Back to top in the gallery**: once you have scrolled more than a screen
   down, a round button at the bottom right brings you back to the top.
 - **Fixed**: on **Generate**, the buttons that choose what the source
