@@ -6,7 +6,7 @@
 
 import { mkdirSync } from 'node:fs'
 import path from 'node:path'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 const card = (page: Page, title: string) => page.locator('[data-slot="card"]').filter({ has: page.getByText(title, { exact: true }) })
 const saveButton = (page: Page) => page.getByRole('button', { name: 'Save', exact: true })

@@ -2,7 +2,7 @@
 // request, checked from outside the browser where that is closer to an
 // attacker's view.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 
 // "Pages cannot be framed by other sites"; "Pages are not cached by the browser."
 test('pages refuse framing and are not cached', async ({ request }) => {
@@ -13,6 +13,14 @@ test('pages refuse framing and are not cached', async ({ request }) => {
     const csp = headers['content-security-policy'] ?? ''
     expect(framing.toUpperCase() === 'DENY' || /frame-ancestors 'none'/.test(csp), `${path} can be framed`).toBe(true)
     expect(headers['cache-control'] ?? '', `${path} may be cached`).toMatch(/no-store/)
+  }
+})
+
+// "A page runs only the scripts Latentry sent with it, and loads nothing from other sites."
+test("a page runs only the scripts Latentry sent with it", async ({ request }) => {
+  for (const path of ['/', '/gallery', '/settings']) {
+    const csp = (await request.get(path)).headers()['content-security-policy'] ?? ''
+    expect(csp, path).toMatch(/script-src 'self' 'nonce-[^']+' 'strict-dynamic'/)
   }
 })
 

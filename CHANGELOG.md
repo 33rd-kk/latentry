@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A stricter Content Security Policy**: each page may now run only the
+  scripts Latentry sent with it, marked by a random value that is new for
+  every page load, and may load pictures, styles and data only from
+  Latentry itself. A prompt shown in the gallery could not run a script even
+  if it ever slipped into the page as markup. Nothing changes in use; plain
+  `http://` on your network keeps working.
 - **Settings warns about who can reach it**: with `SETTINGS_EDIT=lan`,
   Settings says at the top that every device on your network may change
   the settings, install the engine, choose folders and download models.

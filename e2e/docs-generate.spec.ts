@@ -3,7 +3,7 @@
 // ("comfy"). Each test names the section it checks; a failure here means the
 // guide or the app is wrong.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import sharp from 'sharp'
 
 const generateButton = (page: Page) => page.getByRole('button', { name: 'Generate', exact: true })

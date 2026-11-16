@@ -4,7 +4,7 @@
 // (POST /api/control), shown, and sent with the run; the reference itself is
 // not. Depth needs its model from Setup, which the E2E server has not got.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const isControl = (request: Request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/control'

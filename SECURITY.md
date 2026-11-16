@@ -96,8 +96,11 @@ What it does guard against:
   backend, is decoded only up to 8192 × 8192 pixels, and a ZIP download
   checks each file's size before reading it.
 - **Pages** are sent with `Cache-Control: no-store`, a Content-Security-Policy
-  that forbids framing and plugins, and a Permissions-Policy that turns off
-  the camera, microphone and location.
+  and a Permissions-Policy that turns off the camera, microphone and
+  location. The Content-Security-Policy lets a page run only the scripts sent
+  with it, marked by a fresh random nonce for each page load, and load
+  anything only from Latentry itself; it also forbids framing and plugins.
+  API answers may load and run nothing.
 - **In Docker**, no address is trusted as this computer
   (`LATENTRY_TRUST_LOOPBACK=off` in the image), because a port forwarder can
   hand other machines' connections to a container as 127.0.0.1. Every

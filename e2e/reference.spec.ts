@@ -3,7 +3,7 @@
 // picture is chosen, shown, and sent with the run at its strength; hidden
 // from Show it is kept but not sent.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const isGenerate = (request: Request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/gen/pose/generate'
