@@ -2,7 +2,7 @@
 // stable-diffusion.cpp sd-server (here the mock, "cpp") lands in the gallery
 // with its settings, and Cancel stops that run's own job on the server.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import { MOCK_SDCPP_MODEL, SDCPP_HOLD } from '../__tests__/fixtures/mock-sdcpp'
 
 const mock = `http://127.0.0.1:${process.env.E2E_SDCPP_PORT || '3142'}`

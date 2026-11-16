@@ -2,7 +2,7 @@
 // the mock A1111 web UI and on the mock diffusers-compatible server. Each one
 // is shown, seeded one after another, and saved to the gallery.
 
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 
 async function drawTwo(page: Page, backend: string, prompt: string) {
   await page.goto('/')

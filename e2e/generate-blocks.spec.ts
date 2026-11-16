@@ -2,7 +2,7 @@
 // keeps what it holds for when it is shown again, and the browser remembers
 // which ones are hidden.
 
-import { expect, test, type Page, type Request } from '@playwright/test'
+import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
 
 const generateButton = (page: Page) => page.getByRole('button', { name: 'Generate', exact: true })

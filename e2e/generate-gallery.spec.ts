@@ -1,6 +1,6 @@
 // Generate a picture on the mock backend, find it in the gallery, open it.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 
 const PROMPT = 'a lighthouse at dusk, browser run'
 

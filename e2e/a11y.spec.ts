@@ -5,7 +5,7 @@
 // axe runs inside the page and reads only the page: nothing is sent anywhere.
 
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Page } from './test'
 import { openViewerPanel } from './viewer'
 import sharp from 'sharp'
 

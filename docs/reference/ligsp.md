@@ -45,7 +45,7 @@ the protection, that is said too.
 |---|---|---|---|
 | WEB-1 | 1 | Met | `/api` refuses requests from other sites (`Sec-Fetch-Site`, `Origin`), and request bodies that are not JSON. |
 | WEB-2 | 1 | Met | `/api` answers only for `localhost`, IP addresses on your network, and hosts in `ALLOWED_HOSTS`. |
-| WEB-3 | 1 | Met | `frame-ancestors 'none'`, `nosniff`, `Referrer-Policy`, a `Permissions-Policy`, and `no-store` on pages and `/api`. |
+| WEB-3 | 1 | Met | A CSP with a per-response nonce for scripts (`'strict-dynamic'`), everything else `'self'`, and `frame-ancestors 'none'`; `default-src 'none'` on `/api`. Also `nosniff`, `Referrer-Policy`, a `Permissions-Policy`, and `no-store` on pages and `/api`. |
 | WEB-4 | 2 | Met | A body limit (48 MB with a picture, 1 MB without), request budgets per device, and limits on pose previews and tagging. |
 | WEB-5 | 2 | Met | Run ids are random UUIDs. A paired device is offered, and may watch or stop, only the runs it started; a secret run's id stays with the page that started it. |
 

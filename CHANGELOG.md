@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A stricter Content Security Policy**: each page may now run only the
+  scripts Latentry sent with it, marked by a random value that is new for
+  every page load, and may load pictures, styles and data only from
+  Latentry itself. A prompt shown in the gallery could not run a script even
+  if it ever slipped into the page as markup. Nothing changes in use; plain
+  `http://` on your network keeps working.
 - **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
   switch under **Generate** lets a run go to another engine that is free and
   has the same model loaded, at once when the chosen one is busy, or when

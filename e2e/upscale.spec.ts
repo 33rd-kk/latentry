@@ -2,7 +2,7 @@
 // in Upscale mode with the picture's own prompt, sends `upscale` with the
 // hires fields, and the saved picture says it was an upscale.
 
-import { expect, test } from '@playwright/test'
+import { expect, test } from './test'
 import { openViewerPanel } from './viewer'
 
 const PROMPT = 'a windmill by a river, upscale run'
