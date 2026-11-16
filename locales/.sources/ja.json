@@ -375,6 +375,7 @@
   "gallery.compare.secretReveal": "Show for this comparison",
   "gallery.stackHint": "{count} pictures. Click to see them all.",
   "gallery.refresh": "Refresh",
+  "gallery.backToTop": "Back to top",
   "gallery.loading": "Loading…",
   "gallery.empty": "No pictures here yet.",
   "gallery.keepSearching": "Nothing matched in the files checked so far.",

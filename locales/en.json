@@ -492,6 +492,7 @@
     },
     "stackHint": "{count} pictures. Click to see them all.",
     "refresh": "Refresh",
+    "backToTop": "Back to top",
     "loading": "Loading…",
     "empty": "No pictures here yet.",
     "keepSearching": "Nothing matched in the files checked so far.",

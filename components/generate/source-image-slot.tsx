@@ -11,6 +11,7 @@ import { useSecretMode, useShownInSecret } from "@/components/app-header"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { cn } from "@/lib/utils"
 import { useT } from "@/lib/i18n"
+import { ChoiceRow } from "./choice-row"
 import { MaskEditor } from "./mask-editor"
 import { VeilToggle } from "./veil-toggle"
 
@@ -214,50 +215,30 @@ export function SourceImageSlot({
                 {t("generate.sourceClear")}
               </Button>
             </div>
-            <div className="flex gap-1" role="radiogroup" aria-label={t("generate.sourceMode")}>
-              {(
-                [
-                  "variation",
-                  "pose",
-                  ...(canUpscale ? (["upscale"] as const) : []),
-                  ...(canInpaint && extendControls ? (["extend"] as const) : []),
-                  ...(canInpaint && faceFixControls ? (["facefix"] as const) : []),
-                ] as const
-              ).map((option) => (
-                <Button
-                  key={option}
-                  type="button"
-                  role="radio"
-                  aria-checked={mode === option}
-                  size="sm"
-                  variant={mode === option ? "secondary" : "ghost"}
-                  className="h-6 flex-1 px-1.5 text-xs"
-                  onClick={() => {
-                    if (option === mode) return
-                    // The editor belongs to "variation"; leaving it drops the mask.
-                    setMasking(false)
-                    onModeChange(option)
-                  }}
-                  disabled={disabled}
-                >
-                  {option === "pose" && <PersonStanding className="mr-1 h-3 w-3" />}
-                  {option === "upscale" && <Maximize2 className="mr-1 h-3 w-3" />}
-                  {option === "extend" && <Expand className="mr-1 h-3 w-3" />}
-                  {option === "facefix" && <ScanFace className="mr-1 h-3 w-3" />}
-                  {t(
-                    option === "pose"
-                      ? "generate.sourceModePose"
-                      : option === "upscale"
-                        ? "generate.sourceModeUpscale"
-                        : option === "extend"
-                          ? "generate.sourceModeExtend"
-                          : option === "facefix"
-                            ? "generate.sourceModeFaceFix"
-                            : "generate.sourceModeVariation"
-                  )}
-                </Button>
-              ))}
-            </div>
+            <ChoiceRow
+              aria-label={t("generate.sourceMode")}
+              choices={[
+                { value: "variation", label: t("generate.sourceModeVariation") },
+                { value: "pose", label: t("generate.sourceModePose"), icon: <PersonStanding className="mr-1 h-3 w-3" /> },
+                ...(canUpscale
+                  ? [{ value: "upscale" as const, label: t("generate.sourceModeUpscale"), icon: <Maximize2 className="mr-1 h-3 w-3" /> }]
+                  : []),
+                ...(canInpaint && extendControls
+                  ? [{ value: "extend" as const, label: t("generate.sourceModeExtend"), icon: <Expand className="mr-1 h-3 w-3" /> }]
+                  : []),
+                ...(canInpaint && faceFixControls
+                  ? [{ value: "facefix" as const, label: t("generate.sourceModeFaceFix"), icon: <ScanFace className="mr-1 h-3 w-3" /> }]
+                  : []),
+              ]}
+              value={mode}
+              onPick={(option) => {
+                if (option === mode) return
+                // The editor belongs to "variation"; leaving it drops the mask.
+                setMasking(false)
+                onModeChange(option)
+              }}
+              disabled={disabled}
+            />
             {mode === "upscale" ? (
               upscaleControls
             ) : mode === "facefix" ? (

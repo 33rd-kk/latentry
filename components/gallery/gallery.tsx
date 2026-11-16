@@ -1,9 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Progress } from "@/components/ui/progress"
 import { ImageLightbox, type LightboxItem } from "@/components/ui/image-lightbox"
 import { useSecretMode, useShownInSecret } from "@/components/app-header"
+import { BackToTop } from "./back-to-top"
 import { GalleryPanel } from "./gallery-panel"
 import { GalleryGrid } from "./gallery-grid"
 import { GridSheetView } from "./grid-sheet-view"
@@ -43,6 +44,8 @@ export function Gallery() {
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [comparing, setComparing] = useState<[GalleryPicture, GalleryPicture] | null>(null)
   const [viewing, setViewing] = useState<number | null>(null)
+  // Where "Back to top" puts the focus.
+  const top = useRef<HTMLDivElement>(null)
   // Secret mode: the one picture shown with "Show", forgotten on every move
   // in the viewer (coming back included) and when it closes.
   const [revealedKey, setRevealedKey] = useShownInSecret<string>()
@@ -128,7 +131,7 @@ export function Gallery() {
   const revealed = viewedKey !== null && revealedKey === viewedKey
 
   return (
-    <div className="space-y-4">
+    <div ref={top} tabIndex={-1} className="space-y-4 outline-none">
       <GalleryToolbar
         folders={folders}
         activeDir={activeDir}
@@ -186,6 +189,7 @@ export function Gallery() {
         />
       )}
 
+      <BackToTop top={top} />
       <CompareDialog pair={comparing} onClose={() => setComparing(null)} secret={secret} />
       <ImageLightbox
         items={items}

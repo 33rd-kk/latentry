@@ -27,7 +27,9 @@ location or camera data.
 
 Pictures load newest first as you scroll (see [Order and
 filters](#order-and-filters) for other orders); what is on screen stays in
-place while more load.
+place while more load. Once you have scrolled more than a screen down, a
+round **Back to top** button at the bottom right brings you back to the
+search box and the filters.
 
 ## Search
 
