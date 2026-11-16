@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Back to top in the gallery**: once you have scrolled more than a screen
+  down, a round button at the bottom right brings you back to the top.
+- **Fixed**: on **Generate**, the buttons that choose what the source
+  picture is for, and the control kind, were cut off at the card's edge when
+  their labels were longer, as in Japanese. Long labels now wrap.
+
 - **A stricter Content Security Policy**: each page may now run only the
   scripts Latentry sent with it, marked by a random value that is new for
   every page load, and may load pictures, styles and data only from
