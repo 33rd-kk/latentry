@@ -9,6 +9,7 @@ import { GalleryPicker } from "@/components/gallery/gallery-picker"
 import { fetchPicture } from "@/hooks/use-gallery"
 import { CONTROL_STRENGTH, type ControlKind } from "@/lib/control/kinds"
 import { useT } from "@/lib/i18n"
+import { ChoiceRow } from "./choice-row"
 import { PoseDropZone } from "./pose-drop-zone"
 import { SliderLabel } from "./slider-label"
 import { toSourceImage, type SourceImage } from "./source-image-slot"
@@ -131,23 +132,13 @@ export function ControlSlot({ kinds, value, onChange, strength, onStrengthChange
         </div>
       </div>
 
-      <div className="flex gap-1" role="radiogroup" aria-labelledby={`${id}-kind`}>
-        {kinds.map((option) => (
-          <Button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={chosen === option}
-            size="sm"
-            variant={chosen === option ? "secondary" : "ghost"}
-            className="h-6 flex-1 px-1.5 text-xs"
-            onClick={() => pickKind(option)}
-            disabled={disabled || loading}
-          >
-            {t(`generate.control.kind.${option}`)}
-          </Button>
-        ))}
-      </div>
+      <ChoiceRow
+        aria-labelledby={`${id}-kind`}
+        choices={kinds.map((option) => ({ value: option, label: t(`generate.control.kind.${option}`) }))}
+        value={chosen}
+        onPick={pickKind}
+        disabled={disabled || loading}
+      />
 
       {value ? (
         <div className="space-y-2">
