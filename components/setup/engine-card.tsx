@@ -1,6 +1,7 @@
 "use client"
 
-import { Download, Loader2, Play, RotateCcw, Square, Wrench } from "lucide-react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { Download, Loader2, Play, RotateCcw, ScrollText, Square, Wrench } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,12 +14,29 @@ import { useT, type MessageKey } from "@/lib/i18n"
 import { LogView } from "./log-view"
 import { PinnedNote } from "./pinned-note"
 
+const ENGINE_LOG_HASH = "#engine-log"
+
+function subscribeHash(onChange: () => void): () => void {
+  window.addEventListener("hashchange", onChange)
+  return () => window.removeEventListener("hashchange", onChange)
+}
+
 /** Installing, starting and stopping the engine, its switches, and each engine's state and log. */
 export function EngineCard({ status: s, actions }: { status: EngineStatus; actions: EngineActions }) {
   const t = useT()
   const { pending, act, saveEngineSetting } = actions
   const installing = s.install.state === "running"
   const running = s.engines.some((engine) => engine.state === "running" || engine.state === "starting")
+  const logs = useRef<HTMLDivElement>(null)
+  // A failed run's "Open the log" button lands on #engine-log: every log
+  // starts open there, scrolled to. Elsewhere they start closed.
+  const fromLink = useSyncExternalStore(subscribeHash, () => window.location.hash === ENGINE_LOG_HASH, () => false)
+  const [toggled, setToggled] = useState<ReadonlyMap<string, boolean>>(() => new Map())
+  const haveEngines = s.engines.length > 0
+  useEffect(() => {
+    if (fromLink && haveEngines) logs.current?.scrollIntoView({ block: "start" })
+  }, [fromLink, haveEngines])
+  const toggleLog = (id: string, open: boolean) => setToggled((previous) => new Map(previous).set(id, open))
   return (
     <Card>
       <CardHeader>
@@ -97,38 +115,47 @@ export function EngineCard({ status: s, actions }: { status: EngineStatus; actio
           </span>
         </label>
 
-        {s.engines.map((engine) => (
-          <Collapsible key={engine.id} className="rounded-lg border p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-xs">{engine.id}</span>
-              <Badge variant={engine.state === "running" ? "secondary" : engine.state === "crashed" ? "destructive" : "outline"}>
-                {t(`setup.states.${engine.state}` as MessageKey)}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                {[engine.gpu, t("setup.port", { port: engine.port })].filter(Boolean).join(" · ")}
-              </span>
-              <span className="text-xs">
-                {engine.loading ? t("setup.loadingModel", { model: engine.loading }) : (engine.model ?? t("setup.noModel"))}
-              </span>
-              {engine.version && <span className="text-xs text-muted-foreground">{t("setup.engineVersion", { version: engine.version })}</span>}
-              {engine.restarts > 0 && <span className="text-xs text-muted-foreground">{t("setup.restarts", { count: engine.restarts })}</span>}
-              <CollapsibleTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs">
-                  {t("setup.log")}
-                </Button>
-              </CollapsibleTrigger>
-            </div>
-            {engine.loadError && <p className="mt-2 text-xs text-destructive">{t("setup.loadError", { error: engine.loadError })}</p>}
-            {engine.version && s.engineVersion && engine.version !== s.engineVersion && (
-              <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
-                {t("setup.engineOutdated", { running: engine.version, folder: s.engineVersion })}
-              </p>
-            )}
-            <CollapsibleContent className="pt-2">
-              <LogView lines={engine.log} />
-            </CollapsibleContent>
-          </Collapsible>
-        ))}
+        {haveEngines && (
+          <div id="engine-log" ref={logs} className="scroll-mt-20 space-y-2">
+            <p className="text-xs text-muted-foreground">{t("setup.logHint")}</p>
+            {s.engines.map((engine) => {
+              const open = toggled.get(engine.id) ?? fromLink
+              return (
+                <Collapsible key={engine.id} open={open} onOpenChange={(next) => toggleLog(engine.id, next)} className="rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs">{engine.id}</span>
+                    <Badge variant={engine.state === "running" ? "secondary" : engine.state === "crashed" ? "destructive" : "outline"}>
+                      {t(`setup.states.${engine.state}` as MessageKey)}
+                    </Badge>
+                    <span className="text-xs text-muted-foreground">
+                      {[engine.gpu, t("setup.port", { port: engine.port })].filter(Boolean).join(" · ")}
+                    </span>
+                    <span className="text-xs">
+                      {engine.loading ? t("setup.loadingModel", { model: engine.loading }) : (engine.model ?? t("setup.noModel"))}
+                    </span>
+                    {engine.version && <span className="text-xs text-muted-foreground">{t("setup.engineVersion", { version: engine.version })}</span>}
+                    {engine.restarts > 0 && <span className="text-xs text-muted-foreground">{t("setup.restarts", { count: engine.restarts })}</span>}
+                    <CollapsibleTrigger asChild>
+                      <Button variant="outline" size="sm" className="ml-auto h-7 text-xs">
+                        <ScrollText className="mr-1.5 h-3.5 w-3.5" />
+                        {t(open ? "setup.hideLog" : "setup.log")}
+                      </Button>
+                    </CollapsibleTrigger>
+                  </div>
+                  {engine.loadError && <p className="mt-2 text-xs text-destructive">{t("setup.loadError", { error: engine.loadError })}</p>}
+                  {engine.version && s.engineVersion && engine.version !== s.engineVersion && (
+                    <p className="mt-2 text-xs text-amber-600 dark:text-amber-500">
+                      {t("setup.engineOutdated", { running: engine.version, folder: s.engineVersion })}
+                    </p>
+                  )}
+                  <CollapsibleContent className="pt-2">
+                    <LogView lines={engine.log} />
+                  </CollapsibleContent>
+                </Collapsible>
+              )
+            })}
+          </div>
+        )}
       </CardContent>
     </Card>
   )

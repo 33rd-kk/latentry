@@ -30,7 +30,10 @@ picture.
   you run it.
 - **Start** / **Stop**, and **Start the engine with Latentry**. One engine
   runs per NVIDIA GPU, each with its port, state, loaded model, version and
-  **Log**. With several, a run can go to whichever is free: see
+  **Show log**. When a run fails with "The run failed inside the engine",
+  the details are in that log; the message's **Open the log** button opens
+  Setup with every engine's log shown. The log is kept only in memory on
+  this computer and is gone when Latentry stops. With several, a run can go to whichever is free: see
   [Any free GPU](many.md#any-free-gpu). An engine still running a version other than the one in
   Latentry's folder was started before an update; Setup says so, and a stop
   and start runs the new one.
@@ -55,7 +58,9 @@ next. It upscales with Lanczos only, so no upscale model is fetched or
 loaded. The second pass encodes and decodes the larger picture tile by
 tile, so it fits beside the model (and the pose ControlNet) on a 16 GB GPU.
 On Anima, hires fix and a skeleton pose do not go together yet; an SDXL
-model takes both. [Upscale](bigger.md#upscale-a-picture) works the same
+model takes both. Anima draws at most 2048 pixels a side: past that its
+transformer has no positions, so **Upscale by** stops where the longer side
+reaches 2048, and the shown size says so. [Upscale](bigger.md#upscale-a-picture) works the same
 way on a source picture: Lanczos to the larger size, then one tiled redraw.
 
 ## Models

@@ -334,7 +334,8 @@ def create_app(models_dir: Path, initial_model: str | None = None, allowed_hosts
             except Exception as error:  # noqa: BLE001
                 # An unexpected error's own text can name files and folders on this
                 # computer, and the run may come from a phone: it goes to the log only.
-                message = f"Generation failed ({type(error).__name__}). The engine's log on the computer running Latentry has the details."
+                # Latentry turns this text into its own words and a button to the log (lib/backends/diffusers.ts).
+                message = f"Generation failed ({type(error).__name__}). The engine's log has the details: on the computer running Latentry, open Setup and choose Show log."
                 if "out of memory" in str(error).lower():
                     message = "The GPU ran out of memory. Try a smaller size or fewer images."
                     try:

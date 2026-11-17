@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import { toast } from "sonner"
 import type { Translator } from "@/lib/i18n"
+import { toastRunFailed } from "./run-failed-toast"
 import { useTabMemory } from "@/lib/generate/tab-memory"
 
 // Runs this page put in a backend's queue (see lib/diffusion/run-queue.ts).
@@ -74,7 +75,7 @@ export function useRunQueue(selectedId: string | null, onStarted: (backend: stri
       const { status, error } = JSON.parse((event as MessageEvent).data)
       done()
       remove(backend, head)
-      if (status === "error") toast.error(t("generate.failed"), { description: error ? t.server(error) : t("generate.serverError") })
+      if (status === "error") toastRunFailed(t, error)
     })
     return () => {
       if (sourceRef.current?.source === source) {

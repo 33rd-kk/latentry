@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **Fixed** (engine 0.11.1): on Anima, hires fix or Upscale past 2048 pixels a side failed
+  with "Generation failed (RuntimeError)". Anima's transformer has
+  positions for at most 2048 pixels a side, so the engine now stops there,
+  shrinking both sides alike so the picture keeps its shape, and **Upscale
+  by** on Generate stops at that size too. The engine reports its limit in
+  its health as `max_side`.
+- **The engine's log is easier to find**: when a run fails inside the
+  engine, the message says where the details are, in the page's language,
+  and has an **Open the log** button. On Setup the button is now **Show
+  log**, with a line saying what the log is for and that it is kept only in
+  memory.
+
 - **The header fits a narrow phone**: on a screen narrower than 400px the
   page no longer scrolls sideways. The name **Latentry** is left out there
   (the Generate icon leads to the same page), and on a phone the secret mode

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react"
 import { toast } from "sonner"
 import type { Translator } from "@/lib/i18n"
+import { toastRunFailed } from "./run-failed-toast"
 import { keepEarlier, type EarlierRun } from "@/lib/generate/earlier"
 import { useTabMemory } from "@/lib/generate/tab-memory"
 
@@ -207,7 +208,7 @@ export function useJobWatch(selectedId: string | null, refreshBackends: () => vo
         // Only announce an ending this page watched happen.
         if (!wasRunning) return
         if (ended === "cancelled") toast(t("generate.cancelled"))
-        else if (ended === "error") toast.error(t("generate.failed"), { description: error ? t.server(error) : t("generate.serverError") })
+        else if (ended === "error") toastRunFailed(t, error)
       })
       // No onerror handler: EventSource reconnects by itself, and the reconnect
       // re-sends the snapshot.

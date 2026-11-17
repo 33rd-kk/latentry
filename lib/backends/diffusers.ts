@@ -5,8 +5,9 @@
 // The events are already the common vocabulary (see ./types), so this mostly
 // forwards them, renaming fields to camelCase on the way through.
 
-import { LANCZOS } from '@/lib/diffusion/hires'
+import { HIRES_LIMITS, LANCZOS } from '@/lib/diffusion/hires'
 import { readSseFrames } from '@/lib/diffusion/sse'
+import { serverMessage } from '@/lib/i18n/core'
 import { loraName, type LoraUse } from '@/lib/image-meta'
 import { errorMessage, fetchWithTimeout, getJson, isAbortError, probeJson, redactPaths, refuseRedirect } from './http'
 import { controlKinds, diffusersHints, problemOf } from './hints'
@@ -54,8 +55,24 @@ interface HealthBody {
   hires?: unknown
   upscale?: unknown
   upscalers?: unknown
+  max_side?: unknown
   /** Per feature, the server's own reason it is off. */
   unavailable?: unknown
+}
+
+/**
+ * The engine's message for an error it did not expect (its text only goes to
+ * its log): said in the page's language, which also gives the toast a button
+ * to the log. Any other message passes through.
+ */
+export function engineFailure(message: string): string {
+  const match = /^Generation failed \(([A-Za-z_][\w.]{0,80})\)\. The engine's log /.exec(message)
+  return match ? serverMessage('generate.engineFailed', { error: match[1] }) : message
+}
+
+/** The health's `max_side`, when it is a whole number Latentry can use (256 to HIRES_LIMITS.maxSide). */
+export function healthMaxSide(value: unknown): { maxSide?: number } {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 256 && value <= HIRES_LIMITS.maxSide ? { maxSide: value } : {}
 }
 
 function stringList(value: unknown): string[] | null {
@@ -135,6 +152,7 @@ export class DiffusersAdapter implements BackendAdapter {
         hires,
         // The same: one that does not would redraw at the form's size instead.
         upscale,
+        ...healthMaxSide(health?.max_side),
       },
       hints: diffusersHints(health as Record<string, unknown> | null),
       // The engine lists only what the loaded model can use (Anima: Default).
@@ -322,7 +340,7 @@ export function toEvent(event: string, data: Record<string, unknown>): BackendEv
     case 'cancelled':
       return { type: 'cancelled' }
     case 'error':
-      return { type: 'error', message: typeof data.message === 'string' ? redactPaths(data.message) : 'The backend reported an error.' }
+      return { type: 'error', message: typeof data.message === 'string' ? engineFailure(redactPaths(data.message)) : 'The backend reported an error.' }
     default:
       return null
   }

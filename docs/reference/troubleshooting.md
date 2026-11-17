@@ -48,7 +48,13 @@ Run `docker compose exec latentry npm run owner-code` and pair again.
 [Setup](../guide/engine.md) and press **Repair / update**: the engine's
 Python packages follow Latentry's version.
 
-**"Stopped after repeated crashes".** Open its **Log** on the Setup page. A
+**"The run failed inside the engine".** The error's own text can name files
+and folders, so it goes only to the engine's log on the computer running
+Latentry. Press **Open the log** on the message there, or open Setup and
+press **Show log** on the engine. The last lines say what went wrong. The
+log is gone once Latentry stops, so look before restarting.
+
+**"Stopped after repeated crashes".** Open its **Show log** on the Setup page. A
 common cause is another program holding the GPU's memory: the engine plans
 from the memory that is free when it starts, so close the other program and
 press **Start**.

@@ -28,6 +28,8 @@ from . import anima_inpaint, ip_adapter, loras, pipelines, pose_control, sampler
 from .gpu import GpuPlan
 from .models import FAMILY_ANIMA, FAMILY_SDXL, ModelInfo
 from .pictures import (
+    ANIMA_MAX_SIDE,
+    MAX_HIRES_SIDE,
     encode_png,
     fit_to_image,
     flatten,
@@ -197,6 +199,8 @@ class Engine:
             "hires": family in (FAMILY_SDXL, FAMILY_ANIMA),
             "upscale": family in (FAMILY_SDXL, FAMILY_ANIMA),
             "upscalers": UPSCALERS,
+            # The largest side hires fix and upscale draw at (Anima: its transformer's positions).
+            "max_side": ANIMA_MAX_SIDE if family == FAMILY_ANIMA else MAX_HIRES_SIDE,
             # Why each feature is off, for Latentry to show (docs/backend-api.md).
             "unavailable": self._unavailable(family),
         }
@@ -444,7 +448,8 @@ class Engine:
         pipe.scheduler = samplers.configure(loaded.base_scheduler, request.sampler, request.scheduler, loaded.family)
         source = flatten(request.init_image) if request.init_image is not None else None
         if request.upscale and source is not None:
-            width, height = hires_size(source.width, source.height, request.hr_scale, 16)
+            # At most ANIMA_MAX_SIDE a side: past it the transformer has no positions.
+            width, height = hires_size(source.width, source.height, request.hr_scale, 16, ANIMA_MAX_SIDE)
         else:
             width, height = fit_to_image(source, request.width, request.height, 16) if source else (snap(request.width, 16), snap(request.height, 16))
         if source is not None:
@@ -454,7 +459,7 @@ class Engine:
         hires = request.hr_scale is not None and source is None
         hires_steps = 0
         if hires:
-            hires_width, hires_height = hires_size(width, height, request.hr_scale, 16)
+            hires_width, hires_height = hires_size(width, height, request.hr_scale, 16, ANIMA_MAX_SIDE)
             hires_schedule_steps = hires_schedule(request.hr_steps or request.num_inference_steps, request.hr_denoise, loaded.family)
             hires_steps = img2img_steps(hires_schedule_steps, request.hr_denoise, loaded.family)
         total_steps = steps + hires_steps

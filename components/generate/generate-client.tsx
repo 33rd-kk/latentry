@@ -500,7 +500,7 @@ export function GenerateClient() {
   }
 
   const outputSize = upscaling && sourceImage
-    ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple)
+    ? hiresSize(sourceImage.width, sourceImage.height, form.hrScale, profile.sizeMultiple, capabilities?.maxSide)
     : extending && sourceImage
       ? outpaintCanvas(sourceImage, extendSides)
     : fixingFaces && sourceImage
@@ -611,6 +611,7 @@ export function GenerateClient() {
                       upscalers={upscalers}
                       upscaler={upscaler}
                       sizeMultiple={profile.sizeMultiple}
+                      maxSide={capabilities.maxSide}
                       embedded={{ base: sourceImage, maxScale: HIRES_LIMITS.maxScale }}
                     />
                   )
@@ -685,6 +686,7 @@ export function GenerateClient() {
                 upscalers={status.upscalers}
                 upscaler={upscaler}
                 sizeMultiple={profile.sizeMultiple}
+                maxSide={capabilities?.maxSide}
               />
             )}
             {showGrid && (

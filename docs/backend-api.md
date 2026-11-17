@@ -46,6 +46,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
   "tagger": true,
   "hires": true,
   "upscalers": ["Lanczos"],
+  "max_side": 4096,
   "unavailable": { "inpaint": "This model has no inpainting pipeline." }
 }
 ```
@@ -62,6 +63,7 @@ should answer `401` when it is missing or wrong. `/api/health` and
 | `samplers`, `schedulers` | no | The values `/api/generate` accepts. Without them the UI offers `Default, Euler, DPM++ 2M, UniPC` and `Default, Karras, Exponential`. `Default` means "the server's choice". |
 | `tagger` | no | `false` hides WD14 tagging for this backend. |
 | `hires`, `upscalers` | no | `hires: true` enables hires fix (the `hr_*` fields below). `upscalers` lists the `hr_upscaler` values it takes; without it, `["Lanczos"]`. |
+| `max_side` | no | The longest side, in pixels, the loaded model can draw at with hires fix or upscale (256–4096). The page keeps its scale slider within it. Without it, 4096. Latentry's engine sends 2048 for Anima. |
 | `upscale` | no | `true` enables Upscale: a source sent with `upscale: true` and the `hr_*` fields. |
 | `unavailable` | no | Why a feature is off, keyed `img2img`, `inpaint`, `pose` or `hires`: one plain-text sentence each, shown to the user next to the missing feature. Latentry shows it as text only and keeps the first 200 characters. Without it, Latentry says which field is missing. |
 
@@ -127,7 +129,8 @@ steps.
   an IP-Adapter, at `ip_adapter_scale` (0–1, 0.3 by default). It may come
   with a pose and a control picture.
 - **Hires fix** (servers with `hires: true`, txt2img and pose only): each
-  picture is upscaled by `hr_scale` (1–4, at most 4096 pixels a side) with
+  picture is upscaled by `hr_scale` (1–4, at most 4096 pixels a side, or
+  the health's `max_side`) with
   `hr_upscaler` (one of the health's `upscalers`), then redrawn at
   `hr_denoise` (0.01–1). The second pass runs exactly `hr_steps` steps, or
   `num_inference_steps` when it is 0, as in A1111 and ComfyUI. All four
@@ -136,7 +139,7 @@ steps.
 - **Upscale** (servers with `upscale: true`): `"upscale": true` with
   `init_image_base64` and the four `hr_*` fields, and no mask or pose. The
   source is upscaled from its own size by `hr_scale` (at most 4096 pixels a
-  side) with `hr_upscaler`, then redrawn once at `hr_denoise` for exactly
+  side, or the health's `max_side`) with `hr_upscaler`, then redrawn once at `hr_denoise` for exactly
   `hr_steps` steps (`num_inference_steps` when 0). `width`, `height` and
   `strength` are not used. `start.steps` is that one pass.
 - **LoRAs** (servers with `lora: true`): the prompt's `<lora:name:weight>`

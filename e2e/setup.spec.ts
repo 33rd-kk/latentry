@@ -91,8 +91,11 @@ test('the engine card: start, stop and the switches', async ({ page }) => {
   await expect(page.getByText('Stopped', { exact: true })).toBeVisible()
   expect(calls.map((call) => call.path)).toEqual(['/api/engine/start', '/api/engine/stop'])
 
-  await page.getByRole('button', { name: 'Log' }).click()
+  await expect(page.getByText('engine log line')).toBeHidden()
+  await page.getByRole('button', { name: 'Show log' }).click()
   await expect(page.getByText('engine log line')).toBeVisible()
+  await page.getByRole('button', { name: 'Hide log' }).click()
+  await expect(page.getByText('engine log line')).toBeHidden()
 
   await page.getByRole('switch', { name: 'Start the engine with Latentry' }).click()
   await expect.poll(() => calls.at(-1)).toEqual({ method: 'PUT', path: '/api/settings', body: { engine: { autoStart: true } } })
@@ -100,6 +103,15 @@ test('the engine card: start, stop and the switches', async ({ page }) => {
   // generate.md and network.md send people here for the LoRA list on paired devices.
   await page.getByRole('switch', { name: 'Show the LoRA list on paired devices' }).click()
   await expect.poll(() => calls.at(-1)).toEqual({ method: 'PUT', path: '/api/settings', body: { engine: { shareLoras: true } } })
+})
+
+test("a failed run's link to the log opens every engine's log", async ({ page }) => {
+  await fakeEngine(page)
+  await page.goto('/setup#engine-log')
+  await expect(page.getByText('engine log line')).toBeVisible()
+  await expect(page.getByText('When a generation fails, Show log has the details.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Hide log' }).click()
+  await expect(page.getByText('engine log line')).toBeHidden()
 })
 
 test('packages installed with LATENTRY_ENGINE_PACKAGES=latest are said to be unpinned', async ({ page }) => {

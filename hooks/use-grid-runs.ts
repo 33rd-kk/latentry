@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { toast } from "sonner"
 import type { Translator } from "@/lib/i18n"
+import { toastRunFailed } from "./run-failed-toast"
 import type { GridAxis } from "@/lib/generate/grid"
 import { useTabMemory } from "@/lib/generate/tab-memory"
 
@@ -149,7 +150,7 @@ export function useGridRuns(selectedId: string | null, t: Translator): GridRuns 
           // Cells that never started stay as they were, said as not run.
           cells: grid.cells.map((view) => (view.status === "running" ? { ...view, status: "gone", progress: null } : view)),
         }))
-        if (status === "error") toast.error(t("generate.failed"), { description: error ? t.server(error) : t("generate.serverError") })
+        if (status === "error") toastRunFailed(t, error)
       })
     }
     // Keyed by the set of grids going, not by their every change.

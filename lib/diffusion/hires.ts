@@ -14,9 +14,15 @@ export const LANCZOS = 'Lanczos'
 export const HIRES_DEFAULTS = { scale: 2, steps: 0, denoise: 0.4, upscaler: LANCZOS } as const
 export const HIRES_LIMITS = { minScale: 1, maxScale: 4, maxSteps: 200, minDenoise: 0.01, maxDenoise: 1, maxSide: 4096 } as const
 
-/** The size a hires run (or an upscale, from its source's size) ends at: each side scaled, rounded to the model's multiple, at most HIRES_LIMITS.maxSide. */
-export function hiresSize(width: number, height: number, scale: number, multiple = 8): { width: number; height: number } {
-  const side = (value: number) => Math.max(multiple, Math.min(HIRES_LIMITS.maxSide, Math.round((value * scale) / multiple) * multiple))
+/**
+ * The size a hires run (or an upscale, from its source's size) ends at: each
+ * side scaled and rounded to the model's multiple. A scale that would take
+ * the longer side past `maxSide` is lowered for both, so the picture keeps
+ * its shape. The engine's hires_size.
+ */
+export function hiresSize(width: number, height: number, scale: number, multiple = 8, maxSide: number = HIRES_LIMITS.maxSide): { width: number; height: number } {
+  const fitted = Math.min(scale, maxSide / Math.max(width, height, 1))
+  const side = (value: number) => Math.max(multiple, Math.min(maxSide, Math.round((value * fitted) / multiple) * multiple))
   return { width: side(width), height: side(height) }
 }
 
@@ -34,9 +40,9 @@ export function hiresSchedule(steps: number, denoise: number, profile?: string):
   return asked
 }
 
-/** The largest scale that keeps both sides within HIRES_LIMITS.maxSide. */
-export function maxHiresScale(width: number, height: number): number {
-  return Math.min(HIRES_LIMITS.maxScale, HIRES_LIMITS.maxSide / Math.max(width, height, 1))
+/** The largest scale that keeps both sides within `maxSide` (the backend's, else HIRES_LIMITS.maxSide). */
+export function maxHiresScale(width: number, height: number, maxSide: number = HIRES_LIMITS.maxSide): number {
+  return Math.min(HIRES_LIMITS.maxScale, maxSide / Math.max(width, height, 1))
 }
 
 /** Steps the second pass runs, or 0 when the request has no hires fix. */
