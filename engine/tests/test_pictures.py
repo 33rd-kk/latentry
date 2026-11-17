@@ -74,6 +74,15 @@ def test_hires_size_scales_past_the_first_pass_limit():
     assert pictures.hires_size(2048, 2048, 4) == (4096, 4096)
 
 
+def test_hires_size_keeps_the_shape_at_the_limit():
+    # Past the limit both sides shrink by the same factor, not only the longer one.
+    assert pictures.hires_size(1216, 832, 2, 16, pictures.ANIMA_MAX_SIDE) == (2048, 1408)
+    assert pictures.hires_size(832, 1216, 2, 16, pictures.ANIMA_MAX_SIDE) == (1408, 2048)
+    assert pictures.hires_size(3000, 1000, 2) == (4096, 1368)
+    # Within it, nothing changes.
+    assert pictures.hires_size(1024, 1024, 2, 16, pictures.ANIMA_MAX_SIDE) == (2048, 2048)
+
+
 @pytest.mark.parametrize("family", [FAMILY_SDXL, FAMILY_ANIMA])
 @pytest.mark.parametrize("steps,denoise", [(10, 0.4), (28, 0.35), (20, 1.0), (1, 0.05), (30, 0.55)])
 def test_hires_schedule_runs_the_steps_asked_for(family, steps, denoise):

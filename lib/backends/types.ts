@@ -59,6 +59,8 @@ export interface Capabilities {
   hires: boolean
   /** Upscale: the source picture itself upscaled and redrawn by the hr_* fields (`upscale: true`). */
   upscale: boolean
+  /** The longest side hires fix and upscale can reach with the loaded model; absent: HIRES_LIMITS.maxSide. */
+  maxSide?: number
   /** The control pictures it follows (control_* fields on generate), beside pose; absent or empty: none. */
   control?: readonly ControlKind[]
   /** A reference picture's look (IP-Adapter: ip_adapter_* fields on generate). */

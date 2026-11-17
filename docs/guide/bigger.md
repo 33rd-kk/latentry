@@ -41,7 +41,8 @@ gallery's side panel, or set the picture as the source and pick **Upscale**
 under **What the source is for**. The picture's own prompts come along when
 it has them; otherwise use the ones in the form. The same knobs as hires fix
 appear in the source slot: **Upscaler**, **Upscale by** (from the picture's
-own size, up to 4096 pixels a side), **Hires steps** (at 0, the form's
+own size, up to 4096 pixels a side, or 2048 with Anima on Latentry's
+engine), **Hires steps** (at 0, the form's
 Steps) and **Denoising strength**. Width and Height are not used.
 
 - An A1111 or Forge web UI enlarges the picture in its Extras tab with the

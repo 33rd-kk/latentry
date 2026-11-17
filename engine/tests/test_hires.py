@@ -157,3 +157,52 @@ def test_upscale_is_refused_without_its_parts(engine) -> None:
         run(engine, GenerateRequest(prompt="x", upscale=True, hr_scale=2))
     with pytest.raises(EngineError, match="mask, a pose, a control picture or a reference"):
         run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (64, 64)), mask=Image.new("L", (64, 64)), upscale=True, hr_scale=2))
+
+
+class StandInAnima:
+    """Anima's modular pipeline: one call per pass, answering a picture at the size asked."""
+
+    def __init__(self) -> None:
+        self.transformer = torch.nn.Identity()
+        self.vae = StandInVae()
+        self.scheduler = None
+        self.calls: list[dict] = []
+
+    def __call__(self, **arguments):
+        self.calls.append(arguments)
+        return type("Output", (), {"images": [Image.new("RGB", (arguments["width"], arguments["height"]), (128, 128, 128))]})()
+
+
+@pytest.fixture
+def anima(monkeypatch: pytest.MonkeyPatch):
+    pipe = StandInAnima()
+    engine = Engine(PLAN, Path("controls"))
+    engine.loaded = Loaded(info=None, family=FAMILY_ANIMA, pipe=pipe, base_scheduler=None)
+    engine.loaded.lora_keeper = type("Keeper", (), {"applied": staticmethod(lambda pipe, calls: contextlib.nullcontext())})()
+    monkeypatch.setattr(core.samplers, "configure", lambda base, sampler, schedule, family=None: "scheduler")
+    return engine, pipe
+
+
+def test_anima_hires_fix_stops_at_2048_a_side_and_keeps_the_shape(anima) -> None:
+    # 1216 x 832 at 2 would be 2432 wide, past the transformer's positions.
+    engine, pipe = anima
+    events = run(engine, GenerateRequest(prompt="x", width=1216, height=832, seed=1, num_inference_steps=4, hr_scale=2))
+    assert [(call["width"], call["height"]) for call in pipe.calls] == [(1216, 832), (2048, 1408)]
+    assert pipe.calls[1]["image"].size == (2048, 1408)
+    assert pictures.decode_image(next(data for event, data in events if event == "image")["image_base64"]).size == (2048, 1408)
+
+
+def test_health_says_the_largest_side(anima) -> None:
+    engine, _pipe = anima
+    engine._pose_supported = lambda: False
+    engine._unavailable = lambda family: {}
+    assert engine.capabilities()["max_side"] == 2048
+    engine.loaded.family = FAMILY_SDXL
+    assert engine.capabilities()["max_side"] == 4096
+
+
+def test_anima_upscale_stops_at_2048_a_side(anima) -> None:
+    engine, pipe = anima
+    run(engine, GenerateRequest(prompt="x", init_image=Image.new("RGB", (1600, 1200)), upscale=True, hr_scale=2, hr_denoise=0.4, num_inference_steps=4))
+    assert [(call["width"], call["height"]) for call in pipe.calls] == [(2048, 1536)]
+    assert pipe.calls[0]["image"].size == (2048, 1536)

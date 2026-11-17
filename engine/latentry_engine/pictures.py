@@ -66,16 +66,24 @@ def img2img_steps(steps: int, strength: float, family: str) -> int:
 # Hires fix's size is not snapped to 2048 like a first pass: Latentry allows
 # up to 4096 a side, and decodes large canvases tile by tile.
 MAX_HIRES_SIDE = 4096
+# Anima's transformer (diffusers' Cosmos) has rotary positions for 128 patches
+# a side; one patch is 16 pixels (2x2 on the 1/8 latent). A larger canvas
+# fails inside the transformer with "Sizes of tensors must match".
+ANIMA_MAX_SIDE = 2048
 # The most steps a schedule is asked for, so a low denoise cannot ask for
 # thousands (the schedulers train on 1000 timesteps).
 MAX_SCHEDULE_STEPS = 1000
 
 
-def hires_size(width: int, height: int, scale: float, multiple: int = 8) -> tuple[int, int]:
-    """The size hires fix redraws at: each side scaled and rounded to the multiple (Latentry's hiresSize)."""
+def hires_size(width: int, height: int, scale: float, multiple: int = 8, max_side: int = MAX_HIRES_SIDE) -> tuple[int, int]:
+    """The size hires fix redraws at: each side scaled and rounded to the multiple (Latentry's hiresSize).
+
+    A scale that would take the longer side past `max_side` is lowered for
+    both sides, so the picture keeps its shape."""
+    scale = min(scale, max_side / max(width, height, 1))
 
     def side(value: int) -> int:
-        return max(multiple, min(MAX_HIRES_SIDE, round(value * scale / multiple) * multiple))
+        return max(multiple, min(max_side, round(value * scale / multiple) * multiple))
 
     return side(width), side(height)
 

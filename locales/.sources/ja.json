@@ -685,7 +685,7 @@
   "setup.loadingModel": "loading {model}…",
   "setup.loadError": "Loading failed: {error}",
   "setup.restarts": "{count} restarts",
-  "setup.log": "Log",
+  "setup.log": "Show log",
   "setup.autoStart": "Start the engine with Latentry",
   "setup.shareLoras": "Show the LoRA list on paired devices",
   "setup.shareLorasHint": "Phones and other paired devices get Add a LoRA on the generate page. The list shows the names of the LoRA files on this computer. Off: only this computer gets it.",
@@ -876,5 +876,9 @@
   "generate.reference.show": "Show",
   "generate.reference.scale": "Reference strength: {value}",
   "generate.reference.hint": "Takes the picture's look (colours, style, a character's appearance) with IP-Adapter. Unlike a control picture, the reference itself goes to the backend.",
-  "generate.reference.failed": "Could not read that picture."
+  "generate.reference.failed": "Could not read that picture.",
+  "generate.engineFailed": "The run failed inside the engine ({error}). The details are in the engine's log: on the computer running Latentry, open Setup and choose Show log.",
+  "generate.openEngineLog": "Open the log",
+  "setup.logHint": "When a generation fails, Show log has the details. The log is kept only in this computer's memory, and is gone when Latentry stops.",
+  "setup.hideLog": "Hide log"
 }

@@ -10,12 +10,13 @@ import type { AddressInfo } from 'node:net'
 import sharp from 'sharp'
 import { check, done, eq } from './assert'
 import { modeOf, toGenerateRequest } from '../lib/api'
-import { hiresSchedule } from '../lib/diffusion/hires'
+import { HIRES_LIMITS, hiresSchedule, hiresSize, maxHiresScale } from '../lib/diffusion/hires'
 import { A1111Adapter } from '../lib/backends/a1111'
 import { seedsFromInfo, toA1111Payload } from '../lib/backends/a1111-payload'
 import { chooseTaggerModel, parseTaggerCaption } from '../lib/backends/a1111-tagger'
 import type { A1111Transport } from '../lib/backends/a1111-transport'
-import { DiffusersAdapter, listedOr, toEvent } from '../lib/backends/diffusers'
+import { DiffusersAdapter, engineFailure, healthMaxSide, listedOr, toEvent } from '../lib/backends/diffusers'
+import { localizeServerText } from '../lib/i18n/core'
 import { openBackendWarning } from '../lib/backends/exposure'
 import { errorMessage, REDIRECT_REFUSED, redactPaths } from '../lib/backends/http'
 import { recordFor } from '../lib/gallery/save'
@@ -126,6 +127,37 @@ async function main() {
   )
   eq(errorMessage({ detail: 'No model at E:\\sd\\x.ckpt' }, 'x'), 'No model at <path>', 'errorMessage hides them too')
   eq(toEvent('heartbeat', {}), null, 'unknown events are ignored')
+
+  // The engine's own failure (details only in its log) is said in the page's
+  // language, which also gives the toast its button to the log.
+  const failed = "Generation failed (RuntimeError). The engine's log has the details: on the computer running Latentry, open Setup and choose Show log."
+  const failedEvent = toEvent('error', { message: failed })
+  check(failedEvent?.type === 'error' && failedEvent.message === engineFailure(failed) && failedEvent.message !== failed, 'the engine failure becomes a server message')
+  eq(
+    failedEvent?.type === 'error' ? [localizeServerText('en', failedEvent.message), localizeServerText('ja', failedEvent.message)] : null,
+    [
+      "The run failed inside the engine (RuntimeError). The details are in the engine's log: on the computer running Latentry, open Setup and choose Show log.",
+      'エンジンの中でエラーが起き、生成が止まりました（RuntimeError）。詳しい内容はエンジンのログにあります。Latentry を動かしているパソコンで「セットアップ」を開き、「ログを表示」を押してください。',
+    ],
+    "and reads in English and Japanese with the error's type"
+  )
+  check(
+    engineFailure("Generation failed (OutOfMemoryError). The engine's log on the computer running Latentry has the details.") !==
+      "Generation failed (OutOfMemoryError). The engine's log on the computer running Latentry has the details.",
+    "an engine from before this change is read the same way"
+  )
+  eq(engineFailure("Generation failed (x y). The engine's log has it"), "Generation failed (x y). The engine's log has it", 'anything not shaped like a type name passes through')
+  eq(engineFailure('The GPU ran out of memory.'), 'The GPU ran out of memory.', 'other messages pass through')
+
+  // ── The longest side the loaded model can reach ──
+  eq([healthMaxSide(2048), healthMaxSide(4096), healthMaxSide(8192), healthMaxSide(100), healthMaxSide(2048.5), healthMaxSide('2048'), healthMaxSide(undefined)],
+    [{ maxSide: 2048 }, { maxSide: 4096 }, {}, {}, {}, {}, {}],
+    'max_side: a whole number from 256 to 4096, else none')
+  eq(hiresSize(1216, 832, 2, 16, 2048), { width: 2048, height: 1408 }, 'past the limit both sides shrink alike (Anima: 2432 x 1664 is 2048 x 1408)')
+  eq(hiresSize(832, 1216, 2, 16, 2048), { width: 1408, height: 2048 }, 'and tall the same')
+  eq(hiresSize(832, 1216, 2), { width: 1664, height: 2432 }, 'without one, 4096 as before')
+  eq(hiresSize(3000, 1000, 2), { width: HIRES_LIMITS.maxSide, height: 1368 }, 'and at 4096 the shape is kept too')
+  eq([maxHiresScale(1216, 832, 2048), maxHiresScale(1024, 1024), maxHiresScale(1024, 1024, 2048)], [2048 / 1216, 4, 2], 'the largest scale within the side')
 
   // ── A1111 helpers ──
   eq(seedsFromInfo('{"all_seeds":[5,6]}'), [5, 6], 'seeds from the info string')

@@ -18,6 +18,8 @@ interface HiresSectionProps {
   /** The upscaler as the backend accepts it. */
   upscaler: string
   sizeMultiple: number
+  /** The longest side the backend's model can reach (Anima: 2048); absent: HIRES_LIMITS.maxSide. */
+  maxSide?: number
   disabled?: boolean
   /**
    * Upscale of a source picture: no switch or frame (it sits in the source
@@ -31,13 +33,13 @@ interface HiresSectionProps {
  * pass draws at the size above; this one upscales it and redraws the detail.
  * Embedded in the source slot, the same knobs upscale the source itself.
  */
-export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, disabled, embedded }: HiresSectionProps) {
+export function HiresSection({ form, update, upscalers, upscaler, sizeMultiple, maxSide, disabled, embedded }: HiresSectionProps) {
   const t = useT()
   const sliderId = useId()
   const base = embedded?.base ?? { width: form.width, height: form.height }
-  const maxScale = Math.max(1, Math.floor(Math.min(embedded?.maxScale ?? 2, maxHiresScale(base.width, base.height)) * 20) / 20)
+  const maxScale = Math.max(1, Math.floor(Math.min(embedded?.maxScale ?? 2, maxHiresScale(base.width, base.height, maxSide)) * 20) / 20)
   const scale = Math.min(form.hrScale, maxScale)
-  const target = hiresSize(base.width, base.height, scale, sizeMultiple)
+  const target = hiresSize(base.width, base.height, scale, sizeMultiple, maxSide)
   const on = embedded ? true : form.hires
   return (
     <div className={embedded ? "space-y-3" : "space-y-3 rounded-md border px-3 py-2.5"}>
