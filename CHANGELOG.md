@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Gallery-only mode**: for looking through your pictures without
+  generating. A switch on **Settings > How you use it** (or
+  `LATENTRY_MODE=gallery`) makes the gallery the home page, takes
+  **Generate** out of the header and the viewer, stops the engine, contacts
+  no backend, and closes the API for generating, the engine and model
+  downloads. Search, filters, stacks, stars, tags, paired phones and
+  tagging with the built-in WD14 model keep working, and Setup offers just
+  the tagger. Off by default; existing installs are unchanged. See
+  [Gallery-only mode](https://33rd-kk.github.io/latentry/guide/gallery-only/).
 - **Fixed** (engine 0.11.1): on Anima, hires fix or Upscale past 2048 pixels a side failed
   with "Generation failed (RuntimeError)". Anima's transformer has
   positions for at most 2048 pixels a side, so the engine now stops there,

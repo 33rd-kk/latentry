@@ -1,7 +1,7 @@
 // The gallery's view of its folders: listing, safe name resolution, and
 // reading each picture's size and settings without loading it whole.
 
-import { open, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
+import { open, opendir, readdir, realpath, stat, type FileHandle } from 'node:fs/promises'
 import type { BigIntStats } from 'node:fs'
 import path from 'node:path'
 import { metaFromText, readImageInfo, type ImageMeta } from '../image-meta'
@@ -159,6 +159,24 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
     )
   }
   return entries
+}
+
+/**
+ * Whether the folder holds at least one picture. Stops at the first one, so
+ * a large folder is not read through; a folder that is not there has none.
+ */
+export async function hasPictures(dir: GalleryDir): Promise<boolean> {
+  const cached = listings.get(dir.path)
+  if (cached && Date.now() - cached.at < LISTING_TTL_MS) return cached.entries.length > 0
+  try {
+    // The loop closes the folder when it ends, by return or otherwise.
+    for await (const entry of await opendir(dir.path)) {
+      if ((entry.isFile() || entry.isSymbolicLink()) && isSafeName(entry.name)) return true
+    }
+    return false
+  } catch {
+    return false
+  }
 }
 
 /** Forgets a folder's listing, after a file in it was written. */

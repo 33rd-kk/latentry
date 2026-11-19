@@ -112,8 +112,21 @@ export interface WildcardsSettings {
   share?: boolean
 }
 
+/**
+ * How Latentry is used: `full` generates and browses; `gallery` only browses,
+ * with generation, the engine and model downloads off (see lib/mode.ts).
+ */
+export const APP_MODES = ['full', 'gallery'] as const
+export type AppMode = (typeof APP_MODES)[number]
+
+export function isAppMode(value: unknown): value is AppMode {
+  return typeof value === 'string' && (APP_MODES as readonly string[]).includes(value)
+}
+
 export interface Settings {
   version: typeof SETTINGS_VERSION
+  /** Absent: not chosen yet, which works as `full`. LATENTRY_MODE overrides it. */
+  mode?: AppMode
   backends?: StoredBackend[]
   /**
    * What tags pictures: BUILTIN_TAGGER, a backend id, or null for "the
@@ -211,6 +224,7 @@ export interface BackendInput {
 }
 
 export interface SettingsInput {
+  mode?: unknown
   backends?: BackendInput[] | null
   tagger?: unknown
   wd14?: { modelDir?: unknown; general?: unknown; character?: unknown } | null
@@ -234,6 +248,14 @@ export function validateSettings(
 ): { ok: true; settings: Settings } | { ok: false; errors: SettingsErrors } {
   const errors: SettingsErrors = {}
   const next: Settings = { version: SETTINGS_VERSION }
+
+  // Mode
+  if (input.mode === undefined) {
+    if (current.mode) next.mode = current.mode
+  } else if (input.mode !== null) {
+    if (isAppMode(input.mode)) next.mode = input.mode
+    else errors.mode = 'settings.errorList'
+  }
 
   // Backends
   if (input.backends === undefined) {
@@ -516,7 +538,7 @@ export function parseStoredSettings(raw: unknown, env: Env = process.env): Setti
   // A hand-edited file with one bad field: keep the parts that are fine.
   const parts: SettingsInput = {}
   const record = raw as Record<string, unknown>
-  for (const part of ['backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine', 'wildcards'] as const) {
+  for (const part of ['mode', 'backends', 'tagger', 'wd14', 'gallery', 'profiles', 'engine', 'wildcards'] as const) {
     if (record[part] === undefined) continue
     const one = validateSettings({ [part]: record[part] } as SettingsInput, EMPTY_SETTINGS, env)
     if (one.ok) Object.assign(parts, { [part]: record[part] })

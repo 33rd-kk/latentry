@@ -29,6 +29,7 @@ import { isProfileId } from '@/lib/profiles'
 import { MAX_BACKEND_MODEL_LENGTH, sameOrigin, type Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
 import { engineBackends } from '@/lib/engine/supervisor'
+import { galleryOnly } from '@/lib/mode'
 
 type Env = Record<string, string | undefined>
 
@@ -171,6 +172,8 @@ export function getBackends(env: Env = process.env, settings: Settings = getSett
  * take the same one.
  */
 export function usableBackends(env: Env = process.env): BackendConfig[] {
+  // Gallery-only mode reaches no backend at all, not even for its status.
+  if (galleryOnly(env)) return []
   const configured = getBackends(env)
   const ids = new Set(configured.map((backend) => backend.id))
   return [...configured, ...engineBackends().filter((engine) => !ids.has(engine.id))]

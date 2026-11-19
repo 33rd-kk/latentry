@@ -192,7 +192,6 @@
   "generate.blurPicture": "Blur picture",
   "generate.fullScreen": "View full screen",
   "generate.imageAlt": "Generated image, seed {seed}",
-  "generate.save": "Download",
   "generate.saved": "In gallery",
   "generate.saveFailed": "Generated, but saving to the gallery folder failed ({reason}). Check GALLERY_SAVE_DIR.",
   "generate.useAsSource": "Use as source",
@@ -880,5 +879,18 @@
   "generate.engineFailed": "The run failed inside the engine ({error}). The details are in the engine's log: on the computer running Latentry, open Setup and choose Show log.",
   "generate.openEngineLog": "Open the log",
   "setup.logHint": "When a generation fails, Show log has the details. The log is kept only in this computer's memory, and is gone when Latentry stops.",
-  "setup.hideLog": "Hide log"
+  "setup.hideLog": "Hide log",
+  "system.galleryOnly": "Gallery-only mode is on, so generating is off. An owner can turn it off in Settings.",
+  "settings.nav.mode": "How you use it",
+  "settings.mode.title": "How you use Latentry",
+  "settings.mode.description": "Gallery-only mode only browses pictures. Generating, the engine and the backends are turned off, and so are the parts of Latentry's API that serve them.",
+  "settings.mode.galleryOnly": "Gallery-only mode",
+  "settings.mode.fromEnv": "Set by LATENTRY_MODE={mode} in the environment. Change it there and restart Latentry.",
+  "settings.mode.saveFirst": "Save or discard your other changes first.",
+  "settings.mode.keeps": "Still there",
+  "settings.mode.keepsList": "Every gallery folder, search and filters, stacks, Compare, ratings and tags, downloads, paired phones and secret mode. Tagging with the built-in WD14 model, which runs in Latentry itself.",
+  "settings.mode.stops": "Turned off",
+  "settings.mode.stopsList": "Generating and everything on its page, the engine (stopped if it is running), model and LoRA downloads, connections to backends (their taggers too), wildcards and model info.",
+  "setup.galleryOnly": "Gallery-only mode is on: only the WD14 tagger is set up here. The engine and its models are off.",
+  "setup.galleryOnlyLink": "Change it in Settings"
 }

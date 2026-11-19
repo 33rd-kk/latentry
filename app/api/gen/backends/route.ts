@@ -3,6 +3,7 @@ import { backendStatus, json } from '@/lib/api'
 import { getSettings } from '@/lib/settings/store'
 import { taggerIdFrom } from '@/lib/tagger'
 import { poolOf } from '@/lib/diffusion/gpu-pool'
+import { appMode } from '@/lib/mode'
 
 export const runtime = 'nodejs'
 
@@ -21,6 +22,8 @@ export async function GET() {
   )
   const tagger = taggerIdFrom(statuses)
   // Profile defaults changed on the settings page ride along: the form needs
-  // them at the same moment it learns which backend it is filling in.
-  return json({ backends: statuses, tagger, profiles: getSettings().profiles ?? {} })
+  // them at the same moment it learns which backend it is filling in. The mode
+  // tells every page whether to offer generating at all (lib/mode.ts); in
+  // gallery-only mode the list above is empty.
+  return json({ backends: statuses, tagger, profiles: getSettings().profiles ?? {}, mode: appMode() })
 }

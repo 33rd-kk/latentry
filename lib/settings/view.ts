@@ -12,7 +12,8 @@ import type { BackendKind } from '@/lib/backends/types'
 import type { TagStyle } from '@/lib/tags'
 import { getSettings, settingsPath } from './store'
 import packageJson from '../../package.json'
-import type { ProfileOverride, Settings } from './schema'
+import type { AppMode, ProfileOverride, Settings } from './schema'
+import { appMode, modeFromEnv } from '@/lib/mode'
 
 type Source = 'settings' | 'env'
 
@@ -33,6 +34,8 @@ export interface SettingsView {
   /** Latentry's own version, so the owner can match it against advisories (shown to this computer only, like the rest). */
   version: string
   file: string
+  /** Gallery-only or full: what the file says (null: not chosen), what LATENTRY_MODE says, and the result. */
+  mode: { chosen: AppMode | null; env: AppMode | null; inEffect: AppMode }
   backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; controlnets: Partial<Record<ControlKind, string>>; workflowsDir: string | null; shareWorkflows: boolean }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
@@ -76,6 +79,7 @@ export function settingsView(access: AccessView, settings: Settings = getSetting
     access,
     version: packageJson.version,
     file: settingsPath(),
+    mode: { chosen: settings.mode ?? null, env: modeFromEnv(), inEffect: appMode(process.env, settings) },
     backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, controlnets, workflowsDir, shareWorkflows }) => ({
       id,
       kind,

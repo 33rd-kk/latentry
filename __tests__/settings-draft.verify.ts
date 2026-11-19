@@ -27,6 +27,7 @@ const view: SettingsView = {
   access: { mode: 'local', plainHttp: false },
   version: '0.0.0',
   file: '/config/settings.json',
+  mode: { chosen: null, env: null, inEffect: 'full' },
   backends: [
     { id: 'box', kind: 'a1111', url: 'http://127.0.0.1:7860/', profile: 'sdxl', token: 'settings', model: null, controlnet: null, controlnets: {}, workflowsDir: null, shareWorkflows: false },
     { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188/', profile: 'anima', token: null, model: 'base.safetensors', controlnet: 'sdxl/openpose.safetensors', controlnets: { depth: 'sdxl/union.safetensors' }, workflowsDir: '/workflows', shareWorkflows: true },

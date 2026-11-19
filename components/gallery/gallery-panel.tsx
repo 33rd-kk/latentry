@@ -19,6 +19,8 @@ interface GalleryPanelProps {
   canTag: boolean
   /** Whether this browser is on the machine itself, so the picture can be shown in its file manager. */
   canOpen: boolean
+  /** False in gallery-only mode (lib/mode.ts): no way into the generate page is offered. */
+  canGenerate: boolean
   secret: boolean
   /** In secret mode: whether this picture was shown (its image and what describes it). */
   revealed: boolean
@@ -48,7 +50,7 @@ const WD14_CHARACTER = 4
  * tags, and the ways back into the form. The viewer sits above every toast,
  * so outcomes are said here, in the panel.
  */
-export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revealed, onReveal, onSearch, onMetaChange, onRate, rateError }: GalleryPanelProps) {
+export function GalleryPanel({ picture, writable, canTag, canOpen, canGenerate, secret, revealed, onReveal, onSearch, onMetaChange, onRate, rateError }: GalleryPanelProps) {
   const t = useT()
   const router = useRouter()
   const meta = picture.meta
@@ -217,28 +219,32 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
       )}
 
       <div className="flex flex-wrap gap-1">
-        {meta && meta.prompt && (
+        {canGenerate && meta && meta.prompt && (
           <button type="button" className={action} onClick={sendSettings} title={t("gallery.useSettingsHint")}>
             <Wand2 className="h-3 w-3" />
             {t("gallery.useSettings")}
           </button>
         )}
-        <button type="button" className={action} onClick={() => sendSource("variation")} title={t("gallery.useAsSourceHint")}>
-          <ImageUp className="h-3 w-3" />
-          {t("gallery.useAsSource")}
-        </button>
-        <button type="button" className={action} onClick={() => sendSource("pose")} title={t("gallery.useAsPoseHint")}>
-          <PersonStanding className="h-3 w-3" />
-          {t("gallery.useAsPose")}
-        </button>
-        <button type="button" className={action} onClick={() => sendSource("upscale")} title={t("gallery.upscaleHint")}>
-          <Maximize2 className="h-3 w-3" />
-          {t("gallery.upscale")}
-        </button>
-        <button type="button" className={action} onClick={() => sendSource("facefix")} title={t("gallery.fixFacesHint")}>
-          <ScanFace className="h-3 w-3" />
-          {t("gallery.fixFaces")}
-        </button>
+        {canGenerate && (
+          <>
+            <button type="button" className={action} onClick={() => sendSource("variation")} title={t("gallery.useAsSourceHint")}>
+              <ImageUp className="h-3 w-3" />
+              {t("gallery.useAsSource")}
+            </button>
+            <button type="button" className={action} onClick={() => sendSource("pose")} title={t("gallery.useAsPoseHint")}>
+              <PersonStanding className="h-3 w-3" />
+              {t("gallery.useAsPose")}
+            </button>
+            <button type="button" className={action} onClick={() => sendSource("upscale")} title={t("gallery.upscaleHint")}>
+              <Maximize2 className="h-3 w-3" />
+              {t("gallery.upscale")}
+            </button>
+            <button type="button" className={action} onClick={() => sendSource("facefix")} title={t("gallery.fixFacesHint")}>
+              <ScanFace className="h-3 w-3" />
+              {t("gallery.fixFaces")}
+            </button>
+          </>
+        )}
         <button type="button" className={action} onClick={() => void save("clean")} title={t("gallery.download.cleanHint")}>
           <Download className="h-3 w-3" />
           {t("gallery.download.clean")}
@@ -302,8 +308,9 @@ export function GalleryPanel({ picture, writable, canTag, canOpen, secret, revea
         <LightboxTagPanel
           sections={sections}
           onSearch={onSearch}
-          onSendTag={(tag, target) => pushHandoff({ type: "tag", tag, target })}
-          onSendTags={(tags, target) => pushHandoff({ type: "tags", tags, target })}
+          // Sending tags fills the generate form, which gallery-only mode has not.
+          onSendTag={canGenerate ? (tag, target) => pushHandoff({ type: "tag", tag, target }) : undefined}
+          onSendTags={canGenerate ? (tags, target) => pushHandoff({ type: "tags", tags, target }) : undefined}
         />
       )}
     </div>

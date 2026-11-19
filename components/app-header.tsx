@@ -50,25 +50,27 @@ export function useShownInSecret<T>(): [T | null, (shown: T | null) => void] {
   return [shown, setShown]
 }
 
-export function AppHeader() {
+/** `galleryOnly`: read on the server by the page (lib/mode.ts); there is no Generate then. */
+export function AppHeader({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const { t } = useI18n()
   const { resolvedTheme, setTheme } = useTheme()
   const pathname = usePathname()
   const secret = useSecretMode()
 
   const nav = [
-    { href: "/", label: t("app.navGenerate"), icon: Wand2 },
+    ...(galleryOnly ? [] : [{ href: "/", label: t("app.navGenerate"), icon: Wand2 }]),
     { href: "/gallery", label: t("app.navGallery"), icon: Images },
     { href: "/setup", label: t("app.navSetup"), icon: Cpu },
     { href: "/settings", label: t("app.navSettings"), icon: Settings },
   ]
+  const home = galleryOnly ? "/gallery" : "/"
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/85 backdrop-blur">
       <div className="container mx-auto flex h-12 max-w-7xl items-center gap-2 px-4">
         {/* Not on the narrowest phones, where the row would be wider than the
-            screen: the Generate icon leads to the same page. */}
-        <Link href="/" className="mr-2 hidden font-semibold tracking-tight min-[400px]:inline">
+            screen: the first icon leads to the same page. */}
+        <Link href={home} className="mr-2 hidden font-semibold tracking-tight min-[400px]:inline">
           Latentry
         </Link>
         <nav className="flex items-center gap-1">

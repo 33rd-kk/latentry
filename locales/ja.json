@@ -658,7 +658,8 @@
     "queueTooLarge": "このバックエンドで待機中の生成が、Latentry がメモリーに持てる量の元画像をすでに抱えています。どれかが始まるのを待つか、キャンセルしてください。",
     "tooManyRequests": "リクエストが多すぎます。{seconds} 秒待ってからもう一度お試しください。",
     "tooManyStreams": "この端末からの接続が多すぎます。いくつかタブを閉じて再読み込みしてください。",
-    "notPaired": "この端末はペアリングされていません。ブラウザで Latentry を開き、Latentry を動かしているコンピューターに表示されるコードでペアリングしてください。"
+    "notPaired": "この端末はペアリングされていません。ブラウザで Latentry を開き、Latentry を動かしているコンピューターに表示されるコードでペアリングしてください。",
+    "galleryOnly": "ギャラリーのみモードなので、生成はできません。オーナーが設定でオフにできます。"
   },
   "settings": {
     "title": "設定",
@@ -671,7 +672,8 @@
       "wildcards": "ワイルドカード",
       "devices": "端末",
       "invalid": "直す項目があります",
-      "models": "モデル情報"
+      "models": "モデル情報",
+      "mode": "使い方"
     },
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
@@ -838,7 +840,18 @@
     "pairingDeviceDates": "{paired} にペアリング · {ends} に終了（残り {days} 日）",
     "pairingRemove": "解除",
     "pairingRemoveNamed": "{name} を解除",
-    "pairingRemoveConfirm": "「{name}」を解除しますか？ また Latentry を使うには新しいコードが必要になります。"
+    "pairingRemoveConfirm": "「{name}」を解除しますか？ また Latentry を使うには新しいコードが必要になります。",
+    "mode": {
+      "title": "Latentry の使い方",
+      "description": "ギャラリーのみモードでは、画像を見るだけになります。生成、エンジン、バックエンドはオフになり、それらのための Latentry の API も閉じます。",
+      "galleryOnly": "ギャラリーのみモード",
+      "fromEnv": "環境変数 LATENTRY_MODE={mode} で決まっています。変えるにはそちらを書き換えて、Latentry を再起動してください。",
+      "saveFirst": "先にほかの変更を保存するか、取り消してください。",
+      "keeps": "そのまま使えるもの",
+      "keepsList": "すべてのギャラリーのフォルダー、検索とフィルター、まとめ表示、比較、評価とタグ、ダウンロード、ペアリングしたスマホ、シークレットモード。組み込みの WD14 モデルでのタグ付け（Latentry の中で動きます）。",
+      "stops": "オフになるもの",
+      "stopsList": "生成と生成ページのすべて、エンジン（動いていれば止めます）、モデルと LoRA のダウンロード、バックエンドへの接続（バックエンドのタガーも）、ワイルドカード、モデル情報。"
+    }
   },
   "setup": {
     "title": "セットアップ",
@@ -959,7 +972,9 @@
         "noHash": "Hugging Face がこのファイルの SHA-256 を示していないため、照合できません。ダウンロードしません。",
         "lookup": "Hugging Face から、Latentry が扱えない応答が返りました。"
       }
-    }
+    },
+    "galleryOnly": "ギャラリーのみモードです。ここで用意できるのは WD14 タガーだけで、エンジンとそのモデルはオフです。",
+    "galleryOnlyLink": "設定で変える"
   },
   "pair": {
     "title": "この端末をペアリング",

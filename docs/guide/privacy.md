@@ -21,6 +21,12 @@ against what you expect.
 - **Nothing else.** No telemetry, no update checks, no analytics. The
   anonymous usage reports of Next.js and Hugging Face are turned off.
 
+In [gallery-only mode](gallery-only.md) the first two shrink to one: no
+backend is contacted at all, and the only download Latentry allows is a
+WD14 tagger model you pick on Setup. The routes for generating, the engine
+and model downloads are closed too, so another tab or a paired device
+cannot start one either.
+
 Prompt fields and the gallery's search have the browser's spell check and
 autofill turned off: some browsers check spelling by sending the text to an
 online service.

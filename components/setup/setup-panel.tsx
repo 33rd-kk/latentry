@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { Loader2 } from "lucide-react"
 import { OwnerCodeSteps } from "@/components/owner-code-steps"
 import { useEngineStatus } from "@/hooks/use-engine-status"
@@ -11,7 +12,8 @@ import { TaggerCard } from "./tagger-card"
 import { FaceDetectorCard } from "./face-detector-card"
 import { ControlModelsCard } from "./control-models-card"
 
-export function SetupPanel() {
+/** `galleryOnly`: only the tagger is set up here; the engine and its models are off (lib/mode.ts). */
+export function SetupPanel({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const t = useT()
   const { status, ...actions } = useEngineStatus()
 
@@ -29,6 +31,23 @@ export function SetupPanel() {
       <div className="mx-auto max-w-2xl space-y-3">
         <p className="text-sm text-muted-foreground">{t("setup.notLocal")}</p>
         <OwnerCodeSteps />
+      </div>
+    )
+  }
+
+  if (galleryOnly) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-semibold tracking-tight">{t("setup.title")}</h1>
+          <p className="text-sm text-muted-foreground">
+            {t("setup.galleryOnly")}{" "}
+            <Link href="/settings#mode" className="underline underline-offset-2">
+              {t("setup.galleryOnlyLink")}
+            </Link>
+          </p>
+        </div>
+        <TaggerCard status={status} actions={actions} />
       </div>
     )
   }

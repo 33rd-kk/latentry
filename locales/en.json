@@ -658,7 +658,8 @@
     "queueTooLarge": "The runs waiting on this backend already hold as many source pictures as Latentry keeps in memory. Wait for one to start, or cancel one.",
     "tooManyRequests": "Too many requests. Wait {seconds}s and try again.",
     "tooManyStreams": "Too many live connections from this device. Close some tabs and reload.",
-    "notPaired": "This device is not paired. Open Latentry in the browser to pair it with a code from the computer running it."
+    "notPaired": "This device is not paired. Open Latentry in the browser to pair it with a code from the computer running it.",
+    "galleryOnly": "Gallery-only mode is on, so generating is off. An owner can turn it off in Settings."
   },
   "settings": {
     "title": "Settings",
@@ -671,7 +672,8 @@
       "wildcards": "Wildcards",
       "devices": "Devices",
       "invalid": "Has a field to fix",
-      "models": "Model info"
+      "models": "Model info",
+      "mode": "How you use it"
     },
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
     "version": "Latentry {version}",
@@ -838,7 +840,18 @@
     "pairingDeviceDates": "Paired {paired} · ends {ends} ({days} days left)",
     "pairingRemove": "Remove",
     "pairingRemoveNamed": "Remove {name}",
-    "pairingRemoveConfirm": "Remove “{name}”? It will need a new code to use Latentry again."
+    "pairingRemoveConfirm": "Remove “{name}”? It will need a new code to use Latentry again.",
+    "mode": {
+      "title": "How you use Latentry",
+      "description": "Gallery-only mode only browses pictures. Generating, the engine and the backends are turned off, and so are the parts of Latentry's API that serve them.",
+      "galleryOnly": "Gallery-only mode",
+      "fromEnv": "Set by LATENTRY_MODE={mode} in the environment. Change it there and restart Latentry.",
+      "saveFirst": "Save or discard your other changes first.",
+      "keeps": "Still there",
+      "keepsList": "Every gallery folder, search and filters, stacks, Compare, ratings and tags, downloads, paired phones and secret mode. Tagging with the built-in WD14 model, which runs in Latentry itself.",
+      "stops": "Turned off",
+      "stopsList": "Generating and everything on its page, the engine (stopped if it is running), model and LoRA downloads, connections to backends (their taggers too), wildcards and model info."
+    }
   },
   "setup": {
     "title": "Setup",
@@ -959,7 +972,9 @@
         "noHash": "Hugging Face lists no SHA-256 for that file, so it could not be checked. It is not downloaded.",
         "lookup": "Hugging Face gave an answer Latentry could not use."
       }
-    }
+    },
+    "galleryOnly": "Gallery-only mode is on: only the WD14 tagger is set up here. The engine and its models are off.",
+    "galleryOnlyLink": "Change it in Settings"
   },
   "pair": {
     "title": "Pair this device",

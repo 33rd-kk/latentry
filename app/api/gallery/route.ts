@@ -3,7 +3,8 @@ import { jsonError, json } from '@/lib/api'
 import { dirFor, visibleDirs } from '@/lib/gallery/access'
 import { getGalleryDirs } from '@/lib/gallery/dirs'
 import { viewerOf } from '@/lib/security/viewer'
-import { listFacets, listPage } from '@/lib/gallery/fs'
+import { hasPictures, listFacets, listPage } from '@/lib/gallery/fs'
+import { galleryOnly, galleryOnlyStart } from '@/lib/mode'
 import { fromParams } from '@/lib/gallery/filter'
 import { isFromThisMachine } from '@/lib/settings/access'
 
@@ -15,6 +16,7 @@ const MAX_LIMIT = 200
  * Without `dir`: the folders this client may see (by index and name, never
  * their paths; a paired device sees only those shared with it), and
  * whether pictures can be shown in this machine's file manager from here.
+ * `start` is the folder the page opens on (lib/mode.ts galleryOnlyStart).
  * With `dir`: one page of that folder, in the order and with the filters
  * asked for (see lib/gallery/filter.ts), newest first by default.
  *
@@ -32,7 +34,9 @@ export async function GET(request: NextRequest) {
   const dirParam = params.get('dir')
   if (dirParam === null) {
     const dirs = visibleDirs(viewerOf(request.headers), getGalleryDirs())
-    return json({ dirs: dirs.map(({ index, label, writable }) => ({ index, label, writable })), canOpen: isFromThisMachine(request.headers) })
+    // The folder the page opens on: the first, unless gallery-only mode skips an empty save folder.
+    const start = galleryOnly() ? await galleryOnlyStart(dirs, hasPictures) : (dirs[0]?.index ?? null)
+    return json({ dirs: dirs.map(({ index, label, writable }) => ({ index, label, writable })), start, canOpen: isFromThisMachine(request.headers) })
   }
 
   const dir = dirFor(request.headers, dirParam)

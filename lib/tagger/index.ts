@@ -10,6 +10,7 @@
 import { adapterFor, getAdapter, usableBackends } from '@/lib/backends'
 import { taggerPreference } from '@/lib/backends/config'
 import { redactPaths } from '@/lib/backends/http'
+import { galleryOnly } from '@/lib/mode'
 import type { Outcome, WdTag } from '@/lib/backends/types'
 import { BUILTIN_TAGGER, type Settings } from '@/lib/settings/schema'
 import { getSettings } from '@/lib/settings/store'
@@ -70,6 +71,8 @@ function fromAdapter(adapter: ReturnType<typeof adapterFor>): Tagger | null {
 
 /** What /api/gen/tag, the gallery and auto-tagging send pictures to; null when nothing can tag. */
 export async function getTagger(): Promise<Tagger | null> {
+  // Gallery-only mode reaches no backend: only the built-in model tags.
+  if (galleryOnly()) return builtinTagger()
   const preferred = taggerPreference()
   if (preferred === BUILTIN_TAGGER) return builtinTagger()
   if (preferred) {
@@ -92,6 +95,7 @@ export async function getTagger(): Promise<Tagger | null> {
  * statuses in hand say which backends can tag right now.
  */
 export function taggerIdFrom(statuses: { id: string; alive: boolean; capabilities: { tag: boolean } }[]): string | null {
+  if (galleryOnly()) return builtinTagger() ? BUILTIN_TAGGER : null
   const preferred = taggerPreference()
   if (preferred === BUILTIN_TAGGER) return builtinTagger() ? BUILTIN_TAGGER : null
   if (preferred) return statuses.find((status) => status.id === preferred && status.capabilities.tag)?.id ?? null

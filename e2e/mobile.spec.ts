@@ -166,6 +166,22 @@ for (const { locale, catalog } of LOCALES) {
       await check(page, `secret mode (${locale})`)
     })
 
+    // Gallery-only mode: Settings with its mode card, and Setup with the tagger only.
+    test('gallery-only mode fits a phone screen', async ({ page, request }) => {
+      expect((await request.put('/api/settings', { data: { mode: 'gallery' } })).status()).toBe(200)
+      try {
+        await page.goto('/settings#mode')
+        await expect(page.getByRole('switch', { name: t('settings.mode.galleryOnly') })).toBeChecked()
+        await check(page, `gallery-only settings (${locale})`)
+        await page.goto('/setup')
+        await expect(page.getByRole('link', { name: t('setup.galleryOnlyLink') })).toBeVisible()
+        await check(page, `gallery-only setup (${locale})`)
+      } finally {
+        // The server is shared by every spec.
+        await request.put('/api/settings', { data: { mode: null } })
+      }
+    })
+
     test('img2img fits a phone screen', async ({ page }) => {
       await page.goto('/')
       await expect(page.getByRole('button', { name: t('generate.generateButton'), exact: true })).toBeEnabled()
