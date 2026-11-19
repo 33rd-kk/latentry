@@ -13,7 +13,21 @@
     "navSettings": "Settings",
     "navSetup": "Setup",
     "setupEngine": "Latentry can install and run its own engine on this computer’s GPU. Setup checks the GPU, installs it, and downloads a model.",
-    "setupEngineButton": "Open setup"
+    "setupEngineButton": "Open setup",
+    "firstRun": {
+      "title": "How will you use Latentry?",
+      "description": "Both come from the same download, and you can switch at any time on Settings.",
+      "browseTitle": "Browse my pictures",
+      "browseBody": "Look through folders you already have: Latentry’s own and other tools’, read-only. Search, filters, stars, tags and paired phones. No GPU needed, and nothing is generated.",
+      "browseDocker": "In Docker, mount your folders into the container first (read-only); the guide shows how.",
+      "browseButton": "Browse only",
+      "generateTitle": "Generate pictures too",
+      "generateBody": "Install Latentry’s engine on this computer’s GPU, or connect a backend you already run. The gallery is there as well.",
+      "generateButton": "Set up generating",
+      "later": "Change it later on Settings > How you use it.",
+      "failed": "Could not save your choice",
+      "askOwner": "An owner device can choose to use Latentry for browsing only; until then it is set up for generating."
+    }
   },
   "generate": {
     "backend": "Backend",

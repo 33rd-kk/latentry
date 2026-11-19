@@ -117,6 +117,26 @@ paired devices are on the server, so they do not come along.
     The second line gives the copies to Latentry's user, so it can delete
     them from the gallery.
 
+## Browse only, without a GPU
+
+To use Latentry only as a gallery, start it without `compose.gpu.yaml`
+(`docker compose up -d`), mount your folders as below, and choose **Browse
+only** on the first page. That turns on
+[gallery-only mode](../guide/gallery-only.md): the engine never starts,
+and nothing is downloaded but the WD14 tagger, if you ask for it.
+
+To fix the mode for this container, add it to the service in
+`compose.yaml` (see
+[Settings that are environment variables](#settings-that-are-environment-variables)):
+
+```yaml
+    environment:
+      LATENTRY_MODE: gallery
+```
+
+Settings then only shows the mode, and no one can turn generating on from
+a browser.
+
 ## Your own picture folders
 
 To browse another tool's pictures, mount its folder read-only. In

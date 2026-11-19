@@ -7,6 +7,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from './test'
 import { openViewerPanel } from './viewer'
+import { asFreshInstall } from './fresh-install'
 import sharp from 'sharp'
 
 const PAGES = [
@@ -65,6 +66,14 @@ test.describe('gallery-only mode', () => {
     await page.goto('/settings#mode')
     await expect(page.getByRole('switch', { name: 'Gallery-only mode' })).toBeChecked()
     await scan(page, '/settings#mode (gallery-only)')
+  })
+
+  test('the first-run question has no serious accessibility findings', async ({ page, request }) => {
+    await asFreshInstall(request, async () => {
+      await page.goto('/')
+      await expect(page.getByRole('button', { name: 'Browse only' })).toBeVisible()
+      await scan(page, '/ (first-run question)')
+    })
   })
 })
 

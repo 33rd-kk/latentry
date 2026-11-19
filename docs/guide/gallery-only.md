@@ -30,7 +30,12 @@ before stay in the save folder, one click away in the folder list.
 
 ## Turn it on or off
 
-On **Settings > How you use it**, switch **Gallery-only mode**. It applies
+On a fresh install, the first page asks **How will you use Latentry?**:
+**Browse only** turns the mode on, **Set up generating** leaves it off. Both
+answers are saved, so it is asked once. A device that may not change
+Settings is not asked.
+
+Afterwards, on **Settings > How you use it**, switch **Gallery-only mode**. It applies
 at once: the header loses **Generate**, the home page becomes the gallery,
 and a running engine is stopped. Turning it off starts the engine again if
 it is set to start with Latentry.

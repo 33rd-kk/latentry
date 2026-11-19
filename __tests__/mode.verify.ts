@@ -7,7 +7,7 @@
  */
 import { readdirSync } from "node:fs"
 import path from "node:path"
-import { appMode, closedInGalleryOnly, galleryOnlyStart, modeFromEnv } from "../lib/mode"
+import { appMode, closedInGalleryOnly, galleryOnlyStart, modeChosen, modeFromEnv } from "../lib/mode"
 import { parseStoredSettings, SETTINGS_VERSION, validateSettings, type Settings } from "../lib/settings/schema"
 
 let passed = 0
@@ -33,6 +33,11 @@ expect("env alone", appMode({ LATENTRY_MODE: "gallery" }, none), "gallery")
 expect("env is trimmed and case-blind", appMode({ LATENTRY_MODE: " Gallery " }, full), "gallery")
 expect("an unknown env value is ignored", appMode({ LATENTRY_MODE: "viewer" }, gallery), "gallery")
 expect("modeFromEnv unset", modeFromEnv({}), null)
+// Chosen (so the first-run question is not asked): by env or by the file, either value.
+expect("not chosen on a fresh install", modeChosen({}, none), false)
+expect("chosen as full in the file", modeChosen({}, full), true)
+expect("chosen by env", modeChosen({ LATENTRY_MODE: "full" }, none), true)
+expect("an unknown env value is not a choice", modeChosen({ LATENTRY_MODE: "viewer" }, none), false)
 
 // The settings file: a mode is kept, a wrong one refused, null goes back to unset.
 expect("valid mode stored", validateSettings({ mode: "gallery" }, none), { ok: true, settings: { version: SETTINGS_VERSION, mode: "gallery" } })

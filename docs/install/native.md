@@ -88,3 +88,11 @@ To use only backends you already run, install with `./install.sh --no-engine`
 Latentry, and the script points you to [Settings](../guide/settings.md),
 where you add them. You can also list them in `.env.local`; see
 [Backends](../reference/backends.md).
+
+## Only browsing pictures
+
+To use Latentry only as a gallery, install with `--no-engine` too, then
+choose **Browse only** on the first page (or set `LATENTRY_MODE=gallery`
+in `.env.local`). That is [gallery-only mode](../guide/gallery-only.md):
+no GPU, no backend, and your folders are added on
+**Settings > Gallery folders**.

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **A fresh install asks how you will use it**: with no backend and no mode
+  chosen, the first page offers **Browse only** (gallery-only mode, on to
+  the gallery folders) or **Set up generating** (the usual setup help), and
+  saves the answer. A device that may not change Settings is not asked.
+  Getting started, the home page of the manual, Docker, Without Docker and
+  the README now show the two ways.
 - **Gallery-only mode**: for looking through your pictures without
   generating. A switch on **Settings > How you use it** (or
   `LATENTRY_MODE=gallery`) makes the gallery the home page, takes

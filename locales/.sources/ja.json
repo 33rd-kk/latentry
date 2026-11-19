@@ -892,5 +892,17 @@
   "settings.mode.stops": "Turned off",
   "settings.mode.stopsList": "Generating and everything on its page, the engine (stopped if it is running), model and LoRA downloads, connections to backends (their taggers too), wildcards and model info.",
   "setup.galleryOnly": "Gallery-only mode is on: only the WD14 tagger is set up here. The engine and its models are off.",
-  "setup.galleryOnlyLink": "Change it in Settings"
+  "setup.galleryOnlyLink": "Change it in Settings",
+  "app.firstRun.title": "How will you use Latentry?",
+  "app.firstRun.description": "Both come from the same download, and you can switch at any time on Settings.",
+  "app.firstRun.browseTitle": "Browse my pictures",
+  "app.firstRun.browseBody": "Look through folders you already have: Latentry’s own and other tools’, read-only. Search, filters, stars, tags and paired phones. No GPU needed, and nothing is generated.",
+  "app.firstRun.browseDocker": "In Docker, mount your folders into the container first (read-only); the guide shows how.",
+  "app.firstRun.browseButton": "Browse only",
+  "app.firstRun.generateTitle": "Generate pictures too",
+  "app.firstRun.generateBody": "Install Latentry’s engine on this computer’s GPU, or connect a backend you already run. The gallery is there as well.",
+  "app.firstRun.generateButton": "Set up generating",
+  "app.firstRun.later": "Change it later on Settings > How you use it.",
+  "app.firstRun.failed": "Could not save your choice",
+  "app.firstRun.askOwner": "An owner device can choose to use Latentry for browsing only; until then it is set up for generating."
 }

@@ -13,7 +13,21 @@
     "navSettings": "設定",
     "navSetup": "セットアップ",
     "setupEngine": "Latentry は、このコンピューターの GPU で動く独自のエンジンをインストールして実行できます。セットアップで GPU を調べ、エンジンをインストールし、モデルをダウンロードします。",
-    "setupEngineButton": "セットアップを開く"
+    "setupEngineButton": "セットアップを開く",
+    "firstRun": {
+      "title": "Latentry をどう使いますか？",
+      "description": "どちらも同じダウンロードです。あとから設定でいつでも切り替えられます。",
+      "browseTitle": "手元の画像を見る",
+      "browseBody": "今あるフォルダーを見ます。Latentry のものも、ほかのツールのものも読み取り専用で開けます。検索、フィルター、星、タグ、ペアリングしたスマホも使えます。GPU は要らず、生成はしません。",
+      "browseDocker": "Docker では、先にフォルダーをコンテナーへ読み取り専用でマウントしてください。やり方はガイドにあります。",
+      "browseButton": "見るだけ",
+      "generateTitle": "生成もする",
+      "generateBody": "この PC の GPU に Latentry のエンジンを入れるか、今使っているバックエンドをつなぎます。ギャラリーも使えます。",
+      "generateButton": "生成の準備をする",
+      "later": "あとから設定の「使い方」で変えられます。",
+      "failed": "選んだ内容を保存できませんでした",
+      "askOwner": "見るだけで使うかどうかは、オーナー端末で選べます。それまでは生成用の設定のままです。"
+    }
   },
   "generate": {
     "backend": "バックエンド",

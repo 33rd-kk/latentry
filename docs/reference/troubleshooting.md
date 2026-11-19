@@ -69,6 +69,22 @@ listed. Point the models folder at the right place on Setup.
 
 ## Generating
 
+**There is no Generate in the header, and the home page is the gallery.**
+Latentry is in [gallery-only mode](../guide/gallery-only.md): it was chosen
+as **Browse only** on the first page, or switched on in Settings. Turn
+**Gallery-only mode** off on **Settings > How you use it** (on an
+[owner device](../guide/owner-device.md); see
+[Turn it on or off](../guide/gallery-only.md#turn-it-on-or-off)). If the
+switch cannot be changed and says **Set by LATENTRY_MODE=gallery in the
+environment**, remove that line from `.env.local` (in Docker, from
+`environment:` in `compose.yaml`) and restart. Settings also hides Backends, Profiles,
+Models and Wildcards, and Setup shows only the tagger, while the mode is
+on.
+
+**"Gallery-only mode is on, so generating is off".** The same mode: Latentry
+refuses generating, the engine and model downloads on the server too, for
+example from another tab or a script. Turn it off as above.
+
 **"Backend is busy" or "runs are already waiting".** Each backend runs one
 job at a time, and up to 8 more wait in its
 [queue](../guide/many.md#the-queue). Wait for one to start, take one of
