@@ -6,6 +6,7 @@ import { parseHfFileUrl } from '@/lib/engine/hf-url'
 import { engineFetch, engines } from '@/lib/engine/supervisor'
 import { startTaggerDownload } from '@/lib/engine/tagger-download'
 import { serverMessage } from '@/lib/i18n/core'
+import { galleryOnly } from '@/lib/mode'
 import { editRefusal } from '@/lib/settings/access'
 
 export const runtime = 'nodejs'
@@ -24,9 +25,13 @@ const COMMIT = /^[0-9a-f]{40}$/
 export async function POST(request: Request) {
   if (editRefusal(request.headers)) return jsonError('Only from this computer', 403)
   const body = await readJson(request)
-  if (typeof body?.url === 'string') return downloadUrl(body)
+  // Gallery-only mode keeps only the WD14 tagger: proxy.ts lets this route
+  // through, since the model asked for is in the body, and it is checked here.
+  const onlyTaggers = galleryOnly()
+  if (typeof body?.url === 'string') return onlyTaggers ? galleryOnlyRefusal() : downloadUrl(body)
   const entry = typeof body?.id === 'string' ? catalogEntry(body.id) : null
   if (!entry) return jsonError('Not in the catalog', 404)
+  if (onlyTaggers && entry.kind !== 'tagger') return galleryOnlyRefusal()
 
   // Taggers, face detectors and control picture models run in Latentry, which fetches them itself.
   if (entry.kind === 'tagger' || entry.kind === 'detector' || entry.kind === 'annotator') return json(startTaggerDownload(entry), { status: 202 })
@@ -37,6 +42,10 @@ export async function POST(request: Request) {
     filename: entry.filename ?? null,
     sha256: entry.filename ? (entry.sha256?.[entry.filename] ?? null) : null,
   })
+}
+
+function galleryOnlyRefusal(): Response {
+  return json({ error: serverMessage('system.galleryOnly'), galleryOnly: true }, { status: 403 })
 }
 
 async function downloadUrl(body: Record<string, unknown>): Promise<Response> {

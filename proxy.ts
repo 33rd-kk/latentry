@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { serverMessage } from '@/lib/i18n/core'
+import { closedInGalleryOnly, galleryOnly } from '@/lib/mode'
 import { checkRequestBudget, type BudgetRejection } from '@/lib/security/request-budget'
 import { hasLocalToken } from '@/lib/security/local-token'
 import { deviceCookie, isPairingPath, pairingEnabled, verifyDevice } from '@/lib/security/pairing'
@@ -79,6 +80,14 @@ export function proxy(request: NextRequest) {
     pair.pathname = '/pair'
     pair.search = ''
     return withHeaders(NextResponse.redirect(pair, { headers: { 'Cache-Control': 'no-store' } }), pathname)
+  }
+
+  // After pairing, so a device that is not paired learns nothing about the mode.
+  if (pathname.startsWith('/api/') && closedInGalleryOnly(pathname, request.method) && galleryOnly()) {
+    return withHeaders(
+      NextResponse.json({ error: serverMessage('system.galleryOnly'), galleryOnly: true }, { status: 403, headers: { 'Cache-Control': 'no-store' } }),
+      pathname
+    )
   }
 
   const overBudget = checkRequestBudget({ method: request.method, headers: request.headers, pathname }, process.env)

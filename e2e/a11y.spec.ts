@@ -50,6 +50,24 @@ for (const scheme of ['light', 'dark'] as const) {
   })
 }
 
+// Gallery-only mode's own pages: Setup with the tagger only, and Settings with
+// the mode switch. Turned off again after, as the server is shared.
+test.describe('gallery-only mode', () => {
+  test.afterEach(async ({ request }) => {
+    await request.put('/api/settings', { data: { mode: null } })
+  })
+
+  test('its Setup and Settings have no serious accessibility findings', async ({ page, request }) => {
+    expect((await request.put('/api/settings', { data: { mode: 'gallery' } })).status()).toBe(200)
+    await page.goto('/setup')
+    await expect(page.getByRole('link', { name: 'Change it in Settings' })).toBeVisible()
+    await scan(page, '/setup (gallery-only)')
+    await page.goto('/settings#mode')
+    await expect(page.getByRole('switch', { name: 'Gallery-only mode' })).toBeChecked()
+    await scan(page, '/settings#mode (gallery-only)')
+  })
+})
+
 // What only shows after a click: the viewer with its panel, Compare, the mask
 // editor and the 3D pose view. In the dark theme, which the viewer always uses.
 test.describe('opened views', () => {

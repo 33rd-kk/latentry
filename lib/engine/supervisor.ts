@@ -15,6 +15,7 @@ import net from 'node:net'
 import type { BackendConfig } from '@/lib/backends/types'
 import type { ProfileId } from '@/lib/profiles'
 import { getSettings } from '@/lib/settings/store'
+import { galleryOnly } from '@/lib/mode'
 import { CATALOG, engineModelId } from './catalog'
 import { detectGpus, type Gpu } from './gpus'
 import { installRecord } from './install'
@@ -287,10 +288,20 @@ export async function engineFetch(engine: EngineProcess, pathname: string, init:
   })
 }
 
+/**
+ * After Settings changed the mode: into gallery-only, the engines stop; back
+ * out of it, they start as they would at server start.
+ */
+export async function followMode(): Promise<void> {
+  if (galleryOnly()) await stopEngines()
+  else if (!engines().some((engine) => engine.state === 'running' || engine.state === 'starting')) await autoStart()
+}
+
 /** At server start: bring the engines up when installed and not turned off. */
 export async function autoStart(): Promise<void> {
   if (getSettings().engine?.autoStart === false) return
   if (process.env.LATENTRY_ENGINE === 'off') return
+  if (galleryOnly()) return
   const result = await startEngines().catch((error) => {
     console.warn('[engine] could not start:', error)
     return null

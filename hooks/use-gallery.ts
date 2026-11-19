@@ -32,20 +32,21 @@ export function pictureUrl(picture: { dir: number; name: string }, thumb = false
 }
 
 /**
- * The gallery's folders, null until known, and whether pictures can be shown
- * in the file manager from this browser (only on the machine itself).
+ * The gallery's folders, null until known, the one to open on (`start`, see
+ * app/api/gallery/route.ts), and whether pictures can be shown in the file
+ * manager from this browser (only on the machine itself).
  */
-export function useGalleryFolders(): { folders: GalleryFolder[] | null; canOpen: boolean } {
-  const [state, setState] = useState<{ folders: GalleryFolder[] | null; canOpen: boolean }>({ folders: null, canOpen: false })
+export function useGalleryFolders(): { folders: GalleryFolder[] | null; start: number | null; canOpen: boolean } {
+  const [state, setState] = useState<{ folders: GalleryFolder[] | null; start: number | null; canOpen: boolean }>({ folders: null, start: null, canOpen: false })
   useEffect(() => {
     let active = true
     fetch("/api/gallery", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { dirs: [] }))
       .then((data) => {
-        if (active) setState({ folders: Array.isArray(data?.dirs) ? data.dirs : [], canOpen: data?.canOpen === true })
+        if (active) setState({ folders: Array.isArray(data?.dirs) ? data.dirs : [], start: typeof data?.start === "number" ? data.start : null, canOpen: data?.canOpen === true })
       })
       .catch(() => {
-        if (active) setState({ folders: [], canOpen: false })
+        if (active) setState({ folders: [], start: null, canOpen: false })
       })
     return () => {
       active = false

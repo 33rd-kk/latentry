@@ -14,6 +14,7 @@ import { OwnerCodeSteps } from "@/components/owner-code-steps"
 import { ThisDeviceCard } from "@/components/this-device"
 import { BackendsSection } from "./backends-section"
 import { GallerySection } from "./gallery-section"
+import { ModeSection } from "./mode-section"
 import { ModelsSection } from "./models-section"
 import { PairingCard } from "./pairing-card"
 import { ProfilesSection } from "./profiles-section"
@@ -22,9 +23,13 @@ import { WildcardsSection } from "./wildcards-section"
 
 // The page's sections, in the order the list shows them, and the parts of the
 // draft each one edits. A link can open one: /settings#gallery.
-const SECTIONS = ["backends", "tagger", "gallery", "profiles", "models", "wildcards", "devices"] as const
+const SECTIONS = ["mode", "backends", "tagger", "gallery", "profiles", "models", "wildcards", "devices"] as const
 type SectionId = (typeof SECTIONS)[number]
+/** Only for generating: left out in gallery-only mode. */
+const GENERATING: readonly SectionId[] = ["backends", "profiles", "models", "wildcards"]
 const SECTION_PARTS: Record<SectionId, readonly Part[]> = {
+  // Saved at once, apart from the draft.
+  mode: [],
   backends: ["backends"],
   tagger: ["tagger", "wd14"],
   gallery: ["gallery"],
@@ -108,6 +113,10 @@ export function SettingsForm() {
 
   if (!draft) return null
 
+  const sections = view.mode.inEffect === "gallery" ? SECTIONS.filter((id) => !GENERATING.includes(id)) : SECTIONS
+  // A link or an earlier visit may name a section this mode leaves out.
+  const shown = sections.includes(section) ? section : sections[0]
+
   // A part is unsaved, or the server refused a field in it (errors are keyed
   // by path, the part first).
   const marked = (id: SectionId) => {
@@ -129,13 +138,13 @@ export function SettingsForm() {
       </div>
 
       {/* One section at a time, chosen on the left (above, on a phone). */}
-      <Tabs value={section} onValueChange={(id) => chooseSection(id as SectionId)} orientation="vertical" className="mt-6 flex-col gap-6 md:flex-row">
+      <Tabs value={shown} onValueChange={(id) => chooseSection(id as SectionId)} orientation="vertical" className="mt-6 flex-col gap-6 md:flex-row">
         <TabsList
           variant="line"
           aria-label={t("settings.nav.label")}
           className="w-full flex-wrap items-start justify-start group-data-vertical/tabs:flex-row md:sticky md:top-20 md:w-44 md:shrink-0 md:self-start md:group-data-vertical/tabs:flex-col"
         >
-          {SECTIONS.map((id) => {
+          {sections.map((id) => {
             const { unsaved, invalid } = marked(id)
             return (
               <TabsTrigger key={id} value={id} className="flex-none justify-start px-2 py-1.5 group-data-vertical/tabs:w-auto md:group-data-vertical/tabs:w-full">
@@ -151,6 +160,9 @@ export function SettingsForm() {
         </TabsList>
 
         <div className="min-w-0 flex-1">
+          <TabsContent value="mode">
+            <ModeSection view={view} unsaved={dirty.size > 0} saving={saving} save={save} />
+          </TabsContent>
           <TabsContent value="backends">
             <BackendsSection view={view} backends={draft.backends} errors={errors} change={change} onUseEnv={() => void save({ backends: null })} />
           </TabsContent>

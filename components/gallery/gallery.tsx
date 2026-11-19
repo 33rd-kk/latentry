@@ -30,10 +30,11 @@ import { useT } from "@/lib/i18n"
  * is chosen: the save folder (written with every setting) and any read-only
  * folders of other tools.
  */
-export function Gallery() {
+/** `galleryOnly`: read on the server by the page (lib/mode.ts); nothing here leads to generating then. */
+export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const t = useT()
   const secret = useSecretMode()
-  const { folders, canOpen } = useGalleryFolders()
+  const { folders, start, canOpen } = useGalleryFolders()
   const { backends, tagger } = useBackends()
   const [dir, setDir] = useState<number | null>(null)
   const [searchText, setSearchText] = useState("")
@@ -50,7 +51,7 @@ export function Gallery() {
   // in the viewer (coming back included) and when it closes.
   const [revealedKey, setRevealedKey] = useShownInSecret<string>()
 
-  const activeDir = dir ?? folders?.[0]?.index ?? null
+  const activeDir = dir ?? (folders?.some((candidate) => candidate.index === start) ? start : folders?.[0]?.index) ?? null
   const folder = folders?.find((candidate) => candidate.index === activeDir) ?? null
   const query = useMemo<GalleryQuery>(() => ({ ...filters, q }), [filters, q])
   const changeFilters = useCallback((patch: Partial<GalleryQuery>) => setFilters((current) => ({ ...current, ...patch })), [])
@@ -214,6 +215,7 @@ export function Gallery() {
               writable={folder?.writable ?? false}
               canTag={tagger !== null}
               canOpen={canOpen}
+              canGenerate={!galleryOnly}
               secret={secret}
               revealed={revealed}
               onReveal={() => setRevealedKey(viewedKey)}

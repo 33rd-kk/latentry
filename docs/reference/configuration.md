@@ -26,6 +26,7 @@ falls back to `.env.local`. Restart Latentry after editing `.env.local`.
 | `LATENTRY_ALLOW_UNC` | off | `1`: let the Settings page use network folders (`\\server\share`) |
 | `ALLOWED_HOSTS` | — | Extra hostnames `/api` answers for (behind a reverse proxy) |
 | `REQUEST_BUDGET_*` | see below | Per-device request limits; `REQUEST_BUDGET=off` turns them off |
+| `LATENTRY_MODE` | from Settings, else `full` | `gallery`: [gallery-only mode](../guide/gallery-only.md), with generating, the engine and backends off and their API closed. Wins over the switch on Settings |
 | `LATENTRY_ENGINE` | on | `off`: do not start the built-in engine with Latentry |
 | `LATENTRY_RUNTIME_DIR` | `./.runtime` | Where the engine (uv, Python, PyTorch) is installed |
 | `HF_TOKEN` | — | Only for models that need a Hugging Face login |

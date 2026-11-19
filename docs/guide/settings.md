@@ -8,14 +8,23 @@ from `.env.local`; a section's badge says which it uses ("Set here" or
 "From .env.local"), and **Use .env.local instead** goes back.
 
 The list on the left (above, on a phone) shows one section at a time:
-**Backends**, **Tagging**, **Gallery**, **Profiles**, **Model info**,
-**Wildcards** and **Devices**. A dot marks a section with unsaved changes, a red one a section
+**How you use it**, **Backends**, **Tagging**, **Gallery**, **Profiles**,
+**Model info**, **Wildcards** and **Devices** (in gallery-only mode, only
+those the gallery uses). A dot marks a section with unsaved changes, a red one a section
 with a field to fix. **Save** at the bottom saves every section at once. A
 link can open a section, for example `/settings#gallery`; without one, the
 page opens at the section you chose last in this browser.
 
 By default, settings can only be changed on the computer running Latentry
 (opened as `http://localhost`); see [Other devices and security](network.md).
+
+## How you use it
+
+**Gallery-only mode** turns Latentry into a gallery only: generating, the
+engine and the backends are off, and their part of the API is closed. The
+switch saves at once, so it waits while other changes are unsaved. The card
+lists what stays and what goes; see [Gallery-only mode](gallery-only.md).
+When `LATENTRY_MODE` is set, it decides, and the switch only shows it.
 
 ## Backends
 

@@ -38,7 +38,9 @@ nav:
       - Many pictures: guide/many.md
       - Pose and the 3D view: guide/pose.md
       - Controls and references: guide/controls.md
-  - Gallery: guide/gallery.md
+  - Gallery:
+      - The gallery: guide/gallery.md
+      - Gallery-only mode: guide/gallery-only.md
   - Devices:
       - Owner device: guide/owner-device.md
       - Other devices and security: guide/network.md

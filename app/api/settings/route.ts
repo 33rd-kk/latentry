@@ -6,6 +6,8 @@ import { serverMessage } from '@/lib/i18n/core'
 import { checkDir, getSettings, NewerSettingsError, saveSettings } from '@/lib/settings/store'
 import { settingsView, type AccessView } from '@/lib/settings/view'
 import { hasModel } from '@/lib/tagger/wd14'
+import { followMode } from '@/lib/engine/supervisor'
+import { appMode } from '@/lib/mode'
 
 export const runtime = 'nodejs'
 
@@ -77,6 +79,7 @@ export async function PUT(request: Request) {
   if (modelDir && !hasModel(modelDir)) errors['wd14.modelDir'] = 'settings.wd14Missing'
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })
 
+  const modeBefore = appMode()
   try {
     await saveSettings(checked.settings)
   } catch (error) {
@@ -85,6 +88,11 @@ export async function PUT(request: Request) {
     }
     console.error('Saving settings failed:', error)
     return jsonError('Could not write the settings file', 500)
+  }
+  // Gallery-only mode stops the engines; leaving it starts them again. Not
+  // waited for: the page shows the engine's state on Setup as usual.
+  if (appMode(process.env, checked.settings) !== modeBefore) {
+    void followMode().catch((error) => console.warn('[engine] could not follow the mode:', error))
   }
   return json(settingsView(access(request), checked.settings))
 }
