@@ -4,7 +4,7 @@ Latentry runs in Docker, with its settings, pictures, engine and models in
 one data volume. To install it without Docker, see
 [Without Docker](install/native.md).
 
-There are two ways to use it, from the same download:
+There are two ways to use it, with nothing to reinstall between them:
 
 - **[Browse your pictures](#browse-your-pictures)**: look through the
   folders you already have, Latentry's and other tools', read-only. No GPU
@@ -14,7 +14,7 @@ There are two ways to use it, from the same download:
   it.
 
 The first page asks which one, and you can switch at any time on
-**Settings > How you use it**. Starting and pairing are the same for both.
+**Settings > Mode**. Starting and pairing are the same for both.
 
 ## What you need
 
@@ -78,7 +78,7 @@ devices. When it ends, run the command again. See
 
 ## Browse your pictures
 
-On the first page, under **How will you use Latentry?**, choose **Browse
+On the first page, under **What do you want to do with Latentry?**, choose **Browse
 only**.
 
 ![The first-run question: browse your pictures, or generate pictures too](assets/manual-first-run.webp)
@@ -97,7 +97,9 @@ off, and so do their parts of Latentry's API; see
 ## Generate too
 
 On the first page, choose **Set up generating**. It shows how to install
-the engine or add a server you already run.
+the engine or add a server you already run. Changed your mind? Until a
+backend is set up, **Browse only instead** at the bottom of that page
+switches to browsing.
 
 ### Set up the engine
 

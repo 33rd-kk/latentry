@@ -141,7 +141,7 @@ type the code on **Pair this device**, and your browser becomes the
 address is trusted as "this computer", so every browser pairs, yours
 included ([why](https://33rd-kk.github.io/latentry/install/docker/#why-your-browser-has-to-pair)).
 
-The first page then asks how you will use Latentry, from the same download:
+The first page then asks what you want to do with Latentry (nothing needs reinstalling to switch later):
 
 - **Browse only**: look through the folders you already have, read-only,
   with no GPU ([gallery-only mode](https://33rd-kk.github.io/latentry/guide/gallery-only/)).

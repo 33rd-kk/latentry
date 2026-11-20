@@ -8,7 +8,7 @@ import { asFreshInstall } from './fresh-install'
 test('a fresh install asks how it is used; "Browse only" turns on gallery-only mode', async ({ page, request }) => {
   await asFreshInstall(request, async () => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: 'How will you use Latentry?' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'What do you want to do with Latentry?' })).toBeVisible()
     await page.getByRole('button', { name: 'Browse only' }).click()
 
     // On to the gallery folders, in gallery-only mode.
@@ -19,7 +19,7 @@ test('a fresh install asks how it is used; "Browse only" turns on gallery-only m
   })
 })
 
-test('"Set up generating" shows the setup help and is not asked again', async ({ page, request }) => {
+test('"Set up generating" shows the setup help, is not asked again, and can still turn to browsing only', async ({ page, request }) => {
   await asFreshInstall(request, async () => {
     await page.goto('/')
     await page.getByRole('button', { name: 'Set up generating' }).click()
@@ -30,7 +30,12 @@ test('"Set up generating" shows the setup help and is not asked again', async ({
     // Chosen: the next visit goes straight to the setup help.
     await page.reload()
     await expect(page.getByText('Get drawing')).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'How will you use Latentry?' })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'What do you want to do with Latentry?' })).toHaveCount(0)
+
+    // Changed their mind: browsing only is still offered below the setup help.
+    await page.getByRole('button', { name: 'Browse only instead' }).click()
+    await expect(page).toHaveURL(/\/settings#gallery$/)
+    expect((await (await request.get('/api/settings')).json()).mode.chosen).toBe('gallery')
   })
 })
 

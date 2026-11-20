@@ -15,7 +15,7 @@ it again by what it shows or how it was made.
 
 ## Two ways to use it
 
-The same download, and you can switch at any time:
+The same install, and you can switch at any time:
 
 - **Browse your pictures**: Latentry's gallery over the folders you already
   have, read-only, with no GPU and no backend

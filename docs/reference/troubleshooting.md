@@ -72,7 +72,7 @@ listed. Point the models folder at the right place on Setup.
 **There is no Generate in the header, and the home page is the gallery.**
 Latentry is in [gallery-only mode](../guide/gallery-only.md): it was chosen
 as **Browse only** on the first page, or switched on in Settings. Turn
-**Gallery-only mode** off on **Settings > How you use it** (on an
+**Gallery-only mode** off on **Settings > Mode** (on an
 [owner device](../guide/owner-device.md); see
 [Turn it on or off](../guide/gallery-only.md#turn-it-on-or-off)). If the
 switch cannot be changed and says **Set by LATENTRY_MODE=gallery in the

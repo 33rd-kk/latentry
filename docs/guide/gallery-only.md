@@ -6,7 +6,7 @@ and the backends are turned off, and Latentry closes the parts of its API
 that serve them, so they cannot be reached from another tab or device
 either. No GPU is needed.
 
-It is the same Latentry, from the same download. You can turn the mode off
+It is the same Latentry, with nothing to reinstall. You can turn the mode off
 at any time and generate.
 
 ## What you can do
@@ -30,12 +30,13 @@ before stay in the save folder, one click away in the folder list.
 
 ## Turn it on or off
 
-On a fresh install, the first page asks **How will you use Latentry?**:
+On a fresh install, the first page asks **What do you want to do with Latentry?**:
 **Browse only** turns the mode on, **Set up generating** leaves it off. Both
-answers are saved, so it is asked once. A device that may not change
-Settings is not asked.
+answers are saved, so it is asked once; until a backend is set up, the
+setup help that follows still offers **Browse only instead**. A device that
+may not change Settings is not asked.
 
-Afterwards, on **Settings > How you use it**, switch **Gallery-only mode**. It applies
+Afterwards, on **Settings > Mode**, switch **Gallery-only mode**. It applies
 at once: the header loses **Generate**, the home page becomes the gallery,
 and a running engine is stopped. Turning it off starts the engine again if
 it is set to start with Latentry.
