@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { useSecretMode } from "@/components/app-header"
 import { BackendPicker } from "@/components/generate/backend-picker"
-import { SetupNotice } from "@/components/setup-notice"
+import { SetupNotice, type FirstRun } from "@/components/setup-notice"
 import { SourceImageSlot, type SourceImage, type SourceMode } from "@/components/generate/source-image-slot"
 import { ExtendControls } from "@/components/generate/extend-controls"
 import { TagExtractPanel } from "@/components/generate/tag-extract-panel"
@@ -69,7 +69,8 @@ const DEFAULT_POSE_STRENGTH = 1
 
 const round2 = (value: number) => Math.round(value * 100) / 100
 
-export function GenerateClient() {
+/** `firstRun`: see FirstRun in components/setup-notice.tsx; read on the server by the page. */
+export function GenerateClient({ firstRun = null }: { firstRun?: FirstRun }) {
   const t = useT()
   const { backends, tagger, loaded, refresh: refreshBackends } = useBackends()
 
@@ -488,7 +489,7 @@ export function GenerateClient() {
   }, [selectedId, runId, setIsCancelling, t])
 
   // ── Render ───────────────────────────────────────────────────────────────
-  if (loaded && backends.length === 0) return <SetupNotice />
+  if (loaded && backends.length === 0) return <SetupNotice firstRun={firstRun} />
 
   if (!form || !status) {
     return (

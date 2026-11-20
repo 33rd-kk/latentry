@@ -26,6 +26,11 @@ export function appMode(env: Env = process.env, settings: Settings = getSettings
   return modeFromEnv(env) ?? settings.mode ?? 'full'
 }
 
+/** Whether the mode was chosen, by LATENTRY_MODE or on Settings (or the first-run question). */
+export function modeChosen(env: Env = process.env, settings: Settings = getSettings()): boolean {
+  return modeFromEnv(env) !== null || settings.mode !== undefined
+}
+
 export function galleryOnly(env: Env = process.env, settings: Settings = getSettings()): boolean {
   return appMode(env, settings) === 'gallery'
 }

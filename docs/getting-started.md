@@ -4,10 +4,25 @@ Latentry runs in Docker, with its settings, pictures, engine and models in
 one data volume. To install it without Docker, see
 [Without Docker](install/native.md).
 
+There are two ways to use it, with nothing to reinstall between them:
+
+- **[Browse your pictures](#browse-your-pictures)**: look through the
+  folders you already have, Latentry's and other tools', read-only. No GPU
+  is needed. This is [gallery-only mode](guide/gallery-only.md).
+- **[Generate too](#generate-too)**: install Latentry's engine on your
+  NVIDIA GPU, or connect a backend you already run. The gallery comes with
+  it.
+
+The first page asks which one, and you can switch at any time on
+**Settings > Mode**. Starting and pairing are the same for both.
+
 ## What you need
 
 - **Docker**: [Docker Desktop](https://www.docker.com/products/docker-desktop/)
   on Windows, or Docker Engine with the Compose plugin on Linux.
+
+Only for generating:
+
 - For the built-in engine, an **NVIDIA GPU**:
     - Windows: Docker Desktop with the WSL 2 backend, and a current NVIDIA
       driver.
@@ -33,6 +48,10 @@ docker compose -f compose.yaml -f compose.gpu.yaml up -d   # with an NVIDIA GPU
 docker compose up -d                                       # without
 ```
 
+To browse folders you already have, add them to `compose.yaml` first,
+read-only (`:ro`); see
+[Your own picture folders](install/docker.md#your-own-picture-folders).
+
 The first start downloads Latentry's official image, which takes a few
 minutes ([how to check it](install/docker.md#the-image)). Latentry then
 listens on **<http://localhost:3000>**, on this computer only.
@@ -57,7 +76,32 @@ device** for 7 days: it may change Settings and Setup and pair your other
 devices. When it ends, run the command again. See
 [Owner device](guide/owner-device.md).
 
-## Set up the engine
+## Browse your pictures
+
+On the first page, under **What do you want to do with Latentry?**, choose **Browse
+only**.
+
+![The first-run question: browse your pictures, or generate pictures too](assets/manual-first-run.webp)
+
+Latentry turns on [gallery-only mode](guide/gallery-only.md) and opens
+**Settings > Gallery folders**. Choose **Add folder**, give the path
+inside the container (for example `/pictures/comfyui`) and a
+display name, and save. Open **Gallery**: the folder is there, with every
+picture's settings read from the file.
+
+For tags under each picture, download the WD14 tagger on **Setup**. It runs
+inside Latentry, without a GPU. Generating, the engine and backends stay
+off, and so do their parts of Latentry's API; see
+[what you can do](guide/gallery-only.md#what-you-can-do).
+
+## Generate too
+
+On the first page, choose **Set up generating**. It shows how to install
+the engine or add a server you already run. Changed your mind? Until a
+backend is set up, **Browse only instead** at the bottom of that page
+switches to browsing.
+
+### Set up the engine
 
 Open **Setup**. It runs in three steps:
 
@@ -77,7 +121,7 @@ page instead. A server on this computer is
 `http://host.docker.internal:<port>` from inside the container; see
 [Backends on this computer](install/docker.md#backends-on-this-computer).
 
-## Generate the first picture
+### Generate the first picture
 
 1. Open **Generate**. Pick the backend (`engine` for the built-in one) and
    the model.
@@ -88,6 +132,7 @@ page instead. A server on this computer is
 
 ## Next
 
+- [The gallery](guide/gallery.md): search, stars, tags, stacks and Compare.
 - [Generate](guide/generate.md) for everything on that page, then
   [From a picture](guide/from-a-picture.md),
   [Bigger pictures](guide/bigger.md) and [Many pictures](guide/many.md).

@@ -13,6 +13,18 @@ it again by what it shows or how it was made.
 
 ![The generate page: a reference's pose with a hand raised and turned in the 3D view, and the two pictures generated from it](assets/screenshot-generate.webp)
 
+## Two ways to use it
+
+The same install, and you can switch at any time:
+
+- **Browse your pictures**: Latentry's gallery over the folders you already
+  have, read-only, with no GPU and no backend
+  ([gallery-only mode](guide/gallery-only.md)).
+- **Generate too**: everything below, with Latentry's own engine or the
+  servers you already run.
+
+[Getting started](getting-started.md) asks which one on the first page.
+
 ## What it does
 
 - **Generate**: text-to-image, img2img (a variation, or a picture as a pose
@@ -57,8 +69,8 @@ it again by what it shows or how it was made.
 
 ## Where to start
 
-1. [Getting started](getting-started.md): install, set up the engine,
-   generate the first picture.
+1. [Getting started](getting-started.md): install, then browse your
+   pictures or set up the engine and generate the first picture.
 2. Generate: [the generate page](guide/generate.md),
    [from a picture](guide/from-a-picture.md),
    [bigger pictures](guide/bigger.md), [many pictures](guide/many.md) and

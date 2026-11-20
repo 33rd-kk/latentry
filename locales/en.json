@@ -13,7 +13,24 @@
     "navSettings": "Settings",
     "navSetup": "Setup",
     "setupEngine": "Latentry can install and run its own engine on this computer’s GPU. Setup checks the GPU, installs it, and downloads a model.",
-    "setupEngineButton": "Open setup"
+    "setupEngineButton": "Open setup",
+    "firstRun": {
+      "title": "What do you want to do with Latentry?",
+      "description": "Either way, nothing needs reinstalling.",
+      "browseTitle": "Browse my pictures",
+      "browseBody": "Look through folders you already have: Latentry’s own and other tools’, read-only. Search, filters, stars, tags and paired phones. No GPU needed, and nothing is generated.",
+      "browseDocker": "In Docker, mount your folders into the container first (read-only); the guide shows how.",
+      "browseButton": "Browse only",
+      "generateTitle": "Generate pictures too",
+      "generateBody": "Install Latentry’s engine on this computer’s GPU, or connect a backend you already run. The gallery is there as well.",
+      "generateButton": "Set up generating",
+      "later": "Change it later on Settings > Mode.",
+      "failed": "Could not save your choice",
+      "askOwner": "An owner device can choose to use Latentry for browsing only; until then it is set up for generating.",
+      "readOnly": "Settings cannot be changed on this server (SETTINGS_EDIT=off). To use Latentry for browsing only, set LATENTRY_MODE=gallery and restart it.",
+      "switchText": "Only want to look through your pictures?",
+      "switchButton": "Browse only instead"
+    }
   },
   "generate": {
     "backend": "Backend",
@@ -673,7 +690,7 @@
       "devices": "Devices",
       "invalid": "Has a field to fix",
       "models": "Model info",
-      "mode": "How you use it"
+      "mode": "Mode"
     },
     "intro": "Saved to {file} on the server and applied at once, without a restart. Anything you leave untouched keeps coming from .env.local.",
     "version": "Latentry {version}",
@@ -842,7 +859,7 @@
     "pairingRemoveNamed": "Remove {name}",
     "pairingRemoveConfirm": "Remove “{name}”? It will need a new code to use Latentry again.",
     "mode": {
-      "title": "How you use Latentry",
+      "title": "Mode",
       "description": "Gallery-only mode only browses pictures. Generating, the engine and the backends are turned off, and so are the parts of Latentry's API that serve them.",
       "galleryOnly": "Gallery-only mode",
       "fromEnv": "Set by LATENTRY_MODE={mode} in the environment. Change it there and restart Latentry.",

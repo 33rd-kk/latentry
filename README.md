@@ -140,7 +140,16 @@ type the code on **Pair this device**, and your browser becomes the
 **owner device**: it may change Settings and Setup. In a container no
 address is trusted as "this computer", so every browser pairs, yours
 included ([why](https://33rd-kk.github.io/latentry/install/docker/#why-your-browser-has-to-pair)).
-Then, on **Setup**:
+
+The first page then asks what you want to do with Latentry (nothing needs reinstalling to switch later):
+
+- **Browse only**: look through the folders you already have, read-only,
+  with no GPU ([gallery-only mode](https://33rd-kk.github.io/latentry/guide/gallery-only/)).
+  Mount them into the container first
+  ([how](https://33rd-kk.github.io/latentry/install/docker/#your-own-picture-folders)),
+  then add them on **Settings > Gallery folders**.
+- **Set up generating**: the engine, or servers you already run. On
+  **Setup**:
 
 1. **Install the engine.** Latentry looks at your GPU and installs Python
    3.12, the matching PyTorch build (CUDA 13.0 / 12.8 / 12.6 by driver, or

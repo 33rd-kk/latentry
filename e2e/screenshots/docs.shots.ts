@@ -9,6 +9,7 @@ import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { expect, test, type Page } from '@playwright/test'
 import { openViewerPanel } from '../viewer'
+import { asFreshInstall } from '../fresh-install'
 import sharp from 'sharp'
 import { LATENTRY_KEY, writePngText } from '../../lib/image-meta/png'
 import { generic, onEngine, openGenerate as openOn, out, root, shot, shotBetween, take, WIDTH } from './shared'
@@ -217,4 +218,13 @@ take('manual-pair-phone')('pairing page on a phone', async ({ browser }) => {
   await expect(page.getByRole('button', { name: 'Pair', exact: true })).toBeVisible()
   await shot(page, 'manual-pair-phone')
   await context.close()
+})
+
+take('manual-first-run')('the first-run question', async ({ page, request }) => {
+  await asFreshInstall(request, async () => {
+    await generic(page)
+    await page.goto('/')
+    await expect(page.getByRole('button', { name: 'Browse only' })).toBeVisible()
+    await shot(page, 'manual-first-run', page.locator('main').locator('div.max-w-3xl'))
+  })
 })

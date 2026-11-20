@@ -13,7 +13,24 @@
     "navSettings": "設定",
     "navSetup": "セットアップ",
     "setupEngine": "Latentry は、このコンピューターの GPU で動く独自のエンジンをインストールして実行できます。セットアップで GPU を調べ、エンジンをインストールし、モデルをダウンロードします。",
-    "setupEngineButton": "セットアップを開く"
+    "setupEngineButton": "セットアップを開く",
+    "firstRun": {
+      "title": "Latentry で何をしますか？",
+      "description": "どちらを選んでも入れ直しは要りません。",
+      "browseTitle": "手元の画像を見る",
+      "browseBody": "今あるフォルダーを見ます。Latentry のものも、ほかのツールのものも読み取り専用で開けます。検索、フィルター、星、タグ、ペアリングしたスマホも使えます。GPU は要らず、生成はしません。",
+      "browseDocker": "Docker では、先にフォルダーをコンテナーへ読み取り専用でマウントしてください。やり方はガイドにあります。",
+      "browseButton": "見るだけ",
+      "generateTitle": "生成もする",
+      "generateBody": "この PC の GPU に Latentry のエンジンを入れるか、今使っているバックエンドをつなぎます。ギャラリーも使えます。",
+      "generateButton": "生成の準備をする",
+      "later": "あとから設定の「利用モード」で変えられます。",
+      "failed": "選んだ内容を保存できませんでした",
+      "askOwner": "見るだけで使うかどうかは、オーナー端末で選べます。それまでは生成用の設定のままです。",
+      "readOnly": "このサーバーでは設定を変えられません（SETTINGS_EDIT=off）。見るだけで使うには、LATENTRY_MODE=gallery を設定して再起動してください。",
+      "switchText": "手元の画像を見るだけにしますか？",
+      "switchButton": "見るだけにする"
+    }
   },
   "generate": {
     "backend": "バックエンド",
@@ -673,7 +690,7 @@
       "devices": "端末",
       "invalid": "直す項目があります",
       "models": "モデル情報",
-      "mode": "使い方"
+      "mode": "利用モード"
     },
     "intro": "サーバーの {file} に保存され、再起動せずにすぐ反映されます。触らなかった項目は、引き続き .env.local の値を使います。",
     "version": "Latentry {version}",
@@ -842,7 +859,7 @@
     "pairingRemoveNamed": "{name} を解除",
     "pairingRemoveConfirm": "「{name}」を解除しますか？ また Latentry を使うには新しいコードが必要になります。",
     "mode": {
-      "title": "Latentry の使い方",
+      "title": "利用モード",
       "description": "ギャラリーのみモードでは、画像を見るだけになります。生成、エンジン、バックエンドはオフになり、それらのための Latentry の API も閉じます。",
       "galleryOnly": "ギャラリーのみモード",
       "fromEnv": "環境変数 LATENTRY_MODE={mode} で決まっています。変えるにはそちらを書き換えて、Latentry を再起動してください。",
