@@ -31,6 +31,7 @@ const settingsInput = {
           profile: 'illustrious',
           model: 'base.safetensors',
           controlnet: 'pose.safetensors',
+          controlnets: { depth: 'union.safetensors' },
           workflowsDir: '/fixture/workflows',
           shareWorkflows: true,
         }
@@ -42,6 +43,8 @@ const settingsInput = {
   profiles: { sdxl: { width: 1152, height: 896, steps: 28, cfg: 6, negativePrompt: 'lowres', qualityTags: 'best', tagStyle: 'space', keepTags: '' } },
   engine: { autoStart: false, modelsDir: '/fixture/models', basePort: 7900, gpus: [0], model: 'mine.safetensors', shareLoras: true },
   wildcards: { dir: '/fixture/wildcards', share: true },
+  // 0.17.0: how Latentry is used ("full", or "gallery" for gallery-only).
+  mode: 'full',
 }
 const checked = schema.validateSettings(settingsInput, schema.EMPTY_SETTINGS, {})
 if (!checked.ok) throw new Error(`${release}: settings refused: ${JSON.stringify(checked.errors)}`)
@@ -69,6 +72,8 @@ const full: Record<string, unknown> = {
   loras: [{ name: 'style', weight: 0.6 }],
   workflow: 'portrait.json',
   grid: { id: 'g1', x: { axis: 'cfg', value: '5' } },
+  control: { kind: 'canny', strength: 0.5 },
+  ip_adapter: { scale: 0.3 },
   created: '2026-10-08T07:48:36.401Z',
 }
 const record = Object.fromEntries(Object.entries(full).filter(([key]) => fields.has(key)))
