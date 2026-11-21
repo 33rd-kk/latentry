@@ -7,9 +7,16 @@
   prompt, seed, steps, size, CFG, sampler and model, is found by a search,
   and has its own **NovelAI** under **Settings from**. Only the settings
   are kept, not the request's ids or signature. NovelAI also hides a copy
-  of its settings in the pixels; that copy is not read, and it stays in a
-  NovelAI picture downloaded without settings. See
+  of its settings in the pixels; that copy is not read. See
   [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/).
+- **Without settings means without the hidden copy too**: a PNG that hides
+  its settings in its pixels (NovelAI, in the lowest bit of each pixel's
+  transparency, or the web UI's stealth extension, in the colours) loses
+  that copy when it is downloaded from the gallery without settings. Those
+  bits are set to one value, which changes nothing you can see, and the
+  picture is written again losslessly; any other picture keeps its pixels
+  exactly. A picture that cannot be checked is not handed out. See
+  [Saving and sharing](https://33rd-kk.github.io/latentry/guide/gallery/#saving-and-sharing).
 
 **Fixed**
 

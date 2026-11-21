@@ -8,7 +8,7 @@ import { openInDir } from '@/lib/gallery/fs'
 import { thumbnail } from '@/lib/gallery/thumbs'
 import { attachment } from '@/lib/gallery/zip'
 import { serverMessage } from '@/lib/i18n/core'
-import { stripMetadata } from '@/lib/image-meta'
+import { cleanCopy } from '@/lib/images/hidden-settings'
 
 export const runtime = 'nodejs'
 
@@ -61,7 +61,7 @@ async function respond(request: NextRequest, handle: FileHandle, file: string, i
     const type = CONTENT_TYPES[path.extname(file).toLowerCase()] ?? 'application/octet-stream'
     const download = request.nextUrl.searchParams.get('download')
     if (download === 'clean') {
-      const clean = stripMetadata(bytes)
+      const clean = await cleanCopy(bytes)
       if (!clean) return jsonError(serverMessage('gallery.download.notCleaned'), 422)
       return new Response(new Uint8Array(clean), { headers: { ...headers, 'Content-Type': type, 'Content-Disposition': attachment(path.basename(file)) } })
     }
