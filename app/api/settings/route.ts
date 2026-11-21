@@ -8,6 +8,7 @@ import { settingsView, type AccessView } from '@/lib/settings/view'
 import { hasModel } from '@/lib/tagger/wd14'
 import { followMode } from '@/lib/engine/supervisor'
 import { appMode } from '@/lib/mode'
+import { goingRuns, stopAllRuns } from '@/lib/diffusion/stop-all'
 
 export const runtime = 'nodejs'
 
@@ -80,6 +81,17 @@ export async function PUT(request: Request) {
   if (Object.keys(errors).length) return json({ error: 'Some folders cannot be used', errors }, { status: 422 })
 
   const modeBefore = appMode()
+  // Into gallery-only mode with runs going: asked first, since the pages can
+  // no longer watch or stop them afterwards. `?stopRuns=1` is the yes.
+  if (modeBefore !== 'gallery' && appMode(process.env, checked.settings) === 'gallery') {
+    const runs = goingRuns()
+    if (runs > 0) {
+      if (new URL(request.url).searchParams.get('stopRuns') !== '1') {
+        return json({ error: serverMessage('settings.mode.runsGoing', { count: runs }), runs }, { status: 409 })
+      }
+      await stopAllRuns()
+    }
+  }
   try {
     await saveSettings(checked.settings)
   } catch (error) {

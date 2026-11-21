@@ -44,16 +44,22 @@ function useSaveMode() {
   const t = useT()
   const router = useRouter()
   const [saving, setSaving] = useState(false)
-  async function save(mode: "gallery" | "full"): Promise<boolean> {
+  async function save(mode: "gallery" | "full", stopRuns = false): Promise<boolean> {
     setSaving(true)
     try {
-      const response = await fetch("/api/settings", {
+      const response = await fetch(stopRuns ? "/api/settings?stopRuns=1" : "/api/settings", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode }),
       })
       if (!response.ok) {
         const data = await response.json().catch(() => null)
+        // Runs going (one started from another tab): asked first, as on Settings.
+        if (response.status === 409 && typeof data?.runs === "number" && !stopRuns) {
+          if (window.confirm(t.server(data.error))) return save(mode, true)
+          setSaving(false)
+          return false
+        }
         throw new Error(typeof data?.error === "string" ? t.server(data.error) : String(response.status))
       }
       if (mode === "gallery") router.push("/settings#gallery")

@@ -21,8 +21,12 @@ export interface SettingsForm {
   /** Reads the settings again, dropping unsaved changes. */
   load: () => Promise<void>
   change: ChangeDraft
-  /** Saves the changed parts, or `override` as it is (e.g. `{ backends: null }`). */
-  save: (override?: Record<string, unknown>) => Promise<void>
+  /**
+   * Saves the changed parts, or `override` as it is (e.g. `{ backends: null }`).
+   * Resolves to `{ runsGoing }`, the question to ask, when turning gallery-only
+   * mode on finds runs going; `stopRuns` is the answer yes.
+   */
+  save: (override?: Record<string, unknown>, options?: { stopRuns?: boolean }) => Promise<{ runsGoing: string } | void>
 }
 
 /** The settings page's state: what the server has, the draft being edited, and saving it. */
@@ -61,11 +65,16 @@ export function useSettingsForm(): SettingsForm {
   const backendIds = useMemo(() => (draft?.backends ?? []).map((backend) => backend.id).filter(Boolean), [draft])
 
   const save = useCallback(
-    async (override?: Record<string, unknown>) => {
+    /**
+     * Resolves to `{ runsGoing }` when the server asks first: turning
+     * gallery-only mode on while runs are going (app/api/settings/route.ts).
+     * Saving again with `stopRuns` stops them and saves.
+     */
+    async (override?: Record<string, unknown>, options: { stopRuns?: boolean } = {}): Promise<{ runsGoing: string } | void> => {
       if (!draft) return
       setSaving(true)
       try {
-        const response = await fetch("/api/settings", {
+        const response = await fetch(options.stopRuns ? "/api/settings?stopRuns=1" : "/api/settings", {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(override ?? toInput(draft, dirty)),
@@ -76,6 +85,7 @@ export function useSettingsForm(): SettingsForm {
           toast.error(t("settings.invalid"))
           return
         }
+        if (response.status === 409 && typeof data?.runs === "number") return { runsGoing: t.server(data.error) }
         if (!response.ok) throw new Error(data?.error ? t.server(data.error) : String(response.status))
         setView(data)
         setDraft(toDraft(data))
