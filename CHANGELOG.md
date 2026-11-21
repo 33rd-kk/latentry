@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.17.1 (2026-11-22)
+
+**Upgrading from 0.17.0**: recommended for everyone who runs Latentry in
+Docker; the engine is unchanged, so neither a restart of it nor **Repair /
+update** is needed. With Docker, `git pull` then `docker compose up -d`
+(with `-f compose.yaml -f compose.gpu.yaml` for a GPU) downloads this
+release's image. Without Docker, Latentry runs on the Node.js you
+installed: update it to 22.23.5, 24.22.3 or newer for the same fixes.
+
+**Security**
+
+- **The Docker image runs on Node.js 22.23.5**, a security release of
+  Node.js with fixes in its HTTP/2, HTTP and TLS code (eight of them rated
+  High). The 0.17.0 image had 22.23.4.
+- **Next.js 16.4.6**, a patch release of the framework Latentry is built
+  on, and lucide-react 1.72.0.
+
 ## 0.17.0 (2026-11-22)
 
 **Upgrading from 0.16.x**: after updating, open **Setup** and press
