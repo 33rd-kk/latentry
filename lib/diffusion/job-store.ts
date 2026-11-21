@@ -130,6 +130,11 @@ export function getCurrentJob(backend: string): Job | null {
   return jobs.get(backend) ?? null
 }
 
+/** Every backend's run that is drawing now. */
+export function runningJobs(): Job[] {
+  return [...jobs.values()].filter((job) => job.status === 'running')
+}
+
 /**
  * The job with this id: the backend's current one, or one it replaced that
  * is not forgotten yet. Only a client that knows the id can ask.
