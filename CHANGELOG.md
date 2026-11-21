@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+**Fixed**
+
+- **Turning gallery-only mode on while generating asks first.** Before, the
+  runs were left going: on the engine they ended as errors when it stopped,
+  and on a backend of your own they went on and were saved, with no way left
+  to watch or stop them, and runs in the queue failed. Now Settings says how
+  many runs are drawing or waiting and offers to stop them all and switch,
+  or to leave everything as it was.
+
 ## 0.17.1 (2026-11-22)
 
 **Upgrading from 0.17.0**: recommended for everyone who runs Latentry in

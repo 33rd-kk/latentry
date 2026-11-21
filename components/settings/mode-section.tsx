@@ -20,7 +20,7 @@ export function ModeSection({
   view: SettingsView
   unsaved: boolean
   saving: boolean
-  save: (override: Record<string, unknown>) => Promise<void>
+  save: (override: Record<string, unknown>, options?: { stopRuns?: boolean }) => Promise<{ runsGoing: string } | void>
 }) {
   const t = useT()
   const router = useRouter()
@@ -28,7 +28,11 @@ export function ModeSection({
   const on = inEffect === "gallery"
 
   const turn = async (galleryOnly: boolean) => {
-    await save({ mode: galleryOnly ? "gallery" : "full" })
+    const mode = { mode: galleryOnly ? "gallery" : "full" }
+    // Runs going: the server asks first, since nothing can stop them afterwards.
+    const asked = await save(mode)
+    if (asked && !window.confirm(asked.runsGoing)) return
+    if (asked) await save(mode, { stopRuns: true })
     // The header and the other pages read the mode on the server.
     router.refresh()
   }

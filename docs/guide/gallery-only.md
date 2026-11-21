@@ -41,6 +41,12 @@ at once: the header loses **Generate**, the home page becomes the gallery,
 and a running engine is stopped. Turning it off starts the engine again if
 it is set to start with Latentry.
 
+If a picture is being drawn or runs wait in the queue, on any backend, the
+switch asks first: once the mode is on, nothing could watch or stop them.
+**OK** stops them all, as **Cancel** would, and turns the mode on; pictures
+not finished yet are not saved. **Cancel** leaves the runs and the mode as
+they were.
+
 Only an [owner](owner-device.md) can switch it, like the rest of Settings.
 The switch waits while other changes on the page are unsaved.
 

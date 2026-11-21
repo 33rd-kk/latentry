@@ -114,6 +114,11 @@ export function waitingCount(backend: string): number {
   return (queues.get(backend) ?? []).filter((run) => !run.grid || run.grid.next === 0).length
 }
 
+/** Every backend's queued runs, grids drawing their cells among them. */
+export function allQueued(): QueuedRun[] {
+  return [...queues.values()].flat()
+}
+
 /** The waiting run with this id, while it still waits. */
 export function getQueued(backend: string, id: string): QueuedRun | null {
   return queues.get(backend)?.find((run) => run.id === id) ?? null

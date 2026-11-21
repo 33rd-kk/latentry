@@ -4,6 +4,7 @@
 
 import sharp from 'sharp'
 import { expect, test, type APIRequestContext, type Page } from './test'
+import { UNTIL_CANCELLED } from '../__tests__/fixtures/mock-diffusers'
 
 async function setMode(request: APIRequestContext, mode: 'gallery' | null) {
   const response = await request.put('/api/settings', { data: { mode } })
@@ -114,4 +115,43 @@ test('the server closes generation and reaches no backend', async ({ request }) 
   // Back to full, generating works again.
   await setMode(request, null)
   expect((await request.get('/api/gen/mock/job')).status()).not.toBe(403)
+})
+
+test('runs going are asked about first, and stopped on yes', async ({ page, browser }) => {
+  // A run that goes on until cancelled, and one waiting behind it, on the mock diffusers server.
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  await page.getByRole('main').getByRole('combobox').first().click()
+  await page.getByRole('option').filter({ has: page.getByText('pose', { exact: true }) }).click()
+  await page.locator('#prompt').fill(`mode switch ${UNTIL_CANCELLED}`)
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const cancel = page.getByRole('button', { name: 'Cancel', exact: true })
+  await expect(cancel).toBeVisible()
+  await page.locator('#prompt').fill('mode switch, waiting')
+  await page.getByRole('button', { name: 'Add to queue' }).click()
+  const waiting = page.getByRole('region', { name: 'Waiting' })
+  await expect(waiting.getByRole('listitem')).toHaveCount(1)
+
+  const settings = await (await browser.newContext()).newPage()
+  await settings.goto('/settings#mode')
+  const toggle = settings.getByRole('switch', { name: 'Gallery-only mode' })
+  // No: nothing changes, the runs go on.
+  let asked = ''
+  settings.once('dialog', (dialog) => {
+    asked = dialog.message()
+    void dialog.dismiss()
+  })
+  await toggle.click()
+  await expect.poll(() => asked).toContain('Runs drawing or waiting: 2.')
+  await expect(toggle).not.toBeChecked()
+  await expect(cancel).toBeVisible()
+  await expect(waiting.getByRole('listitem')).toHaveCount(1)
+
+  // Yes: both stop, and the mode goes on.
+  settings.once('dialog', (dialog) => void dialog.accept())
+  await toggle.click()
+  await expect(toggle).toBeChecked()
+  await expect(cancel).toHaveCount(0)
+  await expect(waiting).toHaveCount(0)
+  await settings.context().close()
 })

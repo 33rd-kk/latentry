@@ -891,6 +891,7 @@
   "settings.mode.keepsList": "Every gallery folder, search and filters, stacks, Compare, ratings and tags, downloads, paired phones and secret mode. Tagging with the built-in WD14 model, which runs in Latentry itself.",
   "settings.mode.stops": "Turned off",
   "settings.mode.stopsList": "Generating and everything on its page, the engine (stopped if it is running), model and LoRA downloads, connections to backends (their taggers too), wildcards and model info.",
+  "settings.mode.runsGoing": "Runs drawing or waiting: {count}. Turning gallery-only mode on stops them all, and pictures not finished yet are lost. Stop them and switch?",
   "setup.galleryOnly": "Gallery-only mode is on: only the WD14 tagger is set up here. The engine and its models are off.",
   "setup.galleryOnlyLink": "Change it in Settings",
   "app.firstRun.title": "What do you want to do with Latentry?",
