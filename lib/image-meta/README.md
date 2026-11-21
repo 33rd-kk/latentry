@@ -12,7 +12,8 @@ own package.
   chunk), and stable-diffusion.cpp's `parameters` in a JPEG comment (COM)
   and in WebP's XMP (`<sdcpp:parameters>` only; no XML parser runs).
 - **Tools**: AUTOMATIC1111 / Forge infotext (`parameters`, or EXIF
-  UserComment), stable-diffusion.cpp (`parameters` ending in
+  UserComment; source `forge` when its `Version` is Forge's, `f2.0.1v…` or
+  Forge Neo's `neo-2.30`, else `a1111`), stable-diffusion.cpp (`parameters` ending in
   `, SDCPP: {json}`, its own record, read first; model and LoRA paths cut
   to file names), NovelAI (PNG text: `Software` or `Source` names it,
   `Comment` holds the request as JSON; the V4 character captions join the

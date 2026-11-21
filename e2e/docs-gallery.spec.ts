@@ -102,6 +102,21 @@ test('a filter shows as a chip, clears, and is gone after a reload', async ({ pa
   await expect(page.getByRole('button', { name: 'Filters', exact: true })).toBeVisible()
 })
 
+// "Settings from" says how many pictures in the folder each tool made, once
+// the server has read the folder: the counts the facets answer gives.
+test('Settings from counts the pictures from each tool', async ({ page }) => {
+  await generateOnce(page, 'docssources count')
+  await page.goto('/gallery')
+  await page.getByRole('button', { name: 'Filters', exact: true }).click()
+  const counts = async () => (await (await page.request.get('/api/gallery?dir=0&facets=1')).json())?.facets?.sources as Record<string, number> | undefined
+  await expect.poll(async () => (await counts())?.latentry ?? 0).toBeGreaterThan(0)
+  const latentry = (await counts())!.latentry
+  await page.getByRole('combobox', { name: 'Settings from' }).click()
+  await expect(page.getByRole('option', { name: `Latentry (${latentry})` })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'NovelAI (0)' })).toBeVisible()
+  await expect(page.getByRole('option', { name: /^Forge \(\d+\)$/ })).toBeVisible()
+})
+
 // "Stack": pictures that share a prompt go into one card that says how
 // many; clicking it shows them, and removing the One stack chip goes back.
 test('pictures with the same prompt stack, and the stack opens', async ({ page }) => {

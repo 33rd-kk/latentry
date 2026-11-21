@@ -31,6 +31,7 @@ export {
   COMFY_MARKERS,
   formatA1111Parameters,
   isNovelAIText,
+  isForgeVersion,
   isSdcppParameters,
   loraCallsInPrompt,
   loraName,

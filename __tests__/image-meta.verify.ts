@@ -16,6 +16,7 @@ import {
   encodeChunk,
   encodeTextChunk,
   isNovelAIText,
+  isForgeVersion,
   isSdcppParameters,
   parseNovelAI,
   parametersComment,
@@ -679,6 +680,16 @@ function sdcppText() {
 
   const old = metaFromText({ parameters: 'a cat\nSteps: 20, CFG scale: 7, Seed: 42, Size: 512x512, Model: v1-5.safetensors, RNG: cuda, Sampler: euler_a karras' })
   eq([old?.source, old?.seed], ['a1111', 42], 'an older sd.cpp line (no record, no Version) is read as before')
+
+  // Forge and A1111: the same infotext, told apart by its Version (the forms each writes).
+  const infotext = (version?: string) => `a pear\nSteps: 4, Sampler: Euler, Seed: 1, Size: 512x512${version ? `, Version: ${version}` : ''}`
+  eq(
+    ['neo-2.30', 'f2.0.1v1.10.1-previous-669-gdfdcbab6', 'v1.10.1', 'v1.9.4-169-ga0af2852', 'Latentry (engine)', undefined].map((version) => parseA1111Parameters(infotext(version)).source),
+    ['forge', 'forge', 'a1111', 'a1111', 'a1111', 'a1111'],
+    "Forge Neo's and Forge's Version are Forge; A1111's, another one, or none is A1111 and others"
+  )
+  check(!isForgeVersion('format-1') && !isForgeVersion('neon') && isForgeVersion(' NEO-2.4 '), 'a Version only starting with f or neo is not Forge')
+  eq(metaFromText({ parameters: `${infotext('neo-2.30')}`.replace('Version: neo-2.30', 'Version: stable-diffusion.cpp') })?.source, 'sdcpp', "sd.cpp's own Version still wins")
 
   eq(parametersComment(Buffer.from('parameters\0text\0\0', 'latin1')), 'text', 'JPEG comment: label and trailing NULs taken off')
   eq(parametersComment(Buffer.from('a photo comment', 'latin1')), null, 'JPEG comment: any other comment is not settings')

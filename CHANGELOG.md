@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Forge apart from A1111, and how many from each**: the gallery's
+  **Settings from** has **Forge** of its own (Forge and Forge Neo, told by
+  the `Version` in their settings), beside **A1111 and others** (A1111, any
+  other web UI, or a picture with no `Version`). Each choice says how many
+  pictures in the folder it has, once the folder has been read as for the
+  model list. Not in secret mode, and not for a folder of more than 20,000
+  pictures. See [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/).
+
 - **The gallery reads NovelAI's pictures**: a PNG saved by NovelAI shows
   its prompt (with each character's caption, from V4 models), negative
   prompt, seed, steps, size, CFG, sampler and model, is found by a search,

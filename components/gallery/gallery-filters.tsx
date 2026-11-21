@@ -151,7 +151,13 @@ export function FilterPanel({ open, query, onChange, backends, profiles, facets,
               label={t("gallery.filter.source")}
               value={query.source}
               all={t("gallery.filter.allSources")}
-              options={SOURCES.map((source) => ({ value: source, label: t(`gallery.filter.${source}`) }))}
+              options={SOURCES.map((source) => ({
+                value: source,
+                // With the whole folder's count once the server has read it; never from the pictures seen so far.
+                label: facets.sources
+                  ? t("gallery.filter.sourceCount", { source: t(`gallery.filter.${source}`), count: facets.sources[source] ?? 0 })
+                  : t(`gallery.filter.${source}`),
+              }))}
               onChange={(source) => onChange({ source })}
             />
           </Field>
