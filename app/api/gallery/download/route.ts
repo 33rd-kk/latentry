@@ -3,7 +3,7 @@ import { dirFor } from '@/lib/gallery/access'
 import { openInDir } from '@/lib/gallery/fs'
 import { attachment, zipStore, type ZipEntry } from '@/lib/gallery/zip'
 import { serverMessage } from '@/lib/i18n/core'
-import { stripMetadata } from '@/lib/image-meta'
+import { cleanCopy } from '@/lib/images/hidden-settings'
 import { MAX_DOWNLOADS_AT_ONCE } from '@/lib/limits'
 import { tryEnter } from '@/lib/security/concurrency'
 
@@ -57,7 +57,7 @@ async function zipped(dir: NonNullable<ReturnType<typeof dirFor>>, names: string
     } finally {
       await opened.handle.close()
     }
-    const data = clean ? stripMetadata(bytes) : bytes
+    const data = clean ? await cleanCopy(bytes) : bytes
     if (!data) {
       leftOut += 1
       continue

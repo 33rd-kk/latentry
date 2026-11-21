@@ -168,6 +168,11 @@ you ask:
   encoded again, so nothing is lost, and the colour profile stays. A JPEG
   keeps its rotation, alone, so it still shows the right way up. Content
   Credentials (C2PA), which say where a picture came from, stay as they are.
+  One exception: a PNG that hides a copy of its settings in its pixels
+  (NovelAI does, in the lowest bit of each pixel's transparency) has that
+  copy taken out too. Those bits are set to one value, which changes no
+  colour you can see, and the picture is written again as a PNG, losslessly.
+  A picture that cannot be checked for it is not saved.
 - **Save with settings**: the file as it is.
 - With **Select**, **Download N without settings** saves the chosen pictures
   as one ZIP (up to 200 at a time and 256 MB in all, two downloads at
