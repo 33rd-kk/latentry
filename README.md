@@ -23,7 +23,9 @@ made, then sends those settings back to the form to make it again.
   picture at a larger size, and Upscale does the same to one already in the
   gallery, and Extend grows a picture's canvas and draws the new area. Fix
   faces finds the faces in a picture on this computer and redraws each one
-  larger. `__wildcards__` in a prompt take a line from a folder of text or
+  larger. Control pictures (edges, depth, line art) made on this computer
+  from a reference, and a reference picture's look (IP-Adapter), guide a
+  run beside a pose. `__wildcards__` in a prompt take a line from a folder of text or
   YAML files, and `{red|blue}` picks one choice per run. Runs
   live on the server, so a reload or a second tab picks up a run in progress,
   and more runs queue behind the one going. An X/Y grid draws a run again
@@ -113,10 +115,10 @@ says how. Check your own setup, backends included, with
 
 | Kind | What | Notes |
 |---|---|---|
-| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose. Anima: img2img, inpaint, pose (v1.0). Hires fix and Upscale with Lanczos. 3D pose turning. |
+| Latentry's engine | Installed and run by Latentry itself, one per NVIDIA GPU ([engine/](engine/README.md)) | Stock diffusers. SDXL family: img2img, inpaint, pose, control pictures, IP-Adapter. Anima: img2img, inpaint, pose (v1.0). Hires fix and Upscale with Lanczos. 3D pose turning. |
 | `diffusers` | Any server speaking the small HTTP API in [docs/backend-api.md](docs/backend-api.md) | img2img, inpaint, pose, hires fix, Upscale (each if the server offers it), precise cancel |
 | `a1111` | AUTOMATIC1111, Forge or Forge Neo started with `--api` | img2img, inpaint, hires fix and Upscale with the web UI's upscalers. No pose control. |
-| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Hires fix and Upscale with Lanczos or an upscale model. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine. Precise cancel. |
+| `comfyui` | A ComfyUI server | txt2img, img2img and inpaint with LoRAs, from a graph Latentry builds; the checkpoint is chosen on Settings. Hires fix and Upscale with Lanczos or an upscale model. Pose with a ControlNet chosen there, the skeleton drawn by Latentry's engine; edges, depth and line art with ControlNets chosen per kind. Precise cancel. |
 | `sdcpp` | A [stable-diffusion.cpp](https://github.com/leejet/stable-diffusion.cpp) `sd-server`: no Python; Vulkan, Metal, CUDA or CPU; GGUF models | txt2img, img2img, inpaint, hires fix and Upscale as far as its loaded model can, with LoRAs. No pose control. Precise cancel. |
 
 Use the built-in engine, the servers you already run, or both.
