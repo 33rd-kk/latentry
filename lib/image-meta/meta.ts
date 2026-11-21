@@ -17,7 +17,8 @@ export interface ImageTag {
 
 /** The settings a picture was made with, whichever tool wrote them. */
 export interface ImageMeta {
-  source: 'latentry' | 'a1111' | 'comfyui' | 'sdcpp' | 'novelai' | 'unknown'
+  /** 'forge' when the infotext's Version is Forge's; 'a1111' for A1111 and any other web UI that writes its infotext. */
+  source: 'latentry' | 'a1111' | 'forge' | 'comfyui' | 'sdcpp' | 'novelai' | 'unknown'
   prompt: string
   negativePrompt: string
   seed?: number
@@ -257,8 +258,19 @@ export function parseSdcppParameters(text: string): ImageMeta {
 }
 
 /**
+ * Whether an infotext's `Version` is Forge's: Forge writes "f" and its own
+ * version before A1111's (`f2.0.1v1.10.1-previous-…`), Forge Neo "neo-" and
+ * its own (`neo-2.30`). A1111 writes its own (`v1.10.1`); a missing or
+ * other Version cannot be told apart and counts as A1111.
+ */
+export function isForgeVersion(version: string | undefined): boolean {
+  return /^(f\d|neo-\d)/i.test(version?.trim() ?? '')
+}
+
+/**
  * A1111's infotext: the prompt, an optional "Negative prompt:" line, and a
  * last line of "Key: value, Key: value" settings (values may be quoted).
+ * Forge writes the same, with its own Version.
  */
 export function parseA1111Parameters(text: string): ImageMeta {
   const lines = text.replace(/\r\n?/g, '\n').split('\n')
@@ -302,7 +314,7 @@ export function parseA1111Parameters(text: string): ImageMeta {
       ? { scale: hiresScale, steps: num('Hires steps') ?? 0, denoise: num('Denoising strength') ?? 0.4, upscaler: settings['Hires upscaler'] || 'Latent' }
       : undefined
   return {
-    source: 'a1111',
+    source: isForgeVersion(settings.Version) ? 'forge' : 'a1111',
     prompt,
     negativePrompt,
     seed: num('Seed'),

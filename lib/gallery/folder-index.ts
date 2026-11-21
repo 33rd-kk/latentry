@@ -16,7 +16,7 @@ import { createHash } from 'node:crypto'
 import type { GalleryDir } from './dirs'
 import { itemInfo, type GalleryEntry } from './fs'
 import { normalizeText } from './query'
-import type { StackGroup } from './filter'
+import { SOURCES, sourceOf, type Source, type StackGroup } from './filter'
 
 /** Folders larger than this are not indexed; the meta orders say so instead. */
 export const INDEX_MAX = 20000
@@ -33,6 +33,8 @@ interface IndexRecord {
   seed?: number
   /** The X/Y grid it is a cell or the sheet of (its random id). */
   gridId?: string
+  /** The tool whose settings it holds (or 'none'), for the counts under Settings from. */
+  source: Source
 }
 
 /** The key a picture stacks under, or undefined when it has none (no prompt, no seed). */
@@ -96,6 +98,7 @@ async function build(dir: GalleryDir, index: FolderIndex, entries: GalleryEntry[
         promptKey: promptKeyOf(info.meta?.prompt),
         seed: info.meta?.seed,
         ...(info.meta?.grid ? { gridId: info.meta.grid.id } : {}),
+        source: sourceOf(info.meta),
       })
     }
     index.done += slice.length
@@ -142,18 +145,24 @@ export function withIndexValues(dir: GalleryDir, entries: GalleryEntry[]): (Gall
 export interface Facets {
   models: string[]
   loras: string[]
+  /** How many pictures hold each tool's settings: only from the whole folder's index, never from the pictures seen so far. */
+  sources?: Partial<Record<Source, number>>
 }
 
-/** The models and LoRAs named across the folder, each sorted. Call once ready. */
+/** The models and LoRAs named across the folder, each sorted, and the pictures per source. Call once ready. */
 export function facetsOf(dir: GalleryDir, entries: GalleryEntry[]): Facets {
   const index = indexFor(dir)
   const models = new Set<string>()
   const loras = new Set<string>()
+  const sources: Partial<Record<Source, number>> = {}
   for (const entry of entries) {
     const record = index.records.get(entry.name)
     if (record?.model) models.add(record.model)
     for (const lora of record?.loras ?? []) loras.add(lora)
+    if (record) sources[record.source] = (sources[record.source] ?? 0) + 1
   }
   const sorted = (names: Set<string>) => [...names].sort((a, b) => a.localeCompare(b))
-  return { models: sorted(models), loras: sorted(loras) }
+  // In the filter's order, so the answer is the same however the folder was read.
+  const ordered = Object.fromEntries(SOURCES.filter((source) => sources[source]).map((source) => [source, sources[source]]))
+  return { models: sorted(models), loras: sorted(loras), sources: ordered }
 }

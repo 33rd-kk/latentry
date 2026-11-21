@@ -122,7 +122,13 @@ all):
   shown, and the folder is not read for them.
 - **LoRA**: every LoRA named in the folder's pictures, read the same way as
   the models (and hidden the same way in secret mode).
-- **Settings from**: Latentry, A1111 / Forge, ComfyUI, stable-diffusion.cpp, NovelAI, or no settings at all.
+- **Settings from**: Latentry, A1111 and others, Forge, ComfyUI,
+  stable-diffusion.cpp, NovelAI, or no settings at all. Forge (Forge Neo
+  included) is told by the `Version` it writes into its settings; a picture
+  from A1111, another web UI, or one with no `Version` is under **A1111 and
+  others**. Each choice says how many pictures in the folder it has, once the
+  folder has been read as for the models; not in secret mode, and not for a
+  folder of more than 20,000 pictures.
 - **Backend** and **profile**.
 - **Stars**: only pictures given at least 1 to 5 [stars](#stars); **1 or
   more** shows every rated picture.

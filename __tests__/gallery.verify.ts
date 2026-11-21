@@ -239,6 +239,16 @@ async function main() {
     eq(await inSd({ q: 'lighthouse, seed:99' }), ['nai.png'], 'and its prompt and seed are searched')
     eq(await inSd({ source: 'none' }), [], 'a NovelAI picture is not one without settings')
 
+    // ── Forge and A1111, told apart by the infotext's Version ──
+    await writeFile(path.join(sdDir.path, 'neo.png'), writePngText(png, { [PARAMETERS_KEY]: 'a pear\nSteps: 4, Sampler: Euler, Seed: 1, Size: 8x8, Version: neo-2.30' }))
+    await writeFile(path.join(sdDir.path, 'webui.png'), writePngText(png, { [PARAMETERS_KEY]: 'a plum\nSteps: 4, Sampler: Euler, Seed: 2, Size: 8x8, Version: v1.10.1' }))
+    invalidateListing(sdDir)
+    eq(await inSd({ source: 'forge' }), ['neo.png'], 'the Forge source filter')
+    eq(await inSd({ source: 'a1111' }), ['webui.png'], 'and A1111 without it')
+    await listFacets(sdDir)
+    await settleIndex(sdDir)
+    eq((await listFacets(sdDir)).facets?.sources, { latentry: 1, a1111: 1, forge: 1, sdcpp: 1, novelai: 1 }, "each source counted once per picture, in the filter's order")
+
     // ── LoRAs, from a picture A1111 wrote ──
     const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', autoLabel: true, writable: false, role: 'read', shared: false }
     await mkdir(loraDir.path)
@@ -256,7 +266,7 @@ async function main() {
     // waits for a build that has started.
     await listFacets(loraDir)
     await settleIndex(loraDir)
-    eq(await listFacets(loraDir), { facets: { models: [RECORD.model!], loras: ['Detail', 'flat'] } }, "the folder's LoRAs for the filter")
+    eq(await listFacets(loraDir), { facets: { models: [RECORD.model!], loras: ['Detail', 'flat'], sources: { latentry: 1, a1111: 1 } } }, "the folder's LoRAs for the filter, and its pictures per source")
     eq(await names({ q: 'steps:30, cfg:<5' }), ['p2.png', 'p10.png'], 'key:value settings in the search box')
     eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
 
@@ -278,7 +288,7 @@ async function main() {
     } while (metaCursor && pagedMeta.length < 10)
     eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
     check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
-    eq(await listFacets(sortDir), { facets: { models: [RECORD.model!], loras: [] } }, 'every model and LoRA in the folder')
+    eq(await listFacets(sortDir), { facets: { models: [RECORD.model!], loras: [], sources: { latentry: 2, none: 1 } } }, 'every model and LoRA in the folder, and the pictures per source')
 
     const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
     await writeFile(path.join(sorting, 'big.png'), big)

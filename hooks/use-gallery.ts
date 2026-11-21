@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { ImageMeta } from "@/lib/image-meta"
-import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
+import { SOURCES, toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import type { IndexProgress } from "@/lib/gallery/fs"
 import type { Facets } from "@/lib/gallery/folder-index"
 
@@ -219,6 +219,17 @@ function names(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((name): name is string => typeof name === "string") : []
 }
 
+/** The pictures per source, from the server; only the sources this page knows, with whole counts. */
+function sourceCounts(value: unknown): Facets["sources"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined
+  const counts: NonNullable<Facets["sources"]> = {}
+  for (const source of SOURCES) {
+    const count = (value as Record<string, unknown>)[source]
+    if (typeof count === "number" && Number.isSafeInteger(count) && count >= 0) counts[source] = count
+  }
+  return counts
+}
+
 /**
  * Every model and LoRA named in a folder, for the filters: null until the
  * server has read the folder, with `progress` meanwhile. Asks only while
@@ -237,7 +248,7 @@ export function useFolderFacets(dir: number | null, enabled: boolean): { facets:
         const data = await response.json().catch(() => null)
         if (!active || !response.ok) return
         const progress = isIndexProgress(data?.indexing) ? data.indexing : null
-        const facets = data?.facets ? { models: names(data.facets.models), loras: names(data.facets.loras) } : null
+        const facets = data?.facets ? { models: names(data.facets.models), loras: names(data.facets.loras), sources: sourceCounts(data.facets.sources) } : null
         setState({ for: key, facets, progress })
         if (progress && !("tooLarge" in progress)) timer = setTimeout(() => void ask(), INDEX_POLL_MS)
       } catch {
