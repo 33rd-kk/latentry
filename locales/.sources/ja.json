@@ -346,6 +346,7 @@
   "gallery.filter.a1111": "A1111 / Forge",
   "gallery.filter.comfyui": "ComfyUI",
   "gallery.filter.sdcpp": "stable-diffusion.cpp",
+  "gallery.filter.novelai": "NovelAI",
   "gallery.filter.none": "No settings",
   "gallery.filter.untagged": "Only pictures without WD14 tags",
   "gallery.filter.untaggedChip": "No WD14 tags",

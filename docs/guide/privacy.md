@@ -44,6 +44,11 @@ that out of the copy you share, without encoding the picture again. See
 [Saving and sharing](gallery.md#saving-and-sharing) and
 [Results](generate.md#results).
 
+One limit: NovelAI also hides a copy of its settings in the pixels
+themselves (in the lowest bit of each pixel's transparency). Since the
+pixels are left as they are, that copy stays in a NovelAI picture shared
+without settings. Latentry does not read that copy either.
+
 ## What is kept, and where
 
 | Where | What | When it goes |
