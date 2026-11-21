@@ -5,8 +5,9 @@
 # (LATENTRY_TRUST_LOOPBACK=off): every browser pairs, the first one with a
 # code from `docker compose exec latentry npm run owner-code`.
 
-# node:22.23.2-bookworm-slim, pinned so a build is reproducible. Written out
-# rather than through an ARG, so Dependabot can keep it current.
+# Node.js 22 on Debian bookworm-slim, pinned by tag and digest so a build is
+# reproducible. Written out rather than through an ARG, so Dependabot can
+# keep it current.
 FROM node:22.23.5-bookworm-slim@sha256:e9f565d32859f0cbfb52125eafe8be39390f24dac302dc3cdf566e8ba3ab21ee AS base
 
 FROM base AS build
