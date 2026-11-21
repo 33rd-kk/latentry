@@ -4,7 +4,8 @@
 // seed, LoRAs and workflow that Latentry, A1111 / Forge and ComfyUI write,
 // and the EXIF and XMP other tools add (camera, place, software, dates).
 // The pixels are not decoded or encoded again: only metadata blocks are left
-// out, so nothing is lost and the colours stay as they were.
+// out, so nothing is lost and the colours stay as they were. (So a copy of
+// the settings hidden in the pixels, as NovelAI's in the alpha channel, stays.)
 //
 //   PNG   tEXt, zTXt, iTXt (every text chunk), eXIf, tIME go; the colour
 //         chunks (iCCP, sRGB, gAMA, cHRM) and every other chunk stay.

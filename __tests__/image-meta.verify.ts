@@ -15,7 +15,9 @@ import {
   decodeUserComment,
   encodeChunk,
   encodeTextChunk,
+  isNovelAIText,
   isSdcppParameters,
+  parseNovelAI,
   parametersComment,
   parseSdcppParameters,
   sdcppXmpParameters,
@@ -315,6 +317,7 @@ async function main() {
   await comfyGraphs()
   sdcppText()
   await textBounds()
+  await novelAI()
 
   done('image-meta')
 }
@@ -537,6 +540,103 @@ async function textBounds(): Promise<void> {
     await writeFile(path.join(root, 'many.png'), after(many))
     const total = Object.values((await readImageInfo(path.join(root, 'many.png')))?.text ?? {}).reduce((sum, text) => sum + text.length, 0)
     check(total > 0 && total <= MAX_TOTAL_TEXT_BYTES, `the gallery reader keeps at most MAX_TOTAL_TEXT_BYTES too (${total})`)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+}
+
+// ── NovelAI's text chunks: made up here, shaped like what NovelAI writes ──
+
+const NOVELAI_V4 = {
+  prompt: '2girls, a park in spring, masterpiece',
+  steps: 28,
+  height: 1216,
+  width: 832,
+  scale: 5,
+  uncond_scale: 0,
+  cfg_rescale: 0,
+  seed: 1234567,
+  n_samples: 1,
+  noise_schedule: 'karras',
+  sampler: 'k_euler_ancestral',
+  strength: 0.7,
+  noise: 0,
+  request_type: 'PromptGenerateRequest',
+  signed_hash: 'not-a-real-signature',
+  uc: 'lowres, bad anatomy',
+  v4_prompt: {
+    caption: {
+      base_caption: '2girls, a park in spring, masterpiece',
+      char_captions: [
+        { char_caption: 'girl, red hair', centers: [{ x: 0.3, y: 0.5 }] },
+        { char_caption: 'girl, blue hair', centers: [{ x: 0.7, y: 0.5 }] },
+      ],
+    },
+    use_coords: true,
+  },
+  v4_negative_prompt: { caption: { base_caption: 'lowres, bad anatomy', char_captions: [] } },
+}
+
+function novelAIText(comment: unknown, source = 'NovelAI Diffusion V4.5 4BDE2A90'): Record<string, string> {
+  return {
+    Title: 'NovelAI generated image',
+    Description: '2girls, a park in spring, masterpiece',
+    Software: 'NovelAI',
+    Source: source,
+    'Generation time': '5.1',
+    Comment: typeof comment === 'string' ? comment : JSON.stringify(comment),
+  }
+}
+
+async function novelAI(): Promise<void> {
+  const v4 = metaFromText(novelAIText(NOVELAI_V4))
+  eq(
+    v4,
+    {
+      source: 'novelai',
+      prompt: '2girls, a park in spring, masterpiece\ngirl, red hair\ngirl, blue hair',
+      negativePrompt: 'lowres, bad anatomy',
+      seed: 1234567,
+      width: 832,
+      height: 1216,
+      steps: 28,
+      cfg: 5,
+      sampler: 'Euler a',
+      scheduler: 'karras',
+      model: 'NovelAI Diffusion V4.5',
+    },
+    'NovelAI V4: the prompt with each character, the settings, the model without its hash; a text-to-image strength is not img2img'
+  )
+  check(!JSON.stringify(v4).includes('signature'), 'NovelAI: nothing else from the request is kept')
+
+  const v4Only = parseNovelAI(novelAIText({ ...NOVELAI_V4, prompt: undefined, uc: undefined }))
+  eq([v4Only?.prompt.split('\n')[0], v4Only?.negativePrompt], ['2girls, a park in spring, masterpiece', 'lowres, bad anatomy'], 'NovelAI V4: the captions when the plain prompt is missing')
+
+  const v3 = parseNovelAI(
+    novelAIText({ prompt: '1girl, smile', uc: 'lowres', steps: 28, scale: 5.5, seed: 7, width: 832, height: 1216, sampler: 'k_dpmpp_2m', noise_schedule: 'native' }, 'Stable Diffusion XL C1E1DE52')
+  )
+  eq([v3?.prompt, v3?.sampler, v3?.cfg, v3?.scheduler, v3?.model], ['1girl, smile', 'DPM++ 2M', 5.5, 'native', 'Stable Diffusion XL'], 'NovelAI V3: one prompt, no captions')
+
+  const img2img = parseNovelAI(novelAIText({ ...NOVELAI_V4, request_type: 'Img2ImgRequest', strength: 0.55 }))
+  eq(img2img?.strength, 0.55, 'NovelAI: another request kind with a strength is img2img')
+  eq(parseNovelAI(novelAIText({ ...NOVELAI_V4, sampler: 'k_new_sampler' }))?.sampler, 'k_new_sampler', 'NovelAI: an unknown sampler stays as written')
+
+  eq(parseNovelAI(novelAIText('{not json')), null, 'NovelAI: a Comment that is not JSON gives nothing, and throws nothing')
+  eq(parseNovelAI(novelAIText('[1, 2]')), null, 'NovelAI: nor one that is not an object')
+  eq(parseNovelAI({ Comment: JSON.stringify(NOVELAI_V4), Software: 'Photoshop' }), null, "NovelAI: another program's Comment is not read")
+  eq(metaFromText({ Description: 'a photo', Software: 'Photoshop' }), null, 'and gives no settings at all')
+  check(isNovelAIText({ Source: 'NovelAI Diffusion V4 Curated' }) && !isNovelAIText({ Source: 'Stable Diffusion XL' }), 'NovelAI: known by Software or Source')
+
+  // A1111's infotext beside it is read first, as before.
+  eq(metaFromText({ ...novelAIText(NOVELAI_V4), [PARAMETERS_KEY]: INFOTEXT })?.source, 'a1111', 'NovelAI: a parameters chunk is read first')
+
+  // Through a real PNG file.
+  const root = await mkdtemp(path.join(tmpdir(), 'image-meta-novelai-'))
+  try {
+    const file = path.join(root, 'nai.png')
+    await writeFile(file, writePngText(await sharp({ create: { width: 8, height: 8, channels: 4, background: '#fff' } }).png().toBuffer(), novelAIText(NOVELAI_V4)))
+    const meta = metaFromText((await readImageInfo(file))?.text ?? {})
+    eq([meta?.source, meta?.seed, meta?.model], ['novelai', 1234567, 'NovelAI Diffusion V4.5'], 'NovelAI: read from a PNG file')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

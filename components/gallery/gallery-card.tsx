@@ -129,7 +129,10 @@ export const GalleryCard = memo(function GalleryCard({
           </span>
         )}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 flex items-end justify-between gap-1 bg-gradient-to-t from-black/70 to-transparent p-1.5 opacity-0 transition group-hover:opacity-100">
-          <span className="truncate text-[10px] text-white/90">{picture.meta?.backend ?? picture.meta?.source ?? ""}</span>
+          <span className="truncate text-[10px] text-white/90">
+            {picture.meta?.backend ??
+              (picture.meta && picture.meta.source !== "unknown" ? t(`gallery.filter.${picture.meta.source}`) : "")}
+          </span>
           {picture.meta?.tags?.length ? <span className="text-[10px] text-white/80">{t("gallery.tagged")}</span> : null}
         </div>
       </button>

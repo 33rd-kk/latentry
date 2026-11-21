@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **The gallery reads NovelAI's pictures**: a PNG saved by NovelAI shows
+  its prompt (with each character's caption, from V4 models), negative
+  prompt, seed, steps, size, CFG, sampler and model, is found by a search,
+  and has its own **NovelAI** under **Settings from**. Only the settings
+  are kept, not the request's ids or signature. NovelAI also hides a copy
+  of its settings in the pixels; that copy is not read, and it stays in a
+  NovelAI picture downloaded without settings. See
+  [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/).
+
 ## 0.17.1 (2026-11-22)
 
 **Upgrading from 0.17.0**: recommended for everyone who runs Latentry in

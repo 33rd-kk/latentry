@@ -225,6 +225,20 @@ async function main() {
     eq(await inSd({ source: 'sdcpp' }), ['fox.png'], 'the stable-diffusion.cpp source filter')
     eq(await inSd({ q: 'model:sd_turbo' }), ['fox.png'], 'and its model by file name, no folder')
 
+    // ── A picture NovelAI saved (made-up settings) ──
+    await writeFile(
+      path.join(sdDir.path, 'nai.png'),
+      writePngText(png, {
+        Software: 'NovelAI',
+        Source: 'NovelAI Diffusion V4.5 4BDE2A90',
+        Description: 'a lighthouse at dusk',
+        Comment: JSON.stringify({ prompt: 'a lighthouse at dusk', uc: 'lowres', seed: 99, steps: 23, scale: 5, sampler: 'k_euler' }),
+      })
+    )
+    eq(await inSd({ source: 'novelai' }), ['nai.png'], 'the NovelAI source filter')
+    eq(await inSd({ q: 'lighthouse, seed:99' }), ['nai.png'], 'and its prompt and seed are searched')
+    eq(await inSd({ source: 'none' }), [], 'a NovelAI picture is not one without settings')
+
     // ── LoRAs, from a picture A1111 wrote ──
     const loraDir: GalleryDir = { index: 2, path: path.join(root, 'loras'), label: 'loras', autoLabel: true, writable: false, role: 'read', shared: false }
     await mkdir(loraDir.path)

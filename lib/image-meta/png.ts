@@ -10,7 +10,7 @@
 //   iTXt  keyword \0 flag method lang \0 key \0 text-or-deflate (UTF-8)
 //
 // The keywords that matter: A1111 / Forge's `parameters`, ComfyUI's `prompt`,
-// and Latentry's own `latentry` (structured settings) and `latentry:tags`
+// NovelAI's `Software`, `Source` and `Comment`, and Latentry's own `latentry` (structured settings) and `latentry:tags`
 // (WD14 tags written back). New chunks go right after IHDR, where the other
 // tools put theirs, so a reader that stops at the first IDAT still finds them.
 //

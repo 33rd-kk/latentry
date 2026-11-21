@@ -2,7 +2,7 @@
 //
 // What a picture's text means: the settings it was made with, read from
 // whichever tool wrote them (Latentry's own record, A1111 / Forge infotext,
-// stable-diffusion.cpp's own record,
+// stable-diffusion.cpp's own record, NovelAI's text chunks,
 // ComfyUI's executed graph), and the WD14 tags written back.
 //
 // Part of lib/image-meta: no imports outside node's built-ins (see README.md).
@@ -17,7 +17,7 @@ export interface ImageTag {
 
 /** The settings a picture was made with, whichever tool wrote them. */
 export interface ImageMeta {
-  source: 'latentry' | 'a1111' | 'comfyui' | 'sdcpp' | 'unknown'
+  source: 'latentry' | 'a1111' | 'comfyui' | 'sdcpp' | 'novelai' | 'unknown'
   prompt: string
   negativePrompt: string
   seed?: number
@@ -849,11 +849,90 @@ export function parseTags(text: string | undefined): ImageTag[] | null {
   }
 }
 
+// NovelAI's sampler names, as the other tools write them. A name not here is kept as written.
+const NOVELAI_SAMPLERS: Record<string, string> = {
+  k_euler: 'Euler',
+  k_euler_ancestral: 'Euler a',
+  k_dpmpp_2s_ancestral: 'DPM++ 2S a',
+  k_dpmpp_2m: 'DPM++ 2M',
+  k_dpmpp_2m_sde: 'DPM++ 2M SDE',
+  k_dpmpp_sde: 'DPM++ SDE',
+  k_dpm_2: 'DPM2',
+  k_dpm_2_ancestral: 'DPM2 a',
+  k_lms: 'LMS',
+  ddim: 'DDIM',
+  ddim_v3: 'DDIM',
+}
+
+/** Whether a picture's text chunks were written by NovelAI. */
+export function isNovelAIText(text: Record<string, string>): boolean {
+  return /^novelai$/i.test(text.Software?.trim() ?? '') || /^NovelAI\b/.test(text.Source?.trim() ?? '')
+}
+
+/**
+ * NovelAI's text chunks: `Description` holds the prompt, `Source` the model
+ * (with a short hash after it), and `Comment` the request as JSON (prompt,
+ * `uc` for the negative prompt, seed, steps, size, `scale` for CFG, sampler
+ * and `noise_schedule`). V4 models also put the prompt in `v4_prompt`, with
+ * one caption per character. Only these settings are read; request ids,
+ * signatures and hashes in the JSON are not kept. Null when it is not
+ * NovelAI's or its `Comment` is not JSON.
+ */
+export function parseNovelAI(text: Record<string, string>): ImageMeta | null {
+  if (!isNovelAIText(text) || !text.Comment) return null
+  let request: Record<string, unknown>
+  try {
+    const value: unknown = JSON.parse(text.Comment)
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+    request = value as Record<string, unknown>
+  } catch {
+    return null
+  }
+  const object = (value: unknown): Record<string, unknown> => (value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {})
+  const number = (value: unknown): number | undefined => (typeof value === 'number' && Number.isFinite(value) ? value : undefined)
+  const string = (value: unknown): string | undefined => (typeof value === 'string' && value.trim() ? value.trim() : undefined)
+  // A V4 caption: the base, and each character's.
+  const caption = (value: unknown): { base?: string; characters: string[] } => {
+    const inner = object(object(value).caption)
+    const characters = Array.isArray(inner.char_captions)
+      ? inner.char_captions.map((entry) => string(object(entry).char_caption)).filter((entry): entry is string => !!entry)
+      : []
+    return { base: string(inner.base_caption), characters }
+  }
+  const v4 = caption(request.v4_prompt)
+  const v4Negative = caption(request.v4_negative_prompt)
+  // The prompt, then each character's caption on a line of its own, so a search finds them too.
+  const base = string(request.prompt) ?? v4.base ?? string(text.Description) ?? ''
+  const prompt = [base, ...v4.characters.filter((entry) => !base.includes(entry))].filter(Boolean).join('\n')
+  const seed = number(request.seed)
+  const width = number(request.width)
+  const height = number(request.height)
+  const sampler = string(request.sampler)
+  const schedule = string(request.noise_schedule)
+  const strength = number(request.strength)
+  // "NovelAI Diffusion V4.5 4BDE2A90": the name without the hash after it.
+  const model = string(text.Source)?.replace(/\s+[0-9A-F]{8}$/i, '')
+  return {
+    source: 'novelai',
+    prompt,
+    negativePrompt: string(request.uc) ?? v4Negative.base ?? '',
+    ...(seed !== undefined && Number.isSafeInteger(seed) && seed >= 0 ? { seed } : {}),
+    ...(width && height ? { width, height } : {}),
+    steps: number(request.steps),
+    cfg: number(request.scale),
+    sampler: sampler ? (NOVELAI_SAMPLERS[sampler] ?? sampler) : undefined,
+    scheduler: schedule,
+    // A text-to-image request may carry a strength too: only another kind of request is img2img.
+    ...(strength !== undefined && string(request.request_type) && string(request.request_type) !== 'PromptGenerateRequest' ? { strength } : {}),
+    ...(model ? { model } : {}),
+  }
+}
+
 /**
  * The settings in a picture's text chunks, preferring the most structured
- * source: our own record, then A1111's infotext, then ComfyUI's executed
- * graph, then its editor graph. WD14 tags written back by the gallery join
- * whichever source supplies the rest.
+ * source: our own record, then A1111's infotext, then NovelAI's, then
+ * ComfyUI's executed graph, then its editor graph. WD14 tags written back by
+ * the gallery join whichever source supplies the rest.
  */
 export function metaFromText(text: Record<string, string>): ImageMeta | null {
   const tags = parseTags(text[TAGS_KEY])
@@ -864,6 +943,7 @@ export function metaFromText(text: Record<string, string>): ImageMeta | null {
         ? parseSdcppParameters(text[PARAMETERS_KEY])
         : parseA1111Parameters(text[PARAMETERS_KEY])
       : null) ??
+    parseNovelAI(text) ??
     (text.prompt ? parseComfyPrompt(text.prompt) : null) ??
     (text.workflow ? parseComfyWorkflow(text.workflow) : null)
   if (!meta && !tags) return null

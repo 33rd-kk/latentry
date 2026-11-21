@@ -14,8 +14,12 @@ own package.
 - **Tools**: AUTOMATIC1111 / Forge infotext (`parameters`, or EXIF
   UserComment), stable-diffusion.cpp (`parameters` ending in
   `, SDCPP: {json}`, its own record, read first; model and LoRA paths cut
-  to file names), ComfyUI's graphs (`prompt`, or else `workflow`), Latentry's
-  own record (`latentry`) and WD14 tags (`latentry:tags`).
+  to file names), NovelAI (PNG text: `Software` or `Source` names it,
+  `Comment` holds the request as JSON; the V4 character captions join the
+  prompt, the model is `Source` without its hash; the copy hidden in the
+  alpha channel is not read), ComfyUI's graphs (`prompt`, or else
+  `workflow`), Latentry's own record (`latentry`) and WD14 tags
+  (`latentry:tags`).
 - **ComfyUI**: from the executed graph (`prompt`), the sampler that starts
   from an empty latent (so a hires or refiner pass is not taken for the
   base), with KSampler, KSamplerAdvanced and SamplerCustom(Advanced) and
