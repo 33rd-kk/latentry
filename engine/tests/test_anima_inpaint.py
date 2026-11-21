@@ -90,6 +90,75 @@ def test_a_latent_cell_is_redrawn_when_any_of_it_is_painted() -> None:
     mask.paste(255, (9, 9, 11, 11))  # 4 pixels inside cell (1, 1)
     cells = anima_inpaint.latent_mask(mask, (8, 8))
     assert cells[1, 1] == 1 and cells.sum() == 1
+    # With a ramp, a lone painted cell is all edge: redrawn, but softly.
+    soft = anima_inpaint.latent_mask(mask, (8, 8), ramp=2)
+    assert 0 < soft[1, 1] < 1 and int((soft > 0).sum()) == 1
+
+
+# ── The soft edge ───────────────────────────────────────────────────────────
+
+
+def strip_mask(width: int = 128, height: int = 32, painted: int = 64) -> Image.Image:
+    """The left `painted` pixels painted, as Extend paints a strip grown on the left."""
+    mask = Image.new("L", (width, height), 0)
+    mask.paste(255, (0, 0, painted, height))
+    return mask
+
+
+def test_without_blur_the_edge_is_hard() -> None:
+    assert anima_inpaint.ramp_cells(0) == 0
+    cells = anima_inpaint.latent_mask(strip_mask(), (16, 4), anima_inpaint.ramp_cells(0))
+    assert set(cells.unique().tolist()) == {0.0, 1.0}
+
+
+def test_extends_blur_ramps_over_its_whole_strip() -> None:
+    # Extend sends a blur of 8 and redraws a 32-pixel strip: four cells.
+    assert anima_inpaint.ramp_cells(8) == 4
+    row = anima_inpaint.latent_mask(strip_mask(), (16, 4), anima_inpaint.ramp_cells(8))[2]
+    # Painted cells 0..7: full well inside, rising towards the edge at cell 8; kept cells exactly 0.
+    assert row[:4].tolist() == [1.0] * 4
+    assert row[4:8].tolist() == pytest.approx([0.8, 0.6, 0.4, 0.2])
+    assert row[8:].tolist() == [0.0] * 8
+
+
+def test_the_pictures_border_is_not_an_edge() -> None:
+    # Painted all over: nothing to blend into, so every cell is fully redrawn.
+    cells = anima_inpaint.latent_mask(Image.new("L", (64, 64), 255), (8, 8), ramp=3)
+    assert torch.equal(cells, torch.ones(8, 8))
+
+
+@pytest.mark.parametrize("strength", [1.0, 0.6])
+def test_a_soft_edge_still_keeps_the_rest_exactly(strength) -> None:
+    source = torch.randn((1, 4, 1, 4, 16), generator=torch.Generator().manual_seed(0))
+    run = scheduler()
+    with anima_inpaint.masked(run, strip_mask(), blur=8):
+        latents = img2img(run, source, steps=12, strength=strength)
+    assert torch.equal(latents[..., 8:], source[..., 8:])
+    # The whole painted part was drawn, the ramp included.
+    for cell in range(8):
+        assert not torch.allclose(latents[..., cell], source[..., cell])
+
+
+def test_cells_near_the_edge_are_let_go_later() -> None:
+    """Each painted cell is held to the source until the run is (1 - its value)
+    of the way through: the nearer the edge, the later it is let go."""
+    source = torch.randn((1, 1, 4, 16), generator=torch.Generator().manual_seed(0))
+    run = scheduler()
+    held: list[list[bool]] = []
+    with anima_inpaint.masked(run, strip_mask(), blur=8) as state:
+        run.set_timesteps(10)
+        run.set_begin_index(0)
+        noise = torch.randn(source.shape, generator=torch.Generator().manual_seed(1))
+        latents = run.scale_noise(source, run.timesteps[:1], noise)
+        for t in run.timesteps:
+            latents = run.step(torch.randn(source.shape), t, latents, return_dict=False)[0]
+            sigma = run.sigmas[run.step_index]
+            known = (1 - sigma) * state["source"] + sigma * state["noise"]
+            held.append([bool(torch.equal(latents[..., cell], known[..., cell])) for cell in range(8)])
+    first_free = [next(i for i, step in enumerate(held) if not step[cell]) if any(not s[cell] for s in held) else len(held) for cell in range(8)]
+    # Well inside: free from the first step. Then each cell nearer the edge later than the one before.
+    assert first_free[:4] == [0, 0, 0, 0]
+    assert first_free[4] < first_free[5] < first_free[6] < first_free[7]
 
 
 # ── Through the engine, with a stand-in Anima pipeline ──────────────────────
@@ -161,6 +230,18 @@ def test_an_anima_inpaint_redraws_only_the_mask(anima) -> None:
         assert picture.crop((0, 0, 128, 256)).tobytes() == source.crop((0, 0, 128, 256)).tobytes()
     # The shared scheduler is the scheduler's own again.
     assert "step" not in shared.__dict__
+
+
+def test_an_anima_inpaint_with_a_blur_keeps_the_rest_exactly(anima) -> None:
+    engine, pipe, _shared = anima
+    source = Image.new("RGB", (256, 256), (40, 160, 90))
+    mask = Image.new("RGBA", (256, 256), (0, 0, 0, 0))
+    mask.paste((255, 255, 255, 255), (128, 0, 256, 256))
+    request = GenerateRequest(prompt="x", width=256, height=256, seed=3, num_inference_steps=10, init_image=source, strength=1.0, mask=mask, mask_blur=8)
+    engine.generate(request, lambda event, data: None, threading.Event(), "run")
+    latents, start = pipe.latents[0]
+    assert torch.equal(latents[..., :16], start[..., :16])
+    assert not torch.allclose(latents[..., 16:20], start[..., 16:20])
 
 
 def test_an_anima_img2img_without_a_mask_is_unchanged(anima) -> None:

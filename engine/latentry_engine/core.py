@@ -492,7 +492,7 @@ class Engine:
             scopes.enter_context(loaded.lora_keeper.applied(pipe, request.loras))
             if mask is not None:
                 # Only the masked area is drawn (anima_inpaint.py).
-                scopes.enter_context(anima_inpaint.masked(pipe.scheduler, mask))
+                scopes.enter_context(anima_inpaint.masked(pipe.scheduler, mask, request.mask_blur))
         except BaseException:
             # A LoRA that would not load must not leave the pose adapter on.
             scopes.close()

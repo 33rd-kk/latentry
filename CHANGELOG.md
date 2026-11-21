@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Fixed**: on Anima in the built-in engine, **Extend** and inpainting
+  left a visible seam where the redrawn part met the picture. The engine now
+  lets the source go gradually over a band just inside the mask's edge, so
+  the new part grows into the picture; everything outside the mask is still
+  kept exactly. Engine 0.11.2: after updating, stop and start the engine on
+  **Setup** once.
+
 - **A fresh install asks how you will use it**: with no backend and no mode
   chosen, the first page offers **Browse only** (gallery-only mode, on to
   the gallery folders) or **Set up generating** (the usual setup help), and
