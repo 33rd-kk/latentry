@@ -107,7 +107,10 @@ The engine runs SDXL-family checkpoints (SDXL, Illustrious, NoobAI,
 Animagine, Pony…) with txt2img, img2img, inpainting and pose, and Anima with
 txt2img, img2img, inpainting and pose (pose on v1.0 models). Anima's own
 pipeline has no inpainting; the engine adds it by keeping the source outside
-the mask at every step, so Extend and **Faces** work on Anima too. SDXL
+the mask at every step, so Extend and **Faces** work on Anima too. Just inside
+the mask's edge (four times the mask blur, 32 pixels for Extend) the source
+is let go gradually, so the new part grows into it without a visible seam;
+a mask blur of 0 keeps a hard edge. SDXL
 models also follow [control pictures](controls.md) (edges, depth, line art)
 through xinsir's union ControlNet (Apache-2.0, 2.5 GB), and take a
 [reference picture's look](controls.md#reference-picture-ip-adapter) through
