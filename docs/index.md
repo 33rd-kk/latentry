@@ -34,6 +34,9 @@ The same install, and you can switch at any time:
   in the gallery. [Extend](guide/from-a-picture.md#extend-a-picture-outpainting)
   grows a picture's canvas and draws the new area, and
   [Fix faces](guide/from-a-picture.md#fix-faces) redraws each face larger.
+  [Control pictures](guide/controls.md) (edges, depth, line art) and a
+  [reference picture's look](guide/controls.md#reference-picture-ip-adapter)
+  guide a run beside a pose.
   [Wildcards](guide/many.md#wildcards) fill in parts of a prompt from a
   folder of text or YAML files, and [variants](guide/many.md#variants) pick
   one of `{a|b}`. More runs [queue](guide/many.md#the-queue)

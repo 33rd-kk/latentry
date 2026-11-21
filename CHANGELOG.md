@@ -2,12 +2,75 @@
 
 ## Unreleased
 
-- **Fixed**: on Anima in the built-in engine, **Extend** and inpainting
-  left a visible seam where the redrawn part met the picture. The engine now
-  lets the source go gradually over a band just inside the mask's edge, so
-  the new part grows into the picture; everything outside the mask is still
-  kept exactly. Engine 0.11.2: after updating, stop and start the engine on
-  **Setup** once.
+## 0.17.0 (2026-11-22)
+
+**Upgrading from 0.16.x**: after updating, open **Setup** and press
+**Repair / update** once: the engine is now 0.11.2 (from 0.8.1) and its
+locks changed (poseorbit 0.3.2). With Docker, `git pull` then `docker
+compose up -d` (with `-f compose.yaml -f compose.gpu.yaml` for a GPU)
+downloads this release's image. The new models (the union ControlNet,
+IP-Adapter Plus, and the depth and line art models) are downloaded only
+when you first use them, or press Download on Setup. Gallery-only mode is
+off, so an existing install works as before, and the stricter Content
+Security Policy changes nothing in use.
+
+**Generate**
+
+- **Controls on the Generate page**: a **Control** block makes a control
+  picture from a reference picture, on this computer, as edges, a depth map
+  or line art, shows it, and sends it with the run at its own strength,
+  beside a pose. The reference is never sent, and a picture records only the
+  kind and strength. Offered on backends that list the kinds they follow
+  (`control_kinds` in the backend API). See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+- **Controls on the built-in engine**: SDXL-family models
+  follow edges, depth and line art through xinsir's union ControlNet
+  (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
+  picture), in txt2img, img2img, inpaint and hires fix, and together with a
+  pose, each at its own strength. Anima says why not. See
+  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
+- **Controls on ComfyUI**: the built-in graph follows edges, depth and line
+  art with a ControlNet you choose for each kind in Settings (or
+  `GEN_CONTROL_<KIND>_<ID>`), after a pose if there is one; a union
+  ControlNet is told which kind each picture is. Only the control picture
+  goes to ComfyUI, and a secret run wipes it. See
+  [Control pictures](https://33rd-kk.github.io/latentry/reference/backends/#control-pictures).
+- **Control picture models on Setup**: a new card downloads the models that
+  turn a reference picture into a depth map (Depth Anything V2 Small,
+  Apache-2.0) or line art (Informative Drawings, MIT), each pinned to a
+  commit, checked against its SHA-256 and fetched only when you press
+  Download. They run inside Latentry on the CPU, as Canny edges do without
+  any model. See
+  [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
+- **Reference picture (IP-Adapter)**: a **Reference** block takes a
+  picture's look (colours, style, a character's appearance) at its own
+  strength, beside a pose and a control picture. The built-in engine does it
+  with SDXL-family models through h94's IP-Adapter Plus (Apache-2.0, pinned,
+  downloaded on the first run with a reference), and takes it out again for
+  a run without one. The reference goes to the backend, lives only in the
+  page's memory, is blurred in secret mode, and a picture records only the
+  strength. See
+  [Reference picture](https://33rd-kk.github.io/latentry/guide/controls/#reference-picture-ip-adapter).
+- **Inpaint on Anima**: the built-in engine now inpaints with
+  Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
+  they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps
+  the source outside the mask at every step, and copies its pixels back
+  exactly at the end. See
+  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
+- **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
+  switch under **Generate** lets a run go to another engine that is free and
+  has the same model loaded, at once when the chosen one is busy, or when
+  one frees up first. The page goes on showing it, says which engine drew
+  it, and **Cancel** and secret mode work as usual. Off by default; an X/Y
+  grid and **Faces** stay on the chosen engine. See
+  [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
+- **The engine's log is easier to find**: when a run fails inside the
+  engine, the message says where the details are, in the page's language,
+  and has an **Open the log** button. On Setup the button is now **Show
+  log**, with a line saying what the log is for and that it is kept only in
+  memory.
+
+**Gallery and getting started**
 
 - **A fresh install asks how you will use it**: with no backend and no mode
   chosen, the first page offers **Browse only** (gallery-only mode, on to
@@ -26,31 +89,10 @@
   tagging with the built-in WD14 model keep working, and Setup offers just
   the tagger. Off by default; existing installs are unchanged. See
   [Gallery-only mode](https://33rd-kk.github.io/latentry/guide/gallery-only/).
-- **Fixed** (engine 0.11.1): on Anima, hires fix or Upscale past 2048 pixels a side failed
-  with "Generation failed (RuntimeError)". Anima's transformer has
-  positions for at most 2048 pixels a side, so the engine now stops there,
-  shrinking both sides alike so the picture keeps its shape, and **Upscale
-  by** on Generate stops at that size too. The engine reports its limit in
-  its health as `max_side`.
-- **The engine's log is easier to find**: when a run fails inside the
-  engine, the message says where the details are, in the page's language,
-  and has an **Open the log** button. On Setup the button is now **Show
-  log**, with a line saying what the log is for and that it is kept only in
-  memory.
-
-- **The header fits a narrow phone**: on a screen narrower than 400px the
-  page no longer scrolls sideways. The name **Latentry** is left out there
-  (the Generate icon leads to the same page), and on a phone the secret mode
-  button is a filled pill without its label. On **Generate**, the character
-  row's delete and save buttons no longer slip past the card's edge; a long
-  placeholder ends in "…" instead. A new browser test opens each page at
-  phone width, in English and in Japanese, and fails if a page is wider than
-  the screen or a button or label is cut off at the edge of its card.
 - **Back to top in the gallery**: once you have scrolled more than a screen
   down, a round button at the bottom right brings you back to the top.
-- **Fixed**: on **Generate**, the buttons that choose what the source
-  picture is for, and the control kind, were cut off at the card's edge when
-  their labels were longer, as in Japanese. Long labels now wrap.
+
+**Security**
 
 - **A stricter Content Security Policy**: each page may now run only the
   scripts Latentry sent with it, marked by a random value that is new for
@@ -64,68 +106,34 @@
   When devices reach Latentry over plain `http://` on your network, it also
   says that their pairing cookie and what they see can be read there, and
   points to [HTTPS](https://33rd-kk.github.io/latentry/guide/network/#https).
-- **Any free GPU**: with the built-in engine on two or more NVIDIA GPUs, a
-  switch under **Generate** lets a run go to another engine that is free and
-  has the same model loaded, at once when the chosen one is busy, or when
-  one frees up first. The page goes on showing it, says which engine drew
-  it, and **Cancel** and secret mode work as usual. Off by default; an X/Y
-  grid and **Faces** stay on the chosen engine. See
-  [Any free GPU](https://33rd-kk.github.io/latentry/guide/many/#any-free-gpu).
-
-- **Reference picture (IP-Adapter)** (engine 0.11.0): a **Reference** block takes a
-  picture's look (colours, style, a character's appearance) at its own
-  strength, beside a pose and a control picture. The built-in engine does it
-  with SDXL-family models through h94's IP-Adapter Plus (Apache-2.0, pinned,
-  downloaded on the first run with a reference), and takes it out again for
-  a run without one. The reference goes to the backend, lives only in the
-  page's memory, is blurred in secret mode, and a picture records only the
-  strength. After updating, stop and start the engine on **Setup** once. See
-  [Reference picture](https://33rd-kk.github.io/latentry/guide/controls/#reference-picture-ip-adapter).
-
-- **Controls on ComfyUI**: the built-in graph follows edges, depth and line
-  art with a ControlNet you choose for each kind in Settings (or
-  `GEN_CONTROL_<KIND>_<ID>`), after a pose if there is one; a union
-  ControlNet is told which kind each picture is. Only the control picture
-  goes to ComfyUI, and a secret run wipes it. See
-  [Control pictures](https://33rd-kk.github.io/latentry/reference/backends/#control-pictures).
-
-- **Controls on the built-in engine** (engine 0.10.0): SDXL-family models
-  follow edges, depth and line art through xinsir's union ControlNet
-  (Apache-2.0, pinned, 2.5 GB, downloaded on the first run with a control
-  picture), in txt2img, img2img, inpaint and hires fix, and together with a
-  pose, each at its own strength. Anima says why not. After updating, stop
-  and start the engine on **Setup** once. See
-  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
-
-- **Controls on the Generate page**: a **Control** block makes a control
-  picture from a reference picture, on this computer, as edges, a depth map
-  or line art, shows it, and sends it with the run at its own strength,
-  beside a pose. The reference is never sent, and a picture records only the
-  kind and strength. Offered on backends that list the kinds they follow
-  (`control_kinds` in the backend API). See
-  [Controls](https://33rd-kk.github.io/latentry/guide/controls/).
-
-- **Control picture models on Setup**: a new card downloads the models that
-  turn a reference picture into a depth map (Depth Anything V2 Small,
-  Apache-2.0) or line art (Informative Drawings, MIT), each pinned to a
-  commit, checked against its SHA-256 and fetched only when you press
-  Download. They run inside Latentry on the CPU, as Canny edges do without
-  any model, for the coming Controls. See
-  [Control picture models](https://33rd-kk.github.io/latentry/guide/engine/#control-picture-models).
-
-- **Inpaint on Anima** (engine 0.9.0): the built-in engine now inpaints with
-  Anima models, so a painted mask, **Extend** and **Faces** work on Anima as
-  they do on SDXL. Anima's own pipeline has no inpainting; the engine keeps
-  the source outside the mask at every step, and copies its pixels back
-  exactly at the end. After updating, stop and start the engine on **Setup**
-  once. See
-  [What each backend can do](https://33rd-kk.github.io/latentry/reference/backends/#what-each-backend-can-do).
-
-**Security**
-
 - **poseorbit 0.3.2 in the engine**: a picture sent to find the people in it
-  is checked for size (up to 8192 x 8192 pixels) before it is decoded. Setup
-  asks for **Repair / update** to install it.
+  is checked for size (up to 8192 x 8192 pixels) before it is decoded.
+
+**Fixed**
+
+- **No seam from Extend on Anima**: **Extend** and inpainting on Anima in
+  the built-in engine left a visible seam where the redrawn part met the
+  picture. The engine now lets the source go gradually over a band just
+  inside the mask's edge, so the new part grows into the picture;
+  everything outside the mask is still kept exactly.
+- **Anima past 2048 pixels**: on Anima, hires fix or Upscale past 2048
+  pixels a side failed with "Generation failed (RuntimeError)". Anima's transformer has
+  positions for at most 2048 pixels a side, so the engine now stops there,
+  shrinking both sides alike so the picture keeps its shape, and **Upscale
+  by** on Generate stops at that size too. The engine reports its limit in
+  its health as `max_side`.
+- **The header fits a narrow phone**: on a screen narrower than 400px the
+  page no longer scrolls sideways. The name **Latentry** is left out there
+  (the Generate icon leads to the same page), and on a phone the secret mode
+  button is a filled pill without its label. On **Generate**, the character
+  row's delete and save buttons no longer slip past the card's edge; a long
+  placeholder ends in "…" instead. A new browser test opens each page at
+  phone width, in English and in Japanese, and fails if a page is wider than
+  the screen or a button or label is cut off at the edge of its card.
+- **Mode buttons in Japanese**: on **Generate**, the buttons that choose
+  what the source picture is for, and the control kind, were cut off at the
+  card's edge when their labels were longer, as in Japanese. Long labels now
+  wrap.
 
 ## 0.16.1 (2026-11-11)
 
