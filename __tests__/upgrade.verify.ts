@@ -51,6 +51,8 @@ async function main() {
     eq(meta?.hires, record.hires, `${version}: its hires fix, when it recorded one`)
     eq(meta?.promptTemplate, record.prompt_template, `${version}: its wildcard prompt, when it recorded one`)
     eq(meta?.grid, record.grid, `${version}: its place in an X/Y grid, when it recorded one`)
+    eq(meta?.control, record.control, `${version}: the control picture's kind and strength, when it recorded one`)
+    eq(meta?.ipAdapter, record.ip_adapter, `${version}: the reference picture's scale, when it recorded one`)
     eq(meta?.tags?.map((tag) => tag.name), ['smile'], `${version}: its WD14 tags`)
     const infotext = parseA1111Parameters(info?.text[PARAMETERS_KEY] ?? '')
     eq([infotext.prompt, infotext.seed, infotext.steps], [record.prompt, record.seed, record.steps], `${version}: its A1111 infotext, for other tools`)
