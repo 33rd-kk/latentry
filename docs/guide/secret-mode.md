@@ -48,6 +48,8 @@ reloaded). Deleting a character deletes it for good, in either mode.
 - Stars are not shown on cards or in the viewer, and cannot be given:
   rating a picture would leave a record of it.
 - The search box suggests no tags or names, only how to write a search.
+- [Saved searches](gallery.md#saved-searches) are not shown, and none can
+  be saved. Those saved before stay as they were.
 - **Compare** blurs both pictures and hides their differing settings and
   tags. **Show for this comparison** reveals them until the comparison is
   closed.

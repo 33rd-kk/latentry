@@ -45,7 +45,8 @@ made, then sends those settings back to the form to make it again.
   those saved by ComfyUI with custom samplers and by stable-diffusion.cpp.
   - Search prompts and tags, or one setting: `model:`, `seed:`,
     `steps:>=30`, `w:1024`; leave pictures out with `-tag`. The search box
-    suggests tags, settings and how to write a search.
+    suggests tags, settings and how to write a search. Save a search by
+    name, kept in this browser only.
   - Rate pictures with 1–5 stars, kept beside the settings file and never
     in the picture, then filter or order by them.
   - Order by date, name, size, date made or pixel count; filter by shape,
