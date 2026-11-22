@@ -100,6 +100,7 @@ test('saving the same name again replaces that search', async ({ page }) => {
   await dialog.getByLabel('Name').fill('same')
   await expect(dialog.getByText('A saved search has this name; saving replaces it.')).toBeVisible()
   await dialog.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(dialog).toBeHidden()
   const saved = JSON.parse((await stored(page))!)
   expect(saved.searches).toEqual([expect.objectContaining({ name: 'same', params: 'q=savedspec+two' })])
 })
