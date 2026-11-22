@@ -255,7 +255,7 @@ export function FilterChips({
     add("stars", `${t("gallery.filter.stars")}: ${t("gallery.filter.starsAtLeast", { count: query.minStars })}`, { minStars: undefined })
   }
   if (query.group) add("group", t(`gallery.filter.group-${query.group}`), { group: undefined, stack: undefined })
-  if (query.group && query.stack) add("stack", t("gallery.filter.inStack"), { stack: undefined })
+  // An opened stack is not a filter: the bar above its pictures leads out (stack-bar.tsx).
 
   if (chips.length === 0) return null
   return (

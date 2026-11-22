@@ -13,6 +13,7 @@ import { GalleryToolbar } from "./gallery-toolbar"
 import { SelectionBar } from "./selection-bar"
 import { FilterChips, FilterPanel } from "./gallery-filters"
 import { CompareDialog } from "./compare-dialog"
+import { StackBar, useOpenStack } from "./stack-bar"
 import { useBackends } from "@/hooks/use-backends"
 import { pictureUrl, useFolderFacets, useGalleryFolders, useGalleryPage, type GalleryPicture } from "@/hooks/use-gallery"
 import { useGallerySelection } from "@/hooks/use-gallery-selection"
@@ -56,6 +57,8 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const folder = folders?.find((candidate) => candidate.index === activeDir) ?? null
   const query = useMemo<GalleryQuery>(() => ({ ...filters, q }), [filters, q])
   const changeFilters = useCallback((patch: Partial<GalleryQuery>) => setFilters((current) => ({ ...current, ...patch })), [])
+  const setStack = useCallback((stack: string | undefined) => changeFilters({ stack }), [changeFilters])
+  const openStack = useOpenStack(filters.stack, setStack)
   // A saved search replaces the whole query, and its words apply at once.
   const applySaved = useCallback((saved: GalleryQuery) => {
     const { q: words = "", ...rest } = saved
@@ -171,6 +174,7 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
         secret={secret}
       />
       <FilterChips query={query} onChange={changeFilters} profiles={profiles} secret={secret} />
+      {query.group && query.stack && <StackBar group={query.group} count={openStack.count} onBack={openStack.close} />}
       {page.indexing &&
         ("tooLarge" in page.indexing ? (
           <p className="text-sm text-muted-foreground">{t("gallery.sort.tooLarge", { total: page.indexing.total })}</p>
@@ -194,7 +198,7 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
           showTags={showTags}
           selection={selection}
           onOpen={setViewing}
-          onChange={changeFilters}
+          onOpenStack={openStack.open}
           onSearchText={setSearchText}
         />
       )}

@@ -108,6 +108,7 @@ eq(fromParams(new URLSearchParams({ model: 'x'.repeat(500) })).model?.length, 20
 eq(activeFilterCount({ q: 'smile', sort: 'oldest' }), 0, 'the search and the order are not filters')
 eq(activeFilterCount(full), 11, 'every filter counts once')
 eq(activeFilterCount({ formats: ['png', 'webp', 'jpg'] }), 0, 'every file type is no filter')
+eq(activeFilterCount({ group: 'prompt', stack: 'k' }), 1, 'an opened stack is not one more filter')
 eq([needsMeta({ since: 'day', formats: ['png'] }), needsMeta({ orientation: 'square' })], [false, true], 'age and type need no file opened')
 
 // ── Cheap filters ──

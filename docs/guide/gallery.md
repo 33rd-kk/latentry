@@ -164,7 +164,8 @@ on screen has a check mark. **Rename or delete…** lists them all.
 [X/Y grid](many.md#xy-grid) (its cells and its sheet) into one card: the
 first of them in the current order, with how many there are.
 Only pictures that match the search and filters count. Click a stack to see
-its pictures, and remove the **One stack** chip to go back. Stacking reads
+its pictures; **Back to all pictures** above them, or the browser's Back (a
+phone's back gesture too), goes back to the stacks. Stacking reads
 the folder first, the way the orders by date made do; what it keeps in
 memory is a hash of each prompt, not the prompt.
 

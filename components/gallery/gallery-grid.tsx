@@ -8,7 +8,6 @@ import { useColumnCount } from "@/hooks/use-column-count"
 import type { GalleryPage } from "@/hooks/use-gallery"
 import type { GallerySelection } from "@/hooks/use-gallery-selection"
 import { exactTagQuery } from "@/lib/gallery/query"
-import type { GalleryQuery } from "@/lib/gallery/filter"
 import { dealColumns, heightPerWidth } from "@/lib/gallery/columns"
 import { useT } from "@/lib/i18n"
 
@@ -22,7 +21,7 @@ export function GalleryGrid({
   showTags,
   selection,
   onOpen,
-  onChange,
+  onOpenStack,
   onSearchText,
 }: {
   page: GalleryPage
@@ -30,7 +29,8 @@ export function GalleryGrid({
   showTags: boolean
   selection: GallerySelection
   onOpen: (index: number) => void
-  onChange: (patch: Partial<GalleryQuery>) => void
+  /** Shows a stack's pictures: its key, and how many it holds. */
+  onOpenStack: (key: string, count: number) => void
   onSearchText: (text: string) => void
 }) {
   const t = useT()
@@ -80,7 +80,7 @@ export function GalleryGrid({
                   selected={selected.has(picture.name)}
                   onOpen={() => onOpen(index)}
                   onToggleSelect={() => toggleSelected(picture.name)}
-                  onOpenStack={picture.stack ? () => onChange({ stack: picture.stack!.key }) : undefined}
+                  onOpenStack={picture.stack ? () => onOpenStack(picture.stack!.key, picture.stack!.count) : undefined}
                   onSearchTag={(tag) => onSearchText(exactTagQuery(tag))}
                 />
               )
