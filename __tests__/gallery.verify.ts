@@ -5,7 +5,7 @@
  *
  * Run with: npm test -- gallery
  */
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile, utimes } from 'node:fs/promises'
+import { cp, mkdtemp, mkdir, readFile, rm, symlink, writeFile, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { deflateSync } from 'node:zlib'
@@ -26,8 +26,10 @@ import {
   writePngText,
   type LatentryRecord,
 } from '../lib/image-meta'
-import { invalidateListing, isSafeName, listFacets, listPage, openInDir, resolveInDir } from '../lib/gallery/fs'
-import { settleIndex } from '../lib/gallery/folder-index'
+import { invalidateListing, isSafeName, itemInfo, listEntries, listFacets, listPage, openInDir, resolveInDir, setListingLimits, settleListing } from '../lib/gallery/fs'
+import { indexMatcher, settleIndex } from '../lib/gallery/folder-index'
+import { matchesMeta, type GalleryQuery } from '../lib/gallery/filter'
+import { matchesQuery, parseQuery, searchableOf } from '../lib/gallery/query'
 import type { GalleryDir } from '../lib/gallery/dirs'
 import { dealColumns, heightPerWidth } from '../lib/gallery/columns'
 
@@ -271,8 +273,15 @@ async function main() {
     eq(await names({ q: 'w:32' }), ['wide.webp'], "w: is the picture's real size, read without settings")
 
     // ── Orders that need the folder read first ──
-    const first = await listPage(sortDir, { limit: 10, filter: { sort: 'pixels-desc' } })
+    // In a folder of its own: the searches above already had sortDir indexed.
+    const fresh = path.join(root, 'fresh')
+    await cp(sorting, fresh, { recursive: true, preserveTimestamps: true })
+    const freshDir: GalleryDir = { ...sortDir, index: 6, path: fresh, label: 'fresh' }
+    const first = await listPage(freshDir, { limit: 10, filter: { sort: 'pixels-desc' } })
     check(Boolean(first.indexing && 'done' in first.indexing && first.indexing.total === 3) && first.items.length === 0, 'a meta order first reports that the folder is being read')
+    await settleIndex(freshDir)
+    await settleIndex(sortDir)
+    check(indexMatcher(sortDir, await listEntries(sortDir), {}, []) !== null, 'a search starts the index too: sortDir was only searched, and is indexed')
     await settleIndex(sortDir)
     eq(await names({ sort: 'pixels-desc' }), ['wide.webp', 'p2.png', 'p10.png'], 'most pixels first, once read')
     eq(await names({ sort: 'pixels-asc' }), ['p2.png', 'p10.png', 'wide.webp'], 'fewest pixels first')
@@ -289,6 +298,53 @@ async function main() {
     eq(pagedMeta, ['p2.png', 'p10.png', 'wide.webp'], 'paging in a meta order visits every picture once')
     check(!('pixels' in (await listPage(sortDir, { limit: 1, filter: { sort: 'pixels-desc' } })).items[0]), "the index's values stay out of the reply")
     eq(await listFacets(sortDir), { facets: { models: [RECORD.model!], loras: [], sources: { latentry: 2, none: 1 } } }, 'every model and LoRA in the folder, and the pictures per source')
+
+    // ── The index answers searches and filters as the files do ──
+    const queries: GalleryQuery[] = [
+      { q: 'smile' },
+      { q: '1girl, -smile' },
+      { q: '"1girl"' },
+      { q: '"smile 1girl"' },
+      { q: 'steps:30, cfg:<5' },
+      { q: 'w:32' },
+      { q: 'lora:flat' },
+      { q: '-lora:detail' },
+      { q: 'p1' },
+      // Across the file name and the prompt: the parts are kept apart.
+      { q: 'png 1girl' },
+      { q: 'sampler:euler' },
+      { q: 'sdxl' },
+      { backend: 'anima' },
+      { orientation: 'portrait' },
+      { orientation: 'landscape', q: 'wide' },
+      { resolution: 'small' },
+      { untagged: true },
+      { source: 'none' },
+      { source: 'a1111' },
+      { lora: 'DETAIL' },
+      { model: RECORD.model! },
+      { grid: 'none', q: 'girl' },
+    ]
+    for (const folderDir of [dir, sortDir, sdDir, loraDir]) {
+      const listing = await listEntries(folderDir)
+      await listPage(folderDir, { limit: 1, filter: { q: 'x' } })
+      await settleIndex(folderDir)
+      for (const query of queries) {
+        const terms = parseQuery(query.q ?? '')
+        const fromIndex = indexMatcher(folderDir, listing, query, terms)
+        if (!fromIndex) {
+          check(false, `${folderDir.label} is indexed`)
+          continue
+        }
+        const byIndex = listing.filter(fromIndex).map((entry) => entry.name)
+        const byFile: string[] = []
+        for (const entry of listing) {
+          const item = await itemInfo(folderDir, entry)
+          if (matchesMeta(item, query) && matchesQuery(searchableOf(item.name, item.meta, item), terms)) byFile.push(entry.name)
+        }
+        eq(byIndex, byFile, `${folderDir.label}: ${JSON.stringify(query)} finds the same pictures from the index as from the files`)
+      }
+    }
 
     const big = await sharp({ create: { width: 64, height: 64, channels: 3, background: '#000000' } }).png().toBuffer()
     await writeFile(path.join(sorting, 'big.png'), big)
@@ -360,6 +416,42 @@ async function main() {
     eq(await writeTags(dir, '../secret/private.png', []), false, 'nor a file outside it')
     eq(await writeTags(dir, 'old.png', [{ name: 'cat_ears', category: 0, score: 0.7 }]), true, 'the save folder is')
     eq(metaFromText(readPngText(await readFile(path.join(folder, 'old.png'))))?.tags?.[0].name, 'cat_ears', 'and the tags are in the file')
+
+    // ── A large folder's listing: names read, only new and rewritten files looked at ──
+    // "Large" from 2 pictures here, and a listing trusted for 300 ms.
+    setListingLimits({ large: 2, ttlMs: 300 })
+    try {
+      const many = path.join(root, 'many')
+      await mkdir(many)
+      const manyDir: GalleryDir = { ...sortDir, index: 7, path: many, label: 'many', writable: true, role: 'save' }
+      await writeFile(path.join(many, 'a.png'), written)
+      await writeFile(path.join(many, 'b.png'), written)
+      const sizeOf = (entries: { name: string; size: number }[], name: string) => entries.find((entry) => entry.name === name)?.size
+      eq((await listEntries(manyDir)).map((entry) => entry.name).sort(), ['a.png', 'b.png'], 'a large folder is listed')
+
+      // Rewritten in place by another tool, and a new file added.
+      await writeFile(path.join(many, 'a.png'), retagged)
+      await writeFile(path.join(many, 'c.png'), written)
+      const changed = await listEntries(manyDir)
+      eq(changed.map((entry) => entry.name).sort(), ['a.png', 'b.png', 'c.png'], 'a new file shows at once')
+      eq(sizeOf(changed, 'a.png'), written.length, 'a file rewritten by another tool keeps what was known for now')
+
+      // Rewritten by Latentry: looked at again on the next listing.
+      await writeFile(path.join(many, 'b.png'), retagged)
+      invalidateListing(manyDir, 'b.png')
+      eq(sizeOf(await listEntries(manyDir), 'b.png'), retagged.length, 'a file Latentry wrote is looked at again')
+
+      // Once the listing is older than its time, every file is looked at in the background.
+      await new Promise((resolve) => setTimeout(resolve, 350))
+      eq(sizeOf(await listEntries(manyDir), 'a.png'), written.length, 'the old listing answers at once')
+      await settleListing(manyDir)
+      eq(sizeOf(await listEntries(manyDir), 'a.png'), retagged.length, 'and the next one has what the background look found')
+
+      await rm(path.join(many, 'c.png'))
+      eq((await listEntries(manyDir)).map((entry) => entry.name).sort(), ['a.png', 'b.png'], 'a removed file goes at once')
+    } finally {
+      setListingLimits({})
+    }
   } finally {
     await rm(root, { recursive: true, force: true })
   }

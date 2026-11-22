@@ -9,7 +9,7 @@ import type { GalleryDir } from './dirs'
 import { matchesQuery, parseQuery, searchableOf } from './query'
 import { matchesCheap, matchesMeta, matchesStars, needsMeta, toParams, type GalleryQuery, type StackGroup } from './filter'
 import { compareEntries, DEFAULT_SORT, encodeCursor, isMetaSort, startIndex, type SortKey } from './sort'
-import { facetsOf, indexStatus, stackKeyOf, withIndexValues, type Facets } from './folder-index'
+import { facetsOf, indexMatcher, indexStatus, stackKeyOf, withIndexValues, type Facets } from './folder-index'
 import { dropMissingRatings, folderRatings } from './ratings'
 
 export const IMAGE_EXTENSIONS = new Set(['.png', '.webp', '.jpg', '.jpeg'])
@@ -109,8 +109,14 @@ export async function readInDir(dir: GalleryDir, name: string): Promise<{ file: 
 interface ListingCache {
   /** The folder's own mtime: adding or removing a file changes it. */
   dirMtime: number
+  /** When every file in it was last looked at (stat). */
   at: number
   entries: GalleryEntry[]
+  byName: Map<string, GalleryEntry>
+  /** Files Latentry wrote since: looked at again on the next listing. */
+  dirty: Set<string>
+  /** A full listing running in the background, for a large folder. */
+  refreshing: Promise<void> | null
 }
 
 const globalForGallery = globalThis as typeof globalThis & {
@@ -122,18 +128,29 @@ const infoCache = (globalForGallery.__galleryInfo ??= new Map())
 const INFO_CACHE_MAX = 20000
 // A file rewritten in place (tags written back) keeps the folder's mtime on
 // some filesystems, so a listing is never trusted for long.
-const LISTING_TTL_MS = 5 * 1000
+let listingTtlMs = 5 * 1000
+/**
+ * From this many pictures, looking at every file again (a stat each, about
+ * 5 s for 300,000) is not done while a request waits. The folder's names are
+ * read (fast), new and rewritten files are looked at, and the others keep
+ * what was known; a full look runs in the background once listingTtlMs
+ * has passed, and the next request gets its result.
+ */
+export const LARGE_LISTING = 5000
+let largeListing = LARGE_LISTING
 
-/** Every image in the folder, newest first. Not recursive. */
-export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
-  const dirStat = await stat(dir.path)
-  const cached = listings.get(dir.path)
-  if (cached && cached.dirMtime === dirStat.mtimeMs && Date.now() - cached.at < LISTING_TTL_MS) return cached.entries
+/** For the verify script: a small "large" folder and a short wait, instead of thousands of files. */
+export function setListingLimits(limits: { large?: number; ttlMs?: number }): void {
+  largeListing = limits.large ?? LARGE_LISTING
+  listingTtlMs = limits.ttlMs ?? 5 * 1000
+}
 
-  const names = (await readdir(dir.path, { withFileTypes: true }))
-    .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && isSafeName(entry.name))
-    .map((entry) => entry.name)
+/** Waits for the folder's background listing, if one runs. For the verify script. */
+export async function settleListing(dir: GalleryDir): Promise<void> {
+  await listings.get(dir.path)?.refreshing
+}
 
+async function statEntries(dir: GalleryDir, names: string[]): Promise<GalleryEntry[]> {
   const entries: GalleryEntry[] = []
   // In slices, so a folder of ten thousand files does not open them all at once.
   for (let start = 0; start < names.length; start += 64) {
@@ -149,8 +166,26 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
     )
     for (const entry of slice) if (entry) entries.push(entry)
   }
+  return entries
+}
+
+async function readNames(dir: GalleryDir): Promise<string[]> {
+  return (await readdir(dir.path, { withFileTypes: true }))
+    .filter((entry) => (entry.isFile() || entry.isSymbolicLink()) && isSafeName(entry.name))
+    .map((entry) => entry.name)
+}
+
+function remember(dir: GalleryDir, dirMtime: number, at: number, entries: GalleryEntry[]): GalleryEntry[] {
   entries.sort(compareEntries('newest'))
-  listings.set(dir.path, { dirMtime: dirStat.mtimeMs, at: Date.now(), entries })
+  const previous = listings.get(dir.path)
+  listings.set(dir.path, {
+    dirMtime,
+    at,
+    entries,
+    byName: new Map(entries.map((entry) => [entry.name, entry])),
+    dirty: new Set(),
+    refreshing: previous?.refreshing ?? null,
+  })
   // Ratings of files no longer here go. Not when the folder looks empty: a
   // drive that is not there yet should not take every rating with it.
   if (entries.length) {
@@ -161,13 +196,64 @@ export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
   return entries
 }
 
+/** Looks at every file again, in the background; the next listing gets the result. */
+function refreshInBackground(dir: GalleryDir, cached: ListingCache): void {
+  if (cached.refreshing) return
+  cached.refreshing = (async () => {
+    const dirMtime = (await stat(dir.path)).mtimeMs
+    const at = Date.now()
+    const entries = await statEntries(dir, await readNames(dir))
+    const now = listings.get(dir.path)
+    // Something Latentry wrote meanwhile is looked at by the next listing.
+    const dirty = now?.dirty ?? new Set<string>()
+    remember(dir, dirMtime, at, entries)
+    const fresh = listings.get(dir.path)
+    if (fresh) for (const name of dirty) fresh.dirty.add(name)
+  })()
+    .catch((error) => console.error('Gallery listing failed:', error instanceof Error ? error.message : error))
+    .finally(() => {
+      const now = listings.get(dir.path)
+      if (now) now.refreshing = null
+    })
+}
+
+/** Every image in the folder, newest first. Not recursive. */
+export async function listEntries(dir: GalleryDir): Promise<GalleryEntry[]> {
+  const dirStat = await stat(dir.path)
+  const cached = listings.get(dir.path)
+  const fresh = cached !== undefined && Date.now() - cached.at < listingTtlMs
+  const large = cached !== undefined && cached.entries.length >= largeListing
+  if (cached && cached.dirMtime === dirStat.mtimeMs && cached.dirty.size === 0) {
+    if (fresh) return cached.entries
+    if (large) {
+      refreshInBackground(dir, cached)
+      return cached.entries
+    }
+  }
+  if (!cached || !large) return remember(dir, dirStat.mtimeMs, Date.now(), await statEntries(dir, await readNames(dir)))
+
+  // A large folder that changed: only new and rewritten files are looked at.
+  const names = await readNames(dir)
+  const known: GalleryEntry[] = []
+  const unknown: string[] = []
+  for (const name of names) {
+    const entry = cached.byName.get(name)
+    if (entry && !cached.dirty.has(name)) known.push(entry)
+    else unknown.push(name)
+  }
+  const entries = [...known, ...(await statEntries(dir, unknown))]
+  remember(dir, dirStat.mtimeMs, cached.at, entries)
+  if (!fresh) refreshInBackground(dir, listings.get(dir.path)!)
+  return entries
+}
+
 /**
  * Whether the folder holds at least one picture. Stops at the first one, so
  * a large folder is not read through; a folder that is not there has none.
  */
 export async function hasPictures(dir: GalleryDir): Promise<boolean> {
   const cached = listings.get(dir.path)
-  if (cached && Date.now() - cached.at < LISTING_TTL_MS) return cached.entries.length > 0
+  if (cached && Date.now() - cached.at < listingTtlMs) return cached.entries.length > 0
   try {
     // The loop closes the folder when it ends, by return or otherwise.
     for await (const entry of await opendir(dir.path)) {
@@ -179,9 +265,14 @@ export async function hasPictures(dir: GalleryDir): Promise<boolean> {
   }
 }
 
-/** Forgets a folder's listing, after a file in it was written. */
-export function invalidateListing(dir: GalleryDir): void {
-  listings.delete(dir.path)
+/**
+ * After Latentry wrote a file in the folder: that file is looked at again on
+ * the next listing. Without a name, the whole listing is forgotten.
+ */
+export function invalidateListing(dir: GalleryDir, name?: string): void {
+  const cached = listings.get(dir.path)
+  if (name !== undefined && cached) cached.dirty.add(name)
+  else listings.delete(dir.path)
 }
 
 /** Size and settings for one listed file, cached until the file changes. */
@@ -274,7 +365,15 @@ export async function listPage(
   if (group && stack) entries = entries.filter((entry) => stackKeyOf(dir, entry.name, group) === stack)
 
   const terms = parseQuery(filter.q ?? '')
-  const filtering = terms.length > 0 || needsMeta(filter)
+  let filtering = terms.length > 0 || needsMeta(filter)
+  // Once the folder is indexed, the index answers the search and filters
+  // without opening a file; until then (and the first search starts the
+  // index) the files are read as the page is scanned.
+  const fromIndex = filtering ? indexMatcher(dir, listing, filter, terms) : null
+  if (fromIndex) {
+    entries = entries.filter(fromIndex)
+    filtering = false
+  }
   const matches = (item: GalleryItem) =>
     matchesMeta(item, filter) && (terms.length === 0 || matchesQuery(searchableOf(item.name, item.meta, item), terms))
   if (group && !stack) return stackedPage(dir, listing, entries, { ...options, sort, group, stars, matches: filtering ? matches : null })
@@ -343,9 +442,13 @@ async function stackedPage(
     const firstOf = new Map<string, string>()
     for (let start = 0; start < entries.length; start += 64) {
       const batch = entries.slice(start, start + 64)
-      const infos = await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
+      // With nothing to match (or matched from the index already), only the names are needed.
+      const matches = options.matches
+      const infos = matches
+        ? await Promise.all(batch.map(({ name, mtime, size }) => itemInfo(dir, { name, mtime, size })))
+        : batch
       infos.forEach((info, i) => {
-        if (options.matches && !options.matches(info)) return
+        if (matches && !matches(info as GalleryItem)) return
         const key = stackKeyOf(dir, info.name, options.group)
         const first = key === undefined ? undefined : firstOf.get(key)
         if (key === undefined || first === undefined) {

@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+- **Large gallery folders**: a folder of hundreds of thousands of pictures
+  stays quick. The folder is not looked through again on every visit, only
+  its new and changed files. After the first search, filter or order that
+  needs it, the whole folder is read once in the background, and from then
+  on searches and filters are answered from Latentry's memory in about a
+  second (300,000 pictures, tested), instead of reading every file again.
+  Orders by date made and size, stacks and the model list now work up to
+  500,000 pictures (20,000 before). Nothing is written to disk; the memory
+  (about 1 KB a picture) is freed when Latentry stops. See
+  [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/#search).
+
 - **Saved searches in the gallery**: **Saved**, next to Filters, keeps the
   search box, the order and the filters under a name, and puts them back
   with one click. They are kept in this browser only, never on the server,
@@ -14,7 +25,7 @@
   the `Version` in their settings), beside **A1111 and others** (A1111, any
   other web UI, or a picture with no `Version`). Each choice says how many
   pictures in the folder it has, once the folder has been read as for the
-  model list. Not in secret mode, and not for a folder of more than 20,000
+  model list. Not in secret mode, and not for a folder of more than 500,000
   pictures. See [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/).
 
 - **The gallery reads NovelAI's pictures**: a PNG saved by NovelAI shows

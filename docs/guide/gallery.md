@@ -55,6 +55,15 @@ Type in **Search prompts, tags, models, file names**:
   `-model:pony`, `-lora:detail`. A `-` inside a term (`x-ray`) or a value (`seed:-1`) is
   just text.
 
+The first search in a folder also starts reading the whole folder in the
+background, as the [orders that need it](#order-and-filters) do. Until
+that is done, a search reads the pictures as it goes, a page at a time;
+once it is done, searches and filters are answered from what was read, in
+about a second even in a folder of 300,000 pictures. What is read is kept
+in Latentry's memory only, about 1 KB a picture, and forgotten when
+Latentry stops: after a restart the first search reads the folder again
+(about 5 minutes for 300,000 pictures, longer on a slow disk).
+
 ### Suggestions
 
 As you type, the search box suggests what can follow:
@@ -104,7 +113,7 @@ Four more orders need every picture in the folder looked at first:
 The first time, the gallery reads the folder and shows how far it has got;
 after that only new or changed files are read. What it reads is kept in
 Latentry's memory only, never written to disk, and forgotten when Latentry
-stops. Folders of more than 20,000 pictures cannot use these orders.
+stops. Folders of more than 500,000 pictures cannot use these orders.
 
 ![Filters open, with Portrait and PNG set and shown as chips under the panel](../assets/manual-filters.webp)
 
@@ -128,7 +137,7 @@ all):
   from A1111, another web UI, or one with no `Version` is under **A1111 and
   others**. Each choice says how many pictures in the folder it has, once the
   folder has been read as for the models; not in secret mode, and not for a
-  folder of more than 20,000 pictures.
+  folder of more than 500,000 pictures.
 - **Backend** and **profile**.
 - **Stars**: only pictures given at least 1 to 5 [stars](#stars); **1 or
   more** shows every rated picture.
