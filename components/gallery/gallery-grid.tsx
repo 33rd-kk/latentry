@@ -19,6 +19,7 @@ export function GalleryGrid({
   page,
   secret,
   showTags,
+  searching,
   selection,
   onOpen,
   onOpenStack,
@@ -27,6 +28,8 @@ export function GalleryGrid({
   page: GalleryPage
   secret: boolean
   showTags: boolean
+  /** A search or a filter is set: nothing found then is "nothing matched", not an empty folder. */
+  searching: boolean
   selection: GallerySelection
   onOpen: (index: number) => void
   /** Shows a stack's pictures: its key, and how many it holds. */
@@ -98,7 +101,7 @@ export function GalleryGrid({
       )}
       {!page.loading && page.pictures.length === 0 && !page.error && !page.indexing && (
         <p className="py-12 text-center text-sm text-muted-foreground">
-          {page.hasMore ? t("gallery.keepSearching") : t("gallery.empty")}
+          {page.hasMore ? t("gallery.keepSearching") : searching ? t("gallery.noMatch") : t("gallery.empty")}
         </p>
       )}
       {!page.loading && page.hasMore && page.pictures.length === 0 && (

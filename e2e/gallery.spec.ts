@@ -30,7 +30,7 @@ test('search, tags and selection in the gallery', async ({ page }) => {
   await search.fill('gallery spec meadow')
   await expect(thumbs).toHaveCount(1)
   await search.fill('nothing-has-this-word')
-  await expect(page.getByText(/No pictures here yet\.|Nothing matched in the files checked so far\./)).toBeVisible()
+  await expect(page.getByText(/No pictures match the search and filters\.|Nothing matched in the files checked so far\./)).toBeVisible()
   await search.fill('gallery spec')
   await expect(thumbs).toHaveCount(2)
 
