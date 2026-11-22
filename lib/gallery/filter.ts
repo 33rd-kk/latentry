@@ -170,7 +170,7 @@ export function activeFilterCount(query: GalleryQuery): number {
     query.minStars,
     query.grid,
     query.group,
-    query.stack,
+    // An opened stack is not counted: it is left from the bar above it (components/gallery/stack-bar.tsx).
   ].filter(Boolean).length
 }
 

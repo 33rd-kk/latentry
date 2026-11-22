@@ -80,7 +80,8 @@ export function GalleryToolbar({
       />
       <SortSelect value={query.sort ?? DEFAULT_SORT} onChange={(sort) => onChange({ sort })} />
       <FilterToggle open={filtersOpen} query={query} onToggle={onToggleFilters} />
-      <SavedSearchMenu query={query} secret={secret} onApply={onApply} />
+      {/* The words as typed: the search applies them after a pause, and saving right after typing keeps these. */}
+      <SavedSearchMenu query={{ ...query, q: searchText.trim() }} secret={secret} onApply={onApply} />
       <Button variant="ghost" size="icon" onClick={page.reload} aria-label={t("gallery.refresh")} title={t("gallery.refresh")}>
         <RefreshCw className={cn("h-4 w-4", page.loading && "animate-spin")} />
       </Button>
