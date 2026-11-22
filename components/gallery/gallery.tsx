@@ -23,7 +23,7 @@ import { useSeenTags } from "@/hooks/use-seen-tags"
 import type { SuggestSource } from "@/lib/gallery/suggest"
 import { listProfiles } from "@/lib/profiles"
 import { exactTagQuery } from "@/lib/gallery/query"
-import { toParams, type GalleryQuery } from "@/lib/gallery/filter"
+import { activeFilterCount, toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import { useT } from "@/lib/i18n"
 
 /**
@@ -196,6 +196,8 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
           page={page}
           secret={secret}
           showTags={showTags}
+          // Stacks only group the pictures; they leave none out.
+          searching={Boolean(query.q) || activeFilterCount({ ...query, group: undefined }) > 0}
           selection={selection}
           onOpen={setViewing}
           onOpenStack={openStack.open}

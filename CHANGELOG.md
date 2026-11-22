@@ -52,6 +52,11 @@
 
 **Fixed**
 
+- **A search that finds nothing says so.** Before, the gallery said "No
+  pictures here yet." when a search or a filter matched no picture in the
+  folder, as if the folder were empty. Now it says that no pictures match
+  the search and filters.
+
 - **Turning gallery-only mode on while generating asks first.** Before, the
   runs were left going: on the engine they ended as errors when it stopped,
   and on a backend of your own they went on and were saved, with no way left

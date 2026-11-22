@@ -548,6 +548,7 @@
     "loading": "Loading…",
     "empty": "No pictures here yet.",
     "keepSearching": "Nothing matched in the files checked so far.",
+    "noMatch": "No pictures match the search and filters.",
     "searchFurther": "Search further back",
     "readOnlyHint": "Read-only folder: tags found by WD14 are shown but not written into these files.",
     "tagged": "WD14",

@@ -405,6 +405,7 @@
   "gallery.loading": "Loading…",
   "gallery.empty": "No pictures here yet.",
   "gallery.keepSearching": "Nothing matched in the files checked so far.",
+  "gallery.noMatch": "No pictures match the search and filters.",
   "gallery.searchFurther": "Search further back",
   "gallery.readOnlyHint": "Read-only folder: tags found by WD14 are shown but not written into these files.",
   "gallery.tagged": "WD14",
