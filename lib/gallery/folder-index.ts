@@ -8,33 +8,57 @@
 // gets the progress instead and asks again. A picture is read once; a new or
 // changed file is read on the next build, and only that file.
 //
-// Held in this process's memory only and never written anywhere. No prompts
-// are kept, only the few fields above, a hash of the prompt to tell which
-// pictures share one, the seed, and the id of the X/Y grid it belongs to.
+// It also answers the search box and the filters, so a search through a
+// large folder does not open every file again: each picture's search text
+// (file name, prompt, model, LoRAs and tags, normalised as ./query.ts does),
+// its tags, the settings a `key:value` term names, and what the filters look
+// at (./filter.ts MetaFacts). Those are the same values the file gives, so a
+// search finds the same pictures from the index as from the files.
+//
+// Held in this process's memory only and never written anywhere, and gone
+// when Latentry stops. About 1 KB a picture, most of it the search text.
 
 import { createHash } from 'node:crypto'
 import type { GalleryDir } from './dirs'
 import { itemInfo, type GalleryEntry } from './fs'
-import { normalizeText } from './query'
-import { SOURCES, sourceOf, type Source, type StackGroup } from './filter'
+import { matchesTerms, normalizeText, searchableOf, type Searchable, type SearchTarget, type SearchTerm } from './query'
+import { matchesFacts, metaFactsOf, SOURCES, type GalleryQuery, type MetaFacts, type Source, type StackGroup } from './filter'
 
 /** Folders larger than this are not indexed; the meta orders say so instead. */
-export const INDEX_MAX = 20000
+export const INDEX_MAX = 500000
 
-interface IndexRecord {
+interface IndexRecord extends MetaFacts {
   /** mtime:size of the file this was read from; another value means it changed. */
   key: string
   created: number
   pixels: number
-  model?: string
-  loras?: string[]
   /** SHA-1 of the normalised prompt; pictures with the same one share a prompt. */
   promptKey?: string
   seed?: number
   /** The X/Y grid it is a cell or the sheet of (its random id). */
   gridId?: string
-  /** The tool whose settings it holds (or 'none'), for the counts under Settings from. */
-  source: Source
+  /**
+   * The search text (./query.ts Searchable), a NUL, then every tag followed
+   * by a NUL ("text\0tag\0tag\0"). One flat string: plain ASCII takes a
+   * byte a character, and a Buffer would cost an object more per picture.
+   */
+  search: string
+  /** Where the text ends (the first NUL). */
+  textEnd: number
+  // The rest of what a `key:value` term names; model, LoRAs and seed are above.
+  sampler?: string
+  steps?: number
+  cfg?: number
+  w?: number
+  h?: number
+}
+
+function searchText(searchable: Searchable): { search: string; textEnd: number } {
+  // A NUL in a prompt would read as the end of the text; none is typed into one.
+  const text = searchable.text.replace(/\0/g, ' ')
+  const search = `${text}\0${[...searchable.tags].map((tag) => `${tag.replace(/\0/g, ' ')}\0`).join('')}`
+  // indexOf flattens the joined string here, so the parts are not kept.
+  return { search, textEnd: search.indexOf('\0') }
 }
 
 /** The key a picture stacks under, or undefined when it has none (no prompt, no seed). */
@@ -53,6 +77,8 @@ function promptKeyOf(prompt: string | undefined): string | undefined {
 
 interface FolderIndex {
   records: Map<string, IndexRecord>
+  /** One copy of each model, LoRA, sampler and backend name, shared by every picture that names it. */
+  names: Map<string, string>
   building: Promise<void> | null
   done: number
   total: number
@@ -72,8 +98,16 @@ function keyOf(entry: GalleryEntry): string {
 
 function indexFor(dir: GalleryDir): FolderIndex {
   let index = indexes.get(dir.path)
-  if (!index) indexes.set(dir.path, (index = { records: new Map(), building: null, done: 0, total: 0 }))
+  if (!index) indexes.set(dir.path, (index = { records: new Map(), names: new Map(), building: null, done: 0, total: 0 }))
   return index
+}
+
+function intern(index: FolderIndex, name: string | undefined): string | undefined {
+  if (name === undefined) return undefined
+  const known = index.names.get(name)
+  if (known !== undefined) return known
+  index.names.set(name, name)
+  return name
 }
 
 function isCurrent(index: FolderIndex, entry: GalleryEntry): boolean {
@@ -89,16 +123,27 @@ async function build(dir: GalleryDir, index: FolderIndex, entries: GalleryEntry[
     const infos = await Promise.all(slice.map((entry) => itemInfo(dir, entry)))
     for (const info of infos) {
       const created = Date.parse(info.meta?.created ?? '')
+      const searchable = searchableOf(info.name, info.meta, info)
+      const facts = metaFactsOf(info)
+      const { fields } = searchable
       index.records.set(info.name, {
+        ...facts,
+        backend: intern(index, facts.backend),
+        profile: intern(index, facts.profile),
+        model: intern(index, facts.model),
+        loras: facts.loras?.map((lora) => intern(index, lora)!),
+        ...searchText(searchable),
+        sampler: intern(index, fields.sampler),
+        steps: fields.steps,
+        cfg: fields.cfg,
+        w: fields.w,
+        h: fields.h,
         key: keyOf(info),
         created: Number.isFinite(created) ? created : info.mtime,
         pixels: info.width && info.height ? info.width * info.height : 0,
-        model: info.meta?.model,
-        loras: info.meta?.loras,
         promptKey: promptKeyOf(info.meta?.prompt),
         seed: info.meta?.seed,
         ...(info.meta?.grid ? { gridId: info.meta.grid.id } : {}),
-        source: sourceOf(info.meta),
       })
     }
     index.done += slice.length
@@ -125,6 +170,56 @@ export function indexStatus(dir: GalleryDir, entries: GalleryEntry[]): IndexStat
       })
   }
   return { state: 'indexing', done: index.done, total: index.total }
+}
+
+/**
+ * A test of listed pictures against the filters and the search terms,
+ * answered from the index, or null while the index does not cover the
+ * listing (a build then starts, and the caller reads the files as before).
+ */
+export function indexMatcher(
+  dir: GalleryDir,
+  listing: GalleryEntry[],
+  query: GalleryQuery,
+  terms: SearchTerm[]
+): ((entry: GalleryEntry) => boolean) | null {
+  if (indexStatus(dir, listing).state !== 'ready') return null
+  const index = indexFor(dir)
+  const withFields = terms.some((term) => term.field)
+  // Names repeat across pictures (they are shared, see intern), so each is normalised once.
+  const normalised = new Map<string, string>()
+  const normal = (name: string) => {
+    let value = normalised.get(name)
+    if (value === undefined) normalised.set(name, (value = normalizeText(name)))
+    return value
+  }
+  return (entry) => {
+    const record = index.records.get(entry.name)
+    if (!record || !matchesFacts(record, query)) return false
+    if (terms.length === 0) return true
+    const loras = record.loras?.map(normal).filter(Boolean)
+    const target: SearchTarget = {
+      // The first place it occurs: if that is past the text, it is only in the tags.
+      hasText: (text) => {
+        const at = record.search.indexOf(text)
+        return at !== -1 && at < record.textEnd
+      },
+      hasTag: (tag) => record.search.indexOf(`\0${tag}\0`, record.textEnd) !== -1,
+      fields: withFields
+        ? {
+            model: record.model ? normal(record.model) : undefined,
+            sampler: record.sampler,
+            lora: loras?.length ? loras : undefined,
+            seed: record.seed,
+            steps: record.steps,
+            cfg: record.cfg,
+            w: record.w,
+            h: record.h,
+          }
+        : {},
+    }
+    return matchesTerms(target, terms)
+  }
 }
 
 /** Waits for the folder's current build, if any. For the verify script. */

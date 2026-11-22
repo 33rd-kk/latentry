@@ -168,7 +168,20 @@ export function searchableOf(name: string, meta: ImageMeta | null, size?: { widt
   }
 }
 
-function matchesField(searchable: Searchable, field: FieldTerm): boolean {
+/**
+ * What a term is tested against: a Searchable, or the folder index's compact
+ * copy of one (./folder-index.ts). Both answer the same three questions, so a
+ * search finds the same pictures either way.
+ */
+export interface SearchTarget {
+  /** Whether the text (file name, prompt, model, LoRAs, tags) contains this. */
+  hasText(text: string): boolean
+  /** Whether this is one of the tags. */
+  hasTag(tag: string): boolean
+  fields: Searchable['fields']
+}
+
+function matchesField(searchable: SearchTarget, field: FieldTerm): boolean {
   if ('contains' in field) {
     const value = searchable.fields[field.key]
     if (Array.isArray(value)) return value.some((name) => name.includes(field.contains))
@@ -191,12 +204,19 @@ function matchesField(searchable: Searchable, field: FieldTerm): boolean {
 }
 
 export function matchesQuery(searchable: Searchable, terms: SearchTerm[]): boolean {
+  return matchesTerms(
+    { hasText: (text) => searchable.text.includes(text), hasTag: (tag) => searchable.tags.has(tag), fields: searchable.fields },
+    terms
+  )
+}
+
+export function matchesTerms(target: SearchTarget, terms: SearchTerm[]): boolean {
   return terms.every((term) => {
     const found = term.field
-      ? matchesField(searchable, term.field)
+      ? matchesField(target, term.field)
       : term.exact
-        ? searchable.tags.has(term.text)
-        : searchable.text.includes(term.text)
+        ? target.hasTag(term.text)
+        : target.hasText(term.text)
     return term.negate ? !found : found
   })
 }

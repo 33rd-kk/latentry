@@ -151,7 +151,7 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
     } finally {
       release()
     }
-    invalidateListing(dir)
+    invalidateListing(dir, name)
     if (autoTagEnabled()) void autoTag(dir, name, image.image_base64)
     return name
   } catch (error) {
@@ -186,7 +186,7 @@ export async function writeTags(dir: GalleryDir, name: string, tags: ImageTag[])
   const picture = await readInDir(dir, name)
   if (!picture || path.extname(picture.file).toLowerCase() !== '.png') return false
   await writeAtomically(picture.file, writePngText(picture.bytes, { [TAGS_KEY]: JSON.stringify(tags) }))
-  invalidateListing(dir)
+  invalidateListing(dir, name)
   return true
 }
 
@@ -203,6 +203,6 @@ export async function saveSheet(dir: GalleryDir, png: Buffer, record: LatentryRe
   } finally {
     release()
   }
-  invalidateListing(dir)
+  invalidateListing(dir, name)
   return name
 }

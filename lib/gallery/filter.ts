@@ -229,22 +229,56 @@ export function sourceOf(meta: ImageMeta | null): Source {
 }
 
 /**
- * The filters that need the picture: its size and its settings. A picture
- * whose size is unknown does not match a size filter.
+ * What the filters that need the picture look at: its size and its settings,
+ * worked out once. The folder index (./folder-index.ts) keeps these for every
+ * picture, so a filter is answered the same from it as from the file.
  */
+export interface MetaFacts {
+  backend?: string
+  profile?: string
+  orientation: Orientation | null
+  resolution: Resolution | null
+  model?: string
+  loras?: string[]
+  source: Source
+  /** Whether it has WD14 tags. */
+  tagged: boolean
+  grid: GridKind
+}
+
+export function metaFactsOf(item: { width: number | null; height: number | null; meta: ImageMeta | null }): MetaFacts {
+  const { meta } = item
+  return {
+    backend: meta?.backend,
+    profile: meta?.profile,
+    orientation: orientationOf(item.width, item.height),
+    resolution: resolutionOf(item.width, item.height),
+    model: meta?.model,
+    loras: meta?.loras,
+    source: sourceOf(meta),
+    tagged: Boolean(meta?.tags?.length),
+    grid: gridKindOf(meta),
+  }
+}
+
+/** A picture whose size is unknown does not match a size filter. */
+export function matchesFacts(facts: MetaFacts, query: GalleryQuery): boolean {
+  if (query.backend && facts.backend !== query.backend) return false
+  if (query.profile && facts.profile !== query.profile) return false
+  if (query.orientation && facts.orientation !== query.orientation) return false
+  if (query.resolution && facts.resolution !== query.resolution) return false
+  if (query.model && facts.model !== query.model) return false
+  if (query.lora && !facts.loras?.some((lora) => lora.toLowerCase() === query.lora!.toLowerCase())) return false
+  if (query.source && facts.source !== query.source) return false
+  if (query.untagged && facts.tagged) return false
+  if (query.grid && facts.grid !== query.grid) return false
+  return true
+}
+
+/** The filters that need the picture: its size and its settings. */
 export function matchesMeta(
   item: { width: number | null; height: number | null; meta: ImageMeta | null },
   query: GalleryQuery
 ): boolean {
-  const { meta } = item
-  if (query.backend && meta?.backend !== query.backend) return false
-  if (query.profile && meta?.profile !== query.profile) return false
-  if (query.orientation && orientationOf(item.width, item.height) !== query.orientation) return false
-  if (query.resolution && resolutionOf(item.width, item.height) !== query.resolution) return false
-  if (query.model && meta?.model !== query.model) return false
-  if (query.lora && !meta?.loras?.some((lora) => lora.toLowerCase() === query.lora!.toLowerCase())) return false
-  if (query.source && sourceOf(meta) !== query.source) return false
-  if (query.untagged && meta?.tags?.length) return false
-  if (query.grid && gridKindOf(meta) !== query.grid) return false
-  return true
+  return matchesFacts(metaFactsOf(item), query)
 }
