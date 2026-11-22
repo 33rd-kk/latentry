@@ -497,7 +497,6 @@
       "group-prompt": "同じプロンプト",
       "group-seed": "同じシード",
       "group-grid": "同じ X/Y グリッド",
-      "inStack": "1 つのまとまり",
       "stars": "星",
       "anyStars": "指定なし",
       "starsAtLeast": "{count} 以上"
@@ -513,6 +512,10 @@
       "secretReveal": "この比較では表示する"
     },
     "stackHint": "{count} 枚。クリックするとすべて表示します。",
+    "stackBar": {
+      "back": "すべての画像に戻る",
+      "count": "このまとまりの {count} 枚"
+    },
     "refresh": "更新",
     "backToTop": "先頭へ戻る",
     "saved": {

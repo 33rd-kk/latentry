@@ -118,7 +118,8 @@ test('Settings from counts the pictures from each tool', async ({ page }) => {
 })
 
 // "Stack": pictures that share a prompt go into one card that says how
-// many; clicking it shows them, and removing the One stack chip goes back.
+// many; clicking it shows them, with a bar above them that leads back. The
+// browser's Back leads back too, and only out of the stack.
 test('pictures with the same prompt stack, and the stack opens', async ({ page }) => {
   await generateOnce(page, 'docsstack same prompt')
   await generateOnce(page, 'docsstack same prompt')
@@ -132,11 +133,31 @@ test('pictures with the same prompt stack, and the stack opens', async ({ page }
   await expect(thumbs(page)).toHaveCount(1)
   await expect(page.getByTitle('2 pictures. Click to see them all.')).toHaveText('2')
   await thumbs(page).first().click()
-  const chip = page.getByRole('button', { name: /^Remove filter: One stack/ })
-  await expect(chip).toBeVisible()
+  const back = page.getByRole('button', { name: 'Back to all pictures' })
+  await expect(back).toBeVisible()
+  await expect(page.getByText('Same prompt · 2 pictures in this stack')).toBeVisible()
+  // Not among the filters, so Clear all cannot be mistaken for the way out.
+  await expect(page.getByRole('button', { name: /^Remove filter: One stack/ })).toHaveCount(0)
   await expect(thumbs(page)).toHaveCount(2)
-  await chip.click()
+  await back.click()
   await expect(thumbs(page)).toHaveCount(1)
+  await expect(back).toHaveCount(0)
+
+  // The browser's Back steps out of the stack and stays on the gallery.
+  await thumbs(page).first().click()
+  await expect(thumbs(page)).toHaveCount(2)
+  await page.goBack()
+  await expect(page).toHaveURL(/\/gallery$/)
+  await expect(thumbs(page)).toHaveCount(1)
+  await expect(page.getByRole('combobox', { name: 'Stack' })).toHaveText('Same prompt')
+
+  // Left another way, the stack leaves no step behind: Back leaves the gallery.
+  await thumbs(page).first().click()
+  await expect(thumbs(page)).toHaveCount(2)
+  await page.getByRole('button', { name: 'Remove filter: Same prompt' }).click()
+  await expect(back).toHaveCount(0)
+  await page.goBack()
+  await expect(page).not.toHaveURL(/\/gallery$/)
 })
 
 // "Compare": same shape, overlaid with a slider; settings that differ and

@@ -33,6 +33,12 @@
   exactly. A picture that cannot be checked is not handed out. See
   [Saving and sharing](https://33rd-kk.github.io/latentry/guide/gallery/#saving-and-sharing).
 
+- **A clear way out of an opened stack**: the stack's pictures have a bar
+  above them, **Back to all pictures**, with what the stack holds, in place
+  of the **One stack** chip among the filters. The browser's Back (a phone's
+  back gesture too) also steps out of the stack instead of leaving the
+  gallery. Nothing of the stack goes into the address or the history entry.
+
 **Fixed**
 
 - **Turning gallery-only mode on while generating asks first.** Before, the
