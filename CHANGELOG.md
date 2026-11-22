@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- **Saved searches in the gallery**: **Saved**, next to Filters, keeps the
+  search box, the order and the filters under a name, and puts them back
+  with one click. They are kept in this browser only, never on the server,
+  and without the folder: a saved search applies to the folder that is open.
+  Secret mode neither shows nor saves them. See
+  [Gallery](https://33rd-kk.github.io/latentry/guide/gallery/#saved-searches).
+
 - **Forge apart from A1111, and how many from each**: the gallery's
   **Settings from** has **Forge** of its own (Forge and Forge Neo, told by
   the `Version` in their settings), beside **A1111 and others** (A1111, any

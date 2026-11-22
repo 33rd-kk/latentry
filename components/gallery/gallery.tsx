@@ -40,7 +40,8 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const [searchText, setSearchText] = useState("")
   const [q, setQ] = useState("")
   // The order and filters live only as long as the page: nothing about what
-  // was looked for is kept in the browser or the address bar.
+  // was looked for is kept in the browser or the address bar, unless the user
+  // saves the search by name (saved-searches.tsx, this browser only).
   const [filters, setFilters] = useState<Omit<GalleryQuery, "q">>({})
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [comparing, setComparing] = useState<[GalleryPicture, GalleryPicture] | null>(null)
@@ -55,6 +56,13 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
   const folder = folders?.find((candidate) => candidate.index === activeDir) ?? null
   const query = useMemo<GalleryQuery>(() => ({ ...filters, q }), [filters, q])
   const changeFilters = useCallback((patch: Partial<GalleryQuery>) => setFilters((current) => ({ ...current, ...patch })), [])
+  // A saved search replaces the whole query, and its words apply at once.
+  const applySaved = useCallback((saved: GalleryQuery) => {
+    const { q: words = "", ...rest } = saved
+    setFilters(rest)
+    setSearchText(words)
+    setQ(words)
+  }, [])
   const page = useGalleryPage(activeDir, query)
   const profiles = useMemo(() => listProfiles().map(({ id, label }) => ({ id, label })), [])
 
@@ -144,6 +152,7 @@ export function Gallery({ galleryOnly = false }: { galleryOnly?: boolean }) {
         suggestFrom={seenTags.pictureCount}
         query={query}
         onChange={changeFilters}
+        onApply={applySaved}
         filtersOpen={filtersOpen}
         onToggleFilters={() => setFiltersOpen(!filtersOpen)}
         page={page}

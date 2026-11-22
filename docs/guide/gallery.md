@@ -135,7 +135,28 @@ all):
 - **Only pictures without WD14 tags**.
 
 Filters, order and search work together. The order and filters last until
-you leave or reload the page; they are not remembered in the browser.
+you leave or reload the page; they are not remembered in the browser, unless
+you save them as a search.
+
+### Saved searches
+
+**Saved** (next to Filters) keeps a search you use often under a name: the
+search box, the order and the filters together. **Save this search…** asks
+for the name, and offers the search box's words. Saving under a name you
+already have replaces that search. Choosing a saved search from the menu
+puts back its words, order and filters, in place of what was there; the one
+on screen has a check mark. **Rename or delete…** lists them all.
+
+- Saved searches are kept **in this browser only**, not on the computer
+  Latentry runs on. Another browser, or a phone, has its own list. Clearing
+  the site's data removes them, and deleting the last one leaves nothing
+  behind.
+- No folder is saved: a saved search applies to the folder that is open. An
+  opened stack is not saved either, only the **Stack** choice.
+- Up to 50 searches, each name up to 60 characters.
+- In [secret mode](secret-mode.md) the menu is not shown, and nothing is
+  saved. The searches saved before stay, unchanged, and come back when secret
+  mode is turned off.
 
 ## Stacks and comparing
 

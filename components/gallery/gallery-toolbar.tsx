@@ -4,6 +4,7 @@ import { CheckSquare, FolderOpen, Lock, RefreshCw, Tags } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { FilterToggle, SortSelect } from "./gallery-filters"
+import { SavedSearchMenu } from "./saved-searches"
 import { SearchBox } from "./search-suggestions"
 import type { SuggestSource } from "@/lib/gallery/suggest"
 import type { GalleryFolder, GalleryPage } from "@/hooks/use-gallery"
@@ -25,6 +26,7 @@ export function GalleryToolbar({
   suggestFrom,
   query,
   onChange,
+  onApply,
   filtersOpen,
   onToggleFilters,
   page,
@@ -44,6 +46,8 @@ export function GalleryToolbar({
   suggestFrom: number
   query: GalleryQuery
   onChange: (patch: Partial<GalleryQuery>) => void
+  /** A saved search chosen: its whole query, in place of the current one. */
+  onApply: (query: GalleryQuery) => void
   filtersOpen: boolean
   onToggleFilters: () => void
   page: GalleryPage
@@ -76,6 +80,7 @@ export function GalleryToolbar({
       />
       <SortSelect value={query.sort ?? DEFAULT_SORT} onChange={(sort) => onChange({ sort })} />
       <FilterToggle open={filtersOpen} query={query} onToggle={onToggleFilters} />
+      <SavedSearchMenu query={query} secret={secret} onApply={onApply} />
       <Button variant="ghost" size="icon" onClick={page.reload} aria-label={t("gallery.refresh")} title={t("gallery.refresh")}>
         <RefreshCw className={cn("h-4 w-4", page.loading && "animate-spin")} />
       </Button>

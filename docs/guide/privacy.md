@@ -62,13 +62,14 @@ cannot be checked is not shared. Latentry never reads that hidden copy.
 | `latentry.ratings.json` | The [stars](gallery.md#stars) you gave gallery pictures, by folder and file name. Only this computer can read the file; paired devices see the stars of the pictures they browse | When you take a rating away, when the picture leaves its folder, or when you delete the file |
 | `.runtime/`, `models/` | The engine, the models and the tagger you downloaded | When you delete them, or uninstall |
 | Hugging Face's cache (`~/.cache/huggingface`, or `HF_HOME`) | The config files of a single-file SDXL model (no weights, no prompts) | When you delete it |
-| This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, and display preferences such as tags under cards, the parts of the generate form you hid and the Settings section you opened last | Kept between visits. Clear the site's data to remove it |
+| This browser (localStorage) | The generate form, the prompt shared across backends, saved characters, the chosen backend, the gallery's [saved searches](gallery.md#saved-searches), and display preferences such as tags under cards, the parts of the generate form you hid and the Settings section you opened last | Kept between visits. Clear the site's data to remove it |
 | The engine's memory | A hash of each LoRA file a run asked hashes for (only with **Write LoRA hashes** on) | When the engine stops |
 | Latentry's memory | Runs in progress; each backend's last run, pictures and prompt, for an hour after it ends (a minute for a secret run); thumbnails, and the gallery's index of a folder (date made, size, model, LoRAs, a hash of each prompt, the seed) | The last run after that time; the rest when Latentry stops |
 | A ComfyUI backend's computer | Its history of the prompts Latentry ran; the last source and mask uploaded for img2img (`input/latentry/<id>-source.png`, `-mask.png`) and the last skeleton for a pose (`-pose.png`; the reference picture it came from goes to Latentry's engine only); pictures in its temp folder | History and uploads: right after a secret run; otherwise the next upload replaces them and ComfyUI keeps its history. The temp folder: when ComfyUI restarts |
 
 Not kept anywhere: the gallery's search, order and filters (they last only
-as long as the page), and pictures from other folders, which are only read.
+as long as the page, unless you save them as a search), and pictures from
+other folders, which are only read.
 
 ## Secret mode
 
