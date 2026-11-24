@@ -79,8 +79,9 @@ earlier releases. Never remake its fixtures to make it pass.
 
 - Match the code around your change: its naming, comment style and size of
   functions.
-- `lib/` does not import Next.js. `lib/image-meta/` imports nothing else
-  from the app, since it is meant to become its own package.
+- `lib/` does not import Next.js. `lib/image-meta/` and `lib/pairing/`
+  import nothing else from the app, since each is meant to become its own
+  package; each has a README with its rules, and eslint enforces them.
 - UI text goes in `locales/en.json`; other languages are generated from it.
 - Give every control a name: link its label with `htmlFor` and `id`. A
   select box needs this too, because its text does not count as its name.
