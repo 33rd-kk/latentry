@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Fixed**: the stream of a diffusers-compatible backend (the built-in
+  engine, or one of your own) is now read as the Server-Sent Events spec
+  says, by the small `eventsource-parser` package (MIT, no dependencies).
+  A backend that ends its lines with CRLF no longer has an event cut short
+  when a CRLF falls between two network chunks, spaces at the edges of a
+  value are kept, and one event that grows past 128M characters ends the
+  run with an error instead of filling the server's memory.
+
 - **Fixed**: on Windows, saving the settings, a model's info or a picture
   could fail now and then when another program (a virus scanner, the search
   indexer) had the file open for a moment. Like ratings already did, they

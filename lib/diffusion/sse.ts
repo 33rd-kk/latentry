@@ -1,5 +1,12 @@
 // Server-Sent Events helpers: the diffusers-compatible backend speaks SSE to
 // this server, and /api/gen/<id>/job/stream speaks it on to the browser.
+//
+// Reading is eventsource-parser's (MIT, no dependencies, pinned in
+// package.json): it follows the spec where a hand-written splitter is easy to
+// get wrong, such as a CRLF cut between two chunks, the one space after
+// `data:` that is not part of the value, and `id:` and `retry:` lines.
+
+import { EventSourceParserStream } from 'eventsource-parser/stream'
 
 export interface SseEvent {
   event: string
@@ -7,19 +14,12 @@ export interface SseEvent {
 }
 
 /**
- * Parses one SSE frame (the text between two blank lines). Returns null for a
- * frame with no `data:` line — comments (`: keep-alive`) and bare `event:`
- * lines carry nothing to act on.
+ * The most characters one unfinished event may hold. The largest real one is
+ * a picture: 4096 pixels a side as a base64 PNG is about 67M characters at
+ * worst. A stream past this is ended, so a broken backend cannot make the
+ * server hold without bound.
  */
-export function parseSseEvent(rawEvent: string): SseEvent | null {
-  let event = 'message'
-  const dataLines: string[] = []
-  for (const line of rawEvent.split('\n')) {
-    if (line.startsWith('event:')) event = line.slice(6).trim()
-    else if (line.startsWith('data:')) dataLines.push(line.slice(5).trim())
-  }
-  return dataLines.length ? { event, data: dataLines.join('\n') } : null
-}
+export const MAX_SSE_EVENT_CHARS = 128 * 1024 * 1024
 
 /** Serialises one named event with a JSON payload, terminator included. */
 export function encodeSseEvent(event: string, data: unknown): string {
@@ -27,24 +27,24 @@ export function encodeSseEvent(event: string, data: unknown): string {
 }
 
 /**
- * Splits a byte stream into SSE frames. CRLF line endings are folded to LF
- * first, since the spec allows either and a frame boundary is a blank line.
+ * The events of a byte stream, `message` where none is named. Comments
+ * (`: keep-alive`) and frames with no `data:` line carry nothing and are
+ * skipped. Throws when the stream breaks or an event outgrows
+ * MAX_SSE_EVENT_CHARS; the stream is cancelled when the caller stops early.
  */
-export async function* readSseFrames(body: ReadableStream<Uint8Array>): AsyncGenerator<SseEvent> {
-  const reader = body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
+export async function* readSseFrames(body: ReadableStream<Uint8Array>, maxChars: number = MAX_SSE_EVENT_CHARS): AsyncGenerator<SseEvent> {
+  // TextDecoderStream takes any BufferSource; TypeScript's lib types will not
+  // pair that with a stream of Uint8Array, though every Uint8Array is one.
+  const decoder = new TextDecoderStream() as unknown as TransformStream<Uint8Array, string>
+  const reader = body
+    .pipeThrough(decoder)
+    .pipeThrough(new EventSourceParserStream({ maxBufferSize: maxChars }))
+    .getReader()
   try {
     while (true) {
       const { done, value } = await reader.read()
       if (done) break
-      buffer += decoder.decode(value, { stream: true }).replace(/\r\n?/g, '\n')
-      let separatorIndex: number
-      while ((separatorIndex = buffer.indexOf('\n\n')) !== -1) {
-        const parsed = parseSseEvent(buffer.slice(0, separatorIndex))
-        buffer = buffer.slice(separatorIndex + 2)
-        if (parsed) yield parsed
-      }
+      yield { event: value.event || 'message', data: value.data }
     }
   } finally {
     reader.cancel().catch(() => {})
