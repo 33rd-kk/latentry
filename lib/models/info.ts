@@ -8,12 +8,11 @@
 //
 // Server-side only. The checks are pure, so the verify script can pin them down.
 
-import { randomBytes } from 'node:crypto'
 import { closeSync, fstatSync, openSync, readFileSync } from 'node:fs'
-import { mkdir, rename, unlink, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { HIRES_LIMITS } from '@/lib/diffusion/hires'
-import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
+import { writeFileAtomic } from '@/lib/fs/atomic-write'
+import { restrictExistingToOwner } from '@/lib/security/owner-only'
 import { settingsPath } from '@/lib/settings/store'
 
 type Env = Record<string, string | undefined>
@@ -236,15 +235,6 @@ export async function saveModelInfo(key: string, info: ModelInfo | null, env: En
   } else if (!next.delete(key)) {
     return
   }
-  await mkdir(path.dirname(file), { recursive: true })
-  const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`
-  try {
-    await writeFile(temp, JSON.stringify({ version: MODEL_INFO_VERSION, models: Object.fromEntries(next) }, null, 2) + '\n', { mode: 0o600 })
-    restrictToOwner(temp)
-    await rename(temp, file)
-  } catch (error) {
-    await unlink(temp).catch(() => {})
-    throw error
-  }
+  await writeFileAtomic(file, JSON.stringify({ version: MODEL_INFO_VERSION, models: Object.fromEntries(next) }, null, 2) + '\n', { ownerOnly: true })
   delete globalForModelInfo.__latentryModelInfo
 }
