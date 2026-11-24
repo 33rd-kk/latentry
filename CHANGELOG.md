@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- **Fixed**: the built-in engine now reads the headers of models and LoRAs
+  with the safetensors library, the one that loads them, instead of its own
+  reader. A file that library cannot load (cut short, or with a header that
+  does not match its data) now shows as a kind the engine cannot run,
+  instead of looking ready and failing when used. The LoRA hashes the engine
+  keeps in memory for **LoRA hashes** are capped at 512 files. Engine
+  0.11.3: after updating, stop and start the engine on **Setup** once.
+
 - **Large gallery folders**: a folder of hundreds of thousands of pictures
   stays quick. The folder is not looked through again on every visit, only
   its new and changed files. After the first search, filter or order that
