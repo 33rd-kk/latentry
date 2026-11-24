@@ -18,7 +18,7 @@ const eslintConfig = defineConfig([
     // lib/ is plain TypeScript on web and node APIs; Next stays in app/ and
     // proxy.ts, so the API could move behind another HTTP server.
     files: ["lib/**"],
-    ignores: ["lib/image-meta/**"],
+    ignores: ["lib/image-meta/**", "lib/pairing/**"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -34,6 +34,17 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         { patterns: [{ regex: "^(?!node:|\\./)", message: "lib/image-meta imports only node: built-ins and its own files." }] },
+      ],
+    },
+  },
+  {
+    // lib/pairing likewise: let devices in without accounts or a database,
+    // with node's built-ins and its own files only (see its README.md).
+    files: ["lib/pairing/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [{ regex: "^(?!node:|\\./)", message: "lib/pairing imports only node: built-ins and its own files." }] },
       ],
     },
   },
