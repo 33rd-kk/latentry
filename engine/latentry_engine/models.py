@@ -13,17 +13,19 @@ files on every start.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 import os
 import re
 import shutil
-import struct
 import threading
 import time
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
+
+from safetensors import SafetensorError, safe_open
 
 FAMILY_SDXL = "sdxl"
 FAMILY_ANIMA = "anima"
@@ -41,21 +43,27 @@ class ModelInfo:
         return {"id": self.id, "name": self.name, "family": self.family, "size_bytes": self.size_bytes}
 
 
+@contextlib.contextmanager
+def _opened(path: Path):
+    """A .safetensors file opened by the safetensors library, which maps it
+    and reads only its header. A file it refuses (cut short, a header that
+    does not cover the data, metadata that is not text) raises ValueError:
+    loading goes through the same library, so it could not be loaded either."""
+    try:
+        with safe_open(str(path), framework="numpy") as file:
+            yield file
+    except SafetensorError as error:
+        raise ValueError(f"{path.name}: {error}") from None
+
+
 def safetensors_header(path: Path) -> tuple[list[str], dict[str, str]]:
-    """The tensor names and the `__metadata__` strings of a .safetensors
-    file, from its JSON header only."""
-    with path.open("rb") as file:
-        (length,) = struct.unpack("<Q", file.read(8))
-        if length > 100_000_000:
-            return [], {}
-        header = json.loads(file.read(length))
-    metadata = header.get("__metadata__")
-    strings = {str(key): value for key, value in metadata.items() if isinstance(value, str)} if isinstance(metadata, dict) else {}
-    return [key for key in header if key != "__metadata__"], strings
+    """The tensor names and the `__metadata__` strings of a .safetensors file."""
+    with _opened(path) as file:
+        return list(file.keys()), dict(file.metadata() or {})
 
 
 def _safetensors_keys(path: Path) -> list[str]:
-    """The tensor names in a .safetensors file, from its JSON header only."""
+    """The tensor names in a .safetensors file, from its header only."""
     return safetensors_header(path)[0]
 
 
@@ -67,12 +75,10 @@ SDXL_UNET_INPUT = "model.diffusion_model.input_blocks.0.0.weight"
 def sdxl_unet_in_channels(path: Path) -> int | None:
     """How many channels a single-file SDXL checkpoint's UNet takes, from its header only."""
     try:
-        with path.open("rb") as file:
-            (length,) = struct.unpack("<Q", file.read(8))
-            if length > 100_000_000:
-                return None
-            shape = json.loads(file.read(length)).get(SDXL_UNET_INPUT, {}).get("shape")
-    except (OSError, ValueError, struct.error, AttributeError):
+        with _opened(path) as file:
+            names = file.keys()  # a list: the opened file has no `in` of its own
+            shape = file.get_slice(SDXL_UNET_INPUT).get_shape() if SDXL_UNET_INPUT in names else None
+    except (OSError, ValueError):
         return None
     return shape[1] if isinstance(shape, list) and len(shape) == 4 and isinstance(shape[1], int) else None
 
@@ -80,7 +86,7 @@ def sdxl_unet_in_channels(path: Path) -> int | None:
 def _checkpoint_family(path: Path) -> str | None:
     try:
         keys = _safetensors_keys(path)
-    except (OSError, ValueError, struct.error):
+    except (OSError, ValueError):
         return None
     # SDXL checkpoints carry two text encoders under conditioner.embedders.
     if any(key.startswith("conditioner.embedders.1.") for key in keys):

@@ -4,12 +4,12 @@ the models folder, and the checks before a load or a download starts.
 
 from __future__ import annotations
 
-import json
-import struct
 from pathlib import Path
 
+import numpy as np
 import pytest
 from fastapi.testclient import TestClient
+from safetensors.numpy import save_file
 
 from latentry_engine import __version__, models, server
 from latentry_engine.__main__ import open_without_token
@@ -23,8 +23,8 @@ BASE = "http://127.0.0.1:7861"
 
 
 def write_safetensors(path: Path, keys: list[str]) -> None:
-    data = json.dumps({key: {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]} for key in keys}).encode()
-    path.write_bytes(struct.pack("<Q", len(data)) + data)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    save_file({key: np.zeros(2, np.uint8) for key in keys}, str(path))
 
 
 @pytest.fixture

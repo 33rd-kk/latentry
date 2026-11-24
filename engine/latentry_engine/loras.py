@@ -115,7 +115,7 @@ def family_of(keys: list[str], metadata: dict[str, str]) -> str | None:
 def _describe(path: Path) -> LoraFile:
     try:
         keys, metadata = safetensors_header(path)
-    except (OSError, ValueError, struct.error):
+    except (OSError, ValueError):
         keys, metadata = [], {}
     licence = next((metadata[key].strip()[:200] for key in LICENSE_KEYS if metadata.get(key, "").strip()), None)
     return LoraFile(path.stem, path, family_of(keys, metadata), path.stat().st_size, licence, lycoris_kind(keys))
@@ -192,7 +192,10 @@ def resolve(prompt: str, models_dir: Path, family: str) -> tuple[str, list[LoraC
     return cleaned, resolved
 
 
-_hashes: dict[tuple[str, int, int], str] = {}
+# Hashes by file (path, size, mtime), the last used at the end. Bounded, so
+# files changed or renamed over a long run do not pile up.
+HASHES_KEPT = 512
+_hashes: OrderedDict[tuple[str, int, int], str] = OrderedDict()
 
 
 def _weights(pipe, call: LoraCall) -> str | dict:
@@ -220,15 +223,20 @@ def addnet_hash(path: Path) -> str:
     the tensor data (the file after its header). Kept in memory only."""
     stat = path.stat()
     key = (str(path), stat.st_size, stat.st_mtime_ns)
-    if key not in _hashes:
-        digest = hashlib.sha256()
-        with path.open("rb") as file:
-            (length,) = struct.unpack("<Q", file.read(8))
-            file.seek(8 + length)
-            for chunk in iter(lambda: file.read(1 << 20), b""):
-                digest.update(chunk)
-        _hashes[key] = digest.hexdigest()[:12]
-    return _hashes[key]
+    if key in _hashes:
+        _hashes.move_to_end(key)
+        return _hashes[key]
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        # The header's length, which safetensors does not give: the hash starts after it.
+        (length,) = struct.unpack("<Q", file.read(8))
+        file.seek(8 + length)
+        for chunk in iter(lambda: file.read(1 << 20), b""):
+            digest.update(chunk)
+    _hashes[key] = value = digest.hexdigest()[:12]
+    while len(_hashes) > HASHES_KEPT:
+        _hashes.popitem(last=False)
+    return value
 
 
 def applied_list(calls: list[LoraCall], with_hashes: bool) -> list[dict]:

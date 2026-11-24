@@ -1,7 +1,7 @@
 """The models folder: telling SDXL and Anima models apart from their headers.
 
-Only the standard library is needed: the .safetensors files here are headers
-with no tensors behind them, which is all the scan reads.
+The .safetensors files here are real but tiny: the safetensors library,
+which reads their headers, refuses a header with no tensors behind it.
 """
 
 from __future__ import annotations
@@ -11,14 +11,15 @@ import json
 import struct
 from pathlib import Path
 
+import numpy as np
+from safetensors.numpy import save_file
+
 from latentry_engine import models
 
 
-def write_safetensors(path: Path, keys: list[str]) -> Path:
-    header = {key: {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]} for key in keys}
-    header["__metadata__"] = {"format": "pt"}
-    data = json.dumps(header).encode()
-    path.write_bytes(struct.pack("<Q", len(data)) + data)
+def write_safetensors(path: Path, keys: list[str], shapes: dict[str, list[int]] | None = None) -> Path:
+    shapes = shapes or {}
+    save_file({key: np.zeros(shapes.get(key, [2]), np.uint8) for key in keys}, str(path), metadata={"format": "pt"})
     return path
 
 
@@ -48,8 +49,12 @@ def test_broken_or_oversized_headers_are_no_family(tmp_path: Path) -> None:
     not_json.write_bytes(struct.pack("<Q", 4) + b"nope")
     huge = tmp_path / "huge.safetensors"
     huge.write_bytes(struct.pack("<Q", 200_000_000) + b"{}")
-    for path in (truncated, not_json, huge):
-        assert models._checkpoint_family(path) is None
+    header_only = tmp_path / "header-only.safetensors"
+    header = json.dumps({"conditioner.embedders.1.x": {"dtype": "U8", "shape": [2], "data_offsets": [0, 2]}}).encode()
+    header_only.write_bytes(struct.pack("<Q", len(header)) + header)
+    for path in (truncated, not_json, huge, header_only):
+        assert models._checkpoint_family(path) is None, path.name
+    assert models.sdxl_unet_in_channels(header_only) is None
 
 
 def test_diffusers_folders_by_pipeline_class(tmp_path: Path) -> None:
@@ -237,13 +242,8 @@ def test_pickle_only_parts_names_parts_with_no_safetensors(tmp_path: Path) -> No
 
 def test_sdxl_unet_in_channels_from_the_header(tmp_path: Path) -> None:
     def checkpoint(name: str, shape: list[int] | None) -> Path:
-        header: dict = {"conditioner.embedders.1.x": {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]}}
-        if shape is not None:
-            header[models.SDXL_UNET_INPUT] = {"dtype": "F16", "shape": shape, "data_offsets": [2, 4]}
-        data = json.dumps(header).encode()
-        path = tmp_path / name
-        path.write_bytes(struct.pack("<Q", len(data)) + data)
-        return path
+        keys = ["conditioner.embedders.1.x"] + ([models.SDXL_UNET_INPUT] if shape is not None else [])
+        return write_safetensors(tmp_path / name, keys, {models.SDXL_UNET_INPUT: shape} if shape is not None else None)
 
     assert models.sdxl_unet_in_channels(checkpoint("base.safetensors", [320, 4, 3, 3])) == 4
     assert models.sdxl_unet_in_channels(checkpoint("inpaint.safetensors", [320, 9, 3, 3])) == 9

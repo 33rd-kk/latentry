@@ -7,24 +7,23 @@ that records what it is asked).
 from __future__ import annotations
 
 import hashlib
-import json
 import os
-import struct
 from pathlib import Path
 
+import numpy as np
 import pytest
+from safetensors.numpy import save_file
 
 from latentry_engine import loras
 from latentry_engine.models import FAMILY_ANIMA, FAMILY_SDXL
 
 
-def write_lora(path: Path, keys: list[str], metadata: dict[str, str] | None = None, data: bytes = b"\x00\x01") -> Path:
-    header: dict = {key: {"dtype": "F16", "shape": [1], "data_offsets": [0, 2]} for key in keys}
-    if metadata is not None:
-        header["__metadata__"] = metadata
-    encoded = json.dumps(header).encode()
+def write_lora(path: Path, keys: list[str], metadata: dict[str, str] | None = None, data: bytes | None = None) -> Path:
+    """A real .safetensors file with a small tensor per key; `data`, if
+    given, is the bytes of each key's tensor."""
+    tensors = {key: np.frombuffer(data, np.uint8) if data is not None else np.zeros(2, np.uint8) for key in keys}
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(struct.pack("<Q", len(encoded)) + encoded + data)
+    save_file(tensors, str(path), metadata=metadata)
     return path
 
 
@@ -91,6 +90,19 @@ def test_hash_is_the_tensor_data_only(tmp_path: Path) -> None:
     call = loras.LoraCall("a", 0.5, path)
     assert loras.applied_list([call], with_hashes=False) == [{"name": "a", "weight": 0.5}]
     assert loras.applied_list([call], with_hashes=True)[0]["hash"] == loras.addnet_hash(path)
+
+
+def test_hashes_kept_are_bounded(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(loras, "HASHES_KEPT", 2)
+    monkeypatch.setattr(loras, "_hashes", type(loras._hashes)())
+    a, b, c = (write_lora(tmp_path / f"{name}.safetensors", ["x.lora_up.weight"], data=name.encode() * 4) for name in "abc")
+    loras.addnet_hash(a)
+    loras.addnet_hash(b)
+    loras.addnet_hash(a)  # used again: now the last
+    loras.addnet_hash(c)
+    assert [Path(key[0]).stem for key in loras._hashes] == ["a", "c"], "the one used longest ago goes first"
+    os.utime(a, ns=(0, 1))
+    assert loras.addnet_hash(a) == hashlib.sha256(b"aaaa").hexdigest()[:12] and len(loras._hashes) == 2, "a changed file is hashed again, still within the bound"
 
 
 class StandIn:
