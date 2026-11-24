@@ -7,10 +7,11 @@
 // .env.local: keep the file out of version control (it is in .gitignore).
 
 import { randomBytes } from 'node:crypto'
-import { access, mkdir, rename, stat, unlink, writeFile } from 'node:fs/promises'
+import { access, mkdir, stat, unlink, writeFile } from 'node:fs/promises'
 import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs'
 import path from 'node:path'
-import { restrictExistingToOwner, restrictToOwner } from '@/lib/security/owner-only'
+import { writeFileAtomic } from '@/lib/fs/atomic-write'
+import { restrictExistingToOwner } from '@/lib/security/owner-only'
 import { EMPTY_SETTINGS, parseStoredSettings, SETTINGS_VERSION, type Settings } from './schema'
 
 export function settingsPath(env: Record<string, string | undefined> = process.env): string {
@@ -81,16 +82,7 @@ export async function saveSettings(settings: Settings): Promise<void> {
   const file = settingsPath()
   const version = storedVersion(file)
   if (version !== null && version > SETTINGS_VERSION) throw new NewerSettingsError(version)
-  await mkdir(path.dirname(file), { recursive: true })
-  const temp = `${file}.${randomBytes(4).toString('hex')}.tmp`
-  try {
-    await writeFile(temp, JSON.stringify(settings, null, 2) + '\n', { mode: 0o600 })
-    restrictToOwner(temp)
-    await rename(temp, file)
-  } catch (error) {
-    await unlink(temp).catch(() => {})
-    throw error
-  }
+  await writeFileAtomic(file, JSON.stringify(settings, null, 2) + '\n', { ownerOnly: true })
   delete globalForSettings.__latentrySettings
 }
 

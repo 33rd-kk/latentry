@@ -7,8 +7,9 @@
 // gallery reads them back, and "generate with these settings" restores them.
 
 import { randomBytes } from 'node:crypto'
-import { access, mkdir, rename, unlink, writeFile } from 'node:fs/promises'
+import { access } from 'node:fs/promises'
 import path from 'node:path'
+import { writeFileAtomic } from '@/lib/fs/atomic-write'
 import { getTagger } from '@/lib/tagger'
 import { serverMessage } from '@/lib/i18n/core'
 import { autoTagEnabled, getSaveDir, loraHashesEnabled, type GalleryDir } from './dirs'
@@ -80,20 +81,6 @@ export function recordFor(job: Job, image: JobImage, created: Date, size: { widt
   }
 }
 
-/** Writes beside the target and renames over it, so a reader never sees half a file. */
-async function writeAtomically(file: string, data: Buffer): Promise<void> {
-  const temp = path.join(path.dirname(file), `.${path.basename(file)}.${randomBytes(4).toString('hex')}.tmp`)
-  try {
-    // A fresh install's save folder (./output by default) does not exist yet.
-    await mkdir(path.dirname(file), { recursive: true })
-    await writeFile(temp, data)
-    await rename(temp, file)
-  } catch (error) {
-    await unlink(temp).catch(() => {})
-    throw error
-  }
-}
-
 // Names handed out but not written yet. Two pictures finishing in the same
 // second with the same seed (an X/Y grid's cells, say) would otherwise both
 // find a name free and the second would overwrite the first.
@@ -147,7 +134,7 @@ export const saveToGallery: ImageSink = async (job, image, index) => {
     })
     const { name, release } = await uniqueName(dir, fileNameFor(job.backend, image.seed, index, created))
     try {
-      await writeAtomically(path.join(dir.path, name), png)
+      await writeFileAtomic(path.join(dir.path, name), png)
     } finally {
       release()
     }
@@ -185,7 +172,7 @@ export async function writeTags(dir: GalleryDir, name: string, tags: ImageTag[])
   // write replaces the folder's entry, never a file a link points at.
   const picture = await readInDir(dir, name)
   if (!picture || path.extname(picture.file).toLowerCase() !== '.png') return false
-  await writeAtomically(picture.file, writePngText(picture.bytes, { [TAGS_KEY]: JSON.stringify(tags) }))
+  await writeFileAtomic(picture.file, writePngText(picture.bytes, { [TAGS_KEY]: JSON.stringify(tags) }))
   invalidateListing(dir, name)
   return true
 }
@@ -199,7 +186,7 @@ export async function saveSheet(dir: GalleryDir, png: Buffer, record: LatentryRe
   const withRecord = writePngText(png, { [LATENTRY_KEY]: JSON.stringify(record) })
   const { name, release } = await uniqueName(dir, fileNameFor(record.backend, record.seed, 0, created).replace(/_0\.png$/, '_sheet.png'))
   try {
-    await writeAtomically(path.join(dir.path, name), withRecord)
+    await writeFileAtomic(path.join(dir.path, name), withRecord)
   } finally {
     release()
   }

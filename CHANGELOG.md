@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **Fixed**: on Windows, saving the settings, a model's info or a picture
+  could fail now and then when another program (a virus scanner, the search
+  indexer) had the file open for a moment. Like ratings already did, they
+  now try again for up to 0.7 seconds before giving up. The temporary
+  file written before each save is now hidden (its name starts with a dot).
+
 - **Fixed**: the built-in engine now reads the headers of models and LoRAs
   with the safetensors library, the one that loads them, instead of its own
   reader. A file that library cannot load (cut short, or with a header that
