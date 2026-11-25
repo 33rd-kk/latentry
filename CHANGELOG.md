@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- **Fixed**: downloading pictures from the gallery as a ZIP no longer
+  builds the whole ZIP in the server's memory first. The pictures are read
+  and sent one at a time, as the browser takes them: in a check with
+  150 MB of pictures, the server's extra memory went from about 600 MB to
+  about 20 MB. The limits stay (200 pictures, 256 MB, two downloads at
+  once), and a download that stops being read for a minute gives its place
+  back. The gallery still says how many pictures were left out, now by
+  counting what the ZIP holds.
+
 - **Fixed**: the stream of a diffusers-compatible backend (the built-in
   engine, or one of your own) is now read as the Server-Sent Events spec
   says, by the small `eventsource-parser` package (MIT, no dependencies).

@@ -4,7 +4,12 @@
 // 1980-01-01, the format's earliest day, so the archive says nothing about
 // when a picture was made.
 //
-// Pure, so the verify script can pin it down.
+// Written a piece at a time (ZipWriter), so a sender holds one picture, not
+// the whole archive. Each entry's bytes are known before its header is
+// written, so no data descriptors are needed and any reader can read it.
+//
+// Pure, so the verify script can pin it down. The browser's side, reading the
+// entry count back, is zip-count.ts (no Node imports).
 
 import { crc32 } from 'node:zlib'
 
@@ -16,13 +21,21 @@ export interface ZipEntry {
 const UTF8_NAMES = 0x0800
 // DOS date for 1980-01-01: (year - 1980) << 9 | month << 5 | day.
 const DOS_DATE = (1 << 5) | 1
+// Without ZIP64, offsets and sizes are 32 bits and the entry count 16.
+const MAX_OFFSET = 0xffffffff
+const MAX_ENTRIES = 0xffff
 
-export function zipStore(entries: ZipEntry[]): Buffer {
-  const parts: Buffer[] = []
-  const central: Buffer[] = []
-  let offset = 0
-  for (const { name, data } of entries) {
+/** A stored ZIP built entry by entry: the bytes of each come back in order. */
+export class ZipWriter {
+  private central: Buffer[] = []
+  private offset = 0
+  private count = 0
+
+  /** The bytes for one entry: its header, its name and the data as it is. */
+  entry(name: string, data: Buffer): Buffer[] {
     const fileName = Buffer.from(name, 'utf8')
+    const size = 30 + fileName.length + data.length
+    if (this.count >= MAX_ENTRIES || this.offset + size > MAX_OFFSET) throw new Error('ZIP too large without ZIP64')
     const crc = crc32(data) >>> 0
     const local = Buffer.alloc(30)
     local.writeUInt32LE(0x04034b50, 0)
@@ -36,7 +49,6 @@ export function zipStore(entries: ZipEntry[]): Buffer {
     local.writeUInt32LE(data.length, 22)
     local.writeUInt16LE(fileName.length, 26)
     local.writeUInt16LE(0, 28)
-    parts.push(local, fileName, data)
 
     const entry = Buffer.alloc(46)
     entry.writeUInt32LE(0x02014b50, 0)
@@ -50,18 +62,31 @@ export function zipStore(entries: ZipEntry[]): Buffer {
     entry.writeUInt32LE(data.length, 20)
     entry.writeUInt32LE(data.length, 24)
     entry.writeUInt16LE(fileName.length, 28)
-    entry.writeUInt32LE(offset, 42)
-    central.push(entry, fileName)
-    offset += local.length + fileName.length + data.length
+    entry.writeUInt32LE(this.offset, 42)
+    this.central.push(entry, fileName)
+    this.offset += size
+    this.count += 1
+    return [local, fileName, data]
   }
-  const directory = Buffer.concat(central)
-  const end = Buffer.alloc(22)
-  end.writeUInt32LE(0x06054b50, 0)
-  end.writeUInt16LE(entries.length, 8)
-  end.writeUInt16LE(entries.length, 10)
-  end.writeUInt32LE(directory.length, 12)
-  end.writeUInt32LE(offset, 16)
-  return Buffer.concat([...parts, directory, end])
+
+  /** The directory and the end record, which close the archive. */
+  end(): Buffer {
+    const directory = Buffer.concat(this.central)
+    const end = Buffer.alloc(22)
+    end.writeUInt32LE(0x06054b50, 0)
+    end.writeUInt16LE(this.count, 8)
+    end.writeUInt16LE(this.count, 10)
+    end.writeUInt32LE(directory.length, 12)
+    end.writeUInt32LE(this.offset, 16)
+    return Buffer.concat([directory, end])
+  }
+}
+
+/** A whole archive at once, for small ones and for the verify script. */
+export function zipStore(entries: ZipEntry[]): Buffer {
+  const writer = new ZipWriter()
+  const parts = entries.flatMap(({ name, data }) => writer.entry(name, data))
+  return Buffer.concat([...parts, writer.end()])
 }
 
 /** `attachment` with the file name, in ASCII for old readers and UTF-8 for the rest (RFC 6266). */

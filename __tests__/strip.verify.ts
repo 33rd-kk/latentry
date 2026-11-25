@@ -14,7 +14,8 @@ import { GET as pictureRoute } from '../app/api/gallery/[dir]/[name]/route'
 import { POST as downloadRoute } from '../app/api/gallery/download/route'
 import { MAX_DOWNLOADS_AT_ONCE } from '../lib/limits'
 import { holders, tryEnter } from '../lib/security/concurrency'
-import { attachment, zipStore } from '../lib/gallery/zip'
+import { attachment, zipStore, ZipWriter } from '../lib/gallery/zip'
+import { zipEntryCount } from '../lib/gallery/zip-count'
 import {
   encodeChunk,
   exifOrientation,
@@ -148,6 +149,14 @@ async function main() {
     eq(entries.map((entry) => entry.name), ['a.png', '日本語.webp'], 'entries by name, UTF-8 included')
     check(entries[0].data.equals(cleanPng) && entries[1].data.equals(cleanWebp), 'stored as they are')
     check(entries.every((entry) => entry.date === 0x21), 'every entry dated 1980-01-01: the archive says nothing about when')
+    const writer = new ZipWriter()
+    const pieces = [...writer.entry('a.png', cleanPng), ...writer.entry('日本語.webp', cleanWebp), writer.end()]
+    check(Buffer.concat(pieces).equals(zip), 'written a piece at a time: the same bytes as all at once')
+    check(pieces.includes(cleanPng), 'each picture sent as it is, not copied')
+    eq(zipEntryCount(zip), 2, 'the entry count, read back from the end record')
+    eq(zipEntryCount(zip.subarray(0, zip.length - 1)), null, 'and none from a ZIP cut short')
+    eq(zipEntryCount(new Uint8Array(3)), null, 'or from a few bytes')
+    eq(zipEntryCount(zipStore([])), 0, 'an empty archive holds none')
     eq(attachment('a "b".png'), `attachment; filename="a _b_.png"; filename*=UTF-8''a%20%22b%22.png`, 'a file name for the header')
     eq(attachment('絵.png'), `attachment; filename="_.png"; filename*=UTF-8''%E7%B5%B5.png`, 'with a plain fallback')
 
@@ -179,8 +188,10 @@ async function main() {
         downloadRoute(new Request(`${ORIGIN}/api/gallery/download`, { method: 'POST', headers: { host: 'localhost:3000', 'content-type': 'application/json' }, body: JSON.stringify(body) }))
       const many = await post({ dir: 0, names: ['a.png', 'b.jpg', 'broken.png', 'gone.png'] })
       eq(many.status, 200, 'several pictures at once')
-      eq([many.headers.get('content-type'), many.headers.get('x-latentry-left-out')], ['application/zip', '2'], 'a ZIP, saying how many were left out')
-      const got = unzip(Buffer.from(await many.arrayBuffer()))
+      eq(many.headers.get('content-type'), 'application/zip', 'a ZIP')
+      const manyBytes = Buffer.from(await many.arrayBuffer())
+      eq(zipEntryCount(manyBytes), 2, 'whose end record tells the browser 2 of the 4 were left out')
+      const got = unzip(manyBytes)
       eq(got.map((entry) => entry.name), ['a.png', 'b.jpg'], 'by file name only, no folder')
       check(got[0].data.equals(cleanPng) && got[1].data.equals(cleanJpeg), 'each without its settings')
       const full = unzip(Buffer.from(await (await post({ dir: 0, names: ['a.png'], clean: false })).arrayBuffer()))
@@ -200,14 +211,33 @@ async function main() {
       eq((await post({ dir: 0, names: ['a.png', 'huge.png'], clean: false })).status, 413, 'a ZIP past 256 MB is refused')
       check(Date.now() - started < 2000, `by the size on disk, without reading the file (${Date.now() - started} ms)`)
       rmSync(huge)
-      // Each download may hold its pictures in memory, so only a few run at once.
+      // Sent a picture at a time: one not yet asked for is read only when it is.
+      writeFileSync(path.join(folder, 'c.png'), png)
+      writeFileSync(path.join(folder, 'd.png'), png)
+      const lazy = await post({ dir: 0, names: ['a.png', 'c.png', 'd.png'], clean: false })
+      eq(holders('gallery:download'), 1, 'a download being sent keeps its place')
+      rmSync(path.join(folder, 'd.png'))
+      const lazyGot = unzip(Buffer.from(await lazy.arrayBuffer()))
+      eq(lazyGot.map((entry) => entry.name), ['a.png', 'c.png'], 'a picture taken away before it was asked for is left out: nothing was read ahead')
+      eq(holders('gallery:download'), 0, 'and gives its place back once sent')
+      // Read but not all of it: stopping gives the place back too.
+      const stopped = await post({ dir: 0, names: ['a.png', 'b.jpg'], clean: false })
+      const reader = stopped.body!.getReader()
+      await reader.read()
+      await reader.cancel()
+      eq(holders('gallery:download'), 0, 'a download stopped halfway gives its place back')
+      check(lazyGot.every((entry) => entry.date === 0x21) && lazyGot[0].data.equals(png), 'sent as they are, dated 1980-01-01')
+
+      // Only a few run at once.
       const held = Array.from({ length: MAX_DOWNLOADS_AT_ONCE }, () => tryEnter('gallery:download', MAX_DOWNLOADS_AT_ONCE)!)
       try {
         eq((await post({ dir: 0, names: ['a.png'] })).status, 429, `a download past ${MAX_DOWNLOADS_AT_ONCE} at once is asked to wait`)
       } finally {
         for (const release of held) release()
       }
-      eq((await post({ dir: 0, names: ['a.png'] })).status, 200, 'and goes through once one ends')
+      const after = await post({ dir: 0, names: ['a.png'] })
+      eq(after.status, 200, 'and goes through once one ends')
+      await after.arrayBuffer()
       eq(holders('gallery:download'), 0, 'every download gives its place back')
     } finally {
       for (const [name, value] of [

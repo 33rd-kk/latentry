@@ -5,6 +5,7 @@ import type { ImageMeta } from "@/lib/image-meta"
 import { SOURCES, toParams, type GalleryQuery } from "@/lib/gallery/filter"
 import type { IndexProgress } from "@/lib/gallery/fs"
 import type { Facets } from "@/lib/gallery/folder-index"
+import { zipEntryCount } from "@/lib/gallery/zip-count"
 
 export interface GalleryFolder {
   index: number
@@ -301,11 +302,15 @@ export function saveBlob(blob: Blob, name: string): void {
  * Fetches a download and saves it through the browser, so a refusal can be
  * shown where the button is instead of as a page of JSON. The file is held in
  * this page's memory only until the browser has it.
+ *
+ * With `asked`, the download is a ZIP of that many pictures, and `leftOut`
+ * is how many it does not hold, by the entry count it ends with.
  */
 export async function saveDownload(
   url: string,
   init: RequestInit | undefined,
-  fallbackName: string
+  fallbackName: string,
+  asked?: number
 ): Promise<{ ok: true; leftOut: number } | { ok: false; error: string }> {
   try {
     const response = await fetch(url, { cache: "no-store", ...init })
@@ -313,8 +318,15 @@ export async function saveDownload(
       const data = await response.json().catch(() => null)
       return { ok: false, error: typeof data?.error === "string" ? data.error : `HTTP ${response.status}` }
     }
-    saveBlob(await response.blob(), dispositionName(response.headers.get("content-disposition"), fallbackName))
-    return { ok: true, leftOut: Number(response.headers.get("x-latentry-left-out")) || 0 }
+    const blob = await response.blob()
+    let leftOut = 0
+    if (asked !== undefined) {
+      const entries = zipEntryCount(new Uint8Array(await blob.slice(-22).arrayBuffer()))
+      if (entries === null) return { ok: false, error: "The download was cut off" }
+      leftOut = Math.max(0, asked - entries)
+    }
+    saveBlob(blob, dispositionName(response.headers.get("content-disposition"), fallbackName))
+    return { ok: true, leftOut }
   } catch (error) {
     return { ok: false, error: error instanceof Error ? error.message : String(error) }
   }

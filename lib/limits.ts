@@ -59,5 +59,10 @@ export const GRID_MAX_CELLS = 64
 export const GRID_MAX_IMAGES = 128
 export const GRID_MAX_VALUES = 16
 
-/** Gallery ZIP downloads built at once: each may hold up to 256 MB of pictures in memory. */
+/**
+ * Gallery ZIP downloads sent at once. Each holds about one picture in memory
+ * while it is sent (app/api/gallery/download/route.ts); one whose reader stops
+ * asking for more gives its place back after DOWNLOAD_IDLE_MS.
+ */
 export const MAX_DOWNLOADS_AT_ONCE = 2
+export const DOWNLOAD_IDLE_MS = 60_000
