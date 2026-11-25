@@ -215,7 +215,9 @@ you ask:
   as one ZIP (up to 200 at a time and 256 MB in all, two downloads at
   once); **With settings**
   saves them as they are. The ZIP holds the file names only, no folder, and
-  no dates.
+  no dates. The server reads and sends the pictures one at a time, so a
+  large ZIP does not take much of its memory; a picture moved or deleted
+  before its turn is left out.
 
 A picture that cannot be read well enough to take its settings out is not
 saved at all rather than saved with them; in a ZIP it is left out, and the

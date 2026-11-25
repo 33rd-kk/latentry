@@ -41,7 +41,8 @@ export function SelectionBar({
     const result = await saveDownload(
       "/api/gallery/download",
       { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ dir: folder.index, names, clean }) },
-      "latentry-pictures.zip"
+      "latentry-pictures.zip",
+      new Set(names).size
     )
     setDownloading(false)
     if (!result.ok) setNote(t("gallery.download.failed", { error: t.server(result.error) }))
