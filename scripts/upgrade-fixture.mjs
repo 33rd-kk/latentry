@@ -36,6 +36,7 @@ const RECORD_FIELDS = [
   ['0.16.1', ''],
   ['0.17.0', 'control ip_adapter'],
   ['0.17.1', ''],
+  ['0.18.0', ''],
 ]
 
 function fieldsOf(version) {
