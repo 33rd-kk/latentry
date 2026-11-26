@@ -53,9 +53,10 @@ The same install, and you can switch at any time:
 - **Gallery**: every finished image is saved with its settings embedded
   (readable by A1111's PNG Info too); other tools' folders are browsed
   read-only, with settings read from PNG, JPEG and WebP (stable-diffusion.cpp's
-  own too). Search by prompt,
+  and NovelAI's own too), quick even with hundreds of thousands of pictures.
+  Search by prompt,
   tag or setting (`model:`, `steps:>=30`) with suggestions as you type,
-  rate with stars, order and filter, stack pictures that share a prompt,
+  [save a search](guide/gallery.md#saved-searches) by name, rate with stars, order and filter, stack pictures that share a prompt,
   open an X/Y grid as a grid, compare two, send settings, tags or the
   picture back to the form, and save pictures without their settings to
   share them.
