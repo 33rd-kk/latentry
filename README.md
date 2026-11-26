@@ -42,7 +42,9 @@ made, then sends those settings back to the form to make it again.
   is saved with its settings embedded (readable by A1111's PNG Info too).
   Other folders, such as ComfyUI or web UI outputs, are browsed read-only,
   and their settings are read from PNG, JPEG and WebP alike, including
-  those saved by ComfyUI with custom samplers and by stable-diffusion.cpp.
+  those saved by ComfyUI with custom samplers, by stable-diffusion.cpp and
+  by NovelAI. A folder of hundreds of thousands of pictures stays quick:
+  once read, it is searched from memory, and nothing is written to disk.
   - Search prompts and tags, or one setting: `model:`, `seed:`,
     `steps:>=30`, `w:1024`; leave pictures out with `-tag`. The search box
     suggests tags, settings and how to write a search. Save a search by

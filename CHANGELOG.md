@@ -2,36 +2,16 @@
 
 ## Unreleased
 
-- **Fixed**: downloading pictures from the gallery as a ZIP no longer
-  builds the whole ZIP in the server's memory first. The pictures are read
-  and sent one at a time, as the browser takes them: in a check with
-  150 MB of pictures, the server's extra memory went from about 600 MB to
-  about 20 MB. The limits stay (200 pictures, 256 MB, two downloads at
-  once), and a download that stops being read for a minute gives its place
-  back. The gallery still says how many pictures were left out, now by
-  counting what the ZIP holds.
+## 0.18.0 (2026-11-27)
 
-- **Fixed**: the stream of a diffusers-compatible backend (the built-in
-  engine, or one of your own) is now read as the Server-Sent Events spec
-  says, by the small `eventsource-parser` package (MIT, no dependencies).
-  A backend that ends its lines with CRLF no longer has an event cut short
-  when a CRLF falls between two network chunks, spaces at the edges of a
-  value are kept, and one event that grows past 128M characters ends the
-  run with an error instead of filling the server's memory.
+**Upgrading from 0.17.x**: the engine is now 0.11.3 (from 0.11.2), with
+the same locks, so **Repair / update** is not needed: if the engine is
+running, stop and start it on **Setup** once after updating. With Docker,
+`git pull` then `docker compose up -d` (with `-f compose.yaml -f
+compose.gpu.yaml` for a GPU) downloads this release's image. Saved
+searches are kept in each browser, so they start empty.
 
-- **Fixed**: on Windows, saving the settings, a model's info or a picture
-  could fail now and then when another program (a virus scanner, the search
-  indexer) had the file open for a moment. Like ratings already did, they
-  now try again for up to 0.7 seconds before giving up. The temporary
-  file written before each save is now hidden (its name starts with a dot).
-
-- **Fixed**: the built-in engine now reads the headers of models and LoRAs
-  with the safetensors library, the one that loads them, instead of its own
-  reader. A file that library cannot load (cut short, or with a header that
-  does not match its data) now shows as a kind the engine cannot run,
-  instead of looking ready and failing when used. The LoRA hashes the engine
-  keeps in memory for **LoRA hashes** are capped at 512 files. Engine
-  0.11.3: after updating, stop and start the engine on **Setup** once.
+**Gallery**
 
 - **Large gallery folders**: a folder of hundreds of thousands of pictures
   stays quick. The folder is not looked through again on every visit, only
@@ -94,6 +74,43 @@
   to watch or stop them, and runs in the queue failed. Now Settings says how
   many runs are drawing or waiting and offers to stop them all and switch,
   or to leave everything as it was.
+
+- **Downloading pictures as a ZIP no longer builds the whole ZIP in the
+  server's memory first.** The pictures are read and sent one at a time,
+  as the browser takes them: in a check with 150 MB of pictures, the
+  server's extra memory went from about 600 MB to about 20 MB. The limits
+  stay (200 pictures, 256 MB, two downloads at once), and a download that
+  stops being read for a minute gives its place back. The gallery still
+  says how many pictures were left out, now by counting what the ZIP holds.
+
+- **A backend's event stream is read as the Server-Sent Events spec
+  says**, by the small `eventsource-parser` package (MIT, no dependencies),
+  for the built-in engine and any diffusers-compatible backend of your own.
+  A backend that ends its lines with CRLF no longer has an event cut short
+  when a CRLF falls between two network chunks, spaces at the edges of a
+  value are kept, and one event that grows past 128M characters ends the
+  run with an error instead of filling the server's memory.
+
+- **Saving on Windows tries again when another program has the file
+  open.** Saving the settings, a model's info or a picture could fail now
+  and then while a virus scanner or the search indexer had the file open
+  for a moment. Like ratings already did, they now try again for up to 0.7
+  seconds before giving up. The temporary file written before each save is
+  now hidden (its name starts with a dot).
+
+- **The engine reads model and LoRA headers with the safetensors
+  library**, the one that loads them, instead of its own reader. A file
+  that library cannot load (cut short, or with a header that does not
+  match its data) now shows as a kind the engine cannot run, instead of
+  looking ready and failing when used. The LoRA hashes the engine keeps in
+  memory for **LoRA hashes** are capped at 512 files.
+
+**Maintenance**
+
+- undici 8.13.1 and lucide-react 1.77.0; for development and the
+  documentation site, eslint 10.15.0, Playwright 1.65.1, ruff 0.17.6,
+  CodeQL action 4.39.4, mkdocs-material 9.8.2 and pymdown-extensions
+  13.1.1.
 
 ## 0.17.1 (2026-11-22)
 
