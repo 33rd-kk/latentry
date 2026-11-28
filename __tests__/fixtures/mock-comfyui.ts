@@ -25,6 +25,9 @@ export interface MockComfyUI {
 }
 
 const MODEL_PATH = 'private-folder/sdxl/base.safetensors'
+/** The IP-Adapter and CLIP vision files it lists (scripts/e2e.mjs sets them for its comfy backend). */
+const IPADAPTER = 'ip-adapter-plus_sdxl_vit-h.safetensors'
+const CLIP_VISION = 'private-folder/vit-h.safetensors'
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
 export async function startMockComfyUI(options: { port?: number; swarmui?: boolean; checkpoints?: string[] } = {}): Promise<MockComfyUI> {
@@ -60,6 +63,10 @@ export async function startMockComfyUI(options: { port?: number; swarmui?: boole
       // SwarmUI's own node, in a ComfyUI that SwarmUI starts; {} for a node it lacks, as ComfyUI answers.
       if (route === 'GET /object_info/SwarmKSampler') return reply(200, options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {})
       if (route === 'GET /object_info/ControlNetApplyAdvanced') return reply(200, { ControlNetApplyAdvanced: { input: { required: {} } } })
+      // ComfyUI_IPAdapter_plus's nodes, and core's CLIP vision loader, for a reference picture.
+      if (route === 'GET /object_info/IPAdapterModelLoader') return reply(200, combo('IPAdapterModelLoader', 'ipadapter_file', [IPADAPTER]))
+      if (route === 'GET /object_info/IPAdapterAdvanced') return reply(200, { IPAdapterAdvanced: { input: { required: {} } } })
+      if (route === 'GET /object_info/CLIPVisionLoader') return reply(200, combo('CLIPVisionLoader', 'clip_name', [CLIP_VISION]))
       if (route === 'POST /prompt') {
         let body: { prompt?: MockComfyUI['graphs'][number] }
         try {

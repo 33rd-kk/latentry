@@ -14,7 +14,7 @@ import { autoTagEnabled, loraHashesEnabled, parseGalleryDirs } from '../lib/gall
 import { folderNamesKey } from '../lib/gallery/folder-names'
 import { getProfile, setProfileOverrides } from '../lib/profiles'
 import { editMode, editRefusal } from '../lib/settings/access'
-import { controlnetsFrom, EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
+import { backendFileFrom, controlnetsFrom, EMPTY_SETTINGS, parseStoredSettings, redactSettings, validateSettings, type Settings } from '../lib/settings/schema'
 import { checkDir, getSettings, NewerSettingsError, saveSettings } from '../lib/settings/store'
 
 const ABS = process.platform === 'win32' ? 'C:\\pictures' : '/pictures'
@@ -226,6 +226,26 @@ async function main() {
   eq(withKinds.ok ? withKinds.settings.backends?.map((backend) => backend.controlnets ?? null) : withKinds, [{ depth: 'sdxl/union.safetensors' }, null], 'kept for a ComfyUI backend only')
   const badKinds = validateSettings({ backends: [{ id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188', profile: 'sdxl', controlnets: { blur: 'x' } }] }, EMPTY_SETTINGS)
   eq(badKinds.ok ? null : Object.keys(badKinds.errors), ['backends.0.controlnets'], 'and an unknown kind is an error on that field')
+
+  // ── A ComfyUI backend's reference picture files ──
+  eq([backendFileFrom(' a.safetensors '), backendFileFrom(undefined), backendFileFrom(null), backendFileFrom('')], ['a.safetensors', '', '', ''], 'a file name: trimmed, none given is empty')
+  eq([backendFileFrom('a\nb'), backendFileFrom(3), backendFileFrom('x'.repeat(513))], [null, null, null], 'a control character, a number or a too-long name is refused')
+  const withReference = validateSettings(
+    {
+      backends: [
+        { id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188', profile: 'sdxl', ipAdapter: ' ipa.safetensors ', clipVision: 'vit-h.safetensors' },
+        { id: 'web', kind: 'a1111', url: 'http://127.0.0.1:7860', profile: 'sdxl', ipAdapter: 'x', clipVision: 'y' },
+      ],
+    },
+    EMPTY_SETTINGS
+  )
+  eq(
+    withReference.ok ? withReference.settings.backends?.map((backend) => [backend.ipAdapter ?? null, backend.clipVision ?? null]) : withReference,
+    [['ipa.safetensors', 'vit-h.safetensors'], [null, null]],
+    'IP-Adapter and CLIP vision files are kept for a ComfyUI backend only'
+  )
+  const badReference = validateSettings({ backends: [{ id: 'comfy', kind: 'comfyui', url: 'http://127.0.0.1:8188', profile: 'sdxl', ipAdapter: 3, clipVision: 'a\u0007' }] }, EMPTY_SETTINGS)
+  eq(badReference.ok ? null : Object.keys(badReference.errors), ['backends.0.ipAdapter', 'backends.0.clipVision'], 'and a bad one is an error on its field')
 
   done('settings')
 }

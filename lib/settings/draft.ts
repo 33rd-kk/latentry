@@ -27,6 +27,9 @@ export interface BackendDraft {
   controlnet: string
   /** comfyui: the ControlNet for each control picture kind, "" for that kind not offered. */
   controlnets: Record<ControlKind, string>
+  /** comfyui: the IP-Adapter and CLIP vision files for a reference picture, "" for none. */
+  ipAdapter: string
+  clipVision: string
   /** comfyui: a folder of workflows, "" for none; and whether paired devices see them. */
   workflowsDir: string
   shareWorkflows: boolean
@@ -71,7 +74,7 @@ export const newKey = () => `b${(nextKey += 1)}`
 
 /** A row for "Add backend". */
 export function emptyBackend(): BackendDraft {
-  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', controlnet: '', controlnets: noControlnets(), workflowsDir: '', shareWorkflows: false }
+  return { key: newKey(), id: '', kind: 'a1111', url: '', profile: 'sdxl', token: '', clearToken: false, tokenSource: null, model: '', controlnet: '', controlnets: noControlnets(), ipAdapter: '', clipVision: '', workflowsDir: '', shareWorkflows: false }
 }
 
 /** A profile with every field back to the built-in value. */
@@ -116,6 +119,8 @@ export function toDraft(view: SettingsView): Draft {
       model: backend.model ?? '',
       controlnet: backend.controlnet ?? '',
       controlnets: { ...noControlnets(), ...backend.controlnets },
+      ipAdapter: backend.ipAdapter ?? '',
+      clipVision: backend.clipVision ?? '',
       workflowsDir: backend.workflowsDir ?? '',
       shareWorkflows: backend.shareWorkflows,
     })),
@@ -155,6 +160,8 @@ export function toInput(draft: Draft, dirty: Set<Part>) {
       ...(backend.kind === 'comfyui' && backend.model.trim() ? { model: backend.model.trim() } : {}),
       ...(backend.kind === 'comfyui' && backend.controlnet.trim() ? { controlnet: backend.controlnet.trim() } : {}),
       ...(backend.kind === 'comfyui' && Object.keys(filledControlnets(backend.controlnets)).length ? { controlnets: filledControlnets(backend.controlnets) } : {}),
+      ...(backend.kind === 'comfyui' && backend.ipAdapter.trim() ? { ipAdapter: backend.ipAdapter.trim() } : {}),
+      ...(backend.kind === 'comfyui' && backend.clipVision.trim() ? { clipVision: backend.clipVision.trim() } : {}),
       ...(backend.kind === 'comfyui' && backend.workflowsDir.trim() ? { workflowsDir: backend.workflowsDir.trim(), shareWorkflows: backend.shareWorkflows } : {}),
     }))
   }

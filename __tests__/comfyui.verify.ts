@@ -76,6 +76,8 @@ async function scriptedComfy(
     progress?: Record<string, unknown>[]
     /** It has SwarmUI's nodes, as a ComfyUI SwarmUI starts does. */
     swarmui?: boolean
+    /** It has ComfyUI_IPAdapter_plus (and core's CLIPVisionLoader), with these files. */
+    ipadapter?: boolean
   } = {}
 ) {
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123' } }).png().toBuffer(), {
@@ -133,6 +135,9 @@ async function scriptedComfy(
         return { status: 200, body: options.controlnet ? combo('SetUnionControlNetType', 'type', [['auto', 'openpose', 'depth', 'hed/pidi/scribble/ted', 'canny/lineart/anime_lineart/mlsd']]) : {} }
       }
       if (path === '/object_info/ControlNetApplyAdvanced') return { status: 200, body: options.controlnet ? { ControlNetApplyAdvanced: { input: { required: {} } } } : {} }
+      if (path === '/object_info/IPAdapterModelLoader') return { status: 200, body: options.ipadapter ? combo('IPAdapterModelLoader', 'ipadapter_file', [['ip-adapter-plus_sdxl_vit-h.safetensors']]) : {} }
+      if (path === '/object_info/IPAdapterAdvanced') return { status: 200, body: options.ipadapter ? { IPAdapterAdvanced: { input: { required: {} } } } : {} }
+      if (path === '/object_info/CLIPVisionLoader') return { status: 200, body: options.ipadapter ? combo('CLIPVisionLoader', 'clip_name', [['vit-h/model.safetensors']]) : {} }
       if (path === '/object_info/SwarmKSampler') return { status: 200, body: options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {} }
       if (path === '/object_info/UpscaleModelLoader') return { status: 200, body: options.upscalers ? combo('UpscaleModelLoader', 'model_name', [options.upscalers]) : {} }
       const match = /^\/history\/(.+)$/.exec(path)
@@ -235,11 +240,11 @@ async function main() {
     [true, false, 'base.safetensors', ['Default', 'euler', 'dpmpp_2m'], ['Default', 'normal', 'karras']],
     'status: up, idle, the first checkpoint by file name only, its samplers and schedulers'
   )
-  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, control: [], lora: true, tag: false, presets: false, preciseCancel: true, hires: true, upscale: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix and upscale, cancel of our own prompt')
+  eq(status.capabilities, { img2img: true, inpaint: true, pose: false, control: [], ipAdapter: false, lora: true, tag: false, presets: false, preciseCancel: true, hires: true, upscale: true }, 'capabilities: txt2img, img2img and inpaint with LoRAs, hires fix and upscale, cancel of our own prompt')
   eq(status.upscalers, ['Lanczos'], 'without UpscaleModelLoader, hires fix upscales with Lanczos only')
-  eq(status.hints, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'nodes' } }, 'pose is explained: no engine runs to draw the skeleton; controls need the ControlNet nodes')
+  eq(status.hints, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'nodes' }, ip_adapter: { reason: 'setup', need: 'ipAdapterNodes' } }, 'pose is explained: no engine runs to draw the skeleton; controls need the ControlNet nodes')
   const withEngine = await new ComfyUIAdapter({ ...CONFIG, id: 'comfy-engine' }, quiet.transport, () => ({ pose: async () => ({ ok: true as const, value: {} }) })).status()
-  eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' }, control: { reason: 'setup', need: 'nodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
+  eq(withEngine.hints, { pose: { reason: 'setup', need: 'nodes' }, control: { reason: 'setup', need: 'nodes' }, ip_adapter: { reason: 'setup', need: 'ipAdapterNodes' } }, 'with one, that this ComfyUI has no ControlNet nodes')
   const nothing = { nodes: false, controlnet: false, engine: false }
   eq(comfyHints(false, nothing), {}, 'no hints while it is down')
   eq(
@@ -536,10 +541,10 @@ async function main() {
   const POSED: BackendConfig = { ...CONFIG, controlnet: 'sdxl/openpose.safetensors' }
   const poser = await scriptedComfy({ socket: true, controlnet: true })
   const posed = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).status()
-  eq([posed.capabilities.pose, posed.hints], [true, { control: { reason: 'setup', need: 'controls' } }], 'pose is on with the nodes, a ControlNet set and a running engine (controls still want theirs)')
+  eq([posed.capabilities.pose, posed.hints], [true, { control: { reason: 'setup', need: 'controls' }, ip_adapter: { reason: 'setup', need: 'ipAdapterNodes' } }], 'pose is on with the nodes, a ControlNet set and a running engine (controls still want theirs)')
   const noEngine = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => null)
-  eq([(await noEngine.status()).capabilities.pose, (await noEngine.status()).hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' } }], 'off without an engine, and said why')
-  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'poser' }, poser.transport, () => engine).status()).hints, { pose: { reason: 'setup', need: 'controlnet' }, control: { reason: 'setup', need: 'controls' } }, 'off without a ControlNet chosen')
+  eq([(await noEngine.status()).capabilities.pose, (await noEngine.status()).hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' }, ip_adapter: { reason: 'setup', need: 'ipAdapterNodes' } }], 'off without an engine, and said why')
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'poser' }, poser.transport, () => engine).status()).hints, { pose: { reason: 'setup', need: 'controlnet' }, control: { reason: 'setup', need: 'controls' }, ip_adapter: { reason: 'setup', need: 'ipAdapterNodes' } }, 'off without a ControlNet chosen')
 
   const detected = await new ComfyUIAdapter({ ...POSED, id: 'poser' }, poser.transport, () => engine).pose({ image_base64: 'abc', person: [0, 2] })
   eq([detected.ok, asked], [true, [{ image_base64: 'abc', person: [0, 2], style: 'openpose' }]], '/pose goes to the engine, asking for OpenPose drawing; nothing to ComfyUI')
@@ -639,6 +644,72 @@ async function main() {
   eq(await refuseControl({ ...CONFIG, id: 'ctl' }, CONTROL_RUN), '400 Choose a ControlNet for depth pictures for this backend in Settings', 'and none set')
   eq(await refuseControl({ ...CONTROLLED, id: 'ctl-bare' }, CONTROL_RUN, quiet), '400 This ComfyUI has no ControlNetLoader and ControlNetApplyAdvanced', 'and a ComfyUI without the nodes')
   eq(controlComfy.uploads.length, 1, 'nothing goes up for a refused run')
+
+  // ── A reference picture (IPAdapter_plus) on the built-in graph ──
+  const REF = { image: 'latentry/x-reference.png', ipAdapter: 'ipa.safetensors', clipVision: 'vit-h.safetensors', weight: 0.4 }
+  const refGraph = buildComfyGraph({ ...REQUEST, hr_scale: 1.5 }, { checkpoint: 'c', loras: [{ file: 'styles/Ink.safetensors', weight: 0.8 }], seed: 1, sizeMultiple: 8, reference: REF })
+  eq(
+    [refGraph['46']?.inputs, refGraph['47']?.inputs, refGraph['48']?.inputs, refGraph['49']?.class_type],
+    [{ image: 'latentry/x-reference.png' }, { ipadapter_file: 'ipa.safetensors' }, { clip_name: 'vit-h.safetensors' }, 'IPAdapterAdvanced'],
+    'a reference picture: loaded, with its IP-Adapter and CLIP vision files'
+  )
+  eq(
+    refGraph['49'].inputs,
+    { model: ['10', 0], ipadapter: ['47', 0], image: ['46', 0], clip_vision: ['48', 0], weight: 0.4, weight_type: 'linear', combine_embeds: 'concat', start_at: 0, end_at: 1, embeds_scaling: 'V only' },
+    'applied to the model after the LoRAs, at its scale, for the whole run'
+  )
+  eq([refGraph['5'].inputs.model, refGraph['43'].inputs.model], [['49', 0], ['49', 0]], 'both the sampler and hires fix\'s draw with it')
+  eq('46' in buildComfyGraph(REQUEST, { checkpoint: 'c', loras: [], seed: 1, sizeMultiple: 8 }), false, 'without one, no such nodes')
+
+  const REFERENCED: BackendConfig = { ...CONFIG, id: 'ref', ipAdapter: 'ip-adapter-plus_sdxl_vit-h.safetensors', clipVision: 'vit-h/model.safetensors' }
+  const refComfy = await scriptedComfy({ socket: true, ipadapter: true })
+  const refStatus = await new ComfyUIAdapter(REFERENCED, refComfy.transport, () => engine).status()
+  eq([refStatus.capabilities.ipAdapter, refStatus.hints.ip_adapter], [true, undefined], 'offered with the nodes and both files listed')
+  eq((await new ComfyUIAdapter({ ...CONFIG, id: 'ref' }, refComfy.transport, () => engine).status()).hints.ip_adapter, { reason: 'setup', need: 'ipAdapter' }, 'none set: the hint says to choose them')
+  const unlisted = await new ComfyUIAdapter({ ...REFERENCED, clipVision: 'gone.safetensors' }, refComfy.transport, () => engine).status()
+  eq([unlisted.capabilities.ipAdapter, unlisted.hints.ip_adapter], [false, { reason: 'setup', need: 'ipAdapter' }], 'a file ComfyUI does not list: not offered')
+  eq((await new ComfyUIAdapter({ ...REFERENCED, id: 'ref-bare' }, quiet.transport, () => engine).status()).hints.ip_adapter, { reason: 'setup', need: 'ipAdapterNodes' }, 'no IPAdapter_plus: it says so first')
+
+  const referencePng = writePngText(await sharp({ create: { width: 2048, height: 1024, channels: 4, background: { r: 10, g: 200, b: 30, alpha: 1 } } }).png().toBuffer(), { parameters: 'a secret prompt' })
+  const REF_RUN: GenerateRequest = { ...REQUEST, image_count: 1, ip_adapter_image_base64: `data:image/png;base64,${referencePng.toString('base64')}`, ip_adapter_scale: 0.5 }
+  const refRun = await new ComfyUIAdapter(REFERENCED, refComfy.transport, () => engine).start(REF_RUN)
+  check(refRun.ok, 'a run with a reference picture starts')
+  if (refRun.ok) await collect(refRun.value)
+  eq(refComfy.uploads.map(({ subfolder, name }) => `${subfolder}/${name}`), ['latentry/ref-reference.png'], 'the reference goes up under a fixed name for this backend')
+  const upReference = await sharp(refComfy.uploads[0].png).metadata()
+  eq([upReference.width, upReference.height, upReference.channels], [1024, 512, 3], 'at most 1024 a side, its shape kept, without alpha')
+  eq(Object.keys(readPngText(refComfy.uploads[0].png)), [], 'and without the text it came with')
+  eq(
+    [refComfy.graphs[0]['47'].inputs.ipadapter_file, refComfy.graphs[0]['48'].inputs.clip_name, refComfy.graphs[0]['49'].inputs.weight],
+    ['ip-adapter-plus_sdxl_vit-h.safetensors', 'vit-h/model.safetensors', 0.5],
+    'the graph reads it with the files set for the backend, at its scale'
+  )
+  const refuseReference = async (config: BackendConfig, request: GenerateRequest, comfy = refComfy) => {
+    const outcome = await new ComfyUIAdapter(config, comfy.transport, () => engine).start(request)
+    return outcome.ok ? 'started' : `${outcome.status} ${outcome.error}`
+  }
+  eq(await refuseReference({ ...CONFIG, id: 'ref' }, REF_RUN), '400 Choose an IP-Adapter and a CLIP vision file for this backend in Settings', 'none set is refused')
+  eq(
+    await refuseReference({ ...REFERENCED, ipAdapter: 'gone.safetensors' }, REF_RUN),
+    "400 The IP-Adapter set for this backend is not in ComfyUI's list: gone.safetensors",
+    'so is a file ComfyUI does not list'
+  )
+  eq(
+    await refuseReference({ ...REFERENCED, id: 'ref-bare' }, REF_RUN, quiet),
+    '400 This ComfyUI has no IPAdapterModelLoader, IPAdapterAdvanced and CLIPVisionLoader (install ComfyUI_IPAdapter_plus)',
+    'and a ComfyUI without the nodes'
+  )
+  eq(refComfy.uploads.length, 1, 'nothing goes up for a refused run')
+
+  const hiddenRef = await scriptedComfy({ socket: true, ipadapter: true, controlnet: true })
+  const secretRef = await new ComfyUIAdapter({ ...REFERENCED, ...CONTROLLED, id: 'hidden-ref' }, hiddenRef.transport, () => engine).start({ ...REF_RUN, ...CONTROL_RUN, ip_adapter_image_base64: REF_RUN.ip_adapter_image_base64, secret: true })
+  if (secretRef.ok) await collect(secretRef.value)
+  eq(
+    hiddenRef.uploads.map(({ name }) => name),
+    ['hidden-ref-control.png', 'hidden-ref-reference.png', 'hidden-ref-control.png', 'hidden-ref-reference.png'],
+    'a secret run with a control and a reference picture blanks both'
+  )
+  eq(Object.keys(hiddenRef.graphs[0]).filter((id) => ['39', '49'].includes(id)), ['39', '49'], 'and drew with both')
 
   // ── Pose in your own workflow: a LoadImage marked latentry:pose ──
   const flowDir = mkdtempSync(path.join(tmpdir(), 'latentry-comfy-pose-'))
@@ -867,7 +938,7 @@ async function throughRoutes(): Promise<void> {
       )
     const tried = (await (await tryBackend('127.0.0.1:3000')).json()) as { controlnets?: string[]; capabilities?: { pose?: boolean }; hints?: unknown }
     eq(tried.controlnets, ['private-folder/openpose.safetensors'], 'Settings Test lists ComfyUI\'s ControlNets, folders included, on this machine')
-    eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' } }], 'and says pose waits for a running engine')
+    eq([tried.capabilities?.pose, tried.hints], [false, { pose: { reason: 'setup', need: 'engine' }, control: { reason: 'setup', need: 'controls' }, ip_adapter: { reason: 'setup', need: 'ipAdapter' } }], 'and says pose waits for a running engine')
     eq((tried as { swarmui?: unknown }).swarmui, undefined, 'a plain ComfyUI: no SwarmUI notice')
     eq((await tryBackend('192.168.1.20:3000')).status, 403, 'a paired device cannot ask for that list')
     const swarmMock = await startMockComfyUI({ swarmui: true })

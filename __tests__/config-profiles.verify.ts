@@ -76,6 +76,17 @@ eq(
   [['comfy-1', { depth: 'sdxl\\union.safetensors' }], ['web', null]],
   'GEN_CONTROL_<KIND>_<ID> sets a comfyui backend\'s ControlNet for that control picture kind; the same rules'
 )
+const reference = parseBackends({
+  GEN_BACKENDS: 'comfy-1|comfyui|http://c:1;web|a1111|http://w:2',
+  GEN_IPADAPTER_COMFY_1: ' ip-adapter-plus_sdxl_vit-h.safetensors ',
+  GEN_CLIPVISION_COMFY_1: 'two\nlines',
+  GEN_IPADAPTER_WEB: 'ignored.safetensors',
+})
+eq(
+  reference.backends.map((backend) => [backend.id, backend.ipAdapter ?? null, backend.clipVision ?? null]),
+  [['comfy-1', 'ip-adapter-plus_sdxl_vit-h.safetensors', null], ['web', null, null]],
+  'GEN_IPADAPTER_<ID> and GEN_CLIPVISION_<ID> set a comfyui backend\'s reference picture files; the same rules'
+)
 
 const legacy = parseBackends({ DIFFUSION_SERVER_URL: 'http://localhost:7865', DIFFUSION_API_TOKEN: 't' })
 eq(

@@ -119,6 +119,9 @@ export function parseBackends(env: Env): BackendConfigResult {
     const controlnets = Object.fromEntries(
       kind === 'comfyui' ? CONTROL_KINDS.map((control) => [control, fileFor(`GEN_CONTROL_${control.toUpperCase()}`, normalizedId, env)]).filter(([, file]) => file) : []
     ) as Partial<Record<ControlKind, string>>
+    // GEN_IPADAPTER_<ID> and GEN_CLIPVISION_<ID>: the reference picture's two files.
+    const ipAdapter = kind === 'comfyui' ? fileFor('GEN_IPADAPTER', normalizedId, env) : undefined
+    const clipVision = kind === 'comfyui' ? fileFor('GEN_CLIPVISION', normalizedId, env) : undefined
     backends.push({
       id: normalizedId,
       kind,
@@ -128,6 +131,8 @@ export function parseBackends(env: Env): BackendConfigResult {
       ...(model ? { model } : {}),
       ...(controlnet ? { controlnet } : {}),
       ...(Object.keys(controlnets).length ? { controlnets } : {}),
+      ...(ipAdapter ? { ipAdapter } : {}),
+      ...(clipVision ? { clipVision } : {}),
     })
   }
 

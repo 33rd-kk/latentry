@@ -12,6 +12,9 @@ export interface BackendTest {
   checkpoints?: string[]
   /** comfyui: the ControlNets it has, offered for the Pose ControlNet field. */
   controlnets?: string[]
+  /** comfyui with IPAdapter_plus: its IP-Adapter and CLIP vision files, offered for the reference picture fields. */
+  ipAdapters?: string[]
+  clipVisions?: string[]
   problem?: BackendStatus["problem"]
   /** comfyui: it has SwarmUI's nodes, so a SwarmUI shares it under its own address. */
   swarmui?: boolean
@@ -35,15 +38,19 @@ export function useBackendTests() {
           profile: backend.profile,
           model: backend.kind === "comfyui" ? backend.model.trim() || undefined : undefined,
           controlnet: backend.kind === "comfyui" ? backend.controlnet.trim() || undefined : undefined,
+          ipAdapter: backend.kind === "comfyui" ? backend.ipAdapter.trim() || undefined : undefined,
+          clipVision: backend.kind === "comfyui" ? backend.clipVision.trim() || undefined : undefined,
         }),
       })
       const data = await response.json().catch(() => null)
       const names = (value: unknown) => (Array.isArray(value) ? (value as unknown[]).filter((name): name is string => typeof name === "string") : undefined)
       const checkpoints = names(data?.checkpoints)
       const controlnets = names(data?.controlnets)
+      const ipAdapters = names(data?.ipAdapters)
+      const clipVisions = names(data?.clipVisions)
       setTests((current) => ({
         ...current,
-        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, controlnets, problem: data?.problem, swarmui: data?.swarmui === true },
+        [backend.key]: { state: data?.alive ? "ok" : "fail", model: data?.model, hints: data?.hints, checkpoints, controlnets, ipAdapters, clipVisions, problem: data?.problem, swarmui: data?.swarmui === true },
       }))
     } catch {
       setTests((current) => ({ ...current, [backend.key]: { state: "fail" } }))

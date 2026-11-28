@@ -1,7 +1,9 @@
 // The Reference block (IP-Adapter) on a diffusers-compatible backend that
 // says ip_adapter: true (the mock in __tests__/fixtures/mock-diffusers.ts): a
 // picture is chosen, shown, and sent with the run at its strength; hidden
-// from Show it is kept but not sent.
+// from Show it is kept but not sent. On the mock ComfyUI, which lists the
+// IPAdapter_plus nodes and the two files scripts/e2e.mjs sets, it is offered
+// and a run with it finishes.
 
 import { expect, test, type Page, type Request } from './test'
 import sharp from 'sharp'
@@ -34,6 +36,23 @@ test('a reference picture is sent with the run at its strength', async ({ page }
   const body = (await sent).postDataJSON() as Record<string, unknown>
   expect(body).toMatchObject({ ip_adapter_scale: 0.3 })
   expect(String(body.ip_adapter_image_base64)).toMatch(/^data:image\/png;base64,/)
+})
+
+test('on ComfyUI with IPAdapter_plus, a reference picture is sent and the run finishes', async ({ page }) => {
+  await page.goto('/')
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled()
+  await page.getByRole('main').getByRole('combobox').first().click()
+  await page.getByRole('option').filter({ has: page.getByText('comfy', { exact: true }) }).click()
+  await expect(page.getByRole('button', { name: /Drop a picture whose look to take/ })).toBeVisible()
+  await chooseReference(page)
+  await page.getByRole('main').locator('#prompt').fill('a cat in this style')
+  const sent = page.waitForRequest((request) => request.method() === 'POST' && new URL(request.url()).pathname === '/api/gen/comfy/generate')
+  await page.getByRole('button', { name: 'Generate', exact: true }).click()
+  const body = (await sent).postDataJSON() as Record<string, unknown>
+  expect(body).toMatchObject({ ip_adapter_scale: 0.3 })
+  expect(String(body.ip_adapter_image_base64)).toMatch(/^data:image\/png;base64,/)
+  await expect(page.getByRole('button', { name: 'Generate', exact: true })).toBeEnabled({ timeout: 30_000 })
+  await expect(page.getByText(/Backend error|not in ComfyUI's list|Choose an IP-Adapter/)).toHaveCount(0)
 })
 
 test('hidden from Show, the reference is kept but not sent', async ({ page }) => {

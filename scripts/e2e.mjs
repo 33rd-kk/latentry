@@ -52,7 +52,16 @@ writeFileSync(
     // A backends list replaces GEN_BACKENDS and the rest of .env.local's.
     backends: [
       { id: 'mock', kind: 'a1111', url: `http://127.0.0.1:${mockPort}/`, profile: 'generic' },
-      { id: 'comfy', kind: 'comfyui', url: `http://127.0.0.1:${comfyPort}/`, profile: 'sdxl', workflowsDir: path.join(root, 'workflows') },
+      // The two files the mock ComfyUI lists for a reference picture (IPAdapter_plus).
+      {
+        id: 'comfy',
+        kind: 'comfyui',
+        url: `http://127.0.0.1:${comfyPort}/`,
+        profile: 'sdxl',
+        workflowsDir: path.join(root, 'workflows'),
+        ipAdapter: 'ip-adapter-plus_sdxl_vit-h.safetensors',
+        clipVision: 'private-folder/vit-h.safetensors',
+      },
       { id: 'pose', kind: 'diffusers', url: `http://127.0.0.1:${posePort}/`, profile: 'sdxl' },
       { id: 'pose-single', kind: 'diffusers', url: `http://127.0.0.1:${poseSinglePort}/`, profile: 'sdxl' },
       { id: 'cpp', kind: 'sdcpp', url: `http://127.0.0.1:${sdcppPort}/`, profile: 'generic' },
