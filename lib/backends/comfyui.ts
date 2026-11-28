@@ -32,6 +32,8 @@
 //   checkpoint ComfyUI lists.
 // - ComfyUI has no login. A token is sent as a Bearer token, for a proxy in
 //   front of it.
+// - A graph with one of ComfyUI's partner nodes (paid online services) is
+//   never queued: queue() asks /object_info first (comfy-cloud-nodes.ts).
 
 import { CONTROL_KINDS, IP_ADAPTER_SCALE, type ControlKind } from '@/lib/control/kinds'
 import { randomInt, randomUUID } from 'node:crypto'
@@ -43,6 +45,7 @@ import { MAX_REQUEST_BODY_BYTES } from '@/lib/limits'
 import { engineBackends } from '@/lib/engine/supervisor'
 import { getProfile } from '@/lib/profiles'
 import { comfyHints, problemOf } from './hints'
+import { cloudNodes, cloudRefusal, type CloudCheck } from './comfy-cloud-nodes'
 import { fillWorkflow, poseSlots, readWorkflow, type ComfyGraph, type SkeletonStyle } from './comfy-workflows'
 import { DiffusersAdapter } from './diffusers'
 import { blankPng, letterboxedControl, preparedImages, preparedReference, preparedSkeleton } from './images'
@@ -660,6 +663,21 @@ export class ComfyUIAdapter implements BackendAdapter {
     return { nodes, files: nodes && !!ipAdapter && !!clipVision && info.ipAdapters!.includes(ipAdapter) && info.clipVisions!.includes(clipVision) }
   }
 
+  /** Which of a graph's node classes are ComfyUI partner nodes, as this ComfyUI says. */
+  async cloudCheck(graph: Record<string, unknown>): Promise<CloudCheck> {
+    return cloudNodes(graph, (type) => this.getOrNull(`/object_info/${encodeURIComponent(type)}`), `${this.config.id}|${this.config.url}`)
+  }
+
+  /**
+   * The one place a graph is queued, and never one with a partner node, nor
+   * one whose nodes ComfyUI did not answer for.
+   */
+  private async queue(graph: Record<string, unknown>, clientId: string): Promise<{ refused: string } | { status: number; body: unknown }> {
+    const refusal = cloudRefusal(await this.cloudCheck(graph))
+    if (refusal) return { refused: refusal.error }
+    return this.http.post('/prompt', { prompt: graph, client_id: clientId }, QUEUE_TIMEOUT_MS)
+  }
+
   /** Whether this ComfyUI has SwarmUI's nodes, so a SwarmUI shares it; null when it does not answer. */
   async sharedBySwarmui(): Promise<boolean | null> {
     const body = await this.getOrNull(`/object_info/${SWARMUI_NODE}`)
@@ -820,6 +838,9 @@ export class ComfyUIAdapter implements BackendAdapter {
         ...(request.pose_image_base64 ? { pose: { image: 'trial.png', strength: 1 } } : {}),
       })
       if ('error' in trial) return { ok: false, status: 400, error: trial.error }
+      // Asked before anything is uploaded or queued; queue() asks again for every picture.
+      const refusal = cloudRefusal(await this.cloudCheck(trial.graph))
+      if (refusal) return { ok: false, ...refusal }
       workflow = read.graph
     }
     const checkpoint = chosen ?? (workflow ? (this.config.model ?? '') : this.checkpointFrom(info))
@@ -1056,7 +1077,12 @@ export class ComfyUIAdapter implements BackendAdapter {
         }
         let queued: { status: number; body: unknown }
         try {
-          queued = await this.http.post('/prompt', { prompt: graph, client_id: clientId }, QUEUE_TIMEOUT_MS)
+          const answer = await this.queue(graph, clientId)
+          if ('refused' in answer) {
+            yield { type: 'error', message: answer.refused }
+            return
+          }
+          queued = answer
         } catch (error) {
           yield { type: 'error', message: isAbortError(error) ? 'Timed out waiting for the backend' : 'Could not reach the backend' }
           return

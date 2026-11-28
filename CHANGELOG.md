@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+**Security**
+
+- **ComfyUI's partner nodes are never run**: a workflow of yours with one
+  of ComfyUI's partner nodes (its "API nodes", which hand their inputs to a
+  paid online service) is shown as one that cannot run, and refused before
+  anything is queued. Latentry sends no sign-in for those services, so such
+  a node could not succeed from Latentry, yet it would still have sent
+  your prompt online before being turned away, secret mode or not.
+  Latentry now asks ComfyUI about every node before each run and sends
+  nothing when ComfyUI does not answer. See
+  [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
+
+**Added**
+
 - **Reference picture on ComfyUI**: the built-in graph now takes a
   reference picture (IP-Adapter) with the ComfyUI_IPAdapter_plus nodes.
   Choose an IP-Adapter and a CLIP vision file for the backend in Settings

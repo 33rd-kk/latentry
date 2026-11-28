@@ -78,6 +78,8 @@ async function scriptedComfy(
     swarmui?: boolean
     /** It has ComfyUI_IPAdapter_plus (and core's CLIPVisionLoader), with these files. */
     ipadapter?: boolean
+    /** false: /object_info fails for every node class not answered above. */
+    nodeInfo?: boolean
   } = {}
 ) {
   const png = writePngText(await sharp({ create: { width: 8, height: 8, channels: 3, background: '#123' } }).png().toBuffer(), {
@@ -140,6 +142,15 @@ async function scriptedComfy(
       if (path === '/object_info/CLIPVisionLoader') return { status: 200, body: options.ipadapter ? combo('CLIPVisionLoader', 'clip_name', [['vit-h/model.safetensors']]) : {} }
       if (path === '/object_info/SwarmKSampler') return { status: 200, body: options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {} }
       if (path === '/object_info/UpscaleModelLoader') return { status: 200, body: options.upscalers ? combo('UpscaleModelLoader', 'model_name', [options.upscalers]) : {} }
+      // Any other node class, as ComfyUI answers (or not, with `nodeInfo: false`).
+      const nodeInfo = /^\/object_info\/(.+)$/.exec(path)
+      if (nodeInfo) {
+        if (options.nodeInfo === false) return { status: 500, body: null }
+        const type = decodeURIComponent(nodeInfo[1])
+        // GeminiImageNode is one of ComfyUI's partner nodes, as ComfyUI marks it.
+        const fields = type === 'GeminiImageNode' ? { api_node: true, category: 'partner/image/Gemini' } : { category: 'mock' }
+        return { status: 200, body: { [type]: { input: { required: {} }, ...fields } } }
+      }
       const match = /^\/history\/(.+)$/.exec(path)
       if (match) {
         const id = decodeURIComponent(match[1])
@@ -763,6 +774,30 @@ async function main() {
     const plainRun = await new ComfyUIAdapter({ ...FLOWS, id: 'flows-plain' }, flowComfy.transport, () => engine).start({ ...POSE_RUN, prompt: '1girl, smile', workflow: 'plain' })
     eq(plainRun.ok ? 'started' : `${plainRun.status} ${plainRun.error}`, '400 This workflow cannot follow a skeleton: mark its pose LoadImage latentry:pose', 'a pose run on an unmarked workflow is refused')
     eq(flowComfy.uploads.length, 1, 'before anything goes up')
+
+    // ── ComfyUI's partner nodes: never queued ──
+    writeFileSync(
+      path.join(flowDir, 'online.json'),
+      JSON.stringify(
+        flow({
+          '20': { class_type: 'GeminiImageNode', inputs: { prompt: ['2', 0] } },
+          '21': { class_type: 'PreviewImage', inputs: { images: ['20', 0] } },
+        })
+      )
+    )
+    const partnerComfy = await scriptedComfy({ socket: true })
+    const online = await new ComfyUIAdapter({ ...FLOWS, id: 'online' }, partnerComfy.transport, () => engine).start({ ...REQUEST, prompt: 'a secret prompt', workflow: 'online' })
+    check(!online.ok && online.status === 400 && online.error.includes('GeminiImageNode'), "a workflow with one of ComfyUI's partner nodes is refused, naming it")
+    check(partnerComfy.calls.includes('GET /object_info/GeminiImageNode'), 'as ComfyUI says it is one')
+    check(!partnerComfy.calls.some((call) => call.startsWith('POST /prompt')) && partnerComfy.uploads.length === 0, 'before anything goes up or is queued')
+    const silent = await scriptedComfy({ socket: true, nodeInfo: false })
+    const unasked = await new ComfyUIAdapter({ ...FLOWS, id: 'unasked' }, silent.transport).start({ ...REQUEST, prompt: '1girl', workflow: 'plain' })
+    check(!unasked.ok && unasked.status === 502 && unasked.error.includes('not sent'), 'a workflow whose nodes ComfyUI does not answer for is not sent either')
+    // The built-in graph goes through the same door, for each picture.
+    const builtIn = await new ComfyUIAdapter({ ...CONFIG, id: 'unasked-built-in' }, silent.transport).start({ ...REQUEST, image_count: 1 })
+    const builtInEnd = builtIn.ok ? (await collect(builtIn.value)).at(-1) : null
+    check(builtInEnd?.type === 'error' && builtInEnd.message.includes('not sent'), 'nor is the built-in graph, when ComfyUI does not say what its nodes are')
+    check(!silent.calls.some((call) => call.startsWith('POST /prompt')), 'nothing was queued')
   } finally {
     rmSync(flowDir, { recursive: true, force: true })
   }

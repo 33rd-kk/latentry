@@ -130,8 +130,9 @@ These are by design:
 - **The backend sees everything it is sent.** What an A1111 / Forge or
   other server does with prompts and pictures is up to that server. Only
   a ComfyUI backend's history and uploads are taken back (above); its own
-  logs, and a ComfyUI shared with other people, are out of Latentry's
-  reach. A stable-diffusion.cpp `sd-server` keeps each finished job, the
+  logs, its custom nodes, and a ComfyUI shared with other people, are out
+  of Latentry's reach. (Its partner nodes, which go online, are never run,
+  in secret mode or not.) A stable-diffusion.cpp `sd-server` keeps each finished job, the
   picture included, in its memory until the job expires there; it has no
   way to delete one sooner, and restarting it clears them.
 - The page you are on shows what you are doing: the form, your mask

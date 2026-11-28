@@ -11,7 +11,7 @@ import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSyn
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { check, done, eq } from './assert'
-import { startMockComfyUI } from './fixtures/mock-comfyui'
+import { PARTNER_NODE, startMockComfyUI } from './fixtures/mock-comfyui'
 import { asApiGraph, describe, fillWorkflow, listWorkflows, MAX_WORKFLOWS, poseSlots, readWorkflow, WORKFLOW_NAME, type ComfyGraph } from '../lib/backends/comfy-workflows'
 import { workflowAccess } from '../lib/backends/workflow-access'
 import { comfyGraphRoles, readPngText } from '../lib/image-meta'
@@ -227,6 +227,23 @@ async function throughRoutes(scratch: string, dir: string): Promise<void> {
     eq((await askPose(local)).status, 400, 'this machine may: a workflow without latentry:pose is refused, before anything is drawn')
     eq((await generate({ prompt: 'x', workflow: 'editor' }, local)).status, 400, 'a workflow that cannot run is refused before anything is queued')
     eq(mock.graphs.length, 0, 'and nothing was queued')
+
+    // One with ComfyUI's partner node: listed as one that cannot run, and refused.
+    writeFileSync(
+      path.join(dir, 'online.json'),
+      JSON.stringify({ ...TXT2IMG, '11': { class_type: PARTNER_NODE, inputs: { prompt: ['6', 0] } }, '12': { class_type: 'PreviewImage', inputs: { images: ['11', 0] } } })
+    )
+    try {
+      const listed = (await list(local)) as { name: string; problem?: string }[]
+      const online = listed.find(({ name }) => name === 'online')
+      check(online?.problem?.includes(PARTNER_NODE) === true, 'a workflow with a partner node is listed as one that cannot run, naming the node')
+      check(!listed.find(({ name }) => name === 'portrait')?.problem, 'the others are not')
+      const sent = await generate({ prompt: 'a secret prompt', workflow: 'online' }, local)
+      eq(sent.status, 400, 'running it is refused')
+      eq(mock.graphs.length, 0, 'and nothing was queued')
+    } finally {
+      rmSync(path.join(dir, 'online.json'))
+    }
 
     const started = await generate({ prompt: 'a harbour at dawn, <lora:ink:0.5>', negative_prompt: 'fog', width: 640, height: 960, seed: 7, workflow: 'portrait' }, local)
     eq(started.status, 200, 'a run with a workflow starts')
