@@ -10,7 +10,7 @@
 //   E2E_PORT, E2E_MOCK_PORT, E2E_COMFY_PORT, E2E_POSE_PORT, E2E_POSE_SINGLE_PORT, E2E_SDCPP_PORT
 //                        the ports (3137–3142)
 import { spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
 
@@ -38,6 +38,12 @@ writeFileSync(
     8: { class_type: 'VAEDecode', inputs: { samples: ['3', 0], vae: ['4', 2] } },
     9: { class_type: 'SaveImage', inputs: { filename_prefix: 'ComfyUI', images: ['8', 0] } },
   })
+)
+// The same with one of ComfyUI's partner nodes, which the list shows as one that cannot run.
+const portrait = JSON.parse(readFileSync(path.join(root, 'workflows', 'portrait.json'), 'utf8'))
+writeFileSync(
+  path.join(root, 'workflows', 'online.json'),
+  JSON.stringify({ ...portrait, 20: { class_type: 'GeminiImageNode', inputs: { prompt: ['6', 0] } }, 21: { class_type: 'PreviewImage', inputs: { images: ['20', 0] } } })
 )
 // Wildcards with one line each, so a test knows what a run's prompt becomes.
 mkdirSync(path.join(root, 'wildcards', 'places'), { recursive: true })

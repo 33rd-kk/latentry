@@ -19,6 +19,7 @@ interface WorkflowPickerProps {
 
 /**
  * A ComfyUI backend's workflows from its folder, next to the built-in graph.
+ * One that cannot run is greyed out in the list, with why under its name.
  * Under the choice: what the workflow lacks (left as it is in the file), or
  * why it cannot run.
  */
@@ -40,7 +41,11 @@ export function WorkflowPicker({ workflows, value, onChange, disabled }: Workflo
           <SelectItem value={BUILT_IN}>{t("generate.workflowBuiltIn")}</SelectItem>
           {workflows.map((workflow) => (
             <SelectItem key={workflow.name} value={workflow.name} disabled={Boolean(workflow.problem)}>
-              {workflow.name}
+              {/* One that cannot be chosen says why in the list itself, since it is never chosen. */}
+              <span className="flex min-w-0 flex-col items-start">
+                <span>{workflow.name}</span>
+                {workflow.problem && <span className="text-xs whitespace-normal text-destructive">{workflow.problem}</span>}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>
