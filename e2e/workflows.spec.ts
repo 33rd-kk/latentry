@@ -14,6 +14,11 @@ test('a workflow from the folder is offered, and draws a picture', async ({ page
   const picker = page.getByRole('combobox', { name: 'Workflow' })
   await expect(picker).toBeVisible()
   await picker.click()
+  // One with a partner node of ComfyUI's is greyed out, saying why in the list.
+  const online = page.getByRole('option').filter({ hasText: 'online' })
+  await expect(online).toHaveAttribute('aria-disabled', 'true')
+  await expect(online).toContainText("This uses ComfyUI's partner nodes")
+  await expect(online).toContainText('GeminiImageNode')
   await page.getByRole('option', { name: 'portrait', exact: true }).click()
   await expect(page.getByText('A workflow draws from the prompt only')).toBeVisible()
 

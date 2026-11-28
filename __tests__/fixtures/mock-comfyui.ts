@@ -25,6 +25,8 @@ export interface MockComfyUI {
 }
 
 const MODEL_PATH = 'private-folder/sdxl/base.safetensors'
+/** A node class this ComfyUI marks as a partner node (`api_node: true`), as ComfyUI's Gemini image node is. */
+export const PARTNER_NODE = 'GeminiImageNode'
 
 /** Listens on 127.0.0.1 only; port 0 (the default) picks a free one. */
 export async function startMockComfyUI(options: { port?: number; swarmui?: boolean; checkpoints?: string[] } = {}): Promise<MockComfyUI> {
@@ -60,6 +62,12 @@ export async function startMockComfyUI(options: { port?: number; swarmui?: boole
       // SwarmUI's own node, in a ComfyUI that SwarmUI starts; {} for a node it lacks, as ComfyUI answers.
       if (route === 'GET /object_info/SwarmKSampler') return reply(200, options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {})
       if (route === 'GET /object_info/ControlNetApplyAdvanced') return reply(200, { ControlNetApplyAdvanced: { input: { required: {} } } })
+      // Any other node class, as ComfyUI answers; PARTNER_NODE is one of its partner (online) nodes.
+      const nodeInfo = /^GET \/object_info\/(.+)$/.exec(route)
+      if (nodeInfo) {
+        const type = decodeURIComponent(nodeInfo[1])
+        return reply(200, { [type]: { input: { required: {} }, ...(type === PARTNER_NODE ? { api_node: true, category: 'partner/image/Gemini' } : { category: 'mock' }) } })
+      }
       if (route === 'POST /prompt') {
         let body: { prompt?: MockComfyUI['graphs'][number] }
         try {

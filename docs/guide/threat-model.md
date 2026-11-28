@@ -94,6 +94,10 @@ been taken over through their extensions.
 - The ComfyUI workflows Latentry runs come only from the folder you set on
   this computer. A paired device can pick one by name, if you allow it, but
   cannot send its own, and a workflow saved in a picture is never run.
+- A graph with one of ComfyUI's partner nodes, which pass their inputs to
+  an online service, is never queued, and neither is one whose nodes
+  ComfyUI does not say what they are. A custom node that goes online
+  without that mark cannot be told apart.
 - Latentry never installs or updates extensions or custom nodes for a
   backend. Whatever you install there runs with that backend's rights.
 
