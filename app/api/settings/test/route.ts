@@ -30,6 +30,8 @@ export async function POST(request: Request) {
   const file = (value: unknown) => (typeof value === 'string' && value.trim() ? value.trim().slice(0, MAX_BACKEND_MODEL_LENGTH) : undefined)
   const model = file(body?.model)
   const controlnet = file(body?.controlnet)
+  const ipAdapter = file(body?.ipAdapter)
+  const clipVision = file(body?.clipVision)
   const adapter = adapterFor({
     id: `test-${Date.now()}`,
     kind: kind as BackendKind,
@@ -38,14 +40,16 @@ export async function POST(request: Request) {
     ...(token ? { token } : {}),
     ...(model ? { model } : {}),
     ...(controlnet ? { controlnet } : {}),
+    ...(ipAdapter ? { ipAdapter } : {}),
+    ...(clipVision ? { clipVision } : {}),
   })
   const status = await adapter.status()
-  // ComfyUI's checkpoints and ControlNets, folders included, to choose from:
-  // only this settings page sees them (the route is for clients that may edit settings).
+  // ComfyUI's checkpoints, ControlNets and IP-Adapter files, folders included, to choose
+  // from: only this settings page sees them (the route is for clients that may edit settings).
   const comfy = adapter instanceof ComfyUIAdapter && status.alive ? adapter : null
-  const [checkpoints, controlnets, swarmui] = comfy
-    ? await Promise.all([comfy.checkpoints(), comfy.controlnets(), comfy.sharedBySwarmui()])
-    : [null, null, null]
+  const [checkpoints, controlnets, swarmui, reference] = comfy
+    ? await Promise.all([comfy.checkpoints(), comfy.controlnets(), comfy.sharedBySwarmui(), comfy.referenceFiles()])
+    : [null, null, null, null]
   return json({
     alive: status.alive,
     model: status.model,
@@ -54,6 +58,7 @@ export async function POST(request: Request) {
     ...(status.problem ? { problem: status.problem } : {}),
     ...(checkpoints ? { checkpoints } : {}),
     ...(controlnets ? { controlnets } : {}),
+    ...(reference ? { ipAdapters: reference.ipAdapters, clipVisions: reference.clipVisions } : {}),
     // A SwarmUI shares this ComfyUI under its own address: Settings says what that opens.
     ...(swarmui ? { swarmui: true } : {}),
   })

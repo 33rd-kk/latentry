@@ -351,7 +351,9 @@
         "engine": "人物を見つけてスケルトンを描くのは Latentry の組み込みエンジンです。セットアップページで起動してください。このためにモデルを読み込む必要はありません。",
         "nodes": "この ComfyUI には ControlNetLoader と ControlNetApplyAdvanced がありません。ComfyUI を更新してください。",
         "marker": "このワークフローには latentry:pose と印を付けた LoadImage がありません。ComfyUI でタイトルにその印を付けてワークフローのポーズノードにつなぎ、Export (API) でもう一度書き出してください。",
-        "controls": "設定で、このバックエンドのエッジ・深度・線画用のControlNetを選んでください（SDXLならxinsirのunionなど、ユニオンControlNet 1つで3種類すべてに使えます）。"
+        "controls": "設定で、このバックエンドのエッジ・深度・線画用のControlNetを選んでください（SDXLならxinsirのunionなど、ユニオンControlNet 1つで3種類すべてに使えます）。",
+        "ipAdapterNodes": "このComfyUIにはIPAdapterModelLoader・IPAdapterAdvanced・CLIPVisionLoaderがありません。ComfyUI_IPAdapter_plusのノードを入れて、ComfyUIを再起動してください。",
+        "ipAdapter": "設定で、このバックエンドのIP-AdapterとCLIP visionのファイルを選んでください（ComfyUIのipadapterフォルダとclip_visionフォルダから。SDXLならip-adapter-plus_sdxl_vit-hとViT-Hの画像エンコーダー）。"
       },
       "notReported": {
         "img2img": "サーバーの /api/health が \"img2img\": false か、何も答えていません。その項目を外す（または true にする）とともに、/api/generate で \"init_image_base64\" と \"strength\" を受け付けてください。",
@@ -750,6 +752,11 @@
     "backendControlnets": "コントロール画像用のControlNet",
     "backendControlnetsNone": "なし",
     "backendControlnetsHint": "コントロール画像の種類（エッジ・深度・線画）ごとに、組み込みグラフで従わせるControlNetです。指定のない種類は表示されません。ユニオンControlNet（SDXLならxinsirのunion）1つで3種類すべてに使えます。その場合は各欄に同じものを指定してください。「テスト」でComfyUIにあるものが一覧に出ます。コントロール画像はLatentryが作るので、ComfyUIへ送るのはそれだけで、参照画像は送りません。",
+    "backendIpAdapter": "参照画像（IP-Adapter）",
+    "backendIpAdapterFile": "IP-Adapter",
+    "backendClipVision": "CLIP vision",
+    "backendIpAdapterNone": "なし",
+    "backendIpAdapterHint": "組み込みグラフで参照画像に従わせる、IP-Adapterのファイル（ComfyUIのipadapterフォルダ）とCLIP visionのファイル（clip_visionフォルダ）です。ComfyUI_IPAdapter_plusのノードが必要です。両方そろっていないと参照画像は表示されません。2つは互いに、またチェックポイントとも合うものにしてください。SDXLならip-adapter-plus_sdxl_vit-hとViT-Hの画像エンコーダーです。「テスト」でComfyUIにあるものが一覧に出ます。参照画像は設定情報を除いてComfyUIへ送られ、シークレットでの生成のあとは空にされます。",
     "backendWorkflowsDir": "ワークフローのフォルダー",
     "backendWorkflowsDirHint": "任意：このコンピューター上の、ComfyUI から Export (API) で保存したワークフローのフォルダーです。生成ページで組み込みグラフと並べて選べます。読み取りだけです。",
     "shareWorkflows": "ペアリングした端末にワークフロー名を表示",

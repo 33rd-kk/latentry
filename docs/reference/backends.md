@@ -23,7 +23,7 @@ control, rather than only hiding it.
 | Inpaint, **Extend** and **Faces** | Yes | Yes (engine 0.9.0 and later) | Unless it says no¹ | Yes | Yes | No | If its model can⁵ |
 | Skeleton pose | Yes | 28-layer v1.0 models only | If it says so¹ | No | With a Pose ControlNet and the engine running² | With a `latentry:pose` node and the engine running² | No |
 | Control picture (edges, depth, line art) | Yes, with a pose too | No | If it lists the kinds¹ | Not yet | With a ControlNet set for that kind | No | No |
-| Reference picture (IP-Adapter) | Yes | No | If it says so¹ | No | Not yet | No | No |
+| Reference picture (IP-Adapter) | Yes | No | If it says so¹ | No | With IPAdapter_plus and its two files set | No | No |
 | Hires fix | Yes | Yes, but not with a pose | If it says so¹ | Yes | Yes | No: the workflow keeps its own passes | If its model can⁵ |
 | Upscale a picture | Yes | Yes | If it says so¹ | Yes | Yes | No: choose the built-in graph | With Lanczos, Nearest or its ESRGAN model |
 | Samplers and schedulers | Euler, Euler a, DPM++ 2M, DPM++ 2M SDE, UniPC, DDIM; Karras, Exponential | *Default* only: the model's own flow-match Euler | The ones it lists¹ | The web UI's | ComfyUI's | ComfyUI's, unless *Default* keeps the workflow's | sd-server's |
@@ -186,6 +186,30 @@ wiped after a secret run), never the reference.
 - It follows after a pose, so both shape the picture, each at its own
   strength. Hires fix's second pass follows it too.
 - A workflow of your own does not take a control picture.
+
+### Reference picture (IP-Adapter)
+
+The built-in graph follows a [reference picture](../guide/controls.md#reference-picture-ip-adapter)
+with the [ComfyUI_IPAdapter_plus](https://github.com/cubiq/ComfyUI_IPAdapter_plus)
+nodes (`IPAdapterModelLoader` and `IPAdapterAdvanced`) and ComfyUI's own
+`CLIPVisionLoader`. Install the nodes, put the files in ComfyUI's
+`ipadapter` and `clip_vision` folders, and choose both under
+**Reference picture (IP-Adapter)** in Settings (or `GEN_IPADAPTER_<ID>` and
+`GEN_CLIPVISION_<ID>`); **Test** lists the ones ComfyUI has. Without both,
+the Generate page does not offer a reference and says what is missing.
+
+- The two files must fit each other and the checkpoint. For SDXL:
+  `ip-adapter-plus_sdxl_vit-h.safetensors` with the ViT-H image encoder
+  (`CLIP-ViT-H-14-laion2B-s32B-b79K`), as Latentry's engine uses. FaceID
+  models are not used.
+- The reference goes to ComfyUI, unlike a control picture's source: as a
+  plain PNG without its settings, at most 1024 pixels a side, named
+  `<id>-reference.png`, overwritten by the next run and wiped after a secret
+  run.
+- It is applied to the model after the LoRAs, at **Reference strength**
+  (weight type linear, the whole run), so hires fix's second pass follows it
+  too. It goes with a pose and a control picture.
+- A workflow of your own does not take a reference.
 
 ### SwarmUI
 

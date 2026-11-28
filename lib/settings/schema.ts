@@ -27,6 +27,10 @@ export interface StoredBackend {
   controlnet?: string
   /** comfyui only: for each control picture kind, its ControlNet, as ComfyUI lists it. */
   controlnets?: Partial<Record<ControlKind, string>>
+  /** comfyui only: the IP-Adapter file for a reference picture, as ComfyUI lists it. */
+  ipAdapter?: string
+  /** comfyui only: the CLIP vision file for that IP-Adapter, as ComfyUI lists it. */
+  clipVision?: string
   /** comfyui only: a folder of API-format workflows (absolute; read only). */
   workflowsDir?: string
   /** comfyui only: paired devices may see and pick those workflows by name. */
@@ -219,6 +223,8 @@ export interface BackendInput {
   model?: unknown
   controlnet?: unknown
   controlnets?: unknown
+  ipAdapter?: unknown
+  clipVision?: unknown
   workflowsDir?: unknown
   shareWorkflows?: unknown
 }
@@ -297,6 +303,10 @@ export function validateSettings(
         }
         const controlnets = controlnetsFrom(raw?.controlnets)
         if (controlnets === null) errors[`${at}.controlnets`] = 'settings.errorBackendModel'
+        const ipAdapter = backendFileFrom(raw?.ipAdapter)
+        if (ipAdapter === null) errors[`${at}.ipAdapter`] = 'settings.errorBackendModel'
+        const clipVision = backendFileFrom(raw?.clipVision)
+        if (clipVision === null) errors[`${at}.clipVision`] = 'settings.errorBackendModel'
         const workflowsDir = typeof raw?.workflowsDir === 'string' ? raw.workflowsDir.trim() : ''
         if (raw?.workflowsDir !== undefined && raw.workflowsDir !== null && typeof raw.workflowsDir !== 'string') {
           errors[`${at}.workflowsDir`] = 'settings.errorAbsolute'
@@ -327,6 +337,8 @@ export function validateSettings(
           ...(comfy && model ? { model } : {}),
           ...(comfy && controlnet ? { controlnet } : {}),
           ...(comfy && controlnets && Object.keys(controlnets).length ? { controlnets } : {}),
+          ...(comfy && ipAdapter ? { ipAdapter } : {}),
+          ...(comfy && clipVision ? { clipVision } : {}),
           ...(comfy && workflowsDir ? { workflowsDir } : {}),
           // Off unless turned on, and only meaningful with a folder.
           ...(comfy && workflowsDir && raw.shareWorkflows === true ? { shareWorkflows: true } : {}),
@@ -549,6 +561,18 @@ export function parseStoredSettings(raw: unknown, env: Env = process.env): Setti
 }
 
 export { PROFILE_IDS }
+
+/**
+ * One model file a backend lists, from the settings body: trimmed, "" when
+ * absent or empty, null when it is not a string or not a fit file name (too
+ * long, control characters).
+ */
+export function backendFileFrom(value: unknown): string | null {
+  if (value === undefined || value === null) return ''
+  if (typeof value !== 'string') return null
+  const name = value.trim()
+  return name.length > MAX_BACKEND_MODEL_LENGTH || /[\u0000-\u001f\u007f]/.test(name) ? null : name
+}
 
 /**
  * A backend's ControlNet for each control picture kind, from the settings

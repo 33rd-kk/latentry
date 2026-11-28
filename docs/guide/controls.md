@@ -72,4 +72,7 @@ picture into streaks; start low.
   h94's IP-Adapter Plus for SDXL with its ViT-H image encoder (Apache-2.0),
   downloaded (about 3.4 GB) on the first run with a reference. A run without
   one takes the adapter out again, so it draws exactly as before.
+- ComfyUI takes it on the built-in graph with the IPAdapter_plus nodes and
+  an IP-Adapter and a CLIP vision file you choose in Settings
+  ([Reference picture](../reference/backends.md#reference-picture-ip-adapter)).
 

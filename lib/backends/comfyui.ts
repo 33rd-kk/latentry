@@ -35,7 +35,7 @@
 // - A graph with one of ComfyUI's partner nodes (paid online services) is
 //   never queued: queue() asks /object_info first (comfy-cloud-nodes.ts).
 
-import { CONTROL_KINDS, type ControlKind } from '@/lib/control/kinds'
+import { CONTROL_KINDS, IP_ADAPTER_SCALE, type ControlKind } from '@/lib/control/kinds'
 import { randomInt, randomUUID } from 'node:crypto'
 import { FormData, fetch as undiciFetch, WebSocket } from 'undici'
 import { isPng, loraCallsInPrompt, loraName, modelFileName, removePngText, type LoraUse } from '@/lib/image-meta'
@@ -48,7 +48,7 @@ import { comfyHints, problemOf } from './hints'
 import { cloudNodes, cloudRefusal, type CloudCheck } from './comfy-cloud-nodes'
 import { fillWorkflow, poseSlots, readWorkflow, type ComfyGraph, type SkeletonStyle } from './comfy-workflows'
 import { DiffusersAdapter } from './diffusers'
-import { blankPng, letterboxedControl, preparedImages, preparedSkeleton } from './images'
+import { blankPng, letterboxedControl, preparedImages, preparedReference, preparedSkeleton } from './images'
 import { errorMessage, isAbortError, REDIRECT_REFUSED, redactPaths } from './http'
 import type {
   BackendAdapter,
@@ -229,6 +229,10 @@ const MAX_LORAS = 20
 const CONTROLNET_APPLY = 'ControlNetApplyAdvanced'
 // Tells a union ControlNet which kind of picture it is given (ComfyUI core).
 const UNION_TYPE_NODE = 'SetUnionControlNetType'
+// A reference picture's look: IPAdapter_plus's loader and apply nodes, and ComfyUI core's CLIP vision loader.
+const IPADAPTER_LOADER = 'IPAdapterModelLoader'
+const IPADAPTER_APPLY = 'IPAdapterAdvanced'
+const CLIP_VISION_LOADER = 'CLIPVisionLoader'
 /**
  * A node SwarmUI installs into every ComfyUI it uses (SwarmComfyCommon). Seen
  * here, this ComfyUI sits behind a SwarmUI, which hands it out again under
@@ -248,6 +252,10 @@ interface StaticInfo {
   controlnets: string[] | null
   /** SetUnionControlNetType's types (e.g. "depth", "canny/lineart/anime_lineart/mlsd"); null without the node. */
   unionTypes: string[] | null
+  /** IPAdapterModelLoader's files; null without IPAdapter_plus (its loader or IPAdapterAdvanced). */
+  ipAdapters: string[] | null
+  /** CLIPVisionLoader's files; null without the node. */
+  clipVisions: string[] | null
   /** UpscaleModelLoader's files, folders included; empty without the node. */
   upscaleModels: string[]
 }
@@ -348,6 +356,14 @@ export interface ControlUpload {
   unionType?: string
 }
 
+/** A reference picture as uploaded to ComfyUI, with the IP-Adapter that follows it. */
+export interface ReferenceUpload {
+  image: string
+  ipAdapter: string
+  clipVision: string
+  weight: number
+}
+
 /**
  * The SetUnionControlNetType type for a control picture kind, when the
  * ControlNet looks like a union model (its file name says "union") and ComfyUI
@@ -384,6 +400,8 @@ export function buildComfyGraph(
     pose?: { image: string; controlnet: string; strength: number }
     /** The uploaded control picture, its ControlNet, how strongly, and a union model's type for it. */
     control?: ControlUpload
+    /** The uploaded reference picture, the IP-Adapter and CLIP vision files that read it, and how strongly. */
+    reference?: ReferenceUpload
     /** Hires fix's upscale model file, as ComfyUI lists it; without one, Lanczos. */
     upscaleModel?: string
   }
@@ -403,6 +421,28 @@ export function buildComfyGraph(
     model = [id, 0]
     clip = [id, 1]
   })
+  if (options.reference) {
+    // After the LoRAs, so the sampler (and hires fix's) draws with both.
+    graph['46'] = { class_type: 'LoadImage', inputs: { image: options.reference.image } }
+    graph['47'] = { class_type: IPADAPTER_LOADER, inputs: { ipadapter_file: options.reference.ipAdapter } }
+    graph['48'] = { class_type: CLIP_VISION_LOADER, inputs: { clip_name: options.reference.clipVision } }
+    graph['49'] = {
+      class_type: IPADAPTER_APPLY,
+      inputs: {
+        model,
+        ipadapter: ['47', 0],
+        image: ['46', 0],
+        clip_vision: ['48', 0],
+        weight: options.reference.weight,
+        weight_type: 'linear',
+        combine_embeds: 'concat',
+        start_at: 0,
+        end_at: 1,
+        embeds_scaling: 'V only',
+      },
+    }
+    model = ['49', 0]
+  }
   graph['2'] = { class_type: 'CLIPTextEncode', inputs: { text: withoutLoraCalls(request.prompt), clip } }
   graph['3'] = { class_type: 'CLIPTextEncode', inputs: { text: request.negative_prompt, clip } }
   // Pictures to a latent at `size`: upscaled by the model when one is chosen,
@@ -563,7 +603,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     const key = `${this.config.id}|${this.config.url}`
     const cached = staticInfo.get(key)
     if (cached && Date.now() - cached.at < STATIC_CACHE_MS) return cached
-    const [checkpoints, sampler, loras, controlnets, apply, upscalers, union] = await Promise.all([
+    const [checkpoints, sampler, loras, controlnets, apply, upscalers, union, ipLoader, ipApply, clipVision] = await Promise.all([
       this.getOrNull('/object_info/CheckpointLoaderSimple'),
       this.getOrNull('/object_info/KSampler'),
       this.getOrNull('/object_info/LoraLoader'),
@@ -571,8 +611,12 @@ export class ComfyUIAdapter implements BackendAdapter {
       this.getOrNull(`/object_info/${CONTROLNET_APPLY}`),
       this.getOrNull('/object_info/UpscaleModelLoader'),
       this.getOrNull(`/object_info/${UNION_TYPE_NODE}`),
+      this.getOrNull(`/object_info/${IPADAPTER_LOADER}`),
+      this.getOrNull(`/object_info/${IPADAPTER_APPLY}`),
+      this.getOrNull(`/object_info/${CLIP_VISION_LOADER}`),
     ])
     const canApply = !!apply && typeof apply === 'object' && CONTROLNET_APPLY in apply
+    const canReference = !!ipApply && typeof ipApply === 'object' && IPADAPTER_APPLY in ipApply
     const info: StaticInfo = {
       at: Date.now(),
       checkpoints: comboOptions(checkpoints, 'CheckpointLoaderSimple', 'ckpt_name') ?? [],
@@ -582,6 +626,8 @@ export class ComfyUIAdapter implements BackendAdapter {
       controlnets: canApply ? comboOptions(controlnets, 'ControlNetLoader', 'control_net_name') : null,
       upscaleModels: comboOptions(upscalers, 'UpscaleModelLoader', 'model_name') ?? [],
       unionTypes: comboOptions(union, UNION_TYPE_NODE, 'type'),
+      ipAdapters: canReference ? comboOptions(ipLoader, IPADAPTER_LOADER, 'ipadapter_file') : null,
+      clipVisions: comboOptions(clipVision, CLIP_VISION_LOADER, 'clip_name'),
     }
     // Only a complete answer is cached; a ComfyUI still starting is asked again.
     if (checkpoints !== null && sampler !== null) staticInfo.set(key, info)
@@ -598,6 +644,23 @@ export class ComfyUIAdapter implements BackendAdapter {
   async controlnets(): Promise<string[] | null> {
     const body = await this.getOrNull('/object_info/ControlNetLoader')
     return body === null ? null : (comboOptions(body, 'ControlNetLoader', 'control_net_name') ?? [])
+  }
+
+  /**
+   * The IP-Adapter and CLIP vision files ComfyUI lists, folders included, for
+   * the settings page; null without IPAdapter_plus (or no answer).
+   */
+  async referenceFiles(): Promise<{ ipAdapters: string[]; clipVisions: string[] } | null> {
+    const info = await this.staticInfo()
+    return info.ipAdapters === null ? null : { ipAdapters: info.ipAdapters, clipVisions: info.clipVisions ?? [] }
+  }
+
+  /** What a reference picture on the built-in graph still lacks here: the nodes, and the two files set and listed. */
+  private referenceReady(info: StaticInfo): { nodes: boolean; files: boolean } {
+    const nodes = info.ipAdapters !== null && info.clipVisions !== null
+    const ipAdapter = this.config.ipAdapter?.trim()
+    const clipVision = this.config.clipVision?.trim()
+    return { nodes, files: nodes && !!ipAdapter && !!clipVision && info.ipAdapters!.includes(ipAdapter) && info.clipVisions!.includes(clipVision) }
   }
 
   /** Which of a graph's node classes are ComfyUI partner nodes, as this ComfyUI says. */
@@ -653,6 +716,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     const { running, pending } = queueIds(queue)
     const checkpoint = alive ? this.checkpointFrom(info) : null
     const pose = this.poseReady(info)
+    const reference = this.referenceReady(info)
     return {
       id: this.config.id,
       kind: this.config.kind,
@@ -668,6 +732,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         inpaint: true,
         pose: alive && pose.nodes && pose.controlnet && pose.engine,
         control: alive ? this.controlKinds(info) : [],
+        ipAdapter: alive && reference.files,
         lora: info.loras !== null,
         tag: false,
         presets: false,
@@ -676,7 +741,7 @@ export class ComfyUIAdapter implements BackendAdapter {
         hires: alive,
         upscale: alive,
       },
-      hints: comfyHints(alive, pose, { nodes: info.controlnets !== null, kinds: this.controlKinds(info).length }),
+      hints: comfyHints(alive, pose, { nodes: info.controlnets !== null, kinds: this.controlKinds(info).length }, reference),
       samplers: info.samplers.length ? [DEFAULT, ...info.samplers] : [],
       schedulers: info.schedulers.length ? [DEFAULT, ...info.schedulers] : [],
       upscalers: alive ? upscalerNames(info.upscaleModels) : [],
@@ -736,6 +801,22 @@ export class ComfyUIAdapter implements BackendAdapter {
       if (!controlFile) return { ok: false, status: 400, error: `Choose a ControlNet for ${request.control_kind} pictures for this backend in Settings` }
       if (!info.controlnets.includes(controlFile)) {
         return { ok: false, status: 400, error: `The ControlNet set for ${request.control_kind} pictures is not in ComfyUI's list: ${modelFileName(controlFile)}` }
+      }
+    }
+
+    // A reference picture, on the built-in graph only (a workflow brings its own nodes).
+    const ipAdapterFile = this.config.ipAdapter?.trim()
+    const clipVisionFile = this.config.clipVision?.trim()
+    if (request.ip_adapter_image_base64 && !request.workflow) {
+      if (info.ipAdapters === null || info.clipVisions === null) {
+        return { ok: false, status: 400, error: `This ComfyUI has no ${IPADAPTER_LOADER}, ${IPADAPTER_APPLY} and ${CLIP_VISION_LOADER} (install ComfyUI_IPAdapter_plus)` }
+      }
+      if (!ipAdapterFile || !clipVisionFile) return { ok: false, status: 400, error: 'Choose an IP-Adapter and a CLIP vision file for this backend in Settings' }
+      if (!info.ipAdapters.includes(ipAdapterFile)) {
+        return { ok: false, status: 400, error: `The IP-Adapter set for this backend is not in ComfyUI's list: ${modelFileName(ipAdapterFile)}` }
+      }
+      if (!info.clipVisions.includes(clipVisionFile)) {
+        return { ok: false, status: 400, error: `The CLIP vision file set for this backend is not in ComfyUI's list: ${modelFileName(clipVisionFile)}` }
       }
     }
 
@@ -829,10 +910,23 @@ export class ComfyUIAdapter implements BackendAdapter {
       const type = unionType(controlFile, request.control_kind, info.unionTypes)
       control = { image: uploaded.name, controlnet: controlFile, strength: request.control_strength ?? 0.5, ...(type ? { unionType: type } : {}) }
     }
+    let reference: ReferenceUpload | undefined
+    if (request.ip_adapter_image_base64 && ipAdapterFile && clipVisionFile && !workflow) {
+      const picture = await preparedReference(request.ip_adapter_image_base64)
+      const uploaded = picture
+        ? await this.uploadPicture(`${this.config.id}-reference.png`, picture, inflight)
+        : { error: 'Could not read the reference picture' }
+      if ('error' in uploaded) {
+        // Earlier pictures may have gone up already; a secret run takes them back.
+        if (inflight.secret && inflight.uploads.length) await this.wipe([], inflight.uploads)
+        return { ok: false, status: picture ? 502 : 400, error: uploaded.error }
+      }
+      reference = { image: uploaded.name, ipAdapter: ipAdapterFile, clipVision: clipVisionFile, weight: request.ip_adapter_scale ?? IP_ADAPTER_SCALE.default }
+    }
 
     inflightRuns.set(this.config.id, inflight)
     const seed = request.seed >= 0 ? request.seed : randomInt(0, 2 ** 32)
-    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose, control }, workflow, upscaleModel ?? undefined) }
+    return { ok: true, value: this.run(drawn, checkpoint ?? '', found, seed, inflight, { images, pose, control, reference }, workflow, upscaleModel ?? undefined) }
   }
 
   /**
@@ -911,7 +1005,7 @@ export class ComfyUIAdapter implements BackendAdapter {
     loras: { file: string; use: LoraUse }[],
     firstSeed: number,
     inflight: Inflight,
-    uploaded: { images?: SourceImages; pose?: { image: string; strength: number }; control?: ControlUpload },
+    uploaded: { images?: SourceImages; pose?: { image: string; strength: number }; control?: ControlUpload; reference?: ReferenceUpload },
     workflow?: ComfyGraph,
     upscaleModel?: string
   ): AsyncGenerator<BackendEvent> {
@@ -977,6 +1071,7 @@ export class ComfyUIAdapter implements BackendAdapter {
             ...(uploaded.images ? { images: uploaded.images } : {}),
             ...(uploaded.pose ? { pose: { ...uploaded.pose, controlnet: this.config.controlnet?.trim() ?? '' } } : {}),
             ...(uploaded.control ? { control: uploaded.control } : {}),
+            ...(uploaded.reference ? { reference: uploaded.reference } : {}),
             ...(upscaleModel ? { upscaleModel } : {}),
           })
         }

@@ -187,6 +187,44 @@ function BackendRow({
         </Field>
       )}
       {backend.kind === "comfyui" && (
+        <Field label={t("settings.backendIpAdapter")} hint={t("settings.backendIpAdapterHint")}>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <label className="space-y-1 text-xs text-muted-foreground">
+              {t("settings.backendIpAdapterFile")}
+              <Input
+                value={backend.ipAdapter}
+                onChange={(event) => update({ ipAdapter: event.target.value })}
+                placeholder={t("settings.backendIpAdapterNone")}
+                list={`ipadapters-${backend.key}`}
+                autoComplete="off"
+              />
+            </label>
+            <label className="space-y-1 text-xs text-muted-foreground">
+              {t("settings.backendClipVision")}
+              <Input
+                value={backend.clipVision}
+                onChange={(event) => update({ clipVision: event.target.value })}
+                placeholder={t("settings.backendIpAdapterNone")}
+                list={`clipvisions-${backend.key}`}
+                autoComplete="off"
+              />
+            </label>
+          </div>
+          <datalist id={`ipadapters-${backend.key}`}>
+            {(test?.ipAdapters ?? []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <datalist id={`clipvisions-${backend.key}`}>
+            {(test?.clipVisions ?? []).map((name) => (
+              <option key={name} value={name} />
+            ))}
+          </datalist>
+          <FieldError errors={errors} at={`backends.${index}.ipAdapter`} />
+          <FieldError errors={errors} at={`backends.${index}.clipVision`} />
+        </Field>
+      )}
+      {backend.kind === "comfyui" && (
         <Field label={t("settings.backendWorkflowsDir")} hint={t("settings.backendWorkflowsDirHint")}>
           <Input
             value={backend.workflowsDir}

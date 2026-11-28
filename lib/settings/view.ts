@@ -36,7 +36,7 @@ export interface SettingsView {
   file: string
   /** Gallery-only or full: what the file says (null: not chosen), what LATENTRY_MODE says, and the result. */
   mode: { chosen: AppMode | null; env: AppMode | null; inEffect: AppMode }
-  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; controlnets: Partial<Record<ControlKind, string>>; workflowsDir: string | null; shareWorkflows: boolean }[]
+  backends: { id: string; kind: BackendKind; url: string; profile: ProfileId; token: Source | null; model: string | null; controlnet: string | null; controlnets: Partial<Record<ControlKind, string>>; ipAdapter: string | null; clipVision: string | null; workflowsDir: string | null; shareWorkflows: boolean }[]
   tagger: string | null
   wd14: { modelDir: string | null; general: number; character: number; found: boolean; defaults: { general: number; character: number } }
   gallery: {
@@ -80,7 +80,7 @@ export function settingsView(access: AccessView, settings: Settings = getSetting
     version: packageJson.version,
     file: settingsPath(),
     mode: { chosen: settings.mode ?? null, env: modeFromEnv(), inEffect: appMode(process.env, settings) },
-    backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, controlnets, workflowsDir, shareWorkflows }) => ({
+    backends: getBackends(process.env, settings).map(({ id, kind, url, profile, model, controlnet, controlnets, ipAdapter, clipVision, workflowsDir, shareWorkflows }) => ({
       id,
       kind,
       url,
@@ -88,6 +88,8 @@ export function settingsView(access: AccessView, settings: Settings = getSetting
       model: model ?? null,
       controlnet: controlnet ?? null,
       controlnets: controlnets ?? {},
+      ipAdapter: ipAdapter ?? null,
+      clipVision: clipVision ?? null,
       workflowsDir: workflowsDir ?? null,
       shareWorkflows: shareWorkflows === true,
       token: stored.get(id)?.token ? 'settings' : hasEnvToken(id, url) ? 'env' : null,

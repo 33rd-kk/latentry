@@ -25,6 +25,9 @@ export interface MockComfyUI {
 }
 
 const MODEL_PATH = 'private-folder/sdxl/base.safetensors'
+/** The IP-Adapter and CLIP vision files it lists (scripts/e2e.mjs sets them for its comfy backend). */
+const IPADAPTER = 'ip-adapter-plus_sdxl_vit-h.safetensors'
+const CLIP_VISION = 'private-folder/vit-h.safetensors'
 /** A node class this ComfyUI marks as a partner node (`api_node: true`), as ComfyUI's Gemini image node is. */
 export const PARTNER_NODE = 'GeminiImageNode'
 
@@ -62,6 +65,10 @@ export async function startMockComfyUI(options: { port?: number; swarmui?: boole
       // SwarmUI's own node, in a ComfyUI that SwarmUI starts; {} for a node it lacks, as ComfyUI answers.
       if (route === 'GET /object_info/SwarmKSampler') return reply(200, options.swarmui ? { SwarmKSampler: { input: { required: {} } } } : {})
       if (route === 'GET /object_info/ControlNetApplyAdvanced') return reply(200, { ControlNetApplyAdvanced: { input: { required: {} } } })
+      // ComfyUI_IPAdapter_plus's nodes, and core's CLIP vision loader, for a reference picture.
+      if (route === 'GET /object_info/IPAdapterModelLoader') return reply(200, combo('IPAdapterModelLoader', 'ipadapter_file', [IPADAPTER]))
+      if (route === 'GET /object_info/IPAdapterAdvanced') return reply(200, { IPAdapterAdvanced: { input: { required: {} } } })
+      if (route === 'GET /object_info/CLIPVisionLoader') return reply(200, combo('CLIPVisionLoader', 'clip_name', [CLIP_VISION]))
       // Any other node class, as ComfyUI answers; PARTNER_NODE is one of its partner (online) nodes.
       const nodeInfo = /^GET \/object_info\/(.+)$/.exec(route)
       if (nodeInfo) {

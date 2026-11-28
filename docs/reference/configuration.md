@@ -13,6 +13,7 @@ falls back to `.env.local`. Restart Latentry after editing `.env.local`.
 | `GEN_MODEL_<ID>` | first listed | A `comfyui` backend's checkpoint, as ComfyUI lists it |
 | `GEN_CONTROLNET_<ID>` | — | A `comfyui` backend's Pose ControlNet, as ComfyUI lists it; unset: no pose |
 | `GEN_CONTROL_CANNY_<ID>`, `GEN_CONTROL_DEPTH_<ID>`, `GEN_CONTROL_LINEART_<ID>` | — | A `comfyui` backend's ControlNet for that kind of control picture, as ComfyUI lists it; unset: that kind is not offered |
+| `GEN_IPADAPTER_<ID>`, `GEN_CLIPVISION_<ID>` | — | A `comfyui` backend's IP-Adapter and CLIP vision files for a reference picture (IPAdapter_plus), as ComfyUI lists them; without both, no reference is offered |
 | `GALLERY_SAVE_DIR` | `./output` | Where finished pictures are saved; unset: not saved |
 | `GALLERY_DIRS` | — | Other folders to browse read-only, separated by `;` |
 | `GALLERY_AUTO_TAG` | off | `1`: tag each saved picture with WD14 as it arrives |

@@ -80,6 +80,26 @@ export async function letterboxedControl(base64: string, width: number, height: 
   }
 }
 
+/** The longest side a reference picture is uploaded at: CLIP vision reads it at 224 px anyway. */
+export const REFERENCE_MAX_SIDE = 1024
+
+/**
+ * A reference picture as a plain RGB PNG, no larger than REFERENCE_MAX_SIDE
+ * a side (never enlarged), without any text chunks it came with. Null when
+ * it cannot be read.
+ */
+export async function preparedReference(base64: string): Promise<Buffer | null> {
+  try {
+    return await decodeImage(Buffer.from(stripDataUrl(base64), 'base64'))
+      .resize(REFERENCE_MAX_SIDE, REFERENCE_MAX_SIDE, { fit: 'inside', withoutEnlargement: true })
+      .removeAlpha()
+      .png()
+      .toBuffer()
+  } catch {
+    return null
+  }
+}
+
 /** A 1×1 transparent PNG, to overwrite an uploaded picture with nothing. */
 export function blankPng(): Promise<Buffer> {
   return sharp({ create: { width: 1, height: 1, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } } }).png().toBuffer()

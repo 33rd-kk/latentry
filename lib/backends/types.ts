@@ -30,6 +30,10 @@ export interface BackendConfig {
   controlnet?: string
   /** comfyui: for each control picture kind, the ControlNet that follows it, as ComfyUI lists it; a kind without one is not offered. */
   controlnets?: Partial<Record<ControlKind, string>>
+  /** comfyui: the IP-Adapter file the built-in graph follows a reference picture with (IPAdapter_plus), as ComfyUI lists it. */
+  ipAdapter?: string
+  /** comfyui: the CLIP vision file that reads the reference picture for that IP-Adapter, as ComfyUI lists it. */
+  clipVision?: string
   /** comfyui: a folder of API-format workflows to pick from on the Generate page. */
   workflowsDir?: string
   /** comfyui: whether paired devices see (and may pick) those workflows by name. */
@@ -80,7 +84,7 @@ export type HintedFeature = (typeof HINTED_FEATURES)[number]
 export interface FeatureHint {
   reason: 'kind' | 'not-reported' | 'declined' | 'setup'
   /** For `setup`: what is missing before Latentry can use the feature there. */
-  need?: 'controlnet' | 'engine' | 'nodes' | 'marker' | 'controls'
+  need?: 'controlnet' | 'engine' | 'nodes' | 'marker' | 'controls' | 'ipAdapterNodes' | 'ipAdapter'
   /** The server's words, plain text, already trimmed. */
   detail?: string
 }

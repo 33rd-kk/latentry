@@ -14,6 +14,16 @@
   nothing when ComfyUI does not answer. See
   [Your own workflows](https://33rd-kk.github.io/latentry/reference/backends/#your-own-workflows).
 
+**Added**
+
+- **Reference picture on ComfyUI**: the built-in graph now takes a
+  reference picture (IP-Adapter) with the ComfyUI_IPAdapter_plus nodes.
+  Choose an IP-Adapter and a CLIP vision file for the backend in Settings
+  (or `GEN_IPADAPTER_<ID>` and `GEN_CLIPVISION_<ID>`); without them, the
+  Generate page says what is missing. The reference goes to ComfyUI without
+  its settings and is wiped after a secret run. See
+  [Backends](https://33rd-kk.github.io/latentry/reference/backends/#reference-picture-ip-adapter).
+
 ## 0.18.0 (2026-11-27)
 
 **Upgrading from 0.17.x**: the engine is now 0.11.3 (from 0.11.2), with
