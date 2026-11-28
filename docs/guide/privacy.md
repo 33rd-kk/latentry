@@ -9,7 +9,10 @@ against what you expect.
 
 - **To your backends**, the ones you set up: prompts, settings and source
   pictures for each run, and the backend's token if it has one. A token is
-  only ever sent to the server it was set up for.
+  only ever sent to the server it was set up for. A ComfyUI workflow with
+  one of ComfyUI's partner nodes, which would pass the prompt on to an
+  online service, is never run; see
+  [Your own workflows](../reference/backends.md#your-own-workflows).
 - **Downloads you start**: installing and building Latentry (npm packages,
   and the UI's font, which the build fetches once and then serves itself),
   and, from the Setup page, the engine (uv, Python, PyTorch, diffusers), the

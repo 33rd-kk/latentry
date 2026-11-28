@@ -247,6 +247,19 @@ Latentry fills a workflow in on this computer before it is queued:
 - **Output**: `SaveImage` becomes `PreviewImage`, so nothing lands in
   ComfyUI's output folder; the picture is read from the `latentry:output`
   node, else the first.
+- **Partner nodes are never run**: a workflow with one of ComfyUI's partner
+  nodes (its "API nodes", such as the Gemini, Kling or MiniMax ones, which
+  hand their inputs to a paid online service) is listed as one that cannot
+  run, and refused before anything is queued. Such a node takes its
+  sign-in from the page that queues it, and Latentry has none to give, so
+  it could not succeed; yet it would still send its request, your prompt
+  with it, before the service turned it away. Latentry asks ComfyUI which
+  nodes these are (`/object_info`) before every run, the built-in graph's
+  included, and when ComfyUI does not answer, nothing is sent. To keep them
+  out of ComfyUI as well, start it with `--disable-partner-nodes`, or with
+  `--offline`, which also stops ComfyUI's own page from going online.
+  A custom node that goes online by itself carries no such mark, so
+  Latentry cannot tell it apart: run only custom nodes you trust.
 
 A workflow draws from the prompt, and from a skeleton when it has a pose
 node (below): for a source picture or a mask, use the built-in graph. The

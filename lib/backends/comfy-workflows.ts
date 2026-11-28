@@ -100,8 +100,12 @@ async function readCapped(file: string, max: number): Promise<string | null> {
   }
 }
 
-/** The workflows in a folder, by name, with what each lacks. Read-only; no subfolders. */
-export async function listWorkflows(dir: string): Promise<WorkflowInfo[]> {
+/**
+ * The workflows in a folder, by name, with what each lacks. Read-only; no
+ * subfolders. `check`, when given, may name a further reason one cannot run
+ * (its partner nodes, say); it is asked only about workflows that could.
+ */
+export async function listWorkflows(dir: string, check?: (graph: ComfyGraph) => Promise<string | undefined>): Promise<WorkflowInfo[]> {
   let entries: string[]
   try {
     entries = (await readdir(dir, { withFileTypes: true })).filter((entry) => entry.isFile() && /\.json$/i.test(entry.name)).map((entry) => entry.name)
@@ -116,7 +120,13 @@ export async function listWorkflows(dir: string): Promise<WorkflowInfo[]> {
   const infos: WorkflowInfo[] = []
   for (const name of names) {
     const read = await readWorkflow(dir, name)
-    infos.push('error' in read ? { name, missing: [], problem: read.error } : describe(name, read.graph))
+    if ('error' in read) {
+      infos.push({ name, missing: [], problem: read.error })
+      continue
+    }
+    const info = describe(name, read.graph)
+    const problem = !info.problem && check ? await check(read.graph) : undefined
+    infos.push(problem ? { ...info, problem } : info)
   }
   return infos
 }
